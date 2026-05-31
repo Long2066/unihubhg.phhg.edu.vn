@@ -1,0 +1,7 @@
+HƯỚNG DẪN THAY THẾ LOGO TRƯỜNG BẰNG ĐỊNH DẠNG PNG CỦA BẠN:
+============================================================
+
+1. Chuẩn bị file logo định dạng PNG của bạn và đổi tên chính xác thành: logo.png
+2. Kéo-thả hoặc tải file `logo.png` này vào đúng thư mục `/public` này trong trình duyệt Code Editor của bạn.
+3. Khi file `/public/logo.png` tồn tại, hệ thống UniHub (UniHubHG) sẽ lập tức sử dụng logo PNG thật của bạn trên mọi màn hình (Header và Màn hình Đăng nhập) mà không bị thay đổi.
+4. Nếu chưa có file `logo.png` hoặc file bị lỗi, hệ thống sẽ tự động hiển thị Logo Vector SVG độ phân giải cao của Phân hiệu vô cùng bóng bẩy để đảm bảo ứng dụng không bao giờ bị lỗi hiển thị.

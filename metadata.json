@@ -1,0 +1,6 @@
+{
+  "name": "UniHub Rèn Luyện",
+  "description": "Hệ thống đánh giá điểm rèn luyện sinh viên tự động UniHub",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
