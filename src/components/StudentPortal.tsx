@@ -20,7 +20,9 @@ import {
   ChevronRight,
   Sparkles,
   Layers,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Home,
+  Menu
 } from "lucide-react";
 
 // Predefined historical semesters for student DTG245140202053
@@ -117,7 +119,8 @@ export const StudentPortal: React.FC = () => {
     joinOrganizationRequest,
     students,
     criteria,
-    updateStudentProfile
+    updateStudentProfile,
+    resetToSeeds
   } = useUniHub();
 
   const studentId = currentUser?.targetId || "DTG245140202053";
@@ -133,7 +136,8 @@ export const StudentPortal: React.FC = () => {
   
   // States
   const [selectedSemesterId, setSelectedSemesterId] = useState("HOCKY_2_2025_2026");
-  const [activeTab, setActiveTab] = useState<"DIEM" | "HOATDONG" | "CLB" | "MINHCHUNG">("DIEM");
+  const [activeTab, setActiveTab] = useState<"TRANG_CHU" | "DIEM" | "HOATDONG" | "CLB" | "MINHCHUNG">("TRANG_CHU");
+  const [isNavCollapsed, setIsNavCollapsed] = useState(true);
   const [expandedCriteria, setExpandedCriteria] = useState<string | null>(null);
   const [activityMilestone, setActivityMilestone] = useState<"ALL" | "WEEK" | "MONTH" | "TERM">("ALL");
   
@@ -344,11 +348,25 @@ export const StudentPortal: React.FC = () => {
                 <Edit size={10} />
                 <span>Sửa hồ sơ / Đổi MK</span>
               </button>
+              <button 
+                type="button"
+                onClick={() => {
+                  if (window.confirm("Bạn có chắc chắn muốn khôi phục lại toàn bộ dữ liệu mẫu ban đầu để dọn dẹp bộ nhớ cache không?")) {
+                    resetToSeeds();
+                    window.location.reload();
+                  }
+                }}
+                className="text-[10px] bg-amber-50 hover:bg-amber-105 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-lg flex items-center gap-1.5 font-bold cursor-pointer transition-colors"
+                title="Khôi phục dữ liệu mẫu ban đầu"
+              >
+                <History size={10} />
+                <span>Đặt lại dữ liệu gốc</span>
+              </button>
             </div>
             <div className="text-[11px] text-slate-550 flex items-center gap-2 flex-wrap font-medium">
               <span>Lớp quản lý: <strong className="text-slate-800">{sObj?.classId || "K20-CNTT"}</strong></span>
               <span className="text-slate-300">•</span>
-              <span>Khoa đào tạo: <strong className="text-slate-800">Khoa Sư Phạm</strong></span>
+              <span>Khoa đào tạo: <strong className="text-slate-800">{sObj?.facultyId === "K-CNTT" ? "Khoa Công nghệ Thông tin" : "Khoa Sư phạm"}</strong></span>
             </div>
           </div>
         </div>
@@ -735,7 +753,7 @@ export const StudentPortal: React.FC = () => {
             </div>
             <div className="flex justify-between items-center text-[11px]">
               <span>Ý thức cộng đồng phong trào:</span>
-              <span className="font-bold text-slate-805">{communityPoints} / 15đ</span>
+              <span className="font-bold text-slate-800">{communityPoints} / 15đ</span>
             </div>
           </div>
         </div>
@@ -746,63 +764,191 @@ export const StudentPortal: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in-up" id="student-portal-container">
-      {/* Banner info */}
-      {renderProfileBanner()}
-
-      {/* BẢNG TIN HOẠT ĐỘNG & SỰ KIỆN NỔI BẬT KHÔNG KHÍ SÔI NỔI */}
-      {renderNewsBoard()}
-
-      {/* Symmetrical Dual Gauges: Điểm Học Tập & Điểm Rèn Luyện */}
-      {renderSymmetricalGauges()}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* Collapsible Left Navigation System with Smooth Grid Layout Transitions */}
+      <div className={`grid grid-cols-1 ${isNavCollapsed ? "lg:grid-cols-[76px_1fr]" : "lg:grid-cols-[280px_1fr]"} gap-6 items-start transition-all duration-300`}>
         
-        {/* Navigation Left Sidebar - Menu bên trái nhỏ gọn */}
-        <div className="lg:col-span-3 bg-white p-4 rounded-2xl border border-slate-150 shadow-sm flex flex-row lg:flex-col gap-1.5 overflow-x-auto lg:overflow-x-visible shrink-0 lg:h-fit custom-scrollbar">
-          <div className="hidden lg:block border-b border-slate-100 pb-2 mb-2">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Danh mục cá nhân</span>
+        {/* LEFT NAV PANEL - FIXED/STICKY COLLAPSIBLE SIDEBAR */}
+        <div className={`lg:sticky lg:top-4 bg-white border border-slate-150 shadow-sm flex flex-col gap-4 transition-all duration-300 rounded-2xl ${
+          isNavCollapsed ? "p-3 items-center" : "p-4"
+        }`}>
+          {/* Sidebar Header Block */}
+          <div className="border-b border-slate-100 pb-3 flex items-center justify-between w-full">
+            <div className={`flex items-center gap-2 transition-all duration-305 ${isNavCollapsed ? "lg:hidden" : ""}`}>
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600"></span>
+              </span>
+              <div className="flex flex-col">
+                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">UniHub Portal</span>
+                <h3 className="text-[11px] font-bold text-slate-900 uppercase tracking-tight">Kỳ II • 2025-2026</h3>
+              </div>
+            </div>
+
+            {/* Elegant Collapse Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setIsNavCollapsed(!isNavCollapsed)}
+              className={`p-1.5 hover:bg-slate-100 rounded-xl text-slate-600 hover:text-indigo-600 transition-all flex items-center gap-1.5 ${
+                isNavCollapsed ? "mx-auto w-10 h-10 justify-center bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-2xs hover:bg-indigo-100" : ""
+              }`}
+              title={isNavCollapsed ? "Mở rộng danh mục" : "Thu gọn danh mục"}
+            >
+              <Menu size={16} className={`${isNavCollapsed ? "animate-pulse" : ""}`} />
+              {!isNavCollapsed && <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-500">Menu</span>}
+            </button>
           </div>
-          
-          <button 
-            type="button"
-            onClick={() => setActiveTab("DIEM")} 
-            className={`whitespace-nowrap text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 lg:w-full ${activeTab === "DIEM" ? "bg-indigo-600 text-white shadow-md shadow-indigo-100" : "text-slate-600 hover:bg-slate-50"}`}
-          >
-            <Award size={13} className="shrink-0" />
-            <span>Chi tiết điểm rèn luyện</span>
-          </button>
-          
-          <button 
-            type="button"
-            onClick={() => setActiveTab("HOATDONG")} 
-            className={`whitespace-nowrap text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 lg:w-full ${activeTab === "HOATDONG" ? "bg-indigo-600 text-white shadow-md shadow-indigo-100" : "text-slate-600 hover:bg-slate-50"}`}
-          >
-            <Calendar size={13} className="shrink-0" />
-            <span>Ngoại khóa ({activities.length})</span>
-          </button>
-          
-          <button 
-            type="button"
-            onClick={() => setActiveTab("CLB")} 
-            className={`whitespace-nowrap text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 lg:w-full ${activeTab === "CLB" ? "bg-indigo-600 text-white shadow-md shadow-indigo-100" : "text-slate-600 hover:bg-slate-50"}`}
-          >
-            <Users size={13} className="shrink-0" />
-            <span>Câu lạc bộ ({filteredClubs.length})</span>
-          </button>
-          
-          <button 
-            type="button"
-            onClick={() => setActiveTab("MINHCHUNG")} 
-            className={`whitespace-nowrap text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 lg:w-full ${activeTab === "MINHCHUNG" ? "bg-indigo-600 text-white shadow-md shadow-indigo-150" : "text-slate-600 hover:bg-slate-50"}`}
-          >
-            <FileText size={13} className="shrink-0" />
-            <span>Minh chứng ({myEvidence.length})</span>
-          </button>
+
+          {/* Collapsible Buttons Wrapper */}
+          <div className={`flex flex-col gap-1.5 transition-all duration-300 w-full ${
+            isNavCollapsed ? "hidden lg:flex" : "flex"
+          }`}>
+            <button 
+              type="button"
+              onClick={() => setActiveTab("TRANG_CHU")} 
+              className={`whitespace-nowrap transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${
+                isNavCollapsed 
+                  ? "p-2.5 lg:justify-center lg:w-11 lg:h-11 rounded-xl" 
+                  : "px-3.5 py-2.5 rounded-xl w-full text-left"
+              } text-xs font-bold ${
+                activeTab === "TRANG_CHU" 
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-150" 
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+              title="Bảng tin & Hồ sơ chính"
+            >
+              <Home size={14} className="shrink-0" />
+              <span className={isNavCollapsed ? "lg:hidden" : ""}>Bảng tin & Hồ sơ chính</span>
+            </button>
+            
+            <button 
+              type="button"
+              onClick={() => setActiveTab("DIEM")} 
+              className={`whitespace-nowrap transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${
+                isNavCollapsed 
+                  ? "p-2.5 lg:justify-center lg:w-11 lg:h-11 rounded-xl" 
+                  : "px-3.5 py-2.5 rounded-xl w-full text-left"
+              } text-xs font-bold ${
+                activeTab === "DIEM" 
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-150" 
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+              title="Tiến trình & Điểm số"
+            >
+              <Award size={14} className="shrink-0" />
+              <span className={isNavCollapsed ? "lg:hidden" : ""}>Tiến trình & Điểm số</span>
+            </button>
+            
+            <button 
+              type="button"
+              onClick={() => setActiveTab("HOATDONG")} 
+              className={`whitespace-nowrap transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${
+                isNavCollapsed 
+                  ? "p-2.5 lg:justify-center lg:w-11 lg:h-11 rounded-xl" 
+                  : "px-3.5 py-2.5 rounded-xl w-full text-left"
+              } text-xs font-bold ${
+                activeTab === "HOATDONG" 
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-150" 
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+              title="Sự kiện ngoại khóa"
+            >
+              <Calendar size={14} className="shrink-0" />
+              <span className={isNavCollapsed ? "lg:hidden" : ""}>Sự kiện ngoại khóa</span>
+            </button>
+            
+            <button 
+              type="button"
+              onClick={() => setActiveTab("CLB")} 
+              className={`whitespace-nowrap transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${
+                isNavCollapsed 
+                  ? "p-2.5 lg:justify-center lg:w-11 lg:h-11 rounded-xl" 
+                  : "px-3.5 py-2.5 rounded-xl w-full text-left"
+              } text-xs font-bold ${
+                activeTab === "CLB" 
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-150" 
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+              title="Câu lạc bộ của tôi"
+            >
+              <Users size={14} className="shrink-0" />
+              <span className={isNavCollapsed ? "lg:hidden" : ""}>Câu lạc bộ của tôi</span>
+            </button>
+            
+            <button 
+              type="button"
+              onClick={() => setActiveTab("MINHCHUNG")} 
+              className={`whitespace-nowrap transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${
+                isNavCollapsed 
+                  ? "p-2.5 lg:justify-center lg:w-11 lg:h-11 rounded-xl" 
+                  : "px-3.5 py-2.5 rounded-xl w-full text-left"
+              } text-xs font-bold ${
+                activeTab === "MINHCHUNG" 
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-150" 
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+              title="Minh chứng ngoại lệ"
+            >
+              <FileText size={14} className="shrink-0" />
+              <span className={isNavCollapsed ? "lg:hidden" : ""}>Minh chứng ngoại lệ</span>
+            </button>
+          </div>
+
+          <div className={`hidden lg:block border-t border-slate-100 pt-3 mt-1 text-slate-450 text-[10px] space-y-1 transition-all ${
+            isNavCollapsed ? "opacity-0 h-0 overflow-hidden" : "opacity-100"
+          }`}>
+            <span className="font-extrabold text-slate-400 uppercase tracking-wider block text-[9px]">Lớp quản lý</span>
+            <p className="font-sans font-medium text-slate-705 text-slate-700">{sObj?.classId || "K20-CNTT"}</p>
+            <p className="italic text-emerald-600 font-mono font-medium block mt-1">Trạng thái: Đang chấm điểm</p>
+          </div>
         </div>
 
-        {/* Right main view content container - Giao diện chính hiện bên phải to nhất */}
-        <div className="lg:col-span-9 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between min-h-[460px] overflow-hidden">
-          {/* Tab contents */}
-          <div className="p-6 flex-1 overflow-y-auto max-h-[440px] custom-scrollbar">
+        {/* RIGHT CONTENT CONTAINER - GIAO DIÊN CHÍNH DƯỢC THAY THEO TABS */}
+        <div className="space-y-6 w-full min-w-0">
+
+          {/* TAB 1: TRANG CHỦ - CHỈ CHỨA HỒ SƠ SINH VIÊN VÀ BẢNG TIN QUAN TRỌNG */}
+          {activeTab === "TRANG_CHU" && (
+            <div className="space-y-6 animate-fade-in text-slate-800">
+              {/* Profile banner info */}
+              {renderProfileBanner()}
+
+              {/* News Board container */}
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm overflow-hidden space-y-4">
+                <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-2.5 w-2.5 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+                    </span>
+                    <h4 className="text-xs font-black text-slate-850 uppercase tracking-wider flex items-center gap-1.5 text-slate-800">
+                      <Sparkles size={13} className="text-indigo-500 animate-pulse animate-pulse" />
+                      <span>Thông Báo Hoạt Động & Sự Kiện Hot Trong Tuần</span>
+                    </h4>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">Bảng tin học kì</span>
+                </div>
+                {renderNewsBoard()}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: ĐIỂM SỐ TIẾN TRÌNH - CHỨA ĐỒNG HỒ ĐỐI XỨNG CÂN BẰNG TÍCH LŨY */}
+          {activeTab === "DIEM" && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 animate-fade-in">
+              <div className="border-b border-slate-100 pb-4 mb-5">
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">Tiến trình cân bằng học lực & Rèn luyện</h4>
+                <p className="text-[10px] text-slate-405 leading-relaxed mt-1">
+                  Đồng hồ đo đối xứng hiển thị tương quan đa nhiệm giữa Điểm tích lũy học tập chuyên ngành (GPA) và Kết quả rèn đức luyện tài (Điểm rèn luyện).
+                </p>
+              </div>
+              {renderSymmetricalGauges()}
+            </div>
+          )}
+
+          {/* DYNAMIC CONTENT CONTAINER WRAPPER FOR BACKEND DETAILED TABS */}
+          {activeTab !== "TRANG_CHU" && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between min-h-[460px] overflow-hidden">
+              {/* Tab contents */}
+              <div className="p-6 flex-1 overflow-y-auto max-h-[640px] custom-scrollbar">
           
           {/* TAB: CONDUCT BREAKDOWN WITH ACCORDION (Sync with Criteria) */}
           {activeTab === "DIEM" && (
@@ -1219,16 +1365,29 @@ export const StudentPortal: React.FC = () => {
             </div>
           )}
 
-        </div>
+              </div> {/* Close dynamic scrollable padding wrapper */}
 
-        <div className="bg-slate-50 p-4 border-t border-slate-100 shrink-0 text-center flex flex-col sm:flex-row justify-between items-center text-[10px] text-slate-400">
-          <span>Hệ thống chấm điểm rèn luyện UniHub Hà Giang © 2026</span>
-          <span className="font-mono mt-1 sm:mt-0">Liên hệ Văn phòng CTHSSV hoặc GVCN lớp để giải đáp kỹ thuật</span>
-        </div>
+              {/* Minor inline footer inside sub-options */}
+              <div className="bg-slate-50/60 p-4 border-t border-slate-100 shrink-0 text-center flex flex-col sm:flex-row justify-between items-center text-[9px] text-slate-400 font-mono">
+                <span>PHÂN HỆ HỖ TRỢ SINH VIÊN UNIHUB © 2026</span>
+                <span className="mt-1 sm:mt-0">Bảo mật thông tin mã hóa bảo vệ quy trình xếp khảo</span>
+              </div>
 
-      </div>
+            </div>
+          )}
 
-    </div>
+        </div> {/* Close right content area lg:col-span-9 */}
+
+      </div> {/* Close left sticky sidebar grid */}
+
+      {/* GRAND UNIHUB FOOTER */}
+      <footer className="bg-slate-100 p-5 rounded-3xl border border-slate-200 mt-8 text-center flex flex-col sm:flex-row justify-between items-center text-[10px] text-slate-400 font-medium">
+        <span>Cổng thông tin tự phục vụ sinh viên UniHub Hà Giang • Thiết kế chuẩn tối giản và hiệu năng</span>
+        <span className="font-mono mt-1.5 sm:mt-0 flex items-center gap-1.5 text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-150 shadow-2xs">
+          <Clock size={11} className="text-indigo-500 animate-spin" style={{ animationDuration: '8s' }} />
+          <span>Thời gian kiểm liên thông: Kì II - 2025-2026</span>
+        </span>
+      </footer>
 
       {/* MODAL EDIT STUDENT PROFILE (Requirement #8) */}
       {showProfileModal && (
