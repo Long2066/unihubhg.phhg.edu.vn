@@ -202,6 +202,10 @@ export const StudentPortal: React.FC = () => {
   const [evFile, setEvFile] = useState<File | null>(null);
   const [evFileMockUrl, setEvFileMockUrl] = useState("giay_xac_nhan.jpg");
 
+  // Feed filters for CLB Announcements and Activities on Student Dashboard
+  const [clubFeedTab, setClubFeedTab] = useState<"ALL" | "ANNOUNCEMENTS" | "ACTIVITIES">("ALL");
+  const [onlyMyClubsFilter, setOnlyMyClubsFilter] = useState(false);
+
   // States for professional activity news board ticker & carousel
   const [currentSlide, setCurrentSlide] = useState(0);
   const [currentTicker, setCurrentTicker] = useState(0);
@@ -797,6 +801,252 @@ export const StudentPortal: React.FC = () => {
     );
   };
 
+  const renderClubFeed = () => {
+    const studentMemberships = members.filter(m => m.studentId === studentId && m.status === "ACTIVE");
+    const joinedClubIds = studentMemberships.map(m => m.orgId);
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    // Get active announcements
+    const activeClubAnns = announcements.filter(ann => {
+      const club = organizations.find(o => o.id === ann.orgId);
+      if (!club || club.type !== "CLB") return false;
+      if (onlyMyClubsFilter && !joinedClubIds.includes(ann.orgId)) return false;
+      if (ann.expiryDate && todayStr > ann.expiryDate) return false;
+      return true;
+    });
+
+    // Get active / upcoming / completed club activities
+    const activeClubActs = activities.filter(act => {
+      const club = organizations.find(o => o.id === act.orgId);
+      if (!club || club.type !== "CLB") return false;
+      if (onlyMyClubsFilter && !joinedClubIds.includes(act.orgId)) return false;
+      
+      const registered = myAttendance.some(r => r.activityId === act.id);
+      if (act.status === "COMPLETED" && !registered) return false;
+      
+      const expiry = (act as any).expiryDate;
+      if (expiry && todayStr > expiry) return false;
+      
+      return true;
+    });
+
+    // Combine and sort or segregate depending on tab
+    const showAnnouncements = clubFeedTab === "ALL" || clubFeedTab === "ANNOUNCEMENTS";
+    const showActivities = clubFeedTab === "ALL" || clubFeedTab === "ACTIVITIES";
+
+    return (
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm overflow-hidden space-y-5" id="club-portal-integrated-feed">
+        {/* Module Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+          <div className="space-y-1">
+            <span className="text-[9px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100">
+              🔥 KÊNH THÔNG TIN CHUYÊN BIỆT
+            </span>
+            <h4 className="text-xs font-black text-slate-850 uppercase tracking-tight flex items-center gap-1.5 text-slate-800">
+              <Megaphone size={13} className="text-indigo-500 animate-pulse" />
+              <span>Bản Tin & Hoạt Động Từ Các Câu Lạc Bộ</span>
+            </h4>
+            <p className="text-[10px] text-slate-450 leading-relaxed">
+              Thông cáo chính thức, tiến trình rèn luyện, và lịch sinh hoạt được cập nhật tức thì bởi BCH các Câu lạc bộ.
+            </p>
+          </div>
+
+          {/* Quick toggle filter */}
+          <div className="flex items-center shrink-0">
+            <label className="flex items-center gap-2 cursor-pointer bg-slate-50 p-2 rounded-xl border border-slate-150/80 hover:border-indigo-250 transition-all select-none">
+              <input 
+                type="checkbox" 
+                checked={onlyMyClubsFilter}
+                onChange={(e) => setOnlyMyClubsFilter(e.target.checked)}
+                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-55 focus:ring-opacity-25 h-3.5 w-3.5 cursor-pointer"
+              />
+              <span className="text-[10px] font-bold text-slate-705">Chỉ hiện CLB của tôi ({studentMemberships.length})</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Tab Selection Filter */}
+        <div className="flex flex-wrap gap-1.5 font-sans">
+          <button 
+            type="button"
+            onClick={() => setClubFeedTab("ALL")}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+              clubFeedTab === "ALL"
+                ? "bg-slate-900 text-white shadow-sm"
+                : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            Tất cả cập nhật ({activeClubAnns.length + activeClubActs.length})
+          </button>
+          <button 
+            type="button"
+            onClick={() => setClubFeedTab("ANNOUNCEMENTS")}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer flex items-center gap-1 ${
+              clubFeedTab === "ANNOUNCEMENTS"
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <Megaphone size={11} />
+            Thông báo CLB ({activeClubAnns.length})
+          </button>
+          <button 
+            type="button"
+            onClick={() => setClubFeedTab("ACTIVITIES")}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer flex items-center gap-1 ${
+              clubFeedTab === "ACTIVITIES"
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <Calendar size={11} />
+            Lịch sinh hoạt & Sự kiện ({activeClubActs.length})
+          </button>
+        </div>
+
+        {/* Interactive List Containers */}
+        <div className="space-y-4">
+          
+          {/* 1. Announcements Container */}
+          {showAnnouncements && activeClubAnns.length > 0 && (
+            <div className="space-y-3">
+              {clubFeedTab === "ALL" && (
+                <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1 bg-slate-50 py-1 px-2 rounded-md max-w-max font-sans">
+                  🚩 THÔNG BÁO MỚI PHÁT SÓNG
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {activeClubAnns.map(ann => {
+                  const isMyClub = joinedClubIds.includes(ann.orgId);
+                  
+                  return (
+                    <div 
+                      key={ann.id} 
+                      className="p-4 bg-amber-50/20 hover:bg-amber-50/40 border border-amber-150/70 rounded-2xl relative overflow-hidden transition-all flex flex-col justify-between group h-full space-y-3 shadow-xs hover:shadow-xs"
+                    >
+                      <div className="space-y-1 text-left">
+                        <div className="flex justify-between items-start gap-2 flex-wrap">
+                          <span className="text-[8.5px] font-black px-2 py-0.5 bg-amber-55 border border-amber-205 text-amber-800 rounded uppercase font-mono tracking-tight shrink-0">
+                            📢 {ann.orgName}
+                          </span>
+                          {isMyClub && (
+                            <span className="text-[8.5px] font-black px-1.5 py-0.5 bg-indigo-50 border border-indigo-150 text-indigo-700 rounded uppercase font-serif tracking-tight flex items-center gap-1 shrink-0">
+                              <Sparkles size={9} /> CLB Của Tôi
+                            </span>
+                          )}
+                        </div>
+                        <h5 className="text-[12px] font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors pt-1.5 line-clamp-2">
+                          {ann.title}
+                        </h5>
+                        <p className="text-[11px] text-slate-600 leading-relaxed font-sans">{ann.content}</p>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100/50 flex justify-between items-center text-[9px] text-slate-400 font-mono">
+                        <span>Đăng: {ann.createdAt}</span>
+                        {ann.expiryDate && <span className="text-amber-700 font-bold">Hạn gỡ: {ann.expiryDate}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 2. Activities Container */}
+          {showActivities && activeClubActs.length > 0 && (
+            <div className="space-y-3 pt-2">
+              {clubFeedTab === "ALL" && (
+                <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1 bg-slate-50 py-1 px-2 rounded-md max-w-max mt-4 font-sans">
+                  ⭐ LỊCH SINH HOẠT & PHONG TRÀO CLB
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {activeClubActs.map(act => {
+                  const isMyClub = joinedClubIds.includes(act.orgId);
+                  const registered = myAttendance.some(r => r.activityId === act.id);
+                  const isActCompleted = act.status === "COMPLETED";
+
+                  return (
+                    <div 
+                      key={act.id} 
+                      className="p-4 bg-white hover:bg-slate-50/50 border border-slate-150 rounded-2xl relative transition-all flex flex-col justify-between group h-full space-y-3 shadow-xs hover:shadow-xs"
+                    >
+                      <div className="space-y-2 text-left">
+                        <div className="flex justify-between items-start gap-2 flex-wrap">
+                          <span className="text-[8.5px] font-black px-2 py-0.5 bg-indigo-50 border border-indigo-150 text-indigo-700 rounded uppercase font-mono tracking-tight shrink-0 animate-pulse">
+                            📅 {act.orgName}
+                          </span>
+                          <div className="flex gap-1.5 shrink-0">
+                            {isMyClub && (
+                              <span className="text-[8.5px] font-black px-1.5 py-0.5 bg-emerald-50 border border-emerald-150 text-emerald-700 rounded uppercase tracking-tight flex items-center gap-1">
+                                <Sparkles size={9} /> CLB Của Tôi
+                              </span>
+                            )}
+                            <span className="text-[8.5px] font-black px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded uppercase font-mono">
+                              +{act.points}đ TC{act.criteriaId.substring(2)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <h5 className="text-[12px] font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-2">
+                          {act.title}
+                        </h5>
+                        
+                        {act.description && (
+                          <p className="text-[10px] text-slate-550 leading-normal line-clamp-2 italic font-sans">{act.description}</p>
+                        )}
+
+                        <div className="space-y-1 pt-1 text-[9.5px] text-slate-500 font-sans border-t border-slate-50">
+                          <div className="flex items-center gap-1.5"><Clock size={11} className="text-indigo-500 shrink-0" /> {act.dateTime}</div>
+                          <div className="flex items-center gap-1.5"><MapPin size={11} className="text-indigo-500 shrink-0" /> {act.location}</div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 !mt-auto border-t border-slate-100 flex justify-end items-center">
+                        {registered ? (
+                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-105 border border-emerald-250 text-emerald-800 text-[9px] font-black rounded-lg uppercase select-none font-sans">
+                            ✓ ĐÃ ĐĂNG KÝ THAM GIA
+                          </span>
+                        ) : isActCompleted ? (
+                          <span className="inline-flex px-3 py-1 bg-slate-100 text-slate-400 border border-slate-200 text-[9px] font-black rounded-lg uppercase select-none font-sans">
+                            ĐÃ CHỐT ĐIỂM DANH
+                          </span>
+                        ) : (
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              registerForActivity(act.id, studentId);
+                              alert(`Đăng ký thành công hoạt động "${act.title}"! Ban chủ nhiệm sẽ tiến hành kiểm diện điểm danh trực tiếp tại sự kiện.`);
+                            }}
+                            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[9.5px] rounded-lg cursor-pointer shadow-xs transition-colors shrink-0"
+                          >
+                            Đăng ký tham diễn
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 3. Empty state handler */}
+          {((showAnnouncements ? activeClubAnns.length : 0) + (showActivities ? activeClubActs.length : 0)) === 0 && (
+            <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed flex flex-col items-center justify-center gap-2.5">
+              <span className="text-2xl animate-bounce">📪</span>
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Không tìm thấy thông tin phù hợp</p>
+              <p className="text-[9.5px] text-slate-400 max-w-sm">
+                Hiện tại chưa có thông báo hoặc hoạt động nào được công bố, hoặc các bản tin đã quá hạn hiển thị tự dọn.
+              </p>
+            </div>
+          )}
+
+        </div>
+      </div>
+    );
+  };
+
   const renderSymmetricalGauges = () => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -903,155 +1153,15 @@ export const StudentPortal: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in-up" id="student-portal-container">
-      {/* Collapsible Left Navigation System with Smooth Grid Layout Transitions */}
-      <div className={`grid grid-cols-1 ${isNavCollapsed ? "lg:grid-cols-[76px_1fr]" : "lg:grid-cols-[280px_1fr]"} gap-6 items-start transition-all duration-300`}>
-        
-        {/* LEFT NAV PANEL - FIXED/STICKY COLLAPSIBLE SIDEBAR */}
-        <div className={`lg:sticky lg:top-4 bg-white border border-slate-150 shadow-sm flex flex-col gap-4 transition-all duration-300 rounded-2xl ${
-          isNavCollapsed ? "p-3 items-center" : "p-4"
-        }`}>
-          {/* Sidebar Header Block */}
-          <div className="border-b border-slate-100 pb-3 flex items-center justify-between w-full">
-            <div className={`flex items-center gap-2 transition-all duration-305 ${isNavCollapsed ? "lg:hidden" : ""}`}>
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600"></span>
-              </span>
-              <div className="flex flex-col">
-                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">UniHub Portal</span>
-                <h3 className="text-[11px] font-bold text-slate-900 uppercase tracking-tight">Kỳ II • 2025-2026</h3>
-              </div>
-            </div>
-
-            {/* Elegant Collapse Toggle Button */}
-            <button
-              type="button"
-              onClick={() => setIsNavCollapsed(!isNavCollapsed)}
-              className={`p-1.5 hover:bg-slate-100 rounded-xl text-slate-600 hover:text-indigo-600 transition-all flex items-center gap-1.5 ${
-                isNavCollapsed ? "mx-auto w-10 h-10 justify-center bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-2xs hover:bg-indigo-100" : ""
-              }`}
-              title={isNavCollapsed ? "Mở rộng danh mục" : "Thu gọn danh mục"}
-            >
-              <Menu size={16} className={`${isNavCollapsed ? "animate-pulse" : ""}`} />
-              {!isNavCollapsed && <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-500">Menu</span>}
-            </button>
-          </div>
-
-          {/* Collapsible Buttons Wrapper */}
-          <div className={`flex flex-col gap-1.5 transition-all duration-300 w-full ${
-            isNavCollapsed ? "hidden lg:flex" : "flex"
-          }`}>
-            <button 
-              type="button"
-              onClick={() => setActiveTab("TRANG_CHU")} 
-              className={`whitespace-nowrap transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${
-                isNavCollapsed 
-                  ? "p-2.5 lg:justify-center lg:w-11 lg:h-11 rounded-xl" 
-                  : "px-3.5 py-2.5 rounded-xl w-full text-left"
-              } text-xs font-bold ${
-                activeTab === "TRANG_CHU" 
-                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-150" 
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
-              title="Bảng tin & Hồ sơ chính"
-            >
-              <Home size={14} className="shrink-0" />
-              <span className={isNavCollapsed ? "lg:hidden" : ""}>Bảng tin & Hồ sơ chính</span>
-            </button>
-            
-            <button 
-              type="button"
-              onClick={() => setActiveTab("DIEM")} 
-              className={`whitespace-nowrap transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${
-                isNavCollapsed 
-                  ? "p-2.5 lg:justify-center lg:w-11 lg:h-11 rounded-xl" 
-                  : "px-3.5 py-2.5 rounded-xl w-full text-left"
-              } text-xs font-bold ${
-                activeTab === "DIEM" 
-                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-150" 
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
-              title="Tiến trình & Điểm số"
-            >
-              <Award size={14} className="shrink-0" />
-              <span className={isNavCollapsed ? "lg:hidden" : ""}>Tiến trình & Điểm số</span>
-            </button>
-            
-            <button 
-              type="button"
-              onClick={() => setActiveTab("HOATDONG")} 
-              className={`whitespace-nowrap transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${
-                isNavCollapsed 
-                  ? "p-2.5 lg:justify-center lg:w-11 lg:h-11 rounded-xl" 
-                  : "px-3.5 py-2.5 rounded-xl w-full text-left"
-              } text-xs font-bold ${
-                activeTab === "HOATDONG" 
-                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-150" 
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
-              title="Sự kiện ngoại khóa"
-            >
-              <Calendar size={14} className="shrink-0" />
-              <span className={isNavCollapsed ? "lg:hidden" : ""}>Sự kiện ngoại khóa</span>
-            </button>
-            
-            <button 
-              type="button"
-              onClick={() => setActiveTab("CLB")} 
-              className={`whitespace-nowrap transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${
-                isNavCollapsed 
-                  ? "p-2.5 lg:justify-center lg:w-11 lg:h-11 rounded-xl" 
-                  : "px-3.5 py-2.5 rounded-xl w-full text-left"
-              } text-xs font-bold ${
-                activeTab === "CLB" 
-                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-150" 
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
-              title="Câu lạc bộ của tôi"
-            >
-              <Users size={14} className="shrink-0" />
-              <span className={isNavCollapsed ? "lg:hidden" : ""}>Câu lạc bộ của tôi</span>
-            </button>
-            
-            <button 
-              type="button"
-              onClick={() => setActiveTab("MINHCHUNG")} 
-              className={`whitespace-nowrap transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${
-                isNavCollapsed 
-                  ? "p-2.5 lg:justify-center lg:w-11 lg:h-11 rounded-xl" 
-                  : "px-3.5 py-2.5 rounded-xl w-full text-left"
-              } text-xs font-bold ${
-                activeTab === "MINHCHUNG" 
-                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-150" 
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
-              title="Minh chứng ngoại lệ"
-            >
-              <FileText size={14} className="shrink-0" />
-              <span className={isNavCollapsed ? "lg:hidden" : ""}>Minh chứng ngoại lệ</span>
-            </button>
-          </div>
-
-          <div className={`hidden lg:block border-t border-slate-100 pt-3 mt-1 text-slate-450 text-[10px] space-y-1 transition-all ${
-            isNavCollapsed ? "opacity-0 h-0 overflow-hidden" : "opacity-100"
-          }`}>
-            <span className="font-extrabold text-slate-400 uppercase tracking-wider block text-[9px]">Lớp quản lý</span>
-            <p className="font-sans font-medium text-slate-705 text-slate-700">{sObj?.classId || "K20-CNTT"}</p>
-            <p className="italic text-emerald-600 font-mono font-medium block mt-1">Trạng thái: Đang chấm điểm</p>
-          </div>
-        </div>
-
-        {/* RIGHT CONTENT CONTAINER - GIAO DIÊN CHÍNH DƯỢC THAY THEO TABS */}
-        <div className="space-y-6 w-full min-w-0">
+      
+      {/* RIGHT CONTENT CONTAINER - GIAO DIÊN CHÍNH ĐƯỢC THAY THEO TABS */}
+      <div className="space-y-6 w-full min-w-0">
 
           {/* TAB 1: TRANG CHỦ - CHỈ CHỨA HỒ SƠ SINH VIÊN VÀ BẢNG TIN QUAN TRỌNG */}
           {activeTab === "TRANG_CHU" && (
             <div className="space-y-6 animate-fade-in text-slate-800">
               {/* Profile banner info */}
               {renderProfileBanner()}
-
-              {/* Club Membership notifications alert centre */}
-              {renderClubNotifications()}
 
               {/* News Board container */}
               <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm overflow-hidden space-y-4">
@@ -1070,6 +1180,9 @@ export const StudentPortal: React.FC = () => {
                 </div>
                 {renderNewsBoard()}
               </div>
+
+              {/* Integrated portal feed for CLB announcements & activities (Requirement 4 output) */}
+              {renderClubFeed()}
             </div>
           )}
 
@@ -1992,9 +2105,7 @@ export const StudentPortal: React.FC = () => {
             </div>
           )}
 
-        </div> {/* Close right content area lg:col-span-9 */}
-
-      </div> {/* Close left sticky sidebar grid */}
+        </div> {/* Close right content area */}
 
       {/* GRAND UNIHUB FOOTER */}
       <footer className="bg-slate-100 p-5 rounded-3xl border border-slate-200 mt-8 text-center flex flex-col sm:flex-row justify-between items-center text-[10px] text-slate-400 font-medium">

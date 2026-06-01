@@ -250,31 +250,33 @@ export const TrainingPortal: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="border border-slate-200 bg-white rounded-lg overflow-hidden divide-y divide-slate-100 text-[11px] font-mono">
-                    <div className="p-2.5 bg-slate-100 font-bold grid grid-cols-4 gap-2 text-slate-700">
-                      <span>Mã SV</span>
-                      <span>GPA nạp</span>
-                      <span>Số TC tích lũy</span>
-                      <span>Cảnh báo học phẩm</span>
-                    </div>
-                    {previewData.map(row => {
-                      const origin = students.find(s => s.id === row.id);
-                      return (
-                        <div key={row.id} className="p-2 mt-0.5 grid grid-cols-4 gap-2 text-slate-800 items-center">
-                          <span className="font-bold">{row.id}</span>
-                          <span>
-                            {row.gpa.toFixed(2)}{" "}
-                            <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1 rounded-sm ml-1">
-                              (Cũ: {origin?.gpa?.toFixed(2)})
+                  <div className="border border-slate-200 bg-white rounded-lg overflow-x-auto text-[11px] font-mono">
+                    <div className="min-w-[650px] divide-y divide-slate-100">
+                      <div className="p-2.5 bg-slate-100 font-bold grid grid-cols-4 gap-2 text-slate-700">
+                        <span>Mã SV</span>
+                        <span>GPA nạp</span>
+                        <span>Số TC tích lũy</span>
+                        <span>Cảnh báo học phẩm</span>
+                      </div>
+                      {previewData.map(row => {
+                        const origin = students.find(s => s.id === row.id);
+                        return (
+                          <div key={row.id} className="p-2 grid grid-cols-4 gap-2 text-slate-800 items-center">
+                            <span className="font-bold">{row.id}</span>
+                            <span>
+                              {row.gpa.toFixed(2)}{" "}
+                              <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1 rounded-sm ml-1">
+                                (Cũ: {origin?.gpa?.toFixed(2)})
+                              </span>
                             </span>
-                          </span>
-                          <span>{row.creditsEarned} TC</span>
-                          <span className={`text-[10px] font-bold ${row.learningWarning ? 'text-rose-600' : 'text-emerald-600'}`}>
-                            {row.learningStatus}
-                          </span>
-                        </div>
-                      );
-                    })}
+                            <span>{row.creditsEarned} TC</span>
+                            <span className={`text-[10px] font-bold ${row.learningWarning ? 'text-rose-600' : 'text-emerald-600'}`}>
+                              {row.learningStatus}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}

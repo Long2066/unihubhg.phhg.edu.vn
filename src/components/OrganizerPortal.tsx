@@ -105,6 +105,19 @@ export const OrganizerPortal: React.FC = () => {
   const [selectedMember, setSelectedMember] = useState<OrganizationMember | null>(null);
   const [isEditingMember, setIsEditingMember] = useState(false);
 
+  // Auto select the latest created activity when the pool of organization activities updates
+  const orgActivitiesKey = orgActivities.map(a => a.id).join(",");
+  useEffect(() => {
+    if (orgActivities.length > 0) {
+      if (!selectedActId || !orgActivities.some(a => a.id === selectedActId)) {
+        // Find the newest activity added (placed at the end of the list)
+        setSelectedActId(orgActivities[orgActivities.length - 1].id);
+      }
+    } else {
+      setSelectedActId(null);
+    }
+  }, [orgActivitiesKey, selectedActId]);
+
   // Filtering for activities
   const [activityTimeFilter, setActivityTimeFilter] = useState<"ALL" | "WEEK" | "MONTH" | "TERM">("ALL");
 
@@ -639,7 +652,8 @@ export const OrganizerPortal: React.FC = () => {
     setActLoc("");
     setActDesc("");
     setActExpiryDate("");
-    alert("Tạo hoạt động mới thành công! Đạt giới hiển thị tự động lùi.");
+    alert("Tạo hoạt động mới thành công! Đăng ký sẵn sàng tích hợp trong mục điểm danh.");
+    setActivityTimeFilter("ALL");
     setActiveSubTab("QUANLY_DIEMDANH");
   };
 
@@ -1157,7 +1171,7 @@ export const OrganizerPortal: React.FC = () => {
                 </div>
 
                 <form onSubmit={handleAddNewManual} className="space-y-3 pt-2">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">Mã số sinh viên (Bắt buộc)</label>
                       <input 
@@ -1182,7 +1196,7 @@ export const OrganizerPortal: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">Lớp sinh hoạt (Mặc định)</label>
                       <input 
@@ -1216,7 +1230,7 @@ export const OrganizerPortal: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">Số điện thoại liên lạc</label>
                       <input 
@@ -1239,7 +1253,7 @@ export const OrganizerPortal: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">Chuyên ngành học</label>
                       <input 
@@ -1317,7 +1331,7 @@ export const OrganizerPortal: React.FC = () => {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">Xác lập rổ tiêu chí rèn luyện</label>
                       <select 
@@ -1350,7 +1364,7 @@ export const OrganizerPortal: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">Thời gian hành sự (Ngày Giờ)</label>
                       <input 
@@ -1803,7 +1817,7 @@ export const OrganizerPortal: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveEditMember} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">Mã sinh viên</label>
                   <input 
@@ -1824,7 +1838,7 @@ export const OrganizerPortal: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">Giới tính</label>
                   <select 
@@ -1857,7 +1871,7 @@ export const OrganizerPortal: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">Số điện thoại</label>
                   <input 
@@ -1878,7 +1892,7 @@ export const OrganizerPortal: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">Chuyên ngành</label>
                   <input 
