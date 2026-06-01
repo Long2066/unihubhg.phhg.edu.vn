@@ -23,10 +23,15 @@ export const TrainingPortal: React.FC = () => {
     importAcademicData, 
     toggleLearningDataLock,
     importNewClassesExcel,
-    users
+    users,
+    activePortletTab,
+    setActivePortletTab
   } = useUniHub();
 
-  const [activeTab, setActiveTab] = useState<"IMPORT" | "IMPORT_CLASSES" | "LIST">("IMPORT");
+  const activeTab = (activePortletTab as "IMPORT" | "IMPORT_CLASSES" | "LIST") || "IMPORT";
+  const setActiveTab = (tab: "IMPORT" | "IMPORT_CLASSES" | "LIST") => {
+    setActivePortletTab(tab);
+  };
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
   // Modal manual edit GPA

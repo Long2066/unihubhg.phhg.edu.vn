@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useUniHub } from "../state";
+import { UserRole } from "../types";
 import { 
   Settings, 
   Trash2, 
@@ -33,10 +34,19 @@ export const AdminPortal: React.FC = () => {
     updatePeriodStatus, 
     resetToSeeds, 
     students,
-    organizations 
+    organizations,
+    users,
+    createClubWithAccount,
+    updateClubAndAccount,
+    deleteClubAndAccount,
+    activePortletTab,
+    setActivePortletTab
   } = useUniHub();
 
-  const [activeTab, setActiveTab] = useState<"CONFIG" | "PERIOD" | "STATIONS">("CONFIG");
+  const activeTab = (activePortletTab as "CONFIG" | "PERIOD" | "STATIONS" | "CLUBS") || "CONFIG";
+  const setActiveTab = (tab: "CONFIG" | "PERIOD" | "STATIONS" | "CLUBS") => {
+    setActivePortletTab(tab);
+  };
 
   // Edit point value local state
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
@@ -58,6 +68,115 @@ export const AdminPortal: React.FC = () => {
   }[]>([]);
   const [parsingError, setParsingError] = useState<string | null>(null);
   const [isSuccessfullyParsed, setIsSuccessfullyParsed] = useState(false);
+
+  // States & actions for Club Management (Phòng CTHSSV)
+  const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
+  const [clubFormId, setClubFormId] = useState("");
+  const [clubFormName, setClubFormName] = useState("");
+  const [clubFormType, setClubFormType] = useState<"CLB" | "DOAN" | "HOI">("CLB");
+  const [clubFormLeader, setClubFormLeader] = useState("");
+  const [clubFormField, setClubFormField] = useState("");
+  const [clubFormLevel, setClubFormLevel] = useState<"TRUONG" | "KHOA">("TRUONG");
+  const [clubFormUsername, setClubFormUsername] = useState("");
+  const [clubFormPassword, setClubFormPassword] = useState("");
+
+  const selectClubForEditing = (orgId: string) => {
+    const org = organizations.find(o => o.id === orgId);
+    if (!org) return;
+
+    setSelectedClubId(orgId);
+    setClubFormId(org.id);
+    setClubFormName(org.name);
+    setClubFormType(org.type);
+    setClubFormLeader(org.leaderName);
+    setClubFormField(org.field);
+    setClubFormLevel(org.level);
+
+    const assocUser = users.find(u => u.role === UserRole.ORGANIZER && u.targetId === orgId);
+    if (assocUser) {
+      setClubFormUsername(assocUser.username);
+      setClubFormPassword(assocUser.password || "password123");
+    } else {
+      setClubFormUsername("");
+      setClubFormPassword("");
+    }
+  };
+
+  const clearClubForm = () => {
+    setSelectedClubId(null);
+    setClubFormId("");
+    setClubFormName("");
+    setClubFormType("CLB");
+    setClubFormLeader("");
+    setClubFormField("");
+    setClubFormLevel("TRUONG");
+    setClubFormUsername("");
+    setClubFormPassword("");
+  };
+
+  const handleSaveClub = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clubFormId.trim() || !clubFormName.trim() || !clubFormLeader.trim() || !clubFormUsername.trim() || !clubFormPassword.trim()) {
+      alert("Vui lòng nhập đầy đủ các thông tin bắt buộc, bao gồm cả tài khoản đăng nhập!");
+      return;
+    }
+
+    const cleanId = clubFormId.trim().toUpperCase();
+
+    const orgData = {
+      id: cleanId,
+      name: clubFormName.trim(),
+      type: clubFormType,
+      leaderName: clubFormLeader.trim(),
+      field: clubFormField.trim() || "Hoạt động sinh viên",
+      level: clubFormLevel,
+    };
+
+    const userData = {
+      id: `U_ORG_GEN_${cleanId}`,
+      username: clubFormUsername.trim(),
+      name: clubFormName.trim(),
+      role: UserRole.ORGANIZER,
+      email: clubFormUsername.trim(),
+      targetId: cleanId,
+      password: clubFormPassword.trim()
+    };
+
+    if (selectedClubId) {
+      updateClubAndAccount(selectedClubId, orgData, userData);
+      alert("Cập nhật thông tin Câu lạc bộ và tài khoản liên kết thành công!");
+    } else {
+      const idExists = organizations.some(o => o.id.toLowerCase() === cleanId.toLowerCase());
+      if (idExists) {
+        alert("Mã Câu lạc bộ này đã tồn tại trong hệ thống! Vui lòng chọn một mã khác.");
+        return;
+      }
+
+      const userExists = users.some(u => u.username.toLowerCase() === clubFormUsername.trim().toLowerCase());
+      if (userExists) {
+        alert("Tên tài khoản (Email đăng nhập) này đã tồn tại trong hệ thống! Vui lòng chọn một email khác.");
+        return;
+      }
+
+      createClubWithAccount(orgData, userData);
+      alert("Khởi tạo Câu lạc bộ mới & cấp tài khoản Ban chủ nhiệm thành công!");
+    }
+
+    clearClubForm();
+  };
+
+  const handleDeleteClub = (orgId: string) => {
+    const org = organizations.find(o => o.id === orgId);
+    if (!org) return;
+
+    if (confirm(`Bạn có chắc chắn muốn xóa Câu lạc bộ "${org.name}" cùng toàn bộ thông tin đăng nhập liên kết? Các tài khoản Ban chủ nhiệm cũng sẽ bị vô hiệu hóa.`)) {
+      deleteClubAndAccount(orgId);
+      alert(`Đã xóa thành công Câu lạc bộ ${org.name}`);
+      if (selectedClubId === orgId) {
+        clearClubForm();
+      }
+    }
+  };
 
   const startRulePointsEdit = (critId: string, ruleId: string, currentPoints: number) => {
     setParentCriteriaId(critId);
@@ -721,6 +840,13 @@ export const AdminPortal: React.FC = () => {
             <Grid size={14} />
             <span>Giám sát đồng bộ phân hiệu</span>
           </button>
+          <button 
+            onClick={() => setActiveTab("CLUBS")}
+            className={`w-full text-left px-3.5 py-3 rounded-lg text-xs font-bold transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${activeTab === "CLUBS" ? "bg-slate-900 text-white" : "text-slate-650 hover:bg-slate-50"}`}
+          >
+            <UserSquare2 size={14} />
+            <span>Quản lý CLB & Tài khoản</span>
+          </button>
         </div>
 
         {/* Action Pane Area */}
@@ -877,6 +1003,249 @@ export const AdminPortal: React.FC = () => {
                 <span>
                   Các cổng liên kết và cơ sở dữ liệu học vụ đồng nhất đảm bảo không phát sinh tranh chấp hoặc tước bỏ nỗ lực rèn văn thể mỹ của sinh viên Phân hiệu Hà Giang.
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: CLUB & ACCOUNT MANAGEMENT (ROOM CTHSSV) */}
+          {activeTab === "CLUBS" && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 uppercase mb-1 font-sans">
+                  Quản lý Câu lạc bộ & Tài khoản Đăng nhập
+                </h3>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Thiết lập, kiến tạo danh sách Câu lạc bộ (CLB) trực thuộc Phân hiệu đồng thời cấp quyền/tài khoản chuẩn hóa cho mỗi Ban chủ nhiệm. Đăng nhập đúng thông tin tài khoản nào sẽ chỉ có quyền kiểm soát nội bộ CLB đó, tránh chồng chéo các hoạt động giữa các đơn vị.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                
+                {/* Left Column: Clubs and Linked Accounts Listing */}
+                <div className="xl:col-span-7 space-y-3">
+                  <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-[11px] font-bold text-slate-600">Đơn vị ({organizations.length})</span>
+                    <span className="text-[10px] text-slate-400 italic">Bấm "Sửa" để cấu hình tài khoản hoặc đổi mật khẩu</span>
+                  </div>
+
+                  <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
+                    {organizations.map(org => {
+                      const assocUser = users.find(u => u.role === UserRole.ORGANIZER && u.targetId === org.id);
+                      return (
+                        <div 
+                          key={org.id} 
+                          className={`p-3.5 rounded-xl border transition-all ${
+                            selectedClubId === org.id 
+                              ? 'border-indigo-500 bg-indigo-50/20 shadow-xs' 
+                              : 'border-slate-150 bg-white hover:border-slate-350'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start gap-2">
+                            <div>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`px-2 py-0.5 text-[9px] font-black rounded border uppercase whitespace-nowrap ${
+                                  org.type === "DOAN" 
+                                    ? "bg-rose-50 text-rose-700 border-rose-150" 
+                                    : (org.type === "HOI" ? "bg-sky-50 text-sky-700 border-sky-150" : "bg-purple-50 text-purple-700 border-purple-150")
+                                }`}>
+                                  {org.type === "DOAN" ? "Đoàn" : (org.type === "HOI" ? "Hội" : "CLB")}
+                                </span>
+                                <span className="font-mono text-[10px] text-slate-450 font-bold">#{org.id}</span>
+                              </div>
+                              <h4 className="text-xs font-black text-slate-850 mt-1.5">{org.name}</h4>
+                              <p className="text-[10px] text-slate-500 mt-1">
+                                Lĩnh vực: <strong className="text-slate-700 font-semibold">{org.field}</strong> | Đại diện: <strong className="text-slate-700 font-semibold">{org.leaderName}</strong> | Cấp: <span className="font-mono uppercase font-black text-[9px] text-slate-500 bg-slate-100 px-1 py-0.5 rounded">{org.level}</span>
+                              </p>
+                            </div>
+
+                            <div className="flex gap-1.5 shrink-0">
+                              <button
+                                onClick={() => selectClubForEditing(org.id)}
+                                className="p-1 px-2 border border-slate-200 hover:border-indigo-200 text-indigo-600 hover:bg-indigo-50/50 rounded-lg text-[10px] font-bold flex items-center gap-0.5 cursor-pointer"
+                              >
+                                Sửa
+                              </button>
+                              <button
+                                onClick={() => handleDeleteClub(org.id)}
+                                className="p-1 px-1.5 border border-red-100 hover:border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-[10px] font-bold flex items-center justify-center cursor-pointer"
+                                title="Xóa Câu lạc bộ"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Account box */}
+                          <div className="mt-3 p-2 bg-slate-50/80 rounded-lg border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-[10.5px]">
+                            <div>
+                              <span className="text-slate-400 font-mono text-[9px] block">TÀI KHOẢN ĐĂNG NHẬP</span>
+                              <span className="text-slate-700 font-bold block mt-0.5 font-mono">
+                                {assocUser ? assocUser.username : <span className="text-rose-500 italic font-medium">Chưa cấp tài khoản!</span>}
+                              </span>
+                            </div>
+                            <div className="sm:text-right">
+                              <span className="text-slate-400 font-mono text-[9px] block">MẬT KHẨU</span>
+                              <span className="text-slate-750 font-mono font-medium block mt-0.5">
+                                {assocUser ? (
+                                  <span className="bg-slate-250 px-2 py-0.5 rounded select-all font-bold tracking-wider font-mono">
+                                    {assocUser.password || "password123"}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-350">-</span>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Right Column: Add or Edit Form */}
+                <div className="xl:col-span-5 bg-slate-50/60 p-4 rounded-xl border border-slate-200 space-y-4">
+                  <div className="border-b border-slate-200 pb-2 flex justify-between items-center">
+                    <h4 className="text-xs font-bold text-slate-800 uppercase font-sans">
+                      {selectedClubId ? "Cập nhật CLB & Tài khoản" : "Khởi tạo CLB & Cấp tài khoản"}
+                    </h4>
+                    {selectedClubId && (
+                      <button 
+                        onClick={clearClubForm}
+                        className="text-[10px] text-slate-550 hover:text-slate-800 underline font-semibold cursor-pointer"
+                      >
+                        Hủy chọn
+                      </button>
+                    )}
+                  </div>
+
+                  <form onSubmit={handleSaveClub} className="space-y-3.5 text-xs">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-650 mb-1">Mã định danh CLB (Viết liền, viết hoa)*</label>
+                      <input 
+                        type="text"
+                        value={clubFormId}
+                        onChange={(e) => setClubFormId(e.target.value)}
+                        disabled={selectedClubId !== null}
+                        placeholder="Ví dụ: VANNX (Văn nghệ Xanh)"
+                        className="w-full px-3 py-1.5 border border-slate-200 font-mono uppercase bg-white disabled:bg-slate-100 disabled:text-slate-500 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg inline-block"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-650 mb-1">Tên tổ chức / Câu lạc bộ*</label>
+                      <input 
+                        type="text"
+                        value={clubFormName}
+                        onChange={(e) => setClubFormName(e.target.value)}
+                        placeholder="Ví dụ: Câu lạc bộ Văn nghệ Xanh"
+                        className="w-full px-3 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg inline-block"
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-650 mb-1 font-sans">Phân loại*</label>
+                        <select
+                          value={clubFormType}
+                          onChange={(e) => setClubFormType(e.target.value as any)}
+                          className="w-full px-2.5 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg font-sans"
+                        >
+                          <option value="CLB">CÂU LẠC BỘ (CLB)</option>
+                          <option value="DOAN">ĐOÀN THANH NIÊN</option>
+                          <option value="HOI">HỘI SINH VIÊN</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-650 mb-1 font-sans">Cấp trực thuộc*</label>
+                        <select
+                          value={clubFormLevel}
+                          onChange={(e) => setClubFormLevel(e.target.value as any)}
+                          className="w-full px-2.5 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg font-sans"
+                        >
+                          <option value="TRUONG">CẤP TRƯỜNG</option>
+                          <option value="KHOA">CẤP KHOA</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-650 mb-1 font-sans">Trưởng đơn vị / Đại diện đại biểu Ban chủ nhiệm*</label>
+                      <input 
+                        type="text"
+                        value={clubFormLeader}
+                        onChange={(e) => setClubFormLeader(e.target.value)}
+                        placeholder="Ví dụ: Nguyễn Văn Hải"
+                        className="w-full px-3 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg inline-block"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-650 mb-1 font-sans">Lĩnh vực hoạt động</label>
+                      <input 
+                        type="text"
+                        value={clubFormField}
+                        onChange={(e) => setClubFormField(e.target.value)}
+                        placeholder="Ví dụ: Văn nghệ, Thể thao, Tình nguyện..."
+                        className="w-full px-3 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg inline-block"
+                      />
+                    </div>
+
+                    {/* Login Account Box inside Form */}
+                    <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100 space-y-3">
+                      <span className="text-[10px] font-black text-indigo-700 flex items-center gap-1 font-sans">
+                        <Lock size={12} />
+                        CẤP TÀI KHOẢN TRUY CẬP ĐỒNG BỘ
+                      </span>
+
+                      <div>
+                        <label className="block text-[10.5px] font-bold text-slate-600 mb-1">Tài khoản đăng nhập (Email / User ID)*</label>
+                        <input 
+                          type="text"
+                          value={clubFormUsername}
+                          onChange={(e) => setClubFormUsername(e.target.value)}
+                          placeholder="Ví dụ: clbvannghe@hg.edu.vn"
+                          className="w-full px-3 py-1.5 border border-slate-200 font-mono bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg inline-block"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10.5px] font-bold text-slate-600 mb-1">Mật khẩu đăng nhập*</label>
+                        <input 
+                          type="text"
+                          value={clubFormPassword}
+                          onChange={(e) => setClubFormPassword(e.target.value)}
+                          placeholder="Mật khẩu bảo mật"
+                          className="w-full px-3 py-1.5 border border-slate-200 font-mono bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg inline-block"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex justify-end gap-2 text-xs">
+                      {selectedClubId && (
+                        <button 
+                          type="button"
+                          onClick={clearClubForm}
+                          className="px-3 py-1.5 border border-slate-200 hover:bg-slate-100 text-slate-600 font-bold rounded-lg cursor-pointer"
+                        >
+                          Hủy
+                        </button>
+                      )}
+                      <button 
+                        type="submit"
+                        className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg cursor-pointer font-sans"
+                      >
+                        {selectedClubId ? "Lưu thay đổi" : "Tạo & Cấp quyền"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
               </div>
             </div>
           )}

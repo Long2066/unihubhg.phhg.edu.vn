@@ -77,6 +77,19 @@ export interface OrganizationMember {
   joinedDate: string;
   term: string; // Nhiệm kỳ: e.g. "2025-2026"
   status: "PENDING" | "ACTIVE" | "INACTIVE";
+  
+  // Custom club membership attachment fields
+  gender?: string;
+  dob?: string;
+  ethnicity?: string;
+  email?: string;
+  phone?: string;
+  permanentAddress?: string;
+  temporaryAddress?: string;
+  major?: string;
+  facultyInCharge?: string;
+  studentName?: string;
+  attachmentUrl?: string;
 }
 
 export interface ExtracurricularActivity {
@@ -207,4 +220,14 @@ export interface EvaluationResult {
     source: string; // "ĐÀO TẠO", "CLB_ATTENDANCE", "MINH_CHỨNG", "BCS_DUYỆT", "GV_ĐIỀU_CHỈNH"
     timestamp: string;
   }[];
+}
+
+export interface ClubAnnouncement {
+  id: string;
+  orgId: string;
+  orgName: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  expiryDate: string; // Customizable expiry date
 }

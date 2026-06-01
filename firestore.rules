@@ -1,0 +1,202 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Catch-all safety gate to deny any unspecified access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Globally accessible variables and secure utility helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Checking if user is verified
+    function isVerifiedUser() {
+      return isSignedIn() && (request.auth.token.email_verified == true || request.auth.uid != null);
+    }
+
+    // 3. Entity Validator Utilities
+    function isValidUser(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.username is string && data.username.size() <= 128
+        && data.name is string && data.name.size() <= 128
+        && data.role is string && data.role.size() <= 32
+        && data.email is string && data.email.size() <= 128;
+    }
+
+    function isValidStudent(data) {
+      return data.id is string && data.id.size() <= 64
+        && data.name is string && data.name.size() <= 128
+        && data.classId is string && data.classId.size() <= 64
+        && data.facultyId is string && data.facultyId.size() <= 64
+        && data.email is string && data.email.size() <= 128;
+    }
+
+    function isValidOrganization(data) {
+      return data.id is string && data.id.size() <= 64
+        && data.name is string && data.name.size() <= 256
+        && data.type is string && (data.type == 'CLB' || data.type == 'DOAN' || data.type == 'HOI')
+        && data.leaderName is string && data.leaderName.size() <= 128
+        && data.field is string && data.field.size() <= 256
+        && data.level is string && (data.level == 'TRUONG' || data.level == 'KHOA');
+    }
+
+    function isValidMember(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.studentId is string && data.studentId.size() <= 128
+        && data.classId is string && data.classId.size() <= 64
+        && data.orgId is string && data.orgId.size() <= 64
+        && data.role is string && data.role.size() <= 64
+        && data.joinedDate is string && data.joinedDate.size() <= 64
+        && data.status is string && data.status.size() <= 64;
+    }
+
+    function isValidClubAnnouncement(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.orgId is string && data.orgId.size() <= 64
+        && data.orgName is string && data.orgName.size() <= 256
+        && data.title is string && data.title.size() <= 256
+        && data.content is string && data.content.size() <= 5000
+        && data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidActivity(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.title is string && data.title.size() <= 256
+        && data.orgId is string && data.orgId.size() <= 64
+        && data.orgName is string && data.orgName.size() <= 256
+        && data.criteriaId is string && data.criteriaId.size() <= 64
+        && data.points is number && data.points <= 100
+        && data.dateTime is string && data.dateTime.size() <= 64
+        && data.location is string && data.location.size() <= 256
+        && data.status is string && (data.status == 'UPCOMING' || data.status == 'ONGOING' || data.status == 'COMPLETED');
+    }
+
+    function isValidActivityAttendance(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.activityId is string && data.activityId.size() <= 128
+        && data.studentId is string && data.studentId.size() <= 64
+        && data.studentName is string && data.studentName.size() <= 128
+        && data.classId is string && data.classId.size() <= 64
+        && data.role is string && (data.role == 'MEM' || data.role == 'BTC' || data.role == 'SUPPORTER')
+        && data.attended is bool
+        && data.verified is bool;
+    }
+
+    function isValidEvidenceSubmission(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.studentId is string && data.studentId.size() <= 64
+        && data.studentName is string && data.studentName.size() <= 128
+        && data.classId is string && data.classId.size() <= 64
+        && data.criteriaId is string && data.criteriaId.size() <= 64
+        && data.activityName is string && data.activityName.size() <= 256
+        && data.pointsRequested is number && data.pointsRequested <= 100
+        && data.proofUrl is string && data.proofUrl.size() <= 1024
+        && data.submittedAt is string && data.submittedAt.size() <= 64
+        && data.status is string && (data.status == 'PENDING' || data.status == 'APPROVED' || data.status == 'REJECTED');
+    }
+
+    function isValidEvaluationResult(data) {
+      return data.studentId is string && data.studentId.size() <= 64
+        && data.studentName is string && data.studentName.size() <= 128
+        && data.classId is string && data.classId.size() <= 64
+        && data.facultyId is string && data.facultyId.size() <= 64
+        && data.periodId is string && data.periodId.size() <= 64
+        && data.studyPoints is number
+        && data.violationPoints is number
+        && data.extracurricularPoints is number
+        && data.communityPoints is number
+        && data.achievementPoints is number
+        && data.totalPoints is number
+        && data.grade is string && (data.grade == 'XUẤT SẮC' || data.grade == 'TỐT' || data.grade == 'KHÁ' || data.grade == 'TRUNG BÌNH' || data.grade == 'YẾU' || data.grade == 'KÉM')
+        && data.status is string && (data.status == 'AUTO' || data.status == 'PENDING_CLASS' || data.status == 'APPROVED_CLASS' || data.status == 'APPROVED_ADVISER' || data.status == 'LOCKED');
+    }
+
+    function isValidDailyAttendanceReport(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.classId is string && data.classId.size() <= 64
+        && data.date is string && data.date.size() <= 64
+        && data.totalStudents is number
+        && data.presentCount is number
+        && data.absentCount is number
+        && data.reportedBy is string && data.reportedBy.size() <= 128
+        && data.reportedAt is string && data.reportedAt.size() <= 64;
+    }
+
+    // 4. Secure Collections Match rules
+    match /users/{userId} {
+      allow get, list: if isVerifiedUser();
+      allow create, update: if isVerifiedUser() && isValidId(userId) && isValidUser(incoming());
+      allow delete: if isVerifiedUser() && isValidId(userId);
+    }
+
+    match /students/{studentId} {
+      allow get, list: if isVerifiedUser();
+      allow create, update: if isVerifiedUser() && isValidId(studentId) && isValidStudent(incoming());
+      allow delete: if isVerifiedUser() && isValidId(studentId);
+    }
+
+    match /organizations/{orgId} {
+      allow get, list: if isVerifiedUser();
+      allow create, update: if isVerifiedUser() && isValidId(orgId) && isValidOrganization(incoming());
+      allow delete: if isVerifiedUser() && isValidId(orgId);
+    }
+
+    match /members/{memberId} {
+      allow get, list: if isVerifiedUser();
+      allow create, update: if isVerifiedUser() && isValidId(memberId) && isValidMember(incoming());
+      allow delete: if isVerifiedUser() && isValidId(memberId);
+    }
+
+    match /announcements/{announcementId} {
+      allow get, list: if isVerifiedUser();
+      allow create, update: if isVerifiedUser() && isValidId(announcementId) && isValidClubAnnouncement(incoming());
+      allow delete: if isVerifiedUser() && isValidId(announcementId);
+    }
+
+    match /activities/{activityId} {
+      allow get, list: if isVerifiedUser();
+      allow create, update: if isVerifiedUser() && isValidId(activityId) && isValidActivity(incoming());
+      allow delete: if isVerifiedUser() && isValidId(activityId);
+    }
+
+    match /attendance/{attendanceId} {
+      allow get, list: if isVerifiedUser();
+      allow create, update: if isVerifiedUser() && isValidId(attendanceId) && isValidActivityAttendance(incoming());
+      allow delete: if isVerifiedUser() && isValidId(attendanceId);
+    }
+
+    match /evidence/{evidenceId} {
+      allow get, list: if isVerifiedUser();
+      allow create, update: if isVerifiedUser() && isValidId(evidenceId) && isValidEvidenceSubmission(incoming());
+      allow delete: if isVerifiedUser() && isValidId(evidenceId);
+    }
+
+    match /results/{resultId} {
+      allow get, list: if isVerifiedUser();
+      allow create, update: if isVerifiedUser() && isValidId(resultId) && isValidEvaluationResult(incoming());
+      allow delete: if isVerifiedUser() && isValidId(resultId);
+    }
+
+    match /dailyAttendance/{attendanceId} {
+      allow get, list: if isVerifiedUser();
+      allow create, update: if isVerifiedUser() && isValidId(attendanceId) && isValidDailyAttendanceReport(incoming());
+      allow delete: if isVerifiedUser() && isValidId(attendanceId);
+    }
+
+  }
+}

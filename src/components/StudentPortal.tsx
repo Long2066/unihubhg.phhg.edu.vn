@@ -22,7 +22,9 @@ import {
   Layers,
   Image as ImageIcon,
   Home,
-  Menu
+  Menu,
+  MapPin,
+  Megaphone
 } from "lucide-react";
 
 // Predefined historical semesters for student DTG245140202053
@@ -120,8 +122,17 @@ export const StudentPortal: React.FC = () => {
     students,
     criteria,
     updateStudentProfile,
-    resetToSeeds
+    resetToSeeds,
+    announcements,
+    updateMemberDetails,
+    activePortletTab,
+    setActivePortletTab
   } = useUniHub();
+
+  const activeTab = (activePortletTab as "TRANG_CHU" | "DIEM" | "HOATDONG" | "CLB" | "MINHCHUNG") || "TRANG_CHU";
+  const setActiveTab = (tab: "TRANG_CHU" | "DIEM" | "HOATDONG" | "CLB" | "MINHCHUNG") => {
+    setActivePortletTab(tab);
+  };
 
   const studentId = currentUser?.targetId || "DTG245140202053";
   const sObj = students?.find(s => s.id === studentId);
@@ -136,10 +147,44 @@ export const StudentPortal: React.FC = () => {
   
   // States
   const [selectedSemesterId, setSelectedSemesterId] = useState("HOCKY_2_2025_2026");
-  const [activeTab, setActiveTab] = useState<"TRANG_CHU" | "DIEM" | "HOATDONG" | "CLB" | "MINHCHUNG">("TRANG_CHU");
   const [isNavCollapsed, setIsNavCollapsed] = useState(true);
   const [expandedCriteria, setExpandedCriteria] = useState<string | null>(null);
   const [activityMilestone, setActivityMilestone] = useState<"ALL" | "WEEK" | "MONTH" | "TERM">("ALL");
+  
+  // Club detailed popup states
+  const [selectedClubIdDetail, setSelectedClubIdDetail] = useState<string | null>(null);
+  const [profileAttachmentInput, setProfileAttachmentInput] = useState("");
+  
+  // Club registration Form States
+  const [applyName, setApplyName] = useState("");
+  const [applyGender, setApplyGender] = useState("Nam");
+  const [applyDob, setApplyDob] = useState("");
+  const [applyEthnicity, setApplyEthnicity] = useState("Kinh");
+  const [applyPhone, setApplyPhone] = useState("");
+  const [applyEmail, setApplyEmail] = useState("");
+  const [applyPermanentAddress, setApplyPermanentAddress] = useState("");
+  const [applyTemporaryAddress, setApplyTemporaryAddress] = useState("");
+  const [applyMajor, setApplyMajor] = useState("Công nghệ thông tin");
+  const [applyAttachmentUrl, setApplyAttachmentUrl] = useState("");
+  const [isApplyingClub, setIsApplyingClub] = useState(false);
+
+  // Sync club registration defaults when active club details open
+  useEffect(() => {
+    if (sObj && selectedClubIdDetail) {
+      setApplyName(sObj.name || "");
+      setApplyEmail(sObj.email || "");
+      // Defaults and resets
+      setApplyGender("Nam");
+      setApplyDob("2006-01-01");
+      setApplyEthnicity("Kinh");
+      setApplyPhone("");
+      setApplyPermanentAddress("");
+      setApplyTemporaryAddress("");
+      setApplyMajor("Công nghệ thông tin");
+      setApplyAttachmentUrl("");
+      setIsApplyingClub(false);
+    }
+  }, [sObj, selectedClubIdDetail]);
   
   // Profiling Edit Dialog Modal
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -658,6 +703,100 @@ export const StudentPortal: React.FC = () => {
     );
   };
 
+  const renderClubNotifications = () => {
+    // Filter memberships for current student
+    const studentMemberships = members.filter(m => m.studentId === studentId);
+    
+    if (studentMemberships.length === 0) return null;
+
+    return (
+      <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-3" id="club-notifications-center">
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+          <div className="p-1 px-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold font-mono">
+            ✉
+          </div>
+          <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+            Hộp Thư Thông Báo Trạng Thái Gia Nhập CLB ({studentMemberships.length})
+          </h4>
+        </div>
+
+        <div className="space-y-2.5">
+          {studentMemberships.map(m => {
+            const club = organizations.find(o => o.id === m.orgId);
+            if (!club) return null;
+
+            const isApproved = m.status === "ACTIVE";
+            const isPending = m.status === "PENDING";
+
+            return (
+              <div 
+                key={m.id} 
+                className={`p-3.5 rounded-xl border text-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-3 transition-colors ${
+                  isApproved 
+                    ? "bg-emerald-50/45 border-emerald-150 text-emerald-950" 
+                    : isPending 
+                    ? "bg-amber-50/45 border-amber-150 text-amber-950" 
+                    : "bg-slate-50 border-slate-200 text-slate-500"
+                }`}
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-block w-2.5 h-2.5 rounded-full ${isApproved ? "bg-emerald-500 animate-pulse" : "bg-amber-500 animate-pulse"}`} />
+                    <span className="font-extrabold uppercase text-[10px] tracking-wide font-mono">
+                      {isApproved ? "Phê duyệt thành công" : "Hồ sơ đang chờ duyệt"}
+                    </span>
+                    <span className="text-[9px] text-slate-400 font-mono">• {m.joinedDate}</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    {isApproved ? (
+                      <>
+                        Chúc mừng sinh viên <strong className="font-bold text-emerald-900">{m.studentName || sObj?.name || "bạn"}</strong>! Đơn của bạn gia nhập <strong className="font-bold text-indigo-700">{club.name}</strong> đã được <strong className="font-bold text-slate-700">Chủ nhiệm {club.leaderName}</strong> xét duyệt đồng ý. Chức danh của bạn là <strong className="px-1.5 py-0.2 bg-emerald-100 border border-emerald-250 text-emerald-800 rounded font-black">{m.role}</strong>.
+                      </>
+                    ) : (
+                      <>
+                        Hồ sơ xin gia nhập <strong className="font-bold text-amber-900">{club.name}</strong> của bạn đã được nhận vào hệ thống thành công. Các thông tin khai báo (SĐT: <span className="font-mono">{m.phone}</span>, Học chuyên ngành: {m.major}) đang chờ <strong className="font-bold text-slate-700">Ban chủ nhiệm {club.leaderName}</strong> thẩm duyệt tài khoản chính thức.
+                      </>
+                    )}
+                  </p>
+                  {m.attachmentUrl && (
+                    <div className="flex items-center gap-1.5 text-[10.5px] mt-1">
+                      <span className="text-slate-400 font-sans">Đơn ứng tuyển đính kèm:</span>
+                      <a 
+                        href={m.attachmentUrl} 
+                        target="_blank" 
+                        referrerPolicy="no-referrer"
+                        rel="noopener noreferrer" 
+                        className="text-indigo-600 hover:underline font-mono truncate max-w-xs"
+                      >
+                        {m.attachmentUrl}
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                <div className="shrink-0 flex items-center">
+                  <button 
+                    onClick={() => {
+                      setSelectedClubIdDetail(club.id);
+                      setProfileAttachmentInput(m.attachmentUrl || "");
+                    }}
+                    className={`px-3 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-wider cursor-pointer border ${
+                      isApproved 
+                        ? "bg-white hover:bg-emerald-100/50 text-emerald-800 border-emerald-250 hover:border-emerald-300" 
+                        : "bg-white hover:bg-amber-100/50 text-amber-800 border-amber-250 hover:border-amber-300"
+                    }`}
+                  >
+                    Xem Chi tiết CLB →
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const renderSymmetricalGauges = () => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -910,6 +1049,9 @@ export const StudentPortal: React.FC = () => {
             <div className="space-y-6 animate-fade-in text-slate-800">
               {/* Profile banner info */}
               {renderProfileBanner()}
+
+              {/* Club Membership notifications alert centre */}
+              {renderClubNotifications()}
 
               {/* News Board container */}
               <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm overflow-hidden space-y-4">
@@ -1260,8 +1402,8 @@ export const StudentPortal: React.FC = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center border-b border-slate-100 pb-3">
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Danh sách Câu lạc bộ Sinh viên</h4>
-                  <p className="text-[10px] text-slate-400">Đăng ký thành viên trực tiếp vào các chi hội CLB</p>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Danh bạ Câu lạc bộ Sinh viên</h4>
+                  <p className="text-[10px] text-slate-400">Xem tin tức, bảng thông báo, đăng ký tham dự hoạt động và lưu hồ sơ lưu trữ đính kèm</p>
                 </div>
               </div>
 
@@ -1270,40 +1412,514 @@ export const StudentPortal: React.FC = () => {
                   const membership = myOrganizations.find(m => m.orgId === org.id);
                   
                   return (
-                    <div key={org.id} className="p-4 border border-slate-100 rounded-2xl bg-white shadow-xs hover:border-slate-200 transition-all flex flex-col justify-between">
+                    <div 
+                      key={org.id} 
+                      onClick={() => {
+                        setSelectedClubIdDetail(org.id);
+                        if (membership) {
+                          setProfileAttachmentInput(membership.attachmentUrl || "");
+                        } else {
+                          setProfileAttachmentInput("");
+                        }
+                      }}
+                      className="p-4 border border-slate-100 rounded-2xl bg-white shadow-xs hover:shadow-sm hover:border-indigo-250 transition-all flex flex-col justify-between cursor-pointer group"
+                    >
                       <div>
                         <div className="flex justify-between items-start gap-2">
                           <span className="text-[8px] font-black px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded">
                             {org.field}
                           </span>
-                          <span className="text-[8px] font-black text-slate-400 uppercase font-mono">
-                            Cấp {org.level === "TRUONG" ? "Trường" : "Khoa"}
+                          <span className="text-[8px] font-black text-slate-450 uppercase font-mono group-hover:text-indigo-600">
+                            Chi tiết & Đăng ký →
                           </span>
                         </div>
-                        <h5 className="text-xs font-extrabold text-slate-800 mt-1.5">{org.name}</h5>
-                        <p className="text-[10px] text-slate-400 mt-1">Chủ nhiệm: <span className="font-bold">{org.leaderName}</span></p>
+                        <h5 className="text-xs font-extrabold text-slate-800 mt-1.5 group-hover:text-indigo-700 transition-colors">{org.name}</h5>
+                        <p className="text-[10px] text-slate-400 mt-1">Chủ nhiệm: <span className="font-bold text-slate-650">{org.leaderName}</span></p>
                       </div>
 
                       <div className="pt-4 border-t border-slate-50 mt-4 flex justify-between items-center">
-                        <span className="text-[10px] text-slate-450 italic">Cộng 10đ thành viên</span>
+                        <span className="text-[9px] text-slate-455 italic font-mono uppercase">Lĩnh chọn tự động</span>
                         
                         {membership ? (
-                          <span className={`text-[9px] font-extrabold px-2 py-1 rounded border leading-none ${membership.status === "ACTIVE" ? 'bg-emerald-5 text-emerald-700 border-emerald-150' : 'bg-amber-5 text-amber-700 border-amber-150'}`}>
+                          <span className={`text-[8px] font-black px-2 py-1 rounded border leading-none tracking-tight ${membership.status === "ACTIVE" ? 'bg-emerald-50 text-emerald-700 border-emerald-150' : 'bg-amber-50 text-amber-700 border-amber-150'}`}>
                             {membership.status === "ACTIVE" ? membership.role : "CHỜ DUYỆT GIA NHẬP"}
                           </span>
                         ) : (
-                          <button 
-                            onClick={() => joinOrganizationRequest(studentId, org.id)}
-                            className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-[10px] font-extrabold px-3 py-1 rounded-lg cursor-pointer transition-colors"
-                          >
-                            Tham gia CLB
-                          </button>
+                          <span className="bg-indigo-50 text-indigo-700 text-[8px] font-black px-2 py-1 rounded-lg">
+                            CHƯA GIA NHẬP CLB
+                          </span>
                         )}
                       </div>
                     </div>
                   );
                 })}
               </div>
+
+              {/* IMMERSIVE MODAL: CLUB DETAILS, ANNOUNCEMENTS, EXPIRED FILTERED EVENTS & ATTACHMENT */}
+              {selectedClubIdDetail && (() => {
+                const club = organizations.find(o => o.id === selectedClubIdDetail);
+                if (!club) return null;
+
+                const membership = myOrganizations.find(m => m.orgId === club.id);
+                
+                // Get active club announcements (Requirement 4: Có thời hạn hiển thị tùy chỉnh, hết thời hạn sẽ auto biến)
+                const todayStr = new Date().toISOString().split("T")[0];
+                const activeClubAnns = announcements.filter(ann => {
+                  if (ann.orgId !== club.id) return false;
+                  if (!ann.expiryDate) return true;
+                  return todayStr <= ann.expiryDate; // expiry date validation
+                });
+
+                // Get upcoming club activities with expiry filter (Requirement 4)
+                const activeClubActs = activities.filter(act => {
+                  if (act.orgId !== club.id) return false;
+                  // Exclude COMPLETED unless registered
+                  const registered = myAttendance.some(r => r.activityId === act.id);
+                  if (act.status === "COMPLETED" && !registered) return false;
+                  
+                  // expiryDate filter
+                  const expiry = (act as any).expiryDate;
+                  if (expiry) {
+                    return todayStr <= expiry;
+                  }
+                  return true;
+                });
+
+                return (
+                  <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in" id="club-details-modal">
+                    <div className="bg-white rounded-2xl border border-slate-150 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+                      
+                      {/* Modal Header */}
+                      <div className="flex justify-between items-center bg-indigo-50/50 px-6 py-4 border-b border-indigo-100 shrink-0">
+                        <div>
+                          <span className="text-[9px] font-extrabold px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-md font-mono select-none uppercase tracking-wider">
+                            CHI TIẾT PHÂN HỆ
+                          </span>
+                          <h3 className="text-sm font-black text-slate-950 mt-1">{club.name}</h3>
+                        </div>
+                        <button 
+                          onClick={() => setSelectedClubIdDetail(null)} 
+                          className="p-1 text-slate-450 hover:text-slate-650 cursor-pointer rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors"
+                        >
+                          <X size={15} />
+                        </button>
+                      </div>
+
+                      {/* Modal Body Scroll */}
+                      <div className="p-6 overflow-y-auto space-y-6 flex-1">
+                        
+                        {/* Club Metadata summary */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 border border-slate-150 rounded-xl text-xs">
+                          <div>
+                            <span className="font-semibold block text-slate-400">Đại diện chủ nhiệm:</span>
+                            <span className="font-bold text-slate-800">{club.leaderName}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold block text-slate-400">Lĩnh vực phong trào:</span>
+                            <span className="font-bold text-indigo-600">{club.field}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold block text-slate-400 font-sans">Xếp loại cấp kiểm vụ:</span>
+                            <span className="font-bold text-slate-800 font-mono">CẤP {club.level === "TRUONG" ? "TRƯỜNG" : "KHOA"}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold block text-slate-400 font-sans">Yêu cầu chuyên cần:</span>
+                            <span className="font-bold text-emerald-600">Ổn định mốc cộng</span>
+                          </div>
+                        </div>
+
+                        {/* ANNOUNCEMENTS SECTION (BẢN TIN THÔNG BÁO) */}
+                        <div className="space-y-3.5">
+                          <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
+                            <Megaphone size={14} className="text-indigo-500 animate-bounce" />
+                            <span>Bảng tin thông cáo CLB mới cập nhật ({activeClubAnns.length})</span>
+                          </h4>
+
+                          {activeClubAnns.length === 0 ? (
+                            <div className="p-6 bg-slate-50/50 rounded-xl border border-dashed text-center text-slate-400 text-xs">
+                              Không có thông báo mới hoặc thông báo đã quá hạn hiển thị.
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {activeClubAnns.map(ann => (
+                                <div key={ann.id} className="p-3.5 bg-yellow-50/30 border border-amber-100 rounded-xl text-xs space-y-1">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-mono">
+                                      Hạn phát sóng: {ann.expiryDate || "Không giới hạn"}
+                                    </span>
+                                    <span className="text-[9px] text-slate-400 font-mono">{ann.createdAt}</span>
+                                  </div>
+                                  <h5 className="font-black text-slate-900 mt-1">{ann.title}</h5>
+                                  <p className="text-[10px] text-slate-600 leading-relaxed font-sans">{ann.content}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* ACTIVITIES REGISTRATION SECTION */}
+                        <div className="space-y-3.5">
+                          <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
+                            <Calendar size={14} className="text-indigo-500" />
+                            <span>Lịch sinh hoạt & Tìm hoạt động phong trào ({activeClubActs.length})</span>
+                          </h4>
+
+                          {activeClubActs.length === 0 ? (
+                            <div className="p-6 bg-slate-50/50 rounded-xl border border-dashed text-center text-slate-400 text-xs">
+                              Không có hoạt động phong trào nào đang tổ chức.
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {activeClubActs.map(act => {
+                                const registered = myAttendance.some(r => r.activityId === act.id);
+                                const isActCompleted = act.status === "COMPLETED";
+
+                                return (
+                                  <div key={act.id} className="p-4 bg-white border border-slate-150 rounded-xl flex justify-between items-start md:items-center flex-wrap md:flex-nowrap gap-3 text-xs">
+                                    <div className="space-y-1">
+                                      <h5 className="font-black text-slate-900">{act.title}</h5>
+                                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500 font-sans">
+                                        <span className="flex items-center gap-1"><Clock size={11} /> {act.dateTime}</span>
+                                        <span className="flex items-center gap-1"><MapPin size={11} /> {act.location}</span>
+                                        <span className="text-emerald-700 font-bold">Chuẩn nạp: +{act.points}đ mốc TC{act.criteriaId.substring(2)}</span>
+                                      </div>
+                                      {act.description && <p className="text-[9px] text-slate-400 italic mt-1 leading-normal line-clamp-2">{act.description}</p>}
+                                    </div>
+
+                                    {registered ? (
+                                      <span className="px-3.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-250 font-black text-[9px] rounded-xl font-mono shrink-0">
+                                        ✓ ĐÃ ĐĂNG KÝ
+                                      </span>
+                                    ) : isActCompleted ? (
+                                      <span className="px-3 py-1 bg-slate-100 text-slate-500 font-bold text-[9px] rounded-lg cursor-not-allowed select-none">
+                                        ĐÃ HẾT HẠN ĐĂNG KÝ
+                                      </span>
+                                    ) : (
+                                      <button 
+                                        onClick={() => {
+                                          registerForActivity(act.id, studentId);
+                                          alert(`Đăng ký thành công hoạt động "${act.title}"! Ban chủ nhiệm sẽ tiến hành kiểm diện điểm danh trực tiếp tại sự kiện.`);
+                                        }}
+                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[10px] rounded-xl cursor-pointer shadow-xs transition-colors shrink-0"
+                                      >
+                                        Đăng ký tham dự
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* OPTIONAL ATTACHMENTS PORTFOLIO (HỒ SƠ THÀNH VIÊN & TỆP ĐÍNH KÈM CÁ NHÂN) */}
+                        <div className="space-y-3.5 pt-2 border-t border-slate-100">
+                          <h4 className="text-xs font-black text-indigo-950 uppercase tracking-wider flex items-center gap-1.5 pb-1">
+                            <FileText size={14} className="text-indigo-500" />
+                            <span>Cổng hồ sơ & Tờ trình đính kèm thành viên cá nhân</span>
+                          </h4>
+
+                          {!membership ? (
+                            <div className="space-y-4">
+                              {!isApplyingClub ? (
+                                <div className="p-5 bg-indigo-50/50 border border-indigo-100 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs">
+                                  <div className="space-y-1">
+                                    <span className="font-extrabold text-indigo-950 block">Chào bạn sinh rèn! Bạn chưa tham gia sinh hoạt chi hội này.</span>
+                                    <p className="text-[10px] text-slate-550">Tuyển sinh chính thức học kỳ năm học ${period.academicYear}. Đảm bảo cập nhật hồ sơ chuyên cần & rèn luyện đồng bộ.</p>
+                                  </div>
+                                  <button 
+                                    onClick={() => setIsApplyingClub(true)}
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl cursor-pointer shadow-sm active:scale-95 transition-all text-center"
+                                  >
+                                    Đăng ký gia nhập trực tuyến
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="p-5 border border-slate-200 bg-white rounded-xl space-y-4 text-xs shadow-xs animate-slide-up">
+                                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                                    <h5 className="font-black text-slate-900 uppercase tracking-wide flex items-center gap-1.5 text-[11px]">
+                                      <Sparkles size={13} className="text-indigo-500 animate-spin-slow" />
+                                      <span>Tờ khai đăng ký đính kèm thành viên chi hội</span>
+                                    </h5>
+                                    <button 
+                                      type="button"
+                                      onClick={() => setIsApplyingClub(false)}
+                                      className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 bg-slate-100 rounded-lg text-[10px]"
+                                    >
+                                      Thu gọn đơn
+                                    </button>
+                                  </div>
+
+                                  <div className="space-y-3">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                                      {/* Ho va ten */}
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Họ và tên thí sinh/học sinh <span className="text-red-500">*</span></label>
+                                        <input 
+                                          type="text" 
+                                          placeholder="Nhập đầy đủ tên"
+                                          value={applyName}
+                                          onChange={(e) => setApplyName(e.target.value)}
+                                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white font-medium focus:border-indigo-500 focus:outline-none"
+                                          required
+                                        />
+                                      </div>
+
+                                      {/* Ma SV & Lop lock */}
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                          <label className="block text-[10px] font-bold text-slate-600 mb-1">Mã sinh viên</label>
+                                          <input 
+                                            type="text" 
+                                            disabled
+                                            value={studentId}
+                                            className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-slate-100 text-slate-450 font-mono"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-[10px] font-bold text-slate-600 mb-1">Lớp sinh hoạt</label>
+                                          <input 
+                                            type="text" 
+                                            disabled
+                                            value={sObj?.classId || "K20-CNTT"}
+                                            className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-slate-100 text-slate-450"
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                      {/* Gioi tinh */}
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Giới tính</label>
+                                        <select 
+                                          value={applyGender}
+                                          onChange={(e) => setApplyGender(e.target.value)}
+                                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white"
+                                        >
+                                          <option value="Nam">Nam</option>
+                                          <option value="Nữ">Nữ</option>
+                                          <option value="Khác">Khác</option>
+                                        </select>
+                                      </div>
+
+                                      {/* Ngay sinh */}
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Ngày sinh <span className="text-red-500">*</span></label>
+                                        <input 
+                                          type="date" 
+                                          value={applyDob}
+                                          onChange={(e) => setApplyDob(e.target.value)}
+                                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white"
+                                          required
+                                        />
+                                      </div>
+
+                                      {/* Dan toc */}
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Dân tộc <span className="text-red-500">*</span></label>
+                                        <input 
+                                          type="text" 
+                                          placeholder="Kinh, Tày, Nùng..."
+                                          value={applyEthnicity}
+                                          onChange={(e) => setApplyEthnicity(e.target.value)}
+                                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white"
+                                          required
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                                      {/* So dien thoai */}
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Số điện thoại liên lạc <span className="text-red-500">*</span></label>
+                                        <input 
+                                          type="tel" 
+                                          placeholder="Nhập SĐT di động"
+                                          value={applyPhone}
+                                          onChange={(e) => setApplyPhone(e.target.value)}
+                                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white font-mono"
+                                          required
+                                        />
+                                      </div>
+
+                                      {/* Dia chi Email */}
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Địa chỉ Email liên hệ <span className="text-red-500">*</span></label>
+                                        <input 
+                                          type="email" 
+                                          placeholder="student@gmail.com"
+                                          value={applyEmail}
+                                          onChange={(e) => setApplyEmail(e.target.value)}
+                                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white font-mono"
+                                          required
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                                      {/* Chuyen nganh */}
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Chuyên ngành đào tạo <span className="text-red-500">*</span></label>
+                                        <input 
+                                          type="text" 
+                                          placeholder="An toàn thông tin, CNTT..."
+                                          value={applyMajor}
+                                          onChange={(e) => setApplyMajor(e.target.value)}
+                                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white"
+                                          required
+                                        />
+                                      </div>
+
+                                      {/* Attachment URL */}
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-indigo-950 mb-1 leading-tight">
+                                          Tờ trình / CV / Đường dẫn Đơn xin gia nhập
+                                        </label>
+                                        <input 
+                                          type="url" 
+                                          placeholder="https://drive.google.com/file/..."
+                                          value={applyAttachmentUrl}
+                                          onChange={(e) => setApplyAttachmentUrl(e.target.value)}
+                                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white font-mono"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                                      {/* Dia chi Thuong tru */}
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Địa chỉ thường trú</label>
+                                        <input 
+                                          type="text" 
+                                          placeholder="Tỉnh/Thành phố quê quán sở tại"
+                                          value={applyPermanentAddress}
+                                          onChange={(e) => setApplyPermanentAddress(e.target.value)}
+                                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white"
+                                        />
+                                      </div>
+
+                                      {/* Dia chi tam tru */}
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Địa chỉ tạm trú hiện tại</label>
+                                        <input 
+                                          type="text" 
+                                          placeholder="Ký túc xá hoặc địa chỉ phòng trọ"
+                                          value={applyTemporaryAddress}
+                                          onChange={(e) => setApplyTemporaryAddress(e.target.value)}
+                                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="pt-2.5 border-t border-slate-100 flex justify-end gap-2">
+                                    <button 
+                                      type="button"
+                                      onClick={() => setIsApplyingClub(false)}
+                                      className="px-3.5 py-2 hover:bg-slate-50 text-slate-600 border border-slate-200 font-extrabold text-[10px] rounded-lg cursor-pointer"
+                                    >
+                                      Hủy bỏ đơn
+                                    </button>
+                                    <button 
+                                      type="button"
+                                      onClick={() => {
+                                        if (!applyName || !applyDob || !applyEthnicity || !applyPhone || !applyEmail || !applyMajor) {
+                                          alert("Vui lòng nhập đầy đủ các trường thông tin bắt buộc có dấu (*)");
+                                          return;
+                                        }
+
+                                        // Call join request action with collected details
+                                        joinOrganizationRequest(studentId, club.id, {
+                                          studentName: applyName,
+                                          gender: applyGender,
+                                          dob: applyDob,
+                                          ethnicity: applyEthnicity,
+                                          phone: applyPhone,
+                                          email: applyEmail,
+                                          major: applyMajor,
+                                          permanentAddress: applyPermanentAddress,
+                                          temporaryAddress: applyTemporaryAddress,
+                                          attachmentUrl: applyAttachmentUrl
+                                        });
+
+                                        alert(`Nộp hồ sơ gia nhập CLB "${club.name}" thành công! Chỉ chức danh và dữ liệu liên lạc của bạn sẽ hiển thị tự hóa khi Chủ nhiệm duyệt.`);
+                                        setIsApplyingClub(false);
+                                      }}
+                                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[10px] rounded-lg cursor-pointer shadow-sm active:scale-95 transition-all"
+                                    >
+                                      Gửi đơn gia nhập CLB chính thức
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="p-4 border border-violet-100 bg-violet-50/15 rounded-xl space-y-3 text-xs text-slate-705">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <span className="text-slate-400 font-sans block">Chức vụ trong tổ chức:</span>
+                                  <span className="font-extrabold text-slate-900 bg-violet-100 text-violet-800 px-2.5 py-0.5 rounded-md mt-1 inline-block">
+                                    {membership.role}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 font-sans block">Trạng thái sinh hoạt:</span>
+                                  <span className={`font-extrabold px-2.5 py-0.5 rounded-md mt-1 inline-block ${membership.status === "ACTIVE" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
+                                    {membership.status === "ACTIVE" ? "ĐANG SINH HOẠT" : "CHỜ PHÊ DUYỆT ĐƠN"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Editable attachment URL input (Requirement #1: Thêm tệp đính kèm cho các thành viên CLB) */}
+                              <div className="pt-2">
+                                <label className="block text-[11px] font-bold text-slate-650 mb-1 leading-tight">
+                                  Đường dẫn Tệp đính kèm cá nhân học sinh (CV, Hồ sơ rèn luyện, chứng minh chứng):
+                                </label>
+                                <div className="flex gap-2">
+                                  <input 
+                                    type="text"
+                                    placeholder="e.g. https://drive.google.com/file/d/abcdefgh_cv.pdf"
+                                    value={profileAttachmentInput}
+                                    onChange={(e) => setProfileAttachmentInput(e.target.value)}
+                                    className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white focus:outline-none"
+                                  />
+                                  <button 
+                                    onClick={() => {
+                                      updateMemberDetails(membership.id, {
+                                        attachmentUrl: profileAttachmentInput
+                                      });
+                                      alert("Cập nhật tệp đính kèm thành viên thành công! Chủ nhiệm CLB đã có thể xem từ hệ quản trị.");
+                                    }}
+                                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-lg text-[10px] cursor-pointer"
+                                  >
+                                    Lưu tệp
+                                  </button>
+                                </div>
+                                <span className="text-[9px] text-slate-420 block mt-1">
+                                  Ghi chú: Bản đính kèm này sẽ hiển thị trực tiếp cho Ban chủ nhiệm kiểm sát hồ sơ thi đua.
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                      </div>
+
+                      {/* Modal Footer */}
+                      <div className="bg-slate-50 px-6 py-4.5 border-t border-slate-150 flex justify-end shrink-0">
+                        <button 
+                          onClick={() => setSelectedClubIdDetail(null)}
+                          className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold text-xs cursor-pointer"
+                        >
+                          Đóng cửa sổ
+                        </button>
+                      </div>
+
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 

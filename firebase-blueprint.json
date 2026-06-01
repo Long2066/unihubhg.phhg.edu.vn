@@ -1,0 +1,231 @@
+{
+  "entities": {
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "Information about users and their authentication details linked to system roles.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique key of the user" },
+        "username": { "type": "string", "description": "Account login username or email" },
+        "name": { "type": "string", "description": "Full name of the system user" },
+        "role": { "type": "string", "enum": ["STUDENT", "ORGANIZER", "TRAINING_DEPT", "CLASS_MONITOR", "ADVISER", "FACULTY", "ADMIN"] },
+        "email": { "type": "string", "description": "Verified login email address" },
+        "targetId": { "type": "string", "description": "Linked association ID (e.g., student ID or class name)" },
+        "password": { "type": "string", "description": "Confidential account access passphrase" }
+      },
+      "required": ["id", "username", "name", "role", "email"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Student roster profile details.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Institutional Student Matriculation ID" },
+        "name": { "type": "string" },
+        "classId": { "type": "string" },
+        "facultyId": { "type": "string" },
+        "email": { "type": "string" },
+        "avatar": { "type": "string" },
+        "gpa": { "type": "number" },
+        "creditsEarned": { "type": "number" },
+        "learningWarning": { "type": "boolean" },
+        "learningStatus": { "type": "string" },
+        "learningDataLocked": { "type": "boolean" }
+      },
+      "required": ["id", "name", "classId", "facultyId", "email"]
+    },
+    "OrganizationMember": {
+      "title": "OrganizationMember",
+      "description": "Direct club or division membership roster details.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique key matching members document" },
+        "studentId": { "type": "string", "description": "Matriculated Student ID" },
+        "classId": { "type": "string" },
+        "orgId": { "type": "string" },
+        "role": { "type": "string", "enum": ["CHỦ NHIỆM", "BAN CHẤP HÀNH", "ỦY VIÊN", "THÀNH VIÊN"] },
+        "joinedDate": { "type": "string" },
+        "term": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "ACTIVE", "INACTIVE"] },
+        "gender": { "type": "string" },
+        "dob": { "type": "string" },
+        "ethnicity": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "permanentAddress": { "type": "string" },
+        "temporaryAddress": { "type": "string" },
+        "major": { "type": "string" },
+        "facultyInCharge": { "type": "string" },
+        "studentName": { "type": "string" },
+        "attachmentUrl": { "type": "string" }
+      },
+      "required": ["id", "studentId", "classId", "orgId", "role", "joinedDate", "status"]
+    },
+    "ClubAnnouncement": {
+      "title": "ClubAnnouncement",
+      "description": "Club notifications and broadcasts with optional expiry custom duration.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orgId": { "type": "string" },
+        "orgName": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "expiryDate": { "type": "string" }
+      },
+      "required": ["id", "orgId", "orgName", "title", "content", "createdAt"]
+    },
+    "Organization": {
+      "title": "Organization",
+      "description": "Extracurricular clubs, Doan, or Hoi divisions within the university.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Club Identifier Code" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["CLB", "DOAN", "HOI"] },
+        "leaderName": { "type": "string" },
+        "field": { "type": "string" },
+        "level": { "type": "string", "enum": ["TRUONG", "KHOA"] }
+      },
+      "required": ["id", "name", "type", "leaderName", "field", "level"]
+    },
+    "ExtracurricularActivity": {
+      "title": "ExtracurricularActivity",
+      "description": "Extracurricular work, events, or workshops hosted by organizations.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "orgId": { "type": "string" },
+        "orgName": { "type": "string" },
+        "criteriaId": { "type": "string" },
+        "points": { "type": "number" },
+        "dateTime": { "type": "string" },
+        "location": { "type": "string" },
+        "description": { "type": "string" },
+        "registrationOpen": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["UPCOMING", "ONGOING", "COMPLETED"] }
+      },
+      "required": ["id", "title", "orgId", "orgName", "criteriaId", "points", "dateTime", "location", "status"]
+    },
+    "ActivityAttendance": {
+      "title": "ActivityAttendance",
+      "description": "Registrations and verified list of participants for activities.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "activityId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "classId": { "type": "string" },
+        "registeredAt": { "type": "string" },
+        "role": { "type": "string", "enum": ["MEM", "BTC", "SUPPORTER"] },
+        "attended": { "type": "boolean" },
+        "verified": { "type": "boolean" }
+      },
+      "required": ["id", "activityId", "studentId", "studentName", "classId", "role", "attended", "verified"]
+    },
+    "EvidenceSubmission": {
+      "title": "EvidenceSubmission",
+      "description": "Proof of external activity completion submitted by a student.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "classId": { "type": "string" },
+        "criteriaId": { "type": "string" },
+        "activityName": { "type": "string" },
+        "description": { "type": "string" },
+        "pointsRequested": { "type": "number" },
+        "proofUrl": { "type": "string" },
+        "submittedAt": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "reviewedBy": { "type": "string" },
+        "reviewComment": { "type": "string" }
+      },
+      "required": ["id", "studentId", "studentName", "classId", "criteriaId", "activityName", "pointsRequested", "proofUrl", "submittedAt", "status"]
+    },
+    "EvaluationResult": {
+      "title": "EvaluationResult",
+      "description": "Calculated rèn luyện evaluation records.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "classId": { "type": "string" },
+        "facultyId": { "type": "string" },
+        "periodId": { "type": "string" },
+        "studyPoints": { "type": "number" },
+        "violationPoints": { "type": "number" },
+        "extracurricularPoints": { "type": "number" },
+        "communityPoints": { "type": "number" },
+        "achievementPoints": { "type": "number" },
+        "totalPoints": { "type": "number" },
+        "grade": { "type": "string", "enum": ["XUẤT SẮC", "TỐT", "KHÁ", "TRUNG BÌNH", "YỀU", "KÉM"] },
+        "status": { "type": "string", "enum": ["AUTO", "PENDING_CLASS", "APPROVED_CLASS", "APPROVED_ADVISER", "LOCKED"] },
+        "adviserNotes": { "type": "string" }
+      },
+      "required": ["studentId", "studentName", "classId", "facultyId", "periodId", "studyPoints", "violationPoints", "extracurricularPoints", "communityPoints", "achievementPoints", "totalPoints", "grade", "status"]
+    },
+    "DailyAttendanceReport": {
+      "title": "DailyAttendanceReport",
+      "description": "Roster headcounts and absentees logged by class monitors.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "classId": { "type": "string" },
+        "date": { "type": "string" },
+        "totalStudents": { "type": "number" },
+        "presentCount": { "type": "number" },
+        "absentCount": { "type": "number" },
+        "reportedBy": { "type": "string" },
+        "reportedAt": { "type": "string" }
+      },
+      "required": ["id", "classId", "date", "totalStudents", "presentCount", "absentCount", "reportedBy", "reportedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserAccount",
+      "description": "System accounts for role-based authentication"
+    },
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Roster of all registered university students"
+    },
+    "/organizations/{orgId}": {
+      "schema": "Organization",
+      "description": "Registered students' associations, clubs, or union divisions"
+    },
+    "/members/{memberId}": {
+      "schema": "OrganizationMember",
+      "description": "Direct club or association member rosters with custom attachments"
+    },
+    "/announcements/{announcementId}": {
+      "schema": "ClubAnnouncement",
+      "description": "Club notifications and announcements with customizable expiry"
+    },
+    "/activities/{activityId}": {
+      "schema": "ExtracurricularActivity",
+      "description": "Event management and action declarations"
+    },
+    "/attendance/{attendanceId}": {
+      "schema": "ActivityAttendance",
+      "description": "Individual attendance check-ins for extracurricular works"
+    },
+    "/evidence/{evidenceId}": {
+      "schema": "EvidenceSubmission",
+      "description": "Certificates and documents uploaded by students for verification"
+    },
+    "/results/{resultId}": {
+      "schema": "EvaluationResult",
+      "description": "Evaluation grade sheet results calculations"
+    },
+    "/dailyAttendance/{attendanceId}": {
+      "schema": "DailyAttendanceReport",
+      "description": "Sĩ số reports from the class monitors"
+    }
+  }
+}

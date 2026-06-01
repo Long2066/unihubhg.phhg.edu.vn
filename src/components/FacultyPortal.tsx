@@ -18,8 +18,15 @@ export const FacultyPortal: React.FC = () => {
     facultyReviews, 
     lockFacultyData, 
     students,
-    classReviews 
+    classReviews,
+    activePortletTab,
+    setActivePortletTab
   } = useUniHub();
+
+  const activeTab = (activePortletTab as "STAT" | "LOCKS") || "STAT";
+  const setActiveTab = (tab: "STAT" | "LOCKS") => {
+    setActivePortletTab(tab);
+  };
 
   const facultyId = currentUser?.targetId || "K-CNTT";
   
@@ -53,8 +60,6 @@ export const FacultyPortal: React.FC = () => {
     lockFacultyData(facultyId, "Trưởng Khoa CNTT");
     alert(`Khoa CNTT đã khoá sổ nộp điểm rèn luyện chính thức của toàn bộ các lớp trực thuộc lên Cổng CTHSSV trường.`);
   };
-
-  const [activeTab, setActiveTab] = useState<"STAT" | "LOCKS">("STAT");
 
   const getRankColorLight = (points: number) => {
     if (points >= 90) return "bg-emerald-50 text-emerald-800 border-emerald-100";

@@ -1,5 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { 
+  doc, 
+  getDocFromServer, 
+  setDoc, 
+  collection, 
+  getDocs 
+} from "firebase/firestore";
+import { db } from "./firebase";
+
+import { 
   UserAccount, 
   UserRole, 
   Student, 
@@ -15,7 +24,8 @@ import {
   PointCriteria,
   DailyAttendanceReport,
   ScoreFeedback,
-  GroupEvaluationCriteria
+  GroupEvaluationCriteria,
+  ClubAnnouncement
 } from "./types";
 import { 
   SEED_PERIOD, 
@@ -50,6 +60,7 @@ interface UniHubContextType {
   dailyAttendance: DailyAttendanceReport[];
   feedbacks: ScoreFeedback[];
   groupCriteria: GroupEvaluationCriteria[];
+  announcements: ClubAnnouncement[];
   
   // Actions
   login: (email: string, password?: string) => boolean;
@@ -59,17 +70,25 @@ interface UniHubContextType {
   // Student Actions
   registerForActivity: (activityId: string, studentId: string) => void;
   submitEvidence: (data: Omit<EvidenceSubmission, "id" | "submittedAt" | "status">) => void;
-  joinOrganizationRequest: (studentId: string, orgId: string) => void;
+  joinOrganizationRequest: (studentId: string, orgId: string, details?: Partial<OrganizationMember>) => void;
   updateStudentProfile: (studentId: string, name: string, avatar: string, password?: string) => void;
   
   // Organizer Actions
-  createActivity: (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName">) => void;
+  createActivity: (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName"> & { expiryDate?: string }) => void;
   updateActivityStatus: (activityId: string, status: "UPCOMING" | "ONGOING" | "COMPLETED") => void;
   approveMemberRequest: (memberId: string) => void;
   rejectMemberRequest: (memberId: string) => void;
   assignMemberRole: (memberId: string, role: "CHỦ NHIỆM" | "BAN CHẤP HÀNH" | "ỦY VIÊN" | "THÀNH VIÊN") => void;
   updateAttendance: (attendanceId: string, attended: boolean, role?: "MEM" | "BTC" | "SUPPORTER") => void;
   addBulkAttendance: (activityId: string, studentIds: string[]) => void;
+  
+  // New clb actions
+  createAnnouncement: (announcement: Omit<ClubAnnouncement, "id" | "orgName" | "createdAt">) => void;
+  deleteAnnouncement: (id: string) => void;
+  addMemberManual: (member: Omit<OrganizationMember, "id" | "joinedDate" | "term" | "status">) => void;
+  deleteMember: (memberId: string) => void;
+  updateMemberDetails: (memberId: string, details: Partial<OrganizationMember>) => void;
+  importMembersExcel: (membersToImport: OrganizationMember[]) => void;
   
   // Training Dept Actions
   importAcademicData: (excelData: Partial<Student>[]) => void;
@@ -99,12 +118,42 @@ interface UniHubContextType {
   updateCriteriaScore: (criteriaId: string, ruleId: string, newPoints: number) => void;
   bulkUpdateCriteria: (newCriteria: PointCriteria[]) => void;
   resetToSeeds: () => void;
+  createClubWithAccount: (club: Organization, account: UserAccount) => void;
+  updateClubAndAccount: (clubId: string, updatedClub: Partial<Organization>, updatedAccount: Partial<UserAccount>) => void;
+  deleteClubAndAccount: (clubId: string) => void;
+  activePortletTab: string;
+  setActivePortletTab: (tab: string) => void;
 }
 
 const UniHubContext = createContext<UniHubContextType | undefined>(undefined);
 
 export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [activePortletTab, setActivePortletTab] = useState<string>("TRANG_CHU");
+
+  useEffect(() => {
+    if (currentUser) {
+      switch (currentUser.role) {
+        case UserRole.STUDENT:
+          setActivePortletTab("TRANG_CHU");
+          break;
+        case UserRole.ORGANIZER:
+          setActivePortletTab("DS_THANHVIEN");
+          break;
+        case UserRole.ADMIN:
+          setActivePortletTab("CONFIG");
+          break;
+        case UserRole.TRAINING_DEPT:
+          setActivePortletTab("IMPORT");
+          break;
+        case UserRole.FACULTY:
+          setActivePortletTab("STAT");
+          break;
+        default:
+          setActivePortletTab("TRANG_CHU");
+      }
+    }
+  }, [currentUser]);
   
   // Core Databases in LocalStorage or State
   const [period, setPeriod] = useState<EvaluationPeriod>(SEED_PERIOD);
@@ -129,6 +178,26 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     { id: "XS", name: "Tập thể Xuất sắc", minExcellentPercent: 30, maxWeakPercent: 0, description: "Tỉ lệ rèn luyện Xuất sắc & Tốt đạt từ 30% trở lên, không có sinh viên xếp loại Yếu hoặc Kém." },
     { id: "TT", name: "Tập thể Tiên tiến", minExcellentPercent: 20, maxWeakPercent: 5, description: "Tỉ lệ rèn luyện Xuất sắc & Tốt đạt từ 20% trở lên, tỉ lệ xếp loại Yếu hoặc Kém không quá 5%." }
   ]);
+  const [announcements, setAnnouncements] = useState<ClubAnnouncement[]>([
+    {
+      id: "ANN_01",
+      orgId: "UNITECH",
+      orgName: "CLB Sáng tạo Công nghệ UniTech",
+      title: "Tuyển thành viên Ban chủ nhiệm nhiệm kỳ mới 2026-2027",
+      content: "CLB thông báo tuyển ứng tuyển nhân sự cho các ban: Truyền thông & Sự kiện, Nghiên cứu phát triển. Hạn chốt đăng ký trước ngày 15/06/2026.",
+      createdAt: "2026-05-20",
+      expiryDate: "2026-06-25"
+    },
+    {
+      id: "ANN_02",
+      orgId: "UNITECH",
+      orgName: "CLB Sáng tạo Công nghệ UniTech",
+      title: "Buổi sinh hoạt chuyên đề: Trí tuệ nhân tạo thế hệ mới",
+      content: "Trân trọng kính mời tất cả các thành viên tham dự buổi sinh hoạt chuyên đề thảo luận ứng dụng của AI vào học tập, giải thưởng và nghiên cứu khoa học sinh viên.",
+      createdAt: "2026-06-01",
+      expiryDate: "2026-06-24"
+    }
+  ]);
 
   // Load state from local storage on boot
   useEffect(() => {
@@ -149,6 +218,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const cachedDailyAtt = localStorage.getItem("unihub_daily_attendance");
     const cachedFeedbacks = localStorage.getItem("unihub_feedbacks");
     const cachedGroupCriteria = localStorage.getItem("unihub_group_criteria");
+    const cachedAnnouncements = localStorage.getItem("unihub_announcements");
 
     if (cachedPeriod) setPeriod(JSON.parse(cachedPeriod));
     if (cachedUsers) setUsers(JSON.parse(cachedUsers));
@@ -167,12 +237,267 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (cachedDailyAtt) setDailyAttendance(JSON.parse(cachedDailyAtt));
     if (cachedFeedbacks) setFeedbacks(JSON.parse(cachedFeedbacks));
     if (cachedGroupCriteria) setGroupCriteria(JSON.parse(cachedGroupCriteria));
+    if (cachedAnnouncements) setAnnouncements(JSON.parse(cachedAnnouncements));
+  }, []);
+
+  // Validate Connection to Firestore on startup
+  const testConnection = async () => {
+    try {
+      const testDoc = doc(db, "test", "connection");
+      await getDocFromServer(testDoc);
+      console.log("Firebase Connection verified successfully.");
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("offline")) {
+        console.error("Please check your Firebase configuration. Client is offline.");
+      } else {
+        console.log("Firebase connection established or verified with server response.");
+      }
+    }
+  };
+
+  // Load data from Firebase Firestore
+  const loadFromFirestore = async () => {
+    try {
+      // 1. Get Users
+      const usersSnap = await getDocs(collection(db, "users"));
+      if (!usersSnap.empty) {
+        const list: UserAccount[] = [];
+        usersSnap.forEach(d => list.push(d.data() as UserAccount));
+        setUsers(list);
+        localStorage.setItem("unihub_users", JSON.stringify(list));
+      }
+      
+      // 2. Get Students
+      const studsSnap = await getDocs(collection(db, "students"));
+      if (!studsSnap.empty) {
+        const list: Student[] = [];
+        studsSnap.forEach(d => list.push(d.data() as Student));
+        setStudents(list);
+        localStorage.setItem("unihub_students", JSON.stringify(list));
+      }
+
+      // 3. Get Organizations
+      const orgsSnap = await getDocs(collection(db, "organizations"));
+      if (!orgsSnap.empty) {
+        const list: Organization[] = [];
+        orgsSnap.forEach(d => list.push(d.data() as Organization));
+        setOrganizations(list);
+        localStorage.setItem("unihub_organizations", JSON.stringify(list));
+      }
+
+      // 4. Get Activities
+      const actsSnap = await getDocs(collection(db, "activities"));
+      if (!actsSnap.empty) {
+        const list: ExtracurricularActivity[] = [];
+        actsSnap.forEach(d => list.push(d.data() as ExtracurricularActivity));
+        setActivities(list);
+        localStorage.setItem("unihub_activities", JSON.stringify(list));
+      }
+
+      // 5. Get Attendance
+      const attsSnap = await getDocs(collection(db, "attendance"));
+      if (!attsSnap.empty) {
+        const list: ActivityAttendance[] = [];
+        attsSnap.forEach(d => list.push(d.data() as ActivityAttendance));
+        setAttendance(list);
+        localStorage.setItem("unihub_attendance", JSON.stringify(list));
+      }
+
+      // 6. Get Evidence
+      const evsSnap = await getDocs(collection(db, "evidence"));
+      if (!evsSnap.empty) {
+        const list: EvidenceSubmission[] = [];
+        evsSnap.forEach(d => list.push(d.data() as EvidenceSubmission));
+        setEvidence(list);
+        localStorage.setItem("unihub_evidence", JSON.stringify(list));
+      }
+
+      // 7. Get Results
+      const resSnap = await getDocs(collection(db, "results"));
+      if (!resSnap.empty) {
+        const list: EvaluationResult[] = [];
+        resSnap.forEach(d => list.push(d.data() as EvaluationResult));
+        setResults(list);
+        localStorage.setItem("unihub_results", JSON.stringify(list));
+      }
+
+      // 8. Get Daily Attendance
+      const daSnap = await getDocs(collection(db, "dailyAttendance"));
+      if (!daSnap.empty) {
+        const list: DailyAttendanceReport[] = [];
+        daSnap.forEach(d => list.push(d.data() as DailyAttendanceReport));
+        setDailyAttendance(list);
+        localStorage.setItem("unihub_daily_attendance", JSON.stringify(list));
+      }
+
+      // 9. Get Members
+      const membersSnap = await getDocs(collection(db, "members"));
+      if (!membersSnap.empty) {
+        const list: OrganizationMember[] = [];
+        membersSnap.forEach(d => list.push(d.data() as OrganizationMember));
+        setMembers(list);
+        localStorage.setItem("unihub_members", JSON.stringify(list));
+      }
+
+      // 10. Get Announcements
+      const annSnap = await getDocs(collection(db, "announcements"));
+      if (!annSnap.empty) {
+        const list: ClubAnnouncement[] = [];
+        annSnap.forEach(d => list.push(d.data() as ClubAnnouncement));
+        setAnnouncements(list);
+        localStorage.setItem("unihub_announcements", JSON.stringify(list));
+      }
+    } catch (error) {
+      console.warn("Could not sync from Firestore (possibly schema rules or empty DB):", error);
+    }
+  };
+
+  // Save changes to Firebase Firestore
+  const saveToFirestore = async (key: string, data: any) => {
+    try {
+      if (key === "unihub_users" && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.id) {
+            await setDoc(doc(db, "users", item.id), item);
+          }
+        }
+      } else if (key === "unihub_students" && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.id) {
+            await setDoc(doc(db, "students", item.id), item);
+          }
+        }
+      } else if (key === "unihub_organizations" && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.id) {
+            await setDoc(doc(db, "organizations", item.id), item);
+          }
+        }
+      } else if (key === "unihub_activities" && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.id) {
+            await setDoc(doc(db, "activities", item.id), item);
+          }
+        }
+      } else if (key === "unihub_attendance" && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.id) {
+            await setDoc(doc(db, "attendance", item.id), item);
+          }
+        }
+      } else if (key === "unihub_evidence" && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.id) {
+            await setDoc(doc(db, "evidence", item.id), item);
+          }
+        }
+      } else if (key === "unihub_results" && Array.isArray(data)) {
+        for (const item of data) {
+          const docId = `${item.studentId}_${item.periodId}`;
+          await setDoc(doc(db, "results", docId), item);
+        }
+      } else if (key === "unihub_daily_attendance" && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.id) {
+            await setDoc(doc(db, "dailyAttendance", item.id), item);
+          }
+        }
+      } else if (key === "unihub_members" && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.id) {
+            await setDoc(doc(db, "members", item.id), item);
+          }
+        }
+      } else if (key === "unihub_announcements" && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.id) {
+            await setDoc(doc(db, "announcements", item.id), item);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`Firestore upload failed for key ${key}:`, error);
+    }
+  };
+
+  // Run automatically on boot to check connection and seed state
+  useEffect(() => {
+    testConnection();
+    
+    const initAndSeedFirestore = async () => {
+      try {
+        const usersSnap = await getDocs(collection(db, "users"));
+        if (usersSnap.empty) {
+          console.log("Seeding Firestore database for the first time...");
+          for (const u of SEED_USERS) {
+            await setDoc(doc(db, "users", u.id), u);
+          }
+          for (const s of SEED_STUDENTS) {
+            await setDoc(doc(db, "students", s.id), s);
+          }
+          for (const o of SEED_ORGANIZATIONS) {
+            await setDoc(doc(db, "organizations", o.id), o);
+          }
+          for (const a of SEED_ACTIVITIES) {
+            await setDoc(doc(db, "activities", a.id), a);
+          }
+          for (const att of SEED_ATTENDANCE) {
+            await setDoc(doc(db, "attendance", att.id), att);
+          }
+          for (const ev of SEED_EVIDENCE) {
+            await setDoc(doc(db, "evidence", ev.id), ev);
+          }
+          for (const m of SEED_MEMBERS) {
+            await setDoc(doc(db, "members", m.id), m);
+          }
+          const initAnns: ClubAnnouncement[] = [
+            {
+              id: "ANN_01",
+              orgId: "UNITECH",
+              orgName: "CLB Sáng tạo Công nghệ UniTech",
+              title: "Tuyển thành viên Ban chủ nhiệm nhiệm kỳ mới 2026-2027",
+              content: "CLB thông báo tuyển ứng tuyển nhân sự cho các ban: Truyền thông & Sự kiện, Nghiên cứu phát triển. Hạn chốt đăng ký trước ngày 15/06/2026.",
+              createdAt: "2026-05-20",
+              expiryDate: "2026-06-25"
+            },
+            {
+              id: "ANN_02",
+              orgId: "UNITECH",
+              orgName: "CLB Sáng tạo Công nghệ UniTech",
+              title: "Buổi sinh hoạt chuyên đề: Trí tuệ nhân tạo thế hệ mới",
+              content: "Trân trọng kính mời tất cả các thành viên tham dự buổi sinh hoạt chuyên đề thảo luận ứng dụng của AI vào học tập, giải thưởng và nghiên cứu khoa học sinh viên.",
+              createdAt: "2026-06-01",
+              expiryDate: "2026-06-24"
+            }
+          ];
+          for (const ann of initAnns) {
+            await setDoc(doc(db, "announcements", ann.id), ann);
+          }
+          for (const da of SEED_DAILY_ATTENDANCE) {
+            await setDoc(doc(db, "dailyAttendance", da.id), da);
+          }
+          for (const r of SEED_RESULTS) {
+            const docId = `${r.studentId}_${r.periodId}`;
+            await setDoc(doc(db, "results", docId), r);
+          }
+          console.log("Seeding complete!");
+        } else {
+          await loadFromFirestore();
+        }
+      } catch (err) {
+        console.warn("Could not auto-seed Firestore (ignoring during initial startup auth limits):", err);
+      }
+    };
+
+    initAndSeedFirestore();
   }, []);
 
   // Save changes helper
   const saveToStorage = (key: string, data: any) => {
-    localStorage.setItem(key, JSON.stringify(data));
+    localStorage.setValue ? localStorage.setValue(key, data) : localStorage.setItem(key, JSON.stringify(data));
+    saveToFirestore(key, data);
   };
+
 
   // Run automatically whenever criteria, students, members, activities, attendance, evidence changes to make evaluation engine REAL
   useEffect(() => {
@@ -466,7 +791,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveToStorage("unihub_evidence", updated);
   };
 
-  const joinOrganizationRequest = (studentId: string, orgId: string) => {
+  const joinOrganizationRequest = (studentId: string, orgId: string, details?: Partial<OrganizationMember>) => {
     const studentObj = students.find(s => s.id === studentId);
     if (!studentObj) return;
 
@@ -478,7 +803,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       role: "THÀNH VIÊN",
       joinedDate: new Date().toISOString().split("T")[0],
       term: period.academicYear,
-      status: "PENDING"
+      status: "PENDING",
+      studentName: studentObj.name,
+      ...details
     };
 
     const updated = [...members, pendingMember];
@@ -553,9 +880,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // Organizer Actions
-  const createActivity = (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName">) => {
+  const createActivity = (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName"> & { expiryDate?: string }) => {
     const org = organizations.find(o => o.id === activity.orgId);
-    const newAct: ExtracurricularActivity = {
+    const newAct: ExtracurricularActivity & { expiryDate?: string } = {
       ...activity,
       id: `ACT_NEW_${Date.now()}`,
       orgName: org?.name || "Chi hội",
@@ -589,6 +916,62 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setActivities(updated);
     saveToStorage("unihub_activities", updated);
+  };
+
+  // New clb actions
+  const createAnnouncement = (announcement: Omit<ClubAnnouncement, "id" | "orgName" | "createdAt">) => {
+    const org = organizations.find(o => o.id === announcement.orgId);
+    const newAnn: ClubAnnouncement = {
+      ...announcement,
+      id: `ANN_NEW_${Date.now()}`,
+      orgName: org?.name || "Chi hội",
+      createdAt: new Date().toISOString().split("T")[0]
+    };
+    const updated = [newAnn, ...announcements];
+    setAnnouncements(updated);
+    saveToStorage("unihub_announcements", updated);
+  };
+
+  const deleteAnnouncement = (id: string) => {
+    const updated = announcements.filter(a => a.id !== id);
+    setAnnouncements(updated);
+    saveToStorage("unihub_announcements", updated);
+  };
+
+  const addMemberManual = (member: Omit<OrganizationMember, "id" | "joinedDate" | "term" | "status">) => {
+    const newMember: OrganizationMember = {
+      ...member,
+      id: `M_NEW_${Date.now()}`,
+      joinedDate: new Date().toISOString().split("T")[0],
+      term: "2025-2026",
+      status: "ACTIVE"
+    };
+    const updated = [...members, newMember];
+    setMembers(updated);
+    saveToStorage("unihub_members", updated);
+  };
+
+  const deleteMember = (memberId: string) => {
+    const updated = members.filter(m => m.id !== memberId);
+    setMembers(updated);
+    saveToStorage("unihub_members", updated);
+  };
+
+  const updateMemberDetails = (memberId: string, details: Partial<OrganizationMember>) => {
+    const updated = members.map(m => {
+      if (m.id === memberId) {
+        return { ...m, ...details };
+      }
+      return m;
+    });
+    setMembers(updated);
+    saveToStorage("unihub_members", updated);
+  };
+
+  const importMembersExcel = (membersToImport: OrganizationMember[]) => {
+    const updated = [...members, ...membersToImport];
+    setMembers(updated);
+    saveToStorage("unihub_members", updated);
   };
 
   const approveMemberRequest = (memberId: string) => {
@@ -1044,6 +1427,54 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveToStorage("unihub_class_reviews", updated);
   };
 
+  const createClubWithAccount = (club: Organization, account: UserAccount) => {
+    const updatedOrgs = [...organizations, club];
+    setOrganizations(updatedOrgs);
+    saveToStorage("unihub_organizations", updatedOrgs);
+
+    const updatedUsers = [...users, { ...account, role: UserRole.ORGANIZER }];
+    setUsers(updatedUsers);
+    saveToStorage("unihub_users", updatedUsers);
+  };
+
+  const updateClubAndAccount = (clubId: string, updatedClub: Partial<Organization>, updatedAccount: Partial<UserAccount>) => {
+    const updatedOrgs = organizations.map(o => {
+      if (o.id === clubId) {
+        return { ...o, ...updatedClub };
+      }
+      return o;
+    });
+    setOrganizations(updatedOrgs);
+    saveToStorage("unihub_organizations", updatedOrgs);
+
+    const updatedUsers = users.map(u => {
+      if (u.role === UserRole.ORGANIZER && (u.targetId === clubId || u.username === updatedAccount.username)) {
+        return { ...u, ...updatedAccount, targetId: clubId };
+      }
+      return u;
+    });
+    setUsers(updatedUsers);
+    saveToStorage("unihub_users", updatedUsers);
+
+    if (currentUser && currentUser.role === UserRole.ORGANIZER && currentUser.targetId === clubId) {
+      const matchNewUser = updatedUsers.find(u => u.targetId === clubId);
+      if (matchNewUser) {
+        setCurrentUser(matchNewUser);
+        saveToStorage("unihub_current_user", matchNewUser);
+      }
+    }
+  };
+
+  const deleteClubAndAccount = (clubId: string) => {
+    const updatedOrgs = organizations.filter(o => o.id !== clubId);
+    setOrganizations(updatedOrgs);
+    saveToStorage("unihub_organizations", updatedOrgs);
+
+    const updatedUsers = users.filter(u => !(u.role === UserRole.ORGANIZER && u.targetId === clubId));
+    setUsers(updatedUsers);
+    saveToStorage("unihub_users", updatedUsers);
+  };
+
   const importNewClassesExcel = (studentsToImport: Student[], usersToImport: UserAccount[]) => {
     const combinedStudents = [...students];
     studentsToImport.forEach(newStud => {
@@ -1159,6 +1590,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       dailyAttendance,
       feedbacks,
       groupCriteria,
+      announcements,
       
       login,
       logout,
@@ -1174,6 +1606,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       assignMemberRole,
       updateAttendance,
       addBulkAttendance,
+      createAnnouncement,
+      deleteAnnouncement,
+      addMemberManual,
+      deleteMember,
+      updateMemberDetails,
+      importMembersExcel,
       importAcademicData,
       toggleLearningDataLock,
       importNewClassesExcel,
@@ -1192,7 +1630,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       adjustStudentScoreSpecific,
       updateCriteriaScore,
       bulkUpdateCriteria,
-      resetToSeeds
+      resetToSeeds,
+      createClubWithAccount,
+      updateClubAndAccount,
+      deleteClubAndAccount,
+      activePortletTab,
+      setActivePortletTab
     }}>
       {children}
     </UniHubContext.Provider>
