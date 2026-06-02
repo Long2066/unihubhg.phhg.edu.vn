@@ -220,6 +220,7 @@ export const StudentPortal: React.FC = () => {
   // Feed filters for CLB Announcements and Activities on Student Dashboard
   const [clubFeedTab, setClubFeedTab] = useState<"ALL" | "ANNOUNCEMENTS" | "ACTIVITIES">("ALL");
   const [onlyMyClubsFilter, setOnlyMyClubsFilter] = useState(false);
+  const [selectedStudentScheduleClass, setSelectedStudentScheduleClass] = useState("");
 
   // States for professional activity news board ticker & carousel
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -2258,10 +2259,18 @@ export const StudentPortal: React.FC = () => {
             };
             const todayVN = getVNDayOfWeek();
             
+            // Get all unique classes available in schedules
+            const availableClasses = Array.from(new Set([
+              ...(sObj?.classId ? [sObj.classId] : []),
+              ...schedules.map(s => s.classId)
+            ])).filter(Boolean).sort();
+
+            const currentClassToView = selectedStudentScheduleClass || sObj?.classId || availableClasses[0] || "";
+
             const norm = (str: string) => str.toLowerCase().replace(/[-_\s]/g, "");
             const mySchedules = schedules.filter(s => 
-              s.classId === sObj?.classId || 
-              (sObj?.classId && norm(s.classId) === norm(sObj.classId))
+              s.classId === currentClassToView || 
+              (currentClassToView && norm(s.classId) === norm(currentClassToView))
             );
 
             const todayClasses = mySchedules
@@ -2293,8 +2302,8 @@ export const StudentPortal: React.FC = () => {
                   {todayClasses.length === 0 ? (
                     <div className="p-8 text-center bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
                       <Sparkles className="mx-auto text-indigo-500 mb-2 animate-bounce" size={24} />
-                      <strong className="text-slate-700 text-xs block">Hôm nay bạn không có lịch học!</strong>
-                      <p className="text-[10px] text-slate-400 mt-1">Hãy dành thời gian tham gia các hoạt động ngoại khóa hoặc học tập nghiên cứu cá nhân.</p>
+                      <strong className="text-slate-700 text-xs block">Không có lịch học nào cho lớp {currentClassToView} hôm nay!</strong>
+                      <p className="text-[10px] text-slate-400 mt-1">Hãy chọn lớp học khác từ ô tìm kiếm bên dưới nếu bạn muốn tra cứu lịch học của các lớp khác.</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -2333,12 +2342,29 @@ export const StudentPortal: React.FC = () => {
 
                 {/* 2. Full Weekly Grid layout */}
                 <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-                  <div className="border-b border-slate-100 pb-3 mb-5">
-                    <h4 className="text-xs font-black text-slate-850 uppercase tracking-wider flex items-center gap-1.5 text-slate-800">
-                      <Calendar size={14} className="text-indigo-600" />
-                      <span>Bảng thời khóa biểu tuần chi tiết ({sObj?.classId})</span>
-                    </h4>
-                    <p className="text-[10px] text-slate-405 mt-0.5">Lịch học chính thức được cập nhật trực tiếp bởi Phòng Đào tạo phân hiệu.</p>
+                  <div className="border-b border-slate-100 pb-3 mb-5 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                    <div>
+                      <h4 className="text-xs font-black text-slate-850 uppercase tracking-wider flex items-center gap-1.5 text-slate-800">
+                        <Calendar size={14} className="text-indigo-600" />
+                        <span>Bảng thời khóa biểu tuần chi tiết ({currentClassToView})</span>
+                      </h4>
+                      <p className="text-[10px] text-slate-405 mt-0.5">Lịch học chính thức được cập nhật trực tiếp bởi Phòng Đào tạo phân hiệu.</p>
+                    </div>
+
+                    {availableClasses.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-slate-500">Tra cứu lớp khác:</span>
+                        <select 
+                          value={currentClassToView}
+                          onChange={(e) => setSelectedStudentScheduleClass(e.target.value)}
+                          className="text-[11px] p-1 px-2 border rounded-lg bg-white outline-none cursor-pointer focus:ring-1 focus:ring-indigo-500 font-bold text-indigo-700"
+                        >
+                          {availableClasses.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
