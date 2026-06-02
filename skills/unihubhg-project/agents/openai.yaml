@@ -1,0 +1,4 @@
+interface:
+  display_name: "UniHubHG Project"
+  short_description: "Understand and upgrade UniHubHG"
+  default_prompt: "Use $unihubhg-project to understand UniHubHG structure and implement an upgrade safely."

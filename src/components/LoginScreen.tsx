@@ -179,7 +179,8 @@ export const LoginScreen: React.FC = () => {
                 <div className="mt-2 space-y-1 bg-white p-2.5 rounded border border-slate-150 font-mono text-[10.5px] text-slate-600 max-h-[180px] overflow-y-auto custom-scrollbar">
                   <p className="border-b border-slate-50 pb-1">• <strong>Sinh viên:</strong> <span className="text-slate-800 font-bold">DTG245140202053</span></p>
                   <p className="border-b border-slate-50 pb-1">• <strong>Câu lạc bộ:</strong> <span className="text-slate-800 font-bold">clbnckh@hg.edu.vn</span></p>
-                  <p className="border-b border-slate-50 pb-1">• <strong>BCH Đoàn/Hội:</strong> <span className="text-slate-800 font-bold">doantn-hsvphhg@hg.edu.vn</span></p>
+                  <p className="border-b border-slate-50 pb-1">• <strong>BCH Đoàn:</strong> <span className="text-slate-800 font-bold">doantnphhg@hg.edu.vn</span></p>
+                  <p className="border-b border-slate-50 pb-1">• <strong>BCH Hội SV:</strong> <span className="text-slate-800 font-bold">hsvphhg@hg.edu.vn</span></p>
                   <p className="border-b border-slate-50 pb-1">• <strong>Phòng Đào tạo:</strong> <span className="text-slate-800 font-bold">dtphhg@hg.edu.vn</span></p>
                   <p className="border-b border-slate-50 pb-1">• <strong>Cán bộ lớp:</strong> <span className="text-slate-800 font-bold">cblk2gdtha@hg.edu.vn</span></p>
                   <p className="border-b border-slate-50 pb-1">• <strong>GVCN:</strong> <span className="text-slate-800 font-bold">gvcnk2gdtha@hg.edu.vn</span></p>

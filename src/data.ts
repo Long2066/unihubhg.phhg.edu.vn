@@ -43,11 +43,19 @@ export const SEED_USERS: UserAccount[] = [
   },
   {
     id: "U_ORG02",
-    username: "doantn-hsvphhg@hg.edu.vn",
+    username: "doantnphhg@hg.edu.vn",
     name: "BCH Đoàn TNCS Phân hiệu Hà Giang",
     role: UserRole.ORGANIZER,
-    email: "doantn-hsvphhg@hg.edu.vn",
+    email: "doantnphhg@hg.edu.vn",
     targetId: "DOANTN"
+  },
+  {
+    id: "U_ORG03",
+    username: "hsvphhg@hg.edu.vn",
+    name: "BCH Hội Sinh viên Phân hiệu Hà Giang",
+    role: UserRole.ORGANIZER,
+    email: "hsvphhg@hg.edu.vn",
+    targetId: "HOISV"
   },
   {
     id: "U_TD01",
@@ -238,6 +246,22 @@ export const SEED_ORGANIZATIONS: Organization[] = [
     type: "DOAN",
     leaderName: "Hoàng Minh Đức",
     field: "Công tác chính trị học sinh sinh viên",
+    level: "TRUONG"
+  },
+  {
+    id: "HOISV",
+    name: "BCH Hội Sinh viên Phân hiệu Hà Giang",
+    type: "HOI",
+    leaderName: "Nguyễn Lê Thảo Chi",
+    field: "Hỗ trợ học tập, đời sống sinh viên",
+    level: "TRUONG"
+  },
+  {
+    id: "DOAN_HOI",
+    name: "BCH Đoàn - Hội Sinh viên Phân hiệu",
+    type: "DOAN",
+    leaderName: "Ban Chấp Hành Phối Hợp",
+    field: "Hoạt động Đoàn - Hội liên tịch",
     level: "TRUONG"
   },
   {

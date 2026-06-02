@@ -30,6 +30,7 @@ import {
   Settings,
   ShieldAlert as AdviserIcon,
   Home,
+  ClipboardList,
   Award,
   Calendar,
   FileText,
@@ -50,7 +51,12 @@ import {
   AlertCircle,
   AlertTriangle,
   Check,
-  Info
+  Info,
+  X,
+  MapPin,
+  Sparkles,
+  ChevronDown,
+  RefreshCw
 } from "lucide-react";
 
 interface NotificationItem {
@@ -61,263 +67,374 @@ interface NotificationItem {
   type: "info" | "success" | "warning" | "alert";
   isRead: boolean;
   linkTab?: string;
+  isClubAnnouncement?: boolean;
+  clubName?: string;
+  fullContent?: string;
+  activityId?: string;
 }
 
-const getInitialNotifications = (role: UserRole): NotificationItem[] => {
-  switch (role) {
-    case UserRole.STUDENT:
-      return [
-        {
-          id: "st-1",
-          title: "Minh chứng được duyệt",
-          message: "Minh chứng tờ khai 'Đông ấm Biên giới 2025' (+10đ) đã được Ban cán sự lớp kiểm duyệt Chấp nhận.",
-          time: "10 phút trước",
-          type: "success",
-          isRead: false,
-          linkTab: "DIEM"
-        },
-        {
-          id: "st-2",
-          title: "Gia nhập Câu lạc bộ",
-          message: "Ban chủ nhiệm CLB Sáng tạo Công nghệ UniTech đã phê duyệt và kết nạp bạn làm thành viên chính thức.",
-          time: "2 giờ trước",
-          type: "info",
-          isRead: false,
-          linkTab: "CLB"
-        },
-        {
-          id: "st-3",
-          title: "Cập nhật học lực",
-          message: "Phòng Đào tạo Hà Giang đồng bộ bảng điểm chuyên cần hệ thống & GPA đạt 3.55.",
-          time: "Hôm qua",
-          type: "info",
-          isRead: true,
-          linkTab: "DIEM"
-        },
-        {
-          id: "st-4",
-          title: "Quyết định xử lý rèn luyện",
-          message: "Văn phòng Khoa đã ký duyệt sơ bộ danh sách điểm loại TỐT của sinh viên toàn lớp.",
-          time: "2 ngày trước",
-          type: "warning",
-          isRead: true
-        }
-      ];
-
-    case UserRole.CLASS_MONITOR:
-      return [
-        {
-          id: "cm-1",
-          title: "Minh chứng mới",
-          message: "Có 2 minh chứng quy chế mới từ sinh viên Lã Văn Đạt và Trần Văn Khánh đang chờ bạn phê duyệt.",
-          time: "5 phút trước",
-          type: "alert",
-          isRead: false
-        },
-        {
-          id: "cm-2",
-          title: "Phản hồi thảo luận",
-          message: "GVCN Hoàng Minh Đức đã gửi lưu ý chất lượng tự xếp loại rèn luyện thi đua lớp kì II.",
-          time: "1 giờ trước",
-          type: "info",
-          isRead: false
-        },
-        {
-          id: "cm-3",
-          title: "Quyết định nề nếp",
-          message: "Hệ thống tự động đồng bộ kết quả chuyên cần tích lũy tuần này thành công.",
-          time: "Hôm qua",
-          type: "success",
-          isRead: true
-        }
-      ];
-
-    case UserRole.ORGANIZER:
-      return [
-        {
-          id: "org-1",
-          title: "Ứng viên câu lạc bộ",
-          message: "Có 3 hồ sơ xin gia nhập CLB mới cần xét duyệt đợt tuyển quân tháng 06/2026.",
-          time: "15 phút trước",
-          type: "alert",
-          isRead: false,
-          linkTab: "DS_THANHVIEN"
-        },
-        {
-          id: "org-2",
-          title: "Hoạt động đã khai báo",
-          message: "Hoạt động 'Sân chơi Công nghệ trẻ' đã được Ban Quản lý ký phê duyệt phát sóng.",
-          time: "3 giờ trước",
-          type: "success",
-          isRead: false
-        },
-        {
-          id: "org-3",
-          title: "Điểm danh tự động",
-          message: "Quá trình đồng bộ điểm danh sự kiện 'Hiến máu Nhân đạo' của 45 thành viên hoàn thành.",
-          time: "Hôm qua",
-          type: "success",
-          isRead: true
-        }
-      ];
-
-    case UserRole.ADVISER:
-      return [
-        {
-          id: "adv-1",
-          title: "Lớp hoàn thành đánh giá",
-          message: "Ban cán sự lớp K20-CNTT đã chốt điểm tự xếp loại và gửi yêu cầu phê duyệt.",
-          time: "12 phút trước",
-          type: "alert",
-          isRead: false
-        },
-        {
-          id: "adv-2",
-          title: "Phản hồi phúc khảo loại",
-          message: "Yêu cầu rà soát kỷ luật lỗi trễ chuyên môn từ sinh viên Lê Minh Tuấn gửi đến GVCN.",
-          time: "4 giờ trước",
-          type: "info",
-          isRead: false
-        },
-        {
-          id: "adv-3",
-          title: "Ủy ban Khoa rà soát",
-          message: "Hệ thống đã cập nhật biểu quyết kiểm soát dữ liệu rèn luyện từ Trưởng khoa chuyên trách.",
-          time: "Hôm qua",
-          type: "info",
-          isRead: true
-        }
-      ];
-
-    case UserRole.TRAINING_DEPT:
-      return [
-        {
-          id: "td-1",
-          title: "Duyệt dữ liệu Khoa",
-          message: "Khoa Sư phạm đã hoàn thành kiểm soát xếp khảo và đồng bộ dữ liệu rèn luyện lên phòng đào tạo.",
-          time: "30 phút trước",
-          type: "alert",
-          isRead: false
-        },
-        {
-          id: "td-2",
-          title: "Nhập điểm đồng loạt",
-          message: "Tiến trình đồng bộ hoàn tất 1,240 bản ghi GPA phục hồi từ cơ quan khảo thí.",
-          time: "3 giờ trước",
-          type: "success",
-          isRead: true
-        }
-      ];
-
-    case UserRole.FACULTY:
-      return [
-        {
-          id: "fac-1",
-          title: "GVCN gửi ký số",
-          message: "Lớp K20-CNTT đã được phê duyệt nề nếp thi đua từ GVCN Hoàng Minh Đức, đang chờ Khoa ký số.",
-          time: "1 giờ trước",
-          type: "alert",
-          isRead: false
-        },
-        {
-          id: "fac-2",
-          title: "Tổ chức CLB báo cáo",
-          message: "CLB Mỹ thuật đăng tuyển thành viên và cập nhật danh sách tổ kiểm nề nếp phong trào.",
-          time: "Hôm qua",
-          type: "info",
-          isRead: true
-        }
-      ];
-
-    case UserRole.ADMIN:
-      return [
-        {
-          id: "adm-1",
-          title: "Sao lưu bảo mật",
-          message: "Backup dữ liệu Cloud Firestore an toàn tự động lúc 00:00 thành công.",
-          time: "8 giờ trước",
-          type: "success",
-          isRead: false
-        },
-        {
-          id: "adm-2",
-          title: "Chỉ số hệ thống",
-          message: "Lượt kết nối API rèn luyện thời gian thực đạt ngưỡng đỉnh béo cao tải kỷ lục.",
-          time: "Hôm qua",
-          type: "warning",
-          isRead: true
-        }
-      ];
-
-    default:
-      return [
-        {
-          id: "def-1",
-          title: "Chào mừng bạn",
-          message: "Chào mừng bạn quay lại hệ thống quản lý rèn luyện tự động hóa UniHubHG.",
-          time: "Vừa xong",
-          type: "info",
-          isRead: false
-        }
-      ];
-  }
-};
-
 const AppContent: React.FC = () => {
-  const { currentUser, logout, period, activePortletTab, setActivePortletTab } = useUniHub();
+  const { 
+    currentUser, 
+    logout, 
+    period, 
+    activePortletTab, 
+    setActivePortletTab,
+    announcements,
+    activities,
+    registerForActivity,
+    attendance,
+    students,
+    organizations,
+    members,
+    resetToSeeds,
+    updateStudentProfile,
+    selectedSemesterId,
+    setSelectedSemesterId,
+    evidence,
+    classReviews,
+    facultyReviews,
+    feedbacks,
+    results,
+    dailyAttendance
+  } = useUniHub();
+
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
-  const storageKey = currentUser ? `unihub_notifications_${currentUser.id}` : "";
-  const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
+  // States for Editing profile
+  const [editName, setEditName] = useState("");
+  const [editAvatar, setEditAvatar] = useState("");
+  const [editPassword, setEditPassword] = useState("");
+  const [profileSuccessMsg, setProfileSuccessMsg] = useState("");
+
+  const studentId = currentUser?.targetId || "DTG245140202053";
+  const studentObj = students.find(s => s.id === studentId || s.username === currentUser?.username);
+
+  // Local state to track read and deleted notification IDs
+  const [readNotifIds, setReadNotifIds] = useState<string[]>(() => {
     if (!currentUser) return [];
-    const key = `unihub_notifications_${currentUser.id}`;
-    const cached = localStorage.getItem(key);
-    if (cached) return JSON.parse(cached);
-    return getInitialNotifications(currentUser.role);
+    const cached = localStorage.getItem(`unihub_read_notifs_${currentUser.id}`);
+    return cached ? JSON.parse(cached) : [];
   });
+
+  const [deletedNotifIds, setDeletedNotifIds] = useState<string[]>(() => {
+    if (!currentUser) return [];
+    const cached = localStorage.getItem(`unihub_deleted_notifs_${currentUser.id}`);
+    return cached ? JSON.parse(cached) : [];
+  });
+
+  const [selectedAnnForModal, setSelectedAnnForModal] = useState<any | null>(null);
+
+  const saveReadNotifIds = (ids: string[]) => {
+    if (!currentUser) return;
+    setReadNotifIds(ids);
+    localStorage.setItem(`unihub_read_notifs_${currentUser.id}`, JSON.stringify(ids));
+  };
+
+  const saveDeletedNotifIds = (ids: string[]) => {
+    if (!currentUser) return;
+    setDeletedNotifIds(ids);
+    localStorage.setItem(`unihub_deleted_notifs_${currentUser.id}`, JSON.stringify(ids));
+  };
+
+  // Generate dynamic notification list based on roles and DB states
+  const notifications: NotificationItem[] = React.useMemo(() => {
+    if (!currentUser) return [];
+    const list: NotificationItem[] = [];
+    const targetId = currentUser.targetId || "";
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    if (currentUser.role === UserRole.STUDENT) {
+      // 1. Evidence approved/rejected
+      evidence.forEach(ev => {
+        if (ev.studentId === targetId && (ev.status === "APPROVED" || ev.status === "REJECTED")) {
+          list.push({
+            id: `ev-${ev.id}-${ev.status}`,
+            title: ev.status === "APPROVED" ? "✅ Minh chứng được duyệt" : "❌ Minh chứng bị từ chối",
+            message: `Minh chứng '${ev.activityName}' (+${ev.pointsRequested}đ) của bạn đã được duyệt ${ev.status === "APPROVED" ? "Chấp nhận" : "Từ chối"}.`,
+            time: ev.submittedAt,
+            type: ev.status === "APPROVED" ? "success" : "warning",
+            isRead: readNotifIds.includes(`ev-${ev.id}-${ev.status}`),
+            linkTab: "DIEM"
+          });
+        }
+      });
+
+      // 2. Club membership approved
+      members.forEach(m => {
+        if (m.studentId === targetId && m.status === "ACTIVE") {
+          const org = organizations.find(o => o.id === m.orgId);
+          list.push({
+            id: `member-${m.id}`,
+            title: "🎉 Thành viên CLB chính thức",
+            message: `Yêu cầu tham gia CLB '${org?.name || m.orgId}' của bạn đã được phê duyệt thành công.`,
+            time: m.joinedDate,
+            type: "success",
+            isRead: readNotifIds.includes(`member-${m.id}`),
+            linkTab: "CLB"
+          });
+        }
+      });
+
+      // 3. New club announcements
+      announcements.forEach(ann => {
+        // Check if student is a member of the club
+        const isMember = members.some(m => m.studentId === targetId && m.orgId === ann.orgId && m.status === "ACTIVE");
+        if (isMember) {
+          if (ann.expiryDate && todayStr > ann.expiryDate) return;
+          list.push({
+            id: `ann-${ann.id}`,
+            title: `📢 THÔNG BÁO CLB: ${ann.title}`,
+            message: `${ann.content.substring(0, 80)}${ann.content.length > 80 ? "..." : ""}`,
+            time: ann.createdAt,
+            type: "info",
+            isRead: readNotifIds.includes(`ann-${ann.id}`),
+            linkTab: "CLB",
+            // Custom announcement fields for render and click modals
+            isClubAnnouncement: true,
+            clubName: ann.orgName,
+            fullContent: ann.content,
+            activityId: ann.activityId
+          });
+        }
+      });
+
+      // 4. Feedback from Adviser
+      feedbacks.forEach(fb => {
+        const studentObj = students.find(s => s.id === targetId);
+        if ((fb.studentId === targetId || (fb.toClassId === studentObj?.classId && !fb.studentId)) && !fb.resolved) {
+          list.push({
+            id: `fb-${fb.id}`,
+            title: `⚠️ Lưu ý từ GVCN ${fb.fromName}`,
+            message: fb.comment,
+            time: fb.createdAt,
+            type: "warning",
+            isRead: readNotifIds.includes(`fb-${fb.id}`),
+            linkTab: "DIEM"
+          });
+        }
+      });
+    }
+
+    else if (currentUser.role === UserRole.CLASS_MONITOR) {
+      // 1. Pending evidence in their class
+      evidence.forEach(ev => {
+        if (ev.classId === targetId && ev.status === "PENDING") {
+          list.push({
+            id: `ev-pending-${ev.id}`,
+            title: "📝 Minh chứng mới chờ duyệt",
+            message: `Sinh viên ${ev.studentName} đã gửi minh chứng '${ev.activityName}' (+${ev.pointsRequested}đ) đang chờ bạn xét duyệt.`,
+            time: ev.submittedAt,
+            type: "alert",
+            isRead: readNotifIds.includes(`ev-pending-${ev.id}`),
+            linkTab: "TRANG_CHU"
+          });
+        }
+      });
+
+      // 2. Feedback unresolved for their class
+      feedbacks.forEach(fb => {
+        if (fb.toClassId === targetId && !fb.resolved) {
+          list.push({
+            id: `fb-class-${fb.id}`,
+            title: "⚠️ Phản hồi nề nếp thi đua lớp",
+            message: `${fb.fromName} lưu ý: "${fb.comment}"`,
+            time: fb.createdAt,
+            type: "warning",
+            isRead: readNotifIds.includes(`fb-class-${fb.id}`),
+            linkTab: "TRANG_CHU"
+          });
+        }
+      });
+    }
+
+    else if (currentUser.role === UserRole.ADVISER) {
+      // 1. Class scores submitted by Monitor
+      classReviews.forEach(cr => {
+        if (cr.classId === targetId && cr.representativeApproved && !cr.adviserApproved) {
+          list.push({
+            id: `class-sub-${cr.classId}`,
+            title: "📊 Điểm lớp đã chốt",
+            message: `Ban cán sự lớp ${cr.classId} đã gửi báo cáo tự xếp loại điểm rèn luyện, chờ bạn xét duyệt chính thức.`,
+            time: cr.representativeApprovedAt || new Date().toISOString().split("T")[0],
+            type: "alert",
+            isRead: readNotifIds.includes(`class-sub-${cr.classId}`),
+            linkTab: "TRANG_CHU"
+          });
+        }
+      });
+
+      // 2. Pending evidence in their class
+      evidence.forEach(ev => {
+        if (ev.classId === targetId && ev.status === "PENDING") {
+          list.push({
+            id: `ev-adv-pending-${ev.id}`,
+            title: "📝 Minh chứng mới chờ duyệt",
+            message: `Sinh viên ${ev.studentName} gửi minh chứng '${ev.activityName}' đang chờ Cố vấn lớp duyệt.`,
+            time: ev.submittedAt,
+            type: "info",
+            isRead: readNotifIds.includes(`ev-adv-pending-${ev.id}`),
+            linkTab: "TRANG_CHU"
+          });
+        }
+      });
+    }
+
+    else if (currentUser.role === UserRole.ORGANIZER) {
+      // 1. Pending membership applications
+      members.forEach(m => {
+        if (m.orgId === targetId && m.status === "PENDING") {
+          list.push({
+            id: `member-pending-${m.id}`,
+            title: "📥 Đăng ký gia nhập CLB mới",
+            message: `Sinh viên ${m.studentName} (${m.classId}) gửi hồ sơ ứng tuyển xin gia nhập CLB của bạn.`,
+            time: m.joinedDate,
+            type: "alert",
+            isRead: readNotifIds.includes(`member-pending-${m.id}`),
+            linkTab: "DS_THANHVIEN"
+          });
+        }
+      });
+    }
+
+    else if (currentUser.role === UserRole.FACULTY) {
+      // 1. Adviser approved class scores in their faculty
+      classReviews.forEach(cr => {
+        const belongsToFaculty = students.some(s => s.classId === cr.classId && s.facultyId === targetId);
+        if (belongsToFaculty && cr.adviserApproved && !cr.facultyApproved) {
+          list.push({
+            id: `fac-review-${cr.classId}`,
+            title: "📋 Lớp hoàn thành duyệt ký số",
+            message: `Cố vấn lớp ${cr.classId} đã ký phê duyệt bảng rèn luyện, chờ Khoa ký duyệt số để khóa sổ.`,
+            time: cr.adviserApprovedAt || new Date().toISOString().split("T")[0],
+            type: "alert",
+            isRead: readNotifIds.includes(`fac-review-${cr.classId}`),
+            linkTab: "LOCKS"
+          });
+        }
+      });
+    }
+
+    else if (currentUser.role === UserRole.TRAINING_DEPT) {
+      // 1. Faculty locked their scores
+      facultyReviews.forEach(fr => {
+        if (fr.locked) {
+          list.push({
+            id: `fac-locked-${fr.facultyId}`,
+            title: "🔒 Khoa đã khóa dữ liệu rèn luyện",
+            message: `Khoa '${fr.facultyId}' đã ký duyệt và khóa sổ kết quả rèn luyện học kỳ, sẵn sàng đồng bộ.`,
+            time: fr.lockedAt || new Date().toISOString().split("T")[0],
+            type: "success",
+            isRead: readNotifIds.includes(`fac-locked-${fr.facultyId}`),
+            linkTab: "LIST"
+          });
+        }
+      });
+    }
+
+    else if (currentUser.role === UserRole.ADMIN) {
+      if (period.status === "LOCKED") {
+        list.push({
+          id: `period-locked-${period.id}`,
+          title: "🔒 Đợt đánh giá đã khóa",
+          message: `Học kỳ hiện tại ${period.semester} (${period.academicYear}) đã được khóa sổ rèn luyện thành công.`,
+          time: period.endDate,
+          type: "warning",
+          isRead: readNotifIds.includes(`period-locked-${period.id}`),
+          linkTab: "PERIOD"
+        });
+      }
+    }
+
+    // Default welcome notification for all roles
+    list.push({
+      id: "welcome-notif",
+      title: "👋 Chào mừng bạn",
+      message: `Chào mừng bạn quay lại hệ thống quản lý rèn luyện tự động hóa UniHubHG.`,
+      time: new Date().toISOString().split("T")[0],
+      type: "info",
+      isRead: readNotifIds.includes("welcome-notif")
+    });
+
+    return list.filter(n => !deletedNotifIds.includes(n.id));
+  }, [currentUser, evidence, members, organizations, announcements, feedbacks, students, classReviews, facultyReviews, period, readNotifIds, deletedNotifIds]);
 
   if (!currentUser) {
     return <LoginScreen />;
   }
 
-  const saveNotifications = (items: NotificationItem[]) => {
-    setNotifications(items);
-    localStorage.setItem(storageKey, JSON.stringify(items));
-  };
+  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const handleMarkAsRead = (id: string) => {
-    const updated = notifications.map(n => n.id === id ? { ...n, isRead: true } : n);
-    saveNotifications(updated);
+    if (!readNotifIds.includes(id)) {
+      saveReadNotifIds([...readNotifIds, id]);
+    }
   };
 
   const handleMarkAllAsRead = () => {
-    const updated = notifications.map(n => ({ ...n, isRead: true }));
-    saveNotifications(updated);
+    const allIds = notifications.map(n => n.id);
+    saveReadNotifIds(Array.from(new Set([...readNotifIds, ...allIds])));
   };
 
   const handleDeleteNotification = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const updated = notifications.filter(n => n.id !== id);
-    saveNotifications(updated);
+    if (!deletedNotifIds.includes(id)) {
+      saveDeletedNotifIds([...deletedNotifIds, id]);
+    }
   };
 
   const handleClearAll = () => {
-    saveNotifications([]);
+    const allIds = notifications.map(n => n.id);
+    saveDeletedNotifIds(Array.from(new Set([...deletedNotifIds, ...allIds])));
   };
 
-  const handleNotificationClick = (n: NotificationItem) => {
-    handleMarkAsRead(n.id);
-    if (n.linkTab) {
-      setActivePortletTab(n.linkTab);
+  const handleNotificationClick = (n: any) => {
+    if (n.isClubAnnouncement) {
+      if (!readNotifIds.includes(n.id)) {
+        saveReadNotifIds([...readNotifIds, n.id]);
+      }
+      setSelectedAnnForModal(n);
+    } else {
+      handleMarkAsRead(n.id);
+      if (n.linkTab) {
+        setActivePortletTab(n.linkTab);
+      }
     }
     setShowNotificationsDropdown(false);
   };
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const openProfileEditModal = () => {
+    setEditName(currentUser.name);
+    setEditAvatar(studentObj?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.username}`);
+    setEditPassword(currentUser.password || "");
+    setProfileSuccessMsg("");
+    setShowProfileModal(true);
+    setShowProfileDropdown(false);
+  };
+
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editName.trim()) {
+      alert("Họ và tên không được để trống!");
+      return;
+    }
+    const targetUserId = currentUser.targetId || currentUser.username || currentUser.id;
+    updateStudentProfile(targetUserId, editName, editAvatar, editPassword);
+    setProfileSuccessMsg("Đã cập nhật thông tin thành viên và mật khẩu thành công!");
+    setTimeout(() => {
+      setProfileSuccessMsg("");
+      setShowProfileModal(false);
+    }, 1500);
+  };
 
   // Choose corresponding Portal View based on current logged in user role
   const renderPortal = () => {
+    if (activePortletTab === "GIAM_SAT_SI_SO" && currentUser.role !== UserRole.ORGANIZER) {
+      return <ClassStatisticsBottom />;
+    }
     switch (currentUser.role) {
       case UserRole.STUDENT:
         return <StudentPortal />;
@@ -341,7 +458,17 @@ const AppContent: React.FC = () => {
   const getRoleLabel = (role: UserRole) => {
     switch (role) {
       case UserRole.STUDENT: return { label: "Sinh viên", color: "bg-blue-100 text-blue-800 border-blue-200", icon: GraduationCap };
-      case UserRole.ORGANIZER: return { label: "CLB / Đoàn / Hội", color: "bg-purple-100 text-purple-800 border-purple-200", icon: Users };
+      case UserRole.ORGANIZER: {
+        const orgId = currentUser?.targetId || "";
+        const org = organizations.find(o => o.id === orgId);
+        let label = "CLB / Đoàn / Hội";
+        if (org) {
+          if (org.type === "CLB") label = "Câu lạc bộ";
+          else if (org.type === "DOAN") label = "BCH Đoàn";
+          else if (org.type === "HOI") label = "BCH Hội";
+        }
+        return { label, color: "bg-purple-100 text-purple-800 border-purple-200", icon: Users };
+      }
       case UserRole.TRAINING_DEPT: return { label: "Phòng Đào tạo", color: "bg-amber-100 text-amber-800 border-amber-200", icon: BookOpen };
       case UserRole.CLASS_MONITOR: return { label: "Ban Cán sự Lớp", color: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: UserCheck };
       case UserRole.ADVISER: return { label: "GVCN", color: "bg-rose-100 text-rose-800 border-rose-200", icon: AdviserIcon };
@@ -362,7 +489,8 @@ const AppContent: React.FC = () => {
           { id: "DIEM", label: "Tiến trình & Điểm số", icon: Award },
           { id: "HOATDONG", label: "SỰ kiện ngoại khóa", icon: Calendar },
           { id: "CLB", label: "Câu lạc bộ của tôi", icon: Users },
-          { id: "MINHCHUNG", label: "Cấp minh chứng ngoại lệ", icon: FileText }
+          { id: "MINHCHUNG", label: "Cấp minh chứng ngoại lệ", icon: FileText },
+          { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
         ];
       case UserRole.ORGANIZER:
         return [
@@ -375,29 +503,131 @@ const AppContent: React.FC = () => {
         return [
           { id: "IMPORT", label: "Nạp Điểm Học Tập", icon: UploadCloud },
           { id: "IMPORT_CLASSES", label: "Nạp Lớp Mới", icon: FileCode },
-          { id: "LIST", label: "Đồng bộ rèn luyện", icon: BookOpen }
+          { id: "LIST", label: "Đồng bộ rèn luyện", icon: BookOpen },
+          { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
         ];
       case UserRole.FACULTY:
         return [
           { id: "STAT", label: "Theo dõi rèn luyện khoa", icon: BarChart2 },
-          { id: "LOCKS", label: "Khóa dữ liệu & Ký duyệt", icon: Lock }
+          { id: "LOCKS", label: "Khóa dữ liệu & Ký duyệt", icon: Lock },
+          { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
         ];
       case UserRole.ADMIN:
         return [
           { id: "CONFIG", label: "Cấu hình quy chế điểm", icon: Settings },
           { id: "PERIOD", label: "Quản lý Đợt đánh giá", icon: Clock },
           { id: "STATIONS", label: "Động cơ hệ thống", icon: Cpu },
-          { id: "CLUBS", label: "Quản lý Tài khoản CLB", icon: Users }
+          { id: "CLUBS", label: "Quản lý Tài khoản CLB", icon: Users },
+          { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
+        ];
+      case UserRole.CLASS_MONITOR:
+        return [
+          { id: "TRANG_CHU", label: "Phân hệ báo cáo lớp", icon: Home },
+          { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
+        ];
+      case UserRole.ADVISER:
+        return [
+          { id: "TRANG_CHU", label: "Xét duyệt & QL lớp", icon: Home },
+          { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
         ];
       default:
-        return [];
+        return [
+          { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
+        ];
     }
+  };
+
+  const getTabBadgeCount = (tabId: string): number => {
+    if (!currentUser) return 0;
+    
+    if (currentUser.role === UserRole.STUDENT) {
+      const studentId = currentUser.targetId || "DTG245140202053";
+      switch (tabId) {
+        case "TRANG_CHU":
+          // Unread notifications linking to TRANG_CHU or welcome
+          return notifications.filter(n => !n.isRead && (n.linkTab === "TRANG_CHU" || n.id === "welcome-notif")).length;
+        case "DIEM":
+          // Unread notifications linking to DIEM (e.g. gpa update, adviser feedback, evidence status changes)
+          return notifications.filter(n => !n.isRead && n.linkTab === "DIEM").length;
+        case "HOATDONG":
+          // Number of upcoming activities open for registration that the student has not registered for
+          return activities.filter(a => 
+            a.status === "UPCOMING" && 
+            a.registrationOpen && 
+            !attendance.some(att => att.activityId === a.id && att.studentId === studentId)
+          ).length;
+        case "CLB":
+          // Unread notifications linking to CLB (e.g. club announcements, membership approved)
+          return notifications.filter(n => !n.isRead && n.linkTab === "CLB").length;
+        case "MINHCHUNG":
+          // Count of rejected or pending evidence submissions that the student might need to check/react to
+          return evidence.filter(ev => ev.studentId === studentId && ev.status === "REJECTED").length;
+        default:
+          return 0;
+      }
+    }
+    
+    if (currentUser.role === UserRole.ORGANIZER) {
+      const orgId = currentUser.targetId || "UNITECH";
+      switch (tabId) {
+        case "DS_THANHVIEN":
+          return members.filter(m => m.orgId === orgId && m.status === "PENDING").length;
+        default:
+          return 0;
+      }
+    }
+    
+    if (currentUser.role === UserRole.CLASS_MONITOR) {
+      const classId = currentUser.targetId || "";
+      switch (tabId) {
+        case "TRANG_CHU":
+          return evidence.filter(ev => ev.classId === classId && ev.status === "PENDING").length;
+        default:
+          return 0;
+      }
+    }
+    
+    if (currentUser.role === UserRole.ADVISER) {
+      const classId = currentUser.targetId || "";
+      switch (tabId) {
+        case "TRANG_CHU":
+          const pendingEv = evidence.filter(ev => ev.classId === classId && ev.status === "PENDING").length;
+          const pendingReview = classReviews.some(cr => cr.classId === classId && cr.representativeApproved && !cr.adviserApproved) ? 1 : 0;
+          return pendingEv + pendingReview;
+        default:
+          return 0;
+      }
+    }
+    
+    if (currentUser.role === UserRole.FACULTY) {
+      const facultyId = currentUser.targetId || "";
+      switch (tabId) {
+        case "LOCKS":
+          return classReviews.filter(cr => {
+            const studentObj = students.find(s => s.classId === cr.classId);
+            return studentObj?.facultyId === facultyId && cr.adviserApproved && !cr.facultyApproved;
+          }).length;
+        default:
+          return 0;
+      }
+    }
+
+    if (currentUser.role === UserRole.TRAINING_DEPT) {
+      switch (tabId) {
+        case "LIST":
+          return facultyReviews.filter(fr => fr.locked).length;
+        default:
+          return 0;
+      }
+    }
+    
+    return 0;
   };
 
   const sidebarTabs = getSidebarTabs();
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-row selection:bg-indigo-500 selection:text-white font-sans overflow-x-hidden" id="unihub-app-layout">
+    <div className="h-screen w-screen bg-slate-50 flex flex-row selection:bg-indigo-500 selection:text-white font-sans overflow-hidden" id="unihub-app-layout">
       
       {/* 1. DYNAMIC EXPANDABLE/COLLAPSIBLE LEFT MENU SIDEBAR */}
       <aside 
@@ -448,6 +678,7 @@ const AppContent: React.FC = () => {
             {sidebarTabs.map((tab) => {
               const TabIcon = tab.icon;
               const isActive = activePortletTab === tab.id;
+              const badgeCount = getTabBadgeCount(tab.id);
               
               if (isSidebarExpanded) {
                 return (
@@ -464,6 +695,11 @@ const AppContent: React.FC = () => {
                     <span className="text-xs tracking-tight truncate whitespace-nowrap transition-all duration-300">
                       {tab.label}
                     </span>
+                    {badgeCount > 0 && (
+                      <span className="ml-auto bg-rose-500 text-white text-[9px] font-black h-4.5 min-w-4.5 px-1 rounded-full flex items-center justify-center shadow-xs ring-1 ring-white">
+                        {badgeCount}
+                      </span>
+                    )}
                   </button>
                 );
               }
@@ -475,11 +711,16 @@ const AppContent: React.FC = () => {
                   className={`p-3 rounded-xl transition-all relative group flex items-center justify-center cursor-pointer border ${
                     isActive 
                       ? "bg-indigo-50 text-indigo-600 border-indigo-150/80 shadow-xs scale-102" 
-                      : "text-slate-400 hover:text-slate-700 hover:bg-slate-50 border-transparent"
+                      : "text-slate-405 hover:text-slate-700 hover:bg-slate-50 border-transparent"
                   }`}
                   title={tab.label}
                 >
                   <TabIcon size={18} />
+                  {badgeCount > 0 && (
+                    <span className="absolute top-1 right-1 bg-rose-500 text-white text-[9px] font-black h-4.5 min-w-4.5 px-1 rounded-full flex items-center justify-center shadow-xs ring-1 ring-white animate-pulse">
+                      {badgeCount}
+                    </span>
+                  )}
                   <span className="absolute left-[78px] bg-slate-900 border border-slate-800 text-white text-[10px] font-bold px-2 py-1.5 rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
                     {tab.label}
                   </span>
@@ -489,32 +730,10 @@ const AppContent: React.FC = () => {
           </div>
         </div>
 
-        {/* Footer actions inside the Left sidebar */}
-        <div className={`flex flex-col gap-4 w-full ${isSidebarExpanded ? "px-2" : "items-center px-0"}`}>
-          <div className="w-full border-b border-slate-100" />
-          
-          {isSidebarExpanded ? (
-            <button 
-              onClick={logout}
-              className="px-3.5 py-2.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-xl transition-all cursor-pointer flex items-center gap-3 w-full text-left font-bold animate-fade-in"
-            >
-              <LogOut size={16} className="shrink-0 text-slate-400 group-hover:text-rose-600" />
-              <span className="text-xs uppercase tracking-wider truncate">Đăng xuất</span>
-            </button>
-          ) : (
-            <button 
-              onClick={logout}
-              className="p-3 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
-              title="Đăng xuất khỏi hệ thống"
-            >
-              <LogOut size={16} />
-            </button>
-          )}
-        </div>
       </aside>
 
       {/* 2. RIGHT HAND CONTENT SIDEBAR (Header sits right here, so it does NOT cut across the sidebar!) */}
-      <div className="flex-1 flex flex-col min-w-0 bg-slate-50/60 min-h-screen">
+      <div className="flex-1 flex flex-col min-w-0 bg-slate-50/60 h-screen overflow-hidden">
         
         {/* Horizontal Header (Bounded beside the menu sidebar!) */}
         <header className="bg-white border-b border-slate-200/80 sticky top-0 z-40 backdrop-blur-md bg-white/90 shadow-2xs shrink-0 h-18 flex items-center justify-between px-6 lg:px-8">
@@ -529,10 +748,130 @@ const AppContent: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden md:flex flex-col text-right font-sans">
-              <span className="text-xs font-black text-slate-900">{currentUser.name}</span>
-              <span className="text-[9px] font-mono text-slate-400 mt-0.5">{currentUser.username}</span>
+          <div className="flex items-center gap-3 font-sans">
+            
+            {/* Top-Right Compact Profile Avatar + Name Block */}
+            <div className="relative flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                className="flex items-center gap-2.5 bg-white hover:bg-slate-50 border border-slate-150 p-1.5 pr-3 rounded-2xl transition-all cursor-pointer group shadow-2xs"
+              >
+                {/* Profile Image/Avatar representation */}
+                <div className="relative shrink-0">
+                  {studentObj?.avatar || currentUser.role === "STUDENT" ? (
+                    <img 
+                      referrerPolicy="no-referrer"
+                      src={studentObj?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name}`} 
+                      alt={currentUser.name} 
+                      className="w-8 h-8 rounded-xl object-cover border border-slate-100 group-hover:scale-105 transition-transform"
+                      onError={(e) => {
+                        e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name}`;
+                      }}
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-indigo-600 text-white flex items-center justify-center font-black text-xs group-hover:scale-105 transition-transform">
+                      {currentUser.name.trim().substring(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 ring-1 ring-white" />
+                </div>
+                
+                <div className="hidden md:flex flex-col text-right font-sans">
+                  <span className="text-xs font-black text-slate-900 leading-none group-hover:text-indigo-600 transition-colors">{currentUser.name}</span>
+                  <span className="text-[8.5px] font-mono font-bold text-slate-400 mt-1 leading-none">
+                    {currentUser.role === "STUDENT" ? "Sinh viên" : currentUser.role === "ORGANIZER" ? "Ban chủ nhiệm" : "Ban giám sát"}
+                  </span>
+                </div>
+                
+                <ChevronDown size={12} className="text-slate-400 group-hover:text-slate-600 transition-colors shrink-0" />
+              </button>
+
+              {showProfileDropdown && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowProfileDropdown(false)} />
+                  <div className="absolute right-0 top-12 mt-1.5 bg-white border border-slate-200 shadow-2xl rounded-2xl w-76 sm:w-80 overflow-hidden z-200 animate-fade-in text-left divide-y divide-slate-100 shrink-0">
+                    <div className="p-4 bg-slate-50 flex items-center gap-3">
+                      <div>
+                        {studentObj?.avatar || currentUser.role === "STUDENT" ? (
+                          <img 
+                            referrerPolicy="no-referrer"
+                            src={studentObj?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name}`} 
+                            alt={currentUser.name} 
+                            className="w-11 h-11 rounded-full object-cover border border-slate-100 shadow-sm"
+                          />
+                        ) : (
+                          <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-indigo-500 to-indigo-600 text-white flex items-center justify-center font-black text-sm">
+                            {currentUser.name.trim().substring(0, 1).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-0.5 max-w-[180px]">
+                        <h4 className="text-[12px] font-black text-slate-900 leading-tight truncate">{currentUser.name}</h4>
+                        <p className="text-[10px] font-mono text-slate-400 font-bold leading-none">{currentUser.username}</p>
+                        <span className="inline-block text-[8px] font-black px-1.5 py-0.5 bg-indigo-50 text-indigo-750 rounded uppercase mt-1 tracking-wider">
+                          Mã định danh: {currentUser.targetId || "ADMIN"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 space-y-3 font-sans">
+                      {currentUser.role === "STUDENT" && studentObj && (
+                        <div className="bg-slate-50/50 p-2.5 rounded-xl border border-slate-150/60 space-y-2">
+                          <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-600 font-medium text-left">
+                            <div>Lớp: <span className="font-bold text-slate-900">{studentObj.classId}</span></div>
+                            <div>Khoa: <span className="font-bold text-slate-900">{studentObj.facultyId}</span></div>
+                          </div>
+                      
+                          <div className="space-y-1">
+                            <label className="block text-[9.5px] font-black uppercase text-slate-500 tracking-wider">Chọn học kì truy vấn:</label>
+                            <select
+                              value={selectedSemesterId}
+                              onChange={(e) => setSelectedSemesterId(e.target.value)}
+                              className="w-full bg-white border border-slate-250 text-[10.5px] font-bold rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/15 text-slate-800 focus:border-indigo-500 cursor-pointer"
+                            >
+                              <option value="HOCKY_2_2025_2026">Học kỳ II - 2025-2026 (Hiện tại)</option>
+                              <option value="HOCKY_1_2025_2026">Học kỳ I - 2025-2026 (Đã khóa)</option>
+                            </select>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-1">
+                        <button 
+                          onClick={openProfileEditModal}
+                          className="w-full text-left font-bold text-xs text-slate-705 hover:text-indigo-600 hover:bg-indigo-50/50 px-3 py-2 rounded-xl border border-transparent hover:border-indigo-100 transition-all flex items-center gap-2 cursor-pointer"
+                        >
+                          <User size={13} className="text-slate-400" />
+                          <span>Sửa hồ sơ & mật khẩu</span>
+                        </button>
+
+                        <button 
+                          onClick={() => {
+                            if (confirm("Hành động này sẽ tải lại toàn bộ hạt giáo dữ liệu rèn luyện mẫu, xóa sạch các lịch sử kiểm định học kỳ của bạn. Bạn có muốn khôi phục không?")) {
+                              resetToSeeds();
+                              alert("Đã phục hồi hoàn chỉnh dữ liệu mẫu!");
+                              window.location.reload();
+                            }
+                          }}
+                          className="w-full text-left font-bold text-xs text-slate-705 hover:text-amber-700 hover:bg-amber-50/50 px-3 py-2 rounded-xl border border-transparent hover:border-amber-100 transition-all flex items-center gap-2 cursor-pointer"
+                        >
+                          <RefreshCw size={13} className="text-slate-400" />
+                          <span>Khôi phục dữ liệu mẫu</span>
+                        </button>
+
+                        <button 
+                          onClick={logout}
+                          className="w-full text-left font-bold text-xs text-slate-705 hover:text-rose-600 hover:bg-rose-50/50 px-3 py-2 rounded-xl border border-transparent hover:border-rose-100 transition-all flex items-center gap-2 cursor-pointer"
+                        >
+                          <LogOut size={13} className="text-slate-400" />
+                          <span>Đăng xuất tài khoản</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Bell Notification Button and Dropdown Icon Block */}
@@ -543,7 +882,7 @@ const AppContent: React.FC = () => {
                 className={`relative p-2.5 hover:bg-slate-50 border border-slate-150/85 hover:border-slate-350 rounded-xl text-slate-500 hover:text-indigo-600 transition-all cursor-pointer flex items-center justify-center ${
                   showNotificationsDropdown ? "bg-slate-55 border-slate-300 text-indigo-600" : "bg-white"
                 }`}
-                title="Thông báo hệ thống"
+                title="Thông báo cá nhân"
               >
                 <Bell size={16} className={unreadCount > 0 ? "animate-swing" : ""} />
                 {unreadCount > 0 && (
@@ -569,7 +908,7 @@ const AppContent: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <button 
                           onClick={handleMarkAllAsRead} 
-                          className="text-[9px] text-indigo-600 hover:text-indigo-805 hover:text-indigo-800 font-extrabold px-1.5 py-0.5 rounded hover:bg-indigo-100/60 transition-colors cursor-pointer"
+                          className="text-[9px] text-indigo-600 hover:text-indigo-850 font-extrabold px-1.5 py-0.5 rounded hover:bg-indigo-100/60 transition-colors cursor-pointer"
                         >
                           Đọc hết
                         </button>
@@ -584,7 +923,7 @@ const AppContent: React.FC = () => {
                     </div>
 
                     {/* Scroll Body */}
-                    <div className="max-h-[300px] overflow-y-auto divide-y divide-slate-100/60 custom-scrollbar">
+                    <div className="max-h-[300px] overflow-y-auto divide-y divide-slate-100/60 custom-scrollbar text-slate-850 text-slate-800">
                       {notifications.length === 0 ? (
                         <div className="p-8 text-center flex flex-col items-center justify-center text-slate-400 gap-2">
                           <Inbox size={22} className="text-slate-300" />
@@ -592,8 +931,8 @@ const AppContent: React.FC = () => {
                           <p className="text-[9px] text-slate-400 max-w-[240px] leading-relaxed mx-auto">Tất cả thông báo phê duyệt, phản hồi, cập nhật dữ liệu của bạn sẽ nằm gọn ở đây.</p>
                         </div>
                       ) : (
-                        notifications.map((n) => {
-                          let typeColorBg = "bg-blue-50/60 text-blue-600 border-blue-100";
+                        notifications.map((n: any) => {
+                          let typeColorBg = "bg-blue-50/60 text-blue-600 border-blue-105 border-blue-100";
                           let TypeIcon = Info;
                           if (n.type === "success") {
                             typeColorBg = "bg-emerald-50/60 text-emerald-600 border-emerald-100";
@@ -604,6 +943,9 @@ const AppContent: React.FC = () => {
                           } else if (n.type === "alert") {
                             typeColorBg = "bg-rose-50/60 text-rose-600 border-rose-100";
                             TypeIcon = AlertCircle;
+                          } else if (n.isClubAnnouncement) {
+                            typeColorBg = "bg-amber-50/60 text-amber-700 border-amber-150";
+                            TypeIcon = Megaphone;
                           }
 
                           return (
@@ -624,26 +966,24 @@ const AppContent: React.FC = () => {
 
                               <div className="flex-1 space-y-0.5">
                                 <div className="flex justify-between items-start gap-2">
-                                  <h5 className={`text-[11px] leading-snug ${!n.isRead ? "font-black text-slate-900" : "font-bold text-slate-750 text-slate-705"}`}>
+                                  <h5 className={`text-[11px] leading-snug text-left ${!n.isRead ? "font-black text-slate-900" : "font-bold text-slate-700"}`}>
                                     {n.title}
                                   </h5>
                                   <span className="text-[8px] font-mono font-medium text-slate-400 shrink-0 mt-0.5">{n.time}</span>
                                 </div>
-                                <p className="text-[10px] text-slate-600 leading-relaxed">
+                                <p className="text-[10px] text-slate-500 text-left font-sans">
                                   {n.message}
                                 </p>
-                                {n.linkTab && (
-                                  <div className="pt-1">
-                                    <span className="inline-block text-[8px] font-black text-indigo-600 bg-indigo-55 px-1.5 py-0.5 rounded border border-indigo-150 uppercase tracking-tight">
-                                      Bấm để giải quyết ngay
-                                    </span>
-                                  </div>
+                                {((n.linkTab && !n.isClubAnnouncement) || (n.isClubAnnouncement && n.activityId)) && (
+                                  <span className="inline-block text-[8px] font-black text-indigo-600 bg-indigo-55 px-1.5 py-0.5 rounded border border-indigo-150 uppercase tracking-tight mt-1.5">
+                                    {n.isClubAnnouncement ? "Xem & Đăng ký sự kiện" : "Bấm để giải quyết ngay"}
+                                  </span>
                                 )}
                               </div>
 
                               <button 
                                 onClick={(e) => handleDeleteNotification(n.id, e)}
-                                className="opacity-0 group-hover:opacity-100 hover:opacity-100 p-1 text-slate-300 hover:text-[rgb(225,29,72)] hover:text-rose-600 transition-opacity rounded cursor-pointer self-center shrink-0"
+                                className="opacity-0 group-hover:opacity-100 hover:opacity-100 p-1 text-slate-300 hover:text-rose-600 transition-opacity rounded cursor-pointer self-center shrink-0"
                                 title="Xóa thông báo"
                               >
                                 <Trash2 size={11} />
@@ -655,7 +995,7 @@ const AppContent: React.FC = () => {
                     </div>
 
                     <div className="px-3.5 py-2 bg-slate-50/80 text-center text-[8.5px] text-slate-400 font-mono flex justify-between items-center">
-                      <span>Xử lý liên thông rèn luyện tự động</span>
+                      <span>Thông báo tích kiểm liên thông</span>
                       <span>Hà Giang © 2026</span>
                     </div>
                   </div>
@@ -682,26 +1022,26 @@ const AppContent: React.FC = () => {
 
         </header>
 
-        {/* Core Main Viewport Panel */}
-        <main className="flex-1 w-full p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
-          {renderPortal()}
-        </main>
+        {/* Scrollable container for main content and footer */}
+        <div className="flex-1 overflow-y-auto w-full flex flex-col">
+          {/* Core Main Viewport Panel */}
+          <main className="flex-1 w-full p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
+            {renderPortal()}
+          </main>
 
-        {/* Dynamic Class Stats and Ratings */}
-        {currentUser?.role !== UserRole.ORGANIZER && <ClassStatisticsBottom />}
-
-        {/* Clean Bottom Footer */}
-        <footer className="bg-white border-t border-slate-200 py-5 px-6 lg:px-8 text-center text-xs text-slate-450 shrink-0 pb-20 md:pb-5">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div>
-              UniHub Rèn luyện © 2026. Công cụ quản lý tự động hoá thuộc Phân hiệu ĐHTN tại Hà Giang UniHubHG.
+          {/* Clean Bottom Footer */}
+          <footer className="bg-white border-t border-slate-200 py-5 px-6 lg:px-8 text-center text-xs text-slate-450 shrink-0 pb-20 md:pb-5">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <div>
+                UniHub Rèn luyện © 2026. Công cụ quản lý tự động hoá thuộc Phân hiệu ĐHTN tại Hà Giang UniHubHG.
+              </div>
+              <div className="font-mono text-[10px] text-slate-400 flex items-center gap-1">
+                <Cpu size={12} className="text-slate-350" />
+                <span>Xử lý và tính điểm tự động từ minh chứng thực tế</span>
+              </div>
             </div>
-            <div className="font-mono text-[10px] text-slate-400 flex items-center gap-1">
-              <Cpu size={12} className="text-slate-350" />
-              <span>Xử lý và tính điểm tự động từ minh chứng thực tế</span>
-            </div>
-          </div>
-        </footer>
+          </footer>
+        </div>
 
       </div>
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import * as XLSX from "xlsx";
 import { useUniHub } from "../state";
 import { motion } from "motion/react";
 import { 
@@ -69,8 +70,9 @@ export const OrganizerPortal: React.FC = () => {
   // Find current organization
   const org = organizations.find(o => o.id === orgId) || organizations[0];
   const orgMembers = members.filter(m => m.orgId === org.id);
-  const orgActivities = activities.filter(a => a.orgId === org.id);
-  const orgAnnouncements = announcements.filter(a => a.orgId === org.id);
+  const isDoanOrHoi = org.id === "DOANTN" || org.id === "HOISV";
+  const orgActivities = activities.filter(a => a.orgId === org.id || (a.orgId === "DOAN_HOI" && isDoanOrHoi));
+  const orgAnnouncements = announcements.filter(a => a.orgId === org.id || (a.orgId === "DOAN_HOI" && isDoanOrHoi));
 
   // Dynamic criteria mapping
   const activityCriteriaRules = criteria.flatMap(c => 
@@ -94,6 +96,11 @@ export const OrganizerPortal: React.FC = () => {
       setShowAddManualForm(true);
     }
   }, [activePortletTab, setActivePortletTab]);
+
+  useEffect(() => {
+    setActDeployUnit(org.id);
+    setAnnDeployUnit(org.id);
+  }, [org.id]);
 
   // Bulk check-in states (Requirement 1: điểm danh hàng loạt bằng cách check chọn nhiều sinh viên)
   const [selectedBulkMemberIds, setSelectedBulkMemberIds] = useState<string[]>([]);
@@ -155,11 +162,20 @@ export const OrganizerPortal: React.FC = () => {
   const [actLoc, setActLoc] = useState("");
   const [actDesc, setActDesc] = useState("");
   const [actExpiryDate, setActExpiryDate] = useState(""); // Expiry display duration date
+  const [actImageUrl, setActImageUrl] = useState(""); // Banner image marketing/background URL
+  const [actDeployUnit, setActDeployUnit] = useState(org.id);
 
   // Form State for CLB Announcement
   const [annTitle, setAnnTitle] = useState("");
   const [annContent, setAnnContent] = useState("");
   const [annExpiryDate, setAnnExpiryDate] = useState(""); // Expiry display duration date for announcement
+  const [annImageUrl, setAnnImageUrl] = useState(""); // Background/Marketing image URL for announcement
+  const [annDeployUnit, setAnnDeployUnit] = useState(org.id);
+  const [createLinkedActivity, setCreateLinkedActivity] = useState(true);
+  const [linkedCriteriaId, setLinkedCriteriaId] = useState("TC3.1");
+  const [linkedPoints, setLinkedPoints] = useState(5);
+  const [linkedDate, setLinkedDate] = useState("");
+  const [linkedLocation, setLinkedLocation] = useState("");
 
   // Import Excel XML/CSV States
   const [importStatus, setImportStatus] = useState<string | null>(null);
@@ -204,6 +220,11 @@ export const OrganizerPortal: React.FC = () => {
     
     const now = new Date();
     const actDateObj = new Date(act.dateTime.substring(0, 10));
+    
+    if (isNaN(actDateObj.getTime())) {
+      return true; // Gracefully keep events with custom non-standard date formats visible
+    }
+    
     const diffTime = Math.abs(now.getTime() - actDateObj.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
@@ -311,7 +332,7 @@ export const OrganizerPortal: React.FC = () => {
     setSelectedMember(null);
   };
 
-  // Export to Excel Standard (BOM-XLS Styled)
+  // Export to Excel Standard (.xlsx format using SheetJS)
   const handleExportMembers = () => {
     if (orgMembers.length === 0) {
       alert("Danh sách thành viên trống.");
@@ -353,133 +374,33 @@ export const OrganizerPortal: React.FC = () => {
       ];
     });
 
-    // Generate a highly formatted HTML structure compatible with Microsoft Excel
-    // styling matches: Times New Roman, cỡ 12, borders, padding and centering alignments.
-    const xlsContent = `
-<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-  <!--[if gte mso 9]>
-  <xml>
-    <x:ExcelWorkbook>
-      <x:ExcelWorksheets>
-        <x:ExcelWorksheet>
-          <x:Name>Danh sách thành viên</x:Name>
-          <x:WorksheetOptions>
-            <x:DisplayGridlines/>
-          </x:WorksheetOptions>
-        </x:ExcelWorksheet>
-      </x:ExcelWorksheets>
-    </x:ExcelWorkbook>
-  </xml>
-  <![endif]-->
-  <style>
-    body {
-      font-family: 'Times New Roman', Times, serif;
-    }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-    }
-    tr {
-      height: 24px;
-    }
-    th {
-      font-family: 'Times New Roman', Times, serif;
-      font-size: 12pt;
-      font-weight: bold;
-      border: 1px solid #000000;
-      background-color: #DDEBF7;
-      text-align: center;
-      vertical-align: middle;
-      padding: 6px;
-    }
-    td {
-      font-family: 'Times New Roman', Times, serif;
-      font-size: 12pt;
-      border: 1px solid #000000;
-      vertical-align: middle;
-      padding: 6px;
-      mso-number-format: "\\@"; /* Text format to keep leading zeroes */
-    }
-    .text-center {
-      text-align: center;
-    }
-    .text-left {
-      text-align: left;
-    }
-    .title-cell {
-      border: none !important;
-      text-align: center;
-      font-size: 16pt;
-      font-weight: bold;
-      font-family: 'Times New Roman', Times, serif;
-      height: 35px;
-    }
-    .subtitle-cell {
-      border: none !important;
-      text-align: center;
-      font-size: 11pt;
-      font-style: italic;
-      font-family: 'Times New Roman', Times, serif;
-      height: 25px;
-    }
-  </style>
-</head>
-<body>
-  <table>
-    <!-- Elegant Header Header -->
-    <tr>
-      <td colspan="${headers.length}" class="title-cell" style="border: none !important;">
-        DANH SÁCH THÀNH VIÊN CHI HỘI
-      </td>
-    </tr>
-    <tr>
-      <td colspan="${headers.length}" class="subtitle-cell" style="border: none !important;">
-        Bộ phận quản lý: ${org.name.toUpperCase()} — Ngày xuất dữ liệu: ${new Date().toLocaleDateString('vi-VN')}
-      </td>
-    </tr>
-    <tr style="height: 15px;">
-      <td colspan="${headers.length}" style="border: none !important;"></td>
-    </tr>
-    
-    <!-- Header Labels -->
-    <tr style="height: 28px;">
-      ${headers.map(h => `<th>${h}</th>`).join("")}
-    </tr>
-    
-    <!-- Member listing rows styled with proper padding & text alignment -->
-    ${rows.map(r => `
-      <tr>
-        <td class="text-center">${r[0]}</td>
-        <td class="text-center">${r[1]}</td>
-        <td class="text-left">${r[2]}</td>
-        <td class="text-center">${r[3]}</td>
-        <td class="text-center">${r[4]}</td>
-        <td class="text-center">${r[5]}</td>
-        <td class="text-left">${r[6]}</td>
-        <td class="text-center">${r[7]}</td>
-        <td class="text-left">${r[8]}</td>
-        <td class="text-left">${r[9]}</td>
-        <td class="text-center" style="font-weight: bold;">${r[10]}</td>
-        <td class="text-center">${r[11]}</td>
-        <td class="text-left">${r[12]}</td>
-      </tr>
-    `).join("")}
-  </table>
-</body>
-</html>
-    `;
+    // Generate standard Excel workbook
+    const wsData = [
+      headers,
+      ...rows
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-    // Save with the .xls extension to invoke genuine Excel compatibility with custom formatting
-    const blob = new Blob([xlsContent], { type: "application/vnd.ms-excel;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `DANH_SACH_THANH_VIEN_${org.id.toUpperCase()}.xls`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Set column widths so it displays beautifully in Excel
+    ws["!cols"] = [
+      { wch: 6 },   // STT
+      { wch: 18 },  // Mã sinh viên
+      { wch: 25 },  // Họ và tên
+      { wch: 10 },  // Giới tính
+      { wch: 12 },  // Ngày sinh
+      { wch: 10 },  // Dân tộc
+      { wch: 25 },  // Email
+      { wch: 15 },  // Số điện thoại
+      { wch: 25 },  // Địa chỉ thường trú
+      { wch: 20 },  // Chuyên ngành
+      { wch: 20 },  // Chức danh nhiệm kỳ
+      { wch: 15 },  // Ngày gia nhập
+      { wch: 30 }   // Tệp đính kèm học sinh
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Danh sách thành viên");
+    XLSX.writeFile(wb, `DANH_SACH_THANH_VIEN_${org.id.toUpperCase()}.xlsx`);
   };
 
   // Import standard Excel (Dual compatibility: both formatted HTML .xls and standard CSV/semicolon/comma files)
@@ -489,133 +410,170 @@ export const OrganizerPortal: React.FC = () => {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const text = event.target?.result as string;
-      const imported: OrganizationMember[] = [];
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
 
-      // Case 1: Check if the file is our exported HTML/XLS spreadsheet
-      if (text.includes("<table") || text.includes("<tr")) {
-        try {
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(text, "text/html");
-          const trs = Array.from(doc.querySelectorAll("tr"));
-          
-          let dataStartIndex = -1;
-          for (let i = 0; i < trs.length; i++) {
-            if (trs[i].querySelector("th")) {
-              dataStartIndex = i + 1; // Data starts below headings
+        const imported: OrganizationMember[] = [];
+
+        // Helper to clean and normalize cell text
+        const cleanText = (val: any) => {
+          if (val === null || val === undefined) return "";
+          return String(val)
+            .replace(/[\u00A0\u200B\uFEFF]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+        };
+
+        // Find header row by looking for "mã sinh viên" or similar
+        let headerRowIndex = -1;
+        for (let i = 0; i < jsonData.length; i++) {
+          const row = jsonData[i];
+          if (row && row.some(cell => {
+            const s = cleanText(cell).toLowerCase();
+            return (
+              s.includes("mã sinh viên") ||
+              s.includes("mã số sinh viên") ||
+              s.includes("mã sv") ||
+              s.includes("student id") ||
+              s.includes("mssv") ||
+              s.includes("mã hs")
+            );
+          })) {
+            headerRowIndex = i;
+            break;
+          }
+        }
+
+        // Fallback for header row
+        if (headerRowIndex === -1) {
+          for (let i = 0; i < jsonData.length; i++) {
+            if (jsonData[i] && jsonData[i].length >= 8) {
+              headerRowIndex = i - 1;
+              if (headerRowIndex < 0) headerRowIndex = 0;
               break;
             }
           }
-
-          if (dataStartIndex === -1) {
-            for (let i = 0; i < trs.length; i++) {
-              if (trs[i].querySelectorAll("td").length >= 11) {
-                dataStartIndex = i;
-                break;
-              }
-            }
-          }
-
-          if (dataStartIndex !== -1) {
-            for (let i = dataStartIndex; i < trs.length; i++) {
-              const tds = Array.from(trs[i].querySelectorAll("td"));
-              if (tds.length < 3) continue;
-
-              const cells = tds.map(td => td.textContent?.trim() || "");
-              const csvStudentId = cells[1];
-              const csvStudentName = cells[2];
-              
-              if (csvStudentId) {
-                const csvClassId = csvStudentId.substring(0, 3) === "DTG" ? "K20-CNTT" : "K21-KT";
-                imported.push({
-                  id: `M_IMP_${Date.now()}_${i}`,
-                  studentId: csvStudentId,
-                  studentName: csvStudentName || "Học sinh nhập",
-                  classId: csvClassId,
-                  orgId: org.id,
-                  role: (cells[10] as any) || "THÀNH VIÊN",
-                  joinedDate: cells[11] || new Date().toISOString().split("T")[0],
-                  term: "2025-2026",
-                  status: "ACTIVE",
-                  gender: cells[3] || "Nam",
-                  dob: cells[4] || "",
-                  ethnicity: cells[5] || "Kinh",
-                  email: cells[6] || "",
-                  phone: cells[7] || "",
-                  permanentAddress: cells[8] || "",
-                  major: cells[9] || "",
-                  attachmentUrl: cells[12] || ""
-                });
-              }
-            }
-          }
-        } catch (err) {
-          console.error("Lỗi parse file HTML/XLS: ", err);
         }
-      }
 
-      // Case 2: Parse as standard CSV format if HTML parsing returned no entries
-      if (imported.length === 0) {
-        const lines = text.split(/\r?\n/);
-        if (lines.length > 1) {
-          // Detect whether comma ',' or semicolon ';' is the delimiter
-          let delimiter = ",";
-          if (lines[0].includes(";")) {
-            delimiter = ";";
-          }
+        // Dynamic column index mapping based on header row
+        let studentIdIdx = -1;
+        let nameIdx = -1;
+        let genderIdx = -1;
+        let dobIdx = -1;
+        let ethnicityIdx = -1;
+        let emailIdx = -1;
+        let phoneIdx = -1;
+        let addressIdx = -1;
+        let majorIdx = -1;
+        let roleIdx = -1;
+        let joinedDateIdx = -1;
+        let attachmentIdx = -1;
 
-          for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-
-            let cells: string[] = [];
-            if (delimiter === ",") {
-              const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(",");
-              cells = matches.map(c => c.replace(/^"|"$/g, '').trim());
-            } else {
-              const matches = line.match(/(".*?"|[^";\s]+)(?=\s*;|\s*$)/g) || line.split(";");
-              cells = matches.map(c => c.replace(/^"|"$/g, '').trim());
+        if (headerRowIndex !== -1) {
+          const headerRow = jsonData[headerRowIndex] || [];
+          headerRow.forEach((cell, idx) => {
+            const s = cleanText(cell).toLowerCase();
+            if (s.includes("mã sinh viên") || s.includes("mã số sinh viên") || s.includes("mã sv") || s.includes("student id") || s.includes("mssv") || s.includes("mã hs")) {
+              studentIdIdx = idx;
+            } else if (s.includes("họ và tên") || s.includes("họ tên") || s.includes("tên") || s.includes("name") || s.includes("full name")) {
+              nameIdx = idx;
+            } else if (s.includes("giới tính") || s.includes("giới") || s.includes("gender") || s.includes("sex")) {
+              genderIdx = idx;
+            } else if (s.includes("ngày sinh") || s.includes("năm sinh") || s.includes("dob") || s.includes("date of birth") || s.includes("birth")) {
+              dobIdx = idx;
+            } else if (s.includes("dân tộc") || s.includes("ethnicity") || s.includes("nation")) {
+              ethnicityIdx = idx;
+            } else if (s.includes("email") || s.includes("thư điện tử")) {
+              emailIdx = idx;
+            } else if (s.includes("số điện thoại") || s.includes("sđt") || s.includes("điện thoại") || s.includes("phone") || s.includes("mobile")) {
+              phoneIdx = idx;
+            } else if (s.includes("địa chỉ") || s.includes("thường trú") || s.includes("address")) {
+              addressIdx = idx;
+            } else if (s.includes("chuyên ngành") || s.includes("ngành") || s.includes("major")) {
+              majorIdx = idx;
+            } else if (s.includes("chức danh") || s.includes("chức vụ") || s.includes("vai trò") || s.includes("role")) {
+              roleIdx = idx;
+            } else if (s.includes("ngày gia nhập") || s.includes("ngày vào") || s.includes("joined date")) {
+              joinedDateIdx = idx;
+            } else if (s.includes("tệp đính kèm") || s.includes("file đính kèm") || s.includes("attachment")) {
+              attachmentIdx = idx;
             }
+          });
+        }
 
-            if (cells.length < 3) continue;
+        const getColValRaw = (row: any[], index: number, defaultIdx: number) => {
+          const idx = index !== -1 ? index : defaultIdx;
+          if (idx >= row.length) return undefined;
+          return row[idx];
+        };
 
-            const csvStudentId = cells[1];
-            const csvStudentName = cells[2];
-            
-            if (csvStudentId) {
-              const csvClassId = csvStudentId.substring(0, 3) === "DTG" ? "K20-CNTT" : "K21-KT";
-              imported.push({
-                id: `M_IMP_${Date.now()}_${i}`,
-                studentId: csvStudentId,
-                studentName: csvStudentName || "Học sinh nhập",
-                classId: csvClassId,
-                orgId: org.id,
-                role: (cells[10] as any) || "THÀNH VIÊN",
-                joinedDate: cells[11] || new Date().toISOString().split("T")[0],
-                term: "2025-2026",
-                status: "ACTIVE",
-                gender: cells[3] || "Nam",
-                dob: cells[4] || "",
-                ethnicity: cells[5] || "Kinh",
-                email: cells[6] || "",
-                phone: cells[7] || "",
-                permanentAddress: cells[8] || "",
-                major: cells[9] || "",
-                attachmentUrl: cells[12] || ""
-              });
-            }
+        const startIdx = headerRowIndex !== -1 ? headerRowIndex + 1 : 0;
+
+        for (let i = startIdx; i < jsonData.length; i++) {
+          const row = jsonData[i];
+          if (!row || row.length < 2) continue;
+
+          const csvStudentId = cleanText(getColValRaw(row, studentIdIdx, 1));
+          const csvStudentName = cleanText(getColValRaw(row, nameIdx, 2));
+
+          // Sanitize and validate student ID
+          const cleanStudentId = csvStudentId.replace(/[^A-Za-z0-9\-]/g, "").trim();
+          const isValidStudentId = cleanStudentId.length >= 4 && cleanStudentId.length <= 25;
+
+          if (isValidStudentId) {
+            const studentObj = students.find(s => s.id === cleanStudentId || s.username === cleanStudentId);
+            const csvClassId = studentObj ? studentObj.classId : (cleanStudentId.substring(0, 3) === "DTG" ? "K20-CNTT" : "K21-KT");
+
+            const formatDate = (val: any) => {
+              if (!val) return "";
+              if (val instanceof Date) {
+                return val.toISOString().split("T")[0];
+              }
+              if (typeof val === "number" && val > 10000) {
+                const date = new Date((val - 25569) * 86400 * 1000);
+                return date.toISOString().split("T")[0];
+              }
+              return cleanText(val);
+            };
+
+            imported.push({
+              id: `M_IMP_${Date.now()}_${i}`,
+              studentId: cleanStudentId,
+              studentName: csvStudentName || "Học sinh nhập",
+              classId: csvClassId,
+              orgId: org.id,
+              role: (cleanText(getColValRaw(row, roleIdx, 10)) as any) || "THÀNH VIÊN",
+              joinedDate: formatDate(getColValRaw(row, joinedDateIdx, 11)) || new Date().toISOString().split("T")[0],
+              term: "2025-2026",
+              status: "ACTIVE",
+              gender: cleanText(getColValRaw(row, genderIdx, 3)) || "Nam",
+              dob: formatDate(getColValRaw(row, dobIdx, 4)) || "",
+              ethnicity: cleanText(getColValRaw(row, ethnicityIdx, 5)) || "Kinh",
+              email: cleanText(getColValRaw(row, emailIdx, 6)) || "",
+              phone: cleanText(getColValRaw(row, phoneIdx, 7)) || "",
+              permanentAddress: cleanText(getColValRaw(row, addressIdx, 8)) || "",
+              major: cleanText(getColValRaw(row, majorIdx, 9)) || "",
+              attachmentUrl: cleanText(getColValRaw(row, attachmentIdx, 12)) || ""
+            });
           }
         }
-      }
 
-      if (imported.length > 0) {
-        setImportedData(imported);
-        setImportStatus(`Đã kiểm định thành công ${imported.length} thành viên khả tế. Nhấp 'Xác nhận lưu' bên dưới.`);
-      } else {
-        setImportStatus("Mẫu không đúng chuẩn (Vui lòng kiểm tra lại cột Mã SV và định dạng dữ liệu).");
+        if (imported.length > 0) {
+          setImportedData(imported);
+          setImportStatus(`Đã kiểm định thành công ${imported.length} thành viên khả tế. Nhấp 'Xác nhận lưu' bên dưới.`);
+        } else {
+          setImportStatus("Mẫu không đúng chuẩn (Vui lòng kiểm tra lại cột Mã SV và định dạng dữ liệu).");
+        }
+      } catch (err) {
+        console.error("Lỗi parse file: ", err);
+        setImportStatus("Lỗi phân tích tệp Excel. Vui lòng kiểm tra định dạng.");
       }
     };
-    reader.readAsText(file, "UTF-8");
+    reader.readAsArrayBuffer(file);
   };
 
   const handleSaveImported = () => {
@@ -635,16 +593,17 @@ export const OrganizerPortal: React.FC = () => {
       return;
     }
 
-    createActivity({
+    const newActId = createActivity({
       title: actTitle,
-      orgId: org.id,
+      orgId: actDeployUnit,
       criteriaId: actCriteria,
       points: Number(actPoints),
       dateTime: actDate,
       location: actLoc,
       description: actDesc,
       registrationOpen: true,
-      expiryDate: actExpiryDate || undefined
+      expiryDate: actExpiryDate || undefined,
+      imageUrl: actImageUrl || undefined
     } as any);
 
     setActTitle("");
@@ -652,8 +611,10 @@ export const OrganizerPortal: React.FC = () => {
     setActLoc("");
     setActDesc("");
     setActExpiryDate("");
+    setActImageUrl("");
     alert("Tạo hoạt động mới thành công! Đăng ký sẵn sàng tích hợp trong mục điểm danh.");
     setActivityTimeFilter("ALL");
+    setSelectedActId(newActId);
     setActiveSubTab("QUANLY_DIEMDANH");
   };
 
@@ -665,17 +626,48 @@ export const OrganizerPortal: React.FC = () => {
       return;
     }
 
+    let linkedActId = "";
+    if (createLinkedActivity) {
+      if (!linkedDate || !linkedLocation) {
+        alert("Vui lòng nhập đầy đủ Thời gian tổ chức và Địa điểm cho hoạt động điểm danh rèn luyện đi kèm!");
+        return;
+      }
+      linkedActId = createActivity({
+        title: annTitle,
+        orgId: annDeployUnit,
+        criteriaId: linkedCriteriaId,
+        points: Number(linkedPoints),
+        dateTime: linkedDate,
+        location: linkedLocation,
+        description: annContent,
+        registrationOpen: true,
+        expiryDate: annExpiryDate || undefined,
+        imageUrl: annImageUrl || undefined
+      } as any);
+    }
+
     createAnnouncement({
-      orgId: org.id,
+      orgId: annDeployUnit,
       title: annTitle,
       content: annContent,
-      expiryDate: annExpiryDate || new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split("T")[0] // default 1 week
+      expiryDate: annExpiryDate || new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split("T")[0], // default 1 week
+      activityId: linkedActId || undefined,
+      imageUrl: annImageUrl || undefined
     });
 
     setAnnTitle("");
     setAnnContent("");
     setAnnExpiryDate("");
-    alert("Đăng tải thông báo CLB thành công! Đồng bộ tức thì giao diện sinh viên.");
+    setAnnImageUrl("");
+    setLinkedDate("");
+    setLinkedLocation("");
+    
+    alert(createLinkedActivity ? "Đăng tải thông báo & khởi tạo hoạt động điểm danh thành công!" : "Đăng tải thông báo CLB thành công!");
+    
+    setActivityTimeFilter("ALL");
+    if (linkedActId) {
+      setSelectedActId(linkedActId);
+    }
     setActiveSubTab("QUANLY_DIEMDANH");
   };
 
@@ -1331,6 +1323,21 @@ export const OrganizerPortal: React.FC = () => {
                     />
                   </div>
 
+                  {(org.id === "DOANTN" || org.id === "HOISV") && (
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1 font-sans">Đơn vị triển khai hoạt động</label>
+                      <select 
+                        value={actDeployUnit} 
+                        onChange={(e) => setActDeployUnit(e.target.value)}
+                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white font-medium focus:outline-none"
+                      >
+                        <option value="DOANTN">BCH Đoàn Thanh niên</option>
+                        <option value="HOISV">BCH Hội Sinh viên</option>
+                        <option value="DOAN_HOI">Đoàn - Hội Sinh viên kết hợp (Liên tịch)</option>
+                      </select>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">Xác lập rổ tiêu chí rèn luyện</label>
@@ -1418,6 +1425,35 @@ export const OrganizerPortal: React.FC = () => {
                     />
                   </div>
 
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Ảnh Banner Marketing / Background (Tùy chọn)</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text"
+                        placeholder="Link URL ảnh (e.g. https://images.unsplash.com/...)"
+                        value={actImageUrl}
+                        onChange={(e) => setActImageUrl(e.target.value)}
+                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const mockImages = [
+                            "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80",
+                            "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=800&q=80",
+                            "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=800&q=80",
+                            "https://images.unsplash.com/photo-1515187029135-18ee286d815b?auto=format&fit=crop&w=800&q=80"
+                          ];
+                          const randomImage = mockImages[Math.floor(Math.random() * mockImages.length)];
+                          setActImageUrl(randomImage);
+                        }}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border rounded-lg text-[10px] font-bold text-slate-650 shrink-0 cursor-pointer"
+                      >
+                        Chọn ảnh mẫu
+                      </button>
+                    </div>
+                  </div>
+
                   <button 
                     type="submit"
                     className={`px-4 py-2 hover:cursor-pointer text-white font-black text-xs rounded-xl flex items-center gap-1 shadow-sm ${themeBgActive}`}
@@ -1450,6 +1486,21 @@ export const OrganizerPortal: React.FC = () => {
                     />
                   </div>
 
+                  {(org.id === "DOANTN" || org.id === "HOISV") && (
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1 font-sans">Đơn vị triển khai thông báo</label>
+                      <select 
+                        value={annDeployUnit} 
+                        onChange={(e) => setAnnDeployUnit(e.target.value)}
+                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white font-medium focus:outline-none"
+                      >
+                        <option value="DOANTN">BCH Đoàn Thanh niên</option>
+                        <option value="HOISV">BCH Hội Sinh viên</option>
+                        <option value="DOAN_HOI">Đoàn - Hội Sinh viên kết hợp (Liên tịch)</option>
+                      </select>
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">Nội dung văn bản thông báo chính thức</label>
                     <textarea 
@@ -1460,6 +1511,35 @@ export const OrganizerPortal: React.FC = () => {
                       onChange={(e) => setAnnContent(e.target.value)}
                       className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Ảnh Marketing / Bìa Thông Báo CLB (Tùy chọn)</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text"
+                        placeholder="Link URL ảnh (e.g. https://images.unsplash.com/...)"
+                        value={annImageUrl}
+                        onChange={(e) => setAnnImageUrl(e.target.value)}
+                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const mockImages = [
+                            "https://images.unsplash.com/photo-1501504905252-473c47e087f8?auto=format&fit=crop&w=800&q=80",
+                            "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80",
+                            "https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=800&q=80",
+                            "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80"
+                          ];
+                          const randomImage = mockImages[Math.floor(Math.random() * mockImages.length)];
+                          setAnnImageUrl(randomImage);
+                        }}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border rounded-lg text-[10px] font-bold text-slate-650 shrink-0 cursor-pointer"
+                      >
+                        Chọn ảnh mẫu
+                      </button>
+                    </div>
                   </div>
 
                   {/* Customizable display duration date */}
@@ -1478,6 +1558,79 @@ export const OrganizerPortal: React.FC = () => {
                     <span className="text-[9px] text-slate-400 mt-1 block">
                       Khi quá ngày hết hạn thiết lập, bản tin thông báo này sẽ auto ẩn khỏi bảng cổng tin tức chi tiết của Sinh viên.
                     </span>
+                  </div>
+
+                  {/* Simultaneously create points extracurricular activity option */}
+                  <div className="p-4 bg-indigo-50/30 rounded-xl border border-indigo-150/60 space-y-3">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input 
+                        type="checkbox"
+                        checked={createLinkedActivity}
+                        onChange={(e) => setCreateLinkedActivity(e.target.checked)}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
+                      />
+                      <span className="text-[11px] font-extrabold text-indigo-950">Đồng thời khởi tạo hoạt động có điểm danh đi kèm</span>
+                    </label>
+                    <p className="text-[10px] text-slate-450 leading-tight">
+                      Khi tích chọn, hệ thống sẽ auto tạo 1 hoạt động tương ứng xuất hiện ngay trong <strong className="text-indigo-600">Sổ điểm danh & Event</strong> để dễ dàng quản lý rèn luyện.
+                    </p>
+                    
+                    {createLinkedActivity && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 animate-fade-in text-xs border-t border-indigo-100/50 mt-1.5">
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold text-slate-600">Mã minh chứng rèn luyện</label>
+                          <select 
+                            value={linkedCriteriaId}
+                            onChange={(e) => setLinkedCriteriaId(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-700"
+                          >
+                            {criteria.map(c => (
+                              <optgroup key={c.id} label={c.category} className="text-[10px] font-bold text-slate-400">
+                                {c.rules.map(r => (
+                                  <option key={r.id} value={r.id} className="text-xs text-slate-700 font-medium">
+                                    [{r.id}] {r.name.length > 40 ? r.name.substring(0, 40) + "..." : r.name} (+{r.points}đ)
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold text-slate-600">Điểm rèn luyện ròng</label>
+                          <input 
+                            type="number"
+                            value={linkedPoints}
+                            onChange={(e) => setLinkedPoints(Number(e.target.value))}
+                            className="w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-200 focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold text-slate-600">Thời gian tổ chức sự vụ *</label>
+                          <input 
+                            type="text"
+                            required={createLinkedActivity}
+                            placeholder="e.g. 2026-06-25 09:00"
+                            value={linkedDate}
+                            onChange={(e) => setLinkedDate(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-200 focus:outline-none placeholder:text-slate-300"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold text-slate-600">Địa điểm *</label>
+                          <input 
+                            type="text"
+                            required={createLinkedActivity}
+                            placeholder="e.g. Sảnh lớn Phân hiệu"
+                            value={linkedLocation}
+                            onChange={(e) => setLinkedLocation(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-200 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <button 

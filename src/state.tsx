@@ -74,7 +74,7 @@ interface UniHubContextType {
   updateStudentProfile: (studentId: string, name: string, avatar: string, password?: string) => void;
   
   // Organizer Actions
-  createActivity: (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName"> & { expiryDate?: string }) => void;
+  createActivity: (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName"> & { expiryDate?: string }) => string;
   updateActivityStatus: (activityId: string, status: "UPCOMING" | "ONGOING" | "COMPLETED") => void;
   approveMemberRequest: (memberId: string) => void;
   rejectMemberRequest: (memberId: string) => void;
@@ -83,7 +83,7 @@ interface UniHubContextType {
   addBulkAttendance: (activityId: string, studentIds: string[]) => void;
   
   // New clb actions
-  createAnnouncement: (announcement: Omit<ClubAnnouncement, "id" | "orgName" | "createdAt">) => void;
+  createAnnouncement: (announcement: Omit<ClubAnnouncement, "id" | "orgName" | "createdAt">) => string;
   deleteAnnouncement: (id: string) => void;
   addMemberManual: (member: Omit<OrganizationMember, "id" | "joinedDate" | "term" | "status">) => void;
   deleteMember: (memberId: string) => void;
@@ -123,6 +123,8 @@ interface UniHubContextType {
   deleteClubAndAccount: (clubId: string) => void;
   activePortletTab: string;
   setActivePortletTab: (tab: string) => void;
+  selectedSemesterId: string;
+  setSelectedSemesterId: (sem: string) => void;
 }
 
 const UniHubContext = createContext<UniHubContextType | undefined>(undefined);
@@ -130,6 +132,7 @@ const UniHubContext = createContext<UniHubContextType | undefined>(undefined);
 export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [activePortletTab, setActivePortletTab] = useState<string>("TRANG_CHU");
+  const [selectedSemesterId, setSelectedSemesterId] = useState<string>("HOCKY_2_2025_2026");
 
   useEffect(() => {
     if (currentUser) {
@@ -219,6 +222,24 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const cachedFeedbacks = localStorage.getItem("unihub_feedbacks");
     const cachedGroupCriteria = localStorage.getItem("unihub_group_criteria");
     const cachedAnnouncements = localStorage.getItem("unihub_announcements");
+
+    let shouldReset = false;
+    if (cachedUsers) {
+      try {
+        const parsedUsers = JSON.parse(cachedUsers) as UserAccount[];
+        if (!parsedUsers.some(u => u.email === "hsvphhg@hg.edu.vn")) {
+          shouldReset = true;
+        }
+      } catch (e) {
+        shouldReset = true;
+      }
+    }
+    
+    if (shouldReset) {
+      localStorage.clear();
+      window.location.reload();
+      return;
+    }
 
     if (cachedPeriod) setPeriod(JSON.parse(cachedPeriod));
     if (cachedUsers) setUsers(JSON.parse(cachedUsers));
@@ -427,60 +448,75 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const initAndSeedFirestore = async () => {
       try {
         const usersSnap = await getDocs(collection(db, "users"));
-        if (usersSnap.empty) {
-          console.log("Seeding Firestore database for the first time...");
+        let dbUsers: UserAccount[] = [];
+        usersSnap.forEach(d => dbUsers.push(d.data() as UserAccount));
+        
+        const hasNewHsv = dbUsers.some(u => u.email === "hsvphhg@hg.edu.vn" || u.username === "hsvphhg@hg.edu.vn");
+
+        if (usersSnap.empty || !hasNewHsv) {
+          console.log("Seeding or updating Firestore database with new users and organizations...");
           for (const u of SEED_USERS) {
             await setDoc(doc(db, "users", u.id), u);
-          }
-          for (const s of SEED_STUDENTS) {
-            await setDoc(doc(db, "students", s.id), s);
           }
           for (const o of SEED_ORGANIZATIONS) {
             await setDoc(doc(db, "organizations", o.id), o);
           }
-          for (const a of SEED_ACTIVITIES) {
-            await setDoc(doc(db, "activities", a.id), a);
-          }
-          for (const att of SEED_ATTENDANCE) {
-            await setDoc(doc(db, "attendance", att.id), att);
-          }
-          for (const ev of SEED_EVIDENCE) {
-            await setDoc(doc(db, "evidence", ev.id), ev);
-          }
-          for (const m of SEED_MEMBERS) {
-            await setDoc(doc(db, "members", m.id), m);
-          }
-          const initAnns: ClubAnnouncement[] = [
-            {
-              id: "ANN_01",
-              orgId: "UNITECH",
-              orgName: "CLB Sáng tạo Công nghệ UniTech",
-              title: "Tuyển thành viên Ban chủ nhiệm nhiệm kỳ mới 2026-2027",
-              content: "CLB thông báo tuyển ứng tuyển nhân sự cho các ban: Truyền thông & Sự kiện, Nghiên cứu phát triển. Hạn chốt đăng ký trước ngày 15/06/2026.",
-              createdAt: "2026-05-20",
-              expiryDate: "2026-06-25"
-            },
-            {
-              id: "ANN_02",
-              orgId: "UNITECH",
-              orgName: "CLB Sáng tạo Công nghệ UniTech",
-              title: "Buổi sinh hoạt chuyên đề: Trí tuệ nhân tạo thế hệ mới",
-              content: "Trân trọng kính mời tất cả các thành viên tham dự buổi sinh hoạt chuyên đề thảo luận ứng dụng của AI vào học tập, giải thưởng và nghiên cứu khoa học sinh viên.",
-              createdAt: "2026-06-01",
-              expiryDate: "2026-06-24"
+          
+          if (usersSnap.empty) {
+            for (const s of SEED_STUDENTS) {
+              await setDoc(doc(db, "students", s.id), s);
             }
-          ];
-          for (const ann of initAnns) {
-            await setDoc(doc(db, "announcements", ann.id), ann);
+            for (const a of SEED_ACTIVITIES) {
+              await setDoc(doc(db, "activities", a.id), a);
+            }
+            for (const att of SEED_ATTENDANCE) {
+              await setDoc(doc(db, "attendance", att.id), att);
+            }
+            for (const ev of SEED_EVIDENCE) {
+              await setDoc(doc(db, "evidence", ev.id), ev);
+            }
+            for (const m of SEED_MEMBERS) {
+              await setDoc(doc(db, "members", m.id), m);
+            }
+            const initAnns: ClubAnnouncement[] = [
+              {
+                id: "ANN_01",
+                orgId: "UNITECH",
+                orgName: "CLB Sáng tạo Công nghệ UniTech",
+                title: "Tuyển thành viên Ban chủ nhiệm nhiệm kỳ mới 2026-2027",
+                content: "CLB thông báo tuyển ứng tuyển nhân sự cho các ban: Truyền thông & Sự kiện, Nghiên cứu phát triển. Hạn chốt đăng ký trước ngày 15/06/2026.",
+                createdAt: "2026-05-20",
+                expiryDate: "2026-06-25"
+              },
+              {
+                id: "ANN_02",
+                orgId: "UNITECH",
+                orgName: "CLB Sáng tạo Công nghệ UniTech",
+                title: "Buổi sinh hoạt chuyên đề: Trí tuệ nhân tạo thế hệ mới",
+                content: "Trân trọng kính mời tất cả các thành viên tham dự buổi sinh hoạt chuyên đề thảo luận ứng dụng của AI vào học tập, giải thưởng và nghiên cứu khoa học sinh viên.",
+                createdAt: "2026-06-01",
+                expiryDate: "2026-06-24"
+              }
+            ];
+            for (const ann of initAnns) {
+              await setDoc(doc(db, "announcements", ann.id), ann);
+            }
+            for (const da of SEED_DAILY_ATTENDANCE) {
+              await setDoc(doc(db, "dailyAttendance", da.id), da);
+            }
+            for (const r of SEED_RESULTS) {
+              const docId = `${r.studentId}_${r.periodId}`;
+              await setDoc(doc(db, "results", docId), r);
+            }
+            console.log("Seeding complete!");
+          } else {
+            console.log("Firestore users list updated successfully.");
           }
-          for (const da of SEED_DAILY_ATTENDANCE) {
-            await setDoc(doc(db, "dailyAttendance", da.id), da);
-          }
-          for (const r of SEED_RESULTS) {
-            const docId = `${r.studentId}_${r.periodId}`;
-            await setDoc(doc(db, "results", docId), r);
-          }
-          console.log("Seeding complete!");
+
+          // Clear localStorage so it forces re-fetching the updated data
+          localStorage.clear();
+          window.location.reload();
+          return;
         } else {
           await loadFromFirestore();
         }
@@ -681,7 +717,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const oldRes = results.find(r => r.studentId === student.id);
       
       // Let's preserve old adjustments if status was approved by adviser or locked 
-      let adviserNotes = oldRes?.adviserNotes;
+      let adviserNotes = oldRes?.adviserNotes || null;
       let status: EvaluationResult["status"] = "AUTO";
 
       const currentClassReview = classReviews.find(cr => cr.classId === student.classId);
@@ -880,7 +916,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // Organizer Actions
-  const createActivity = (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName"> & { expiryDate?: string }) => {
+  const createActivity = (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName"> & { expiryDate?: string }): string => {
     const org = organizations.find(o => o.id === activity.orgId);
     const newAct: ExtracurricularActivity & { expiryDate?: string } = {
       ...activity,
@@ -892,6 +928,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updated = [...activities, newAct];
     setActivities(updated);
     saveToStorage("unihub_activities", updated);
+    return newAct.id;
   };
 
   const updateActivityStatus = (activityId: string, status: "UPCOMING" | "ONGOING" | "COMPLETED") => {
@@ -919,7 +956,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // New clb actions
-  const createAnnouncement = (announcement: Omit<ClubAnnouncement, "id" | "orgName" | "createdAt">) => {
+  const createAnnouncement = (announcement: Omit<ClubAnnouncement, "id" | "orgName" | "createdAt">): string => {
     const org = organizations.find(o => o.id === announcement.orgId);
     const newAnn: ClubAnnouncement = {
       ...announcement,
@@ -930,6 +967,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updated = [newAnn, ...announcements];
     setAnnouncements(updated);
     saveToStorage("unihub_announcements", updated);
+    return newAnn.id;
   };
 
   const deleteAnnouncement = (id: string) => {
@@ -1635,7 +1673,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       updateClubAndAccount,
       deleteClubAndAccount,
       activePortletTab,
-      setActivePortletTab
+      setActivePortletTab,
+      selectedSemesterId,
+      setSelectedSemesterId
     }}>
       {children}
     </UniHubContext.Provider>

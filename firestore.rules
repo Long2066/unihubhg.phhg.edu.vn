@@ -29,6 +29,18 @@ service cloud.firestore {
       return isSignedIn() && (request.auth.token.email_verified == true || request.auth.uid != null);
     }
 
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == role;
+    }
+
+    function isOwner(targetId) {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().targetId == targetId;
+    }
+
     // 3. Entity Validator Utilities
     function isValidUser(data) {
       return data.id is string && data.id.size() <= 128
@@ -74,6 +86,7 @@ service cloud.firestore {
         && data.createdAt is string && data.createdAt.size() <= 64;
     }
 
+    // Checking validation for activities
     function isValidActivity(data) {
       return data.id is string && data.id.size() <= 128
         && data.title is string && data.title.size() <= 256
@@ -140,62 +153,142 @@ service cloud.firestore {
     // 4. Secure Collections Match rules
     match /users/{userId} {
       allow get, list: if isVerifiedUser();
-      allow create, update: if isVerifiedUser() && isValidId(userId) && isValidUser(incoming());
-      allow delete: if isVerifiedUser() && isValidId(userId);
+      allow create: if isVerifiedUser() && isValidId(userId) && (
+        (userId == request.auth.uid && incoming().role == 'STUDENT') || hasRole('ADMIN')
+      ) && isValidUser(incoming());
+      allow update: if isVerifiedUser() && isValidId(userId) && (
+        hasRole('ADMIN') || (
+          userId == request.auth.uid && 
+          incoming().role == existing().role && 
+          incoming().targetId == existing().targetId &&
+          incoming().id == existing().id
+        )
+      ) && isValidUser(incoming());
+      allow delete: if isVerifiedUser() && isValidId(userId) && hasRole('ADMIN');
     }
 
     match /students/{studentId} {
       allow get, list: if isVerifiedUser();
-      allow create, update: if isVerifiedUser() && isValidId(studentId) && isValidStudent(incoming());
-      allow delete: if isVerifiedUser() && isValidId(studentId);
+      allow create, delete: if isVerifiedUser() && isValidId(studentId) && (hasRole('ADMIN') || hasRole('TRAINING_DEPT'));
+      allow update: if isVerifiedUser() && isValidId(studentId) && (
+        hasRole('ADMIN') || 
+        hasRole('TRAINING_DEPT') || 
+        (
+          studentId == request.auth.uid && 
+          incoming().classId == existing().classId && 
+          incoming().facultyId == existing().facultyId && 
+          incoming().id == existing().id &&
+          incoming().gpa == existing().gpa && 
+          incoming().creditsEarned == existing().creditsEarned && 
+          incoming().learningWarning == existing().learningWarning && 
+          incoming().learningStatus == existing().learningStatus && 
+          incoming().learningDataLocked == existing().learningDataLocked
+        )
+      ) && isValidStudent(incoming());
     }
 
     match /organizations/{orgId} {
       allow get, list: if isVerifiedUser();
-      allow create, update: if isVerifiedUser() && isValidId(orgId) && isValidOrganization(incoming());
-      allow delete: if isVerifiedUser() && isValidId(orgId);
+      allow create, delete: if isVerifiedUser() && isValidId(orgId) && hasRole('ADMIN');
+      allow update: if isVerifiedUser() && isValidId(orgId) && (
+        hasRole('ADMIN') || (hasRole('ORGANIZER') && isOwner(orgId))
+      ) && isValidOrganization(incoming());
     }
 
     match /members/{memberId} {
       allow get, list: if isVerifiedUser();
-      allow create, update: if isVerifiedUser() && isValidId(memberId) && isValidMember(incoming());
-      allow delete: if isVerifiedUser() && isValidId(memberId);
+      allow create: if isVerifiedUser() && isValidId(memberId) && (
+        hasRole('ADMIN') || 
+        (hasRole('STUDENT') && incoming().studentId == getUserData().targetId && incoming().status == 'PENDING' && incoming().role == 'THÀNH VIÊN') ||
+        (hasRole('ORGANIZER') && incoming().orgId == getUserData().targetId)
+      ) && isValidMember(incoming());
+      allow update: if isVerifiedUser() && isValidId(memberId) && (
+        hasRole('ADMIN') || 
+        (hasRole('ORGANIZER') && existing().orgId == getUserData().targetId && incoming().orgId == existing().orgId)
+      ) && isValidMember(incoming());
+      allow delete: if isVerifiedUser() && isValidId(memberId) && (
+        hasRole('ADMIN') || 
+        (hasRole('ORGANIZER') && existing().orgId == getUserData().targetId) ||
+        (hasRole('STUDENT') && existing().studentId == getUserData().targetId)
+      );
     }
 
     match /announcements/{announcementId} {
       allow get, list: if isVerifiedUser();
-      allow create, update: if isVerifiedUser() && isValidId(announcementId) && isValidClubAnnouncement(incoming());
-      allow delete: if isVerifiedUser() && isValidId(announcementId);
+      allow create: if isVerifiedUser() && isValidId(announcementId) && (hasRole('ADMIN') || (hasRole('ORGANIZER') && incoming().orgId == getUserData().targetId)) && isValidClubAnnouncement(incoming());
+      allow update: if isVerifiedUser() && isValidId(announcementId) && (hasRole('ADMIN') || (hasRole('ORGANIZER') && incoming().orgId == getUserData().targetId && existing().orgId == getUserData().targetId)) && isValidClubAnnouncement(incoming());
+      allow delete: if isVerifiedUser() && isValidId(announcementId) && (hasRole('ADMIN') || (hasRole('ORGANIZER') && existing().orgId == getUserData().targetId));
     }
 
     match /activities/{activityId} {
       allow get, list: if isVerifiedUser();
-      allow create, update: if isVerifiedUser() && isValidId(activityId) && isValidActivity(incoming());
-      allow delete: if isVerifiedUser() && isValidId(activityId);
+      allow create: if isVerifiedUser() && isValidId(activityId) && (hasRole('ADMIN') || (hasRole('ORGANIZER') && incoming().orgId == getUserData().targetId)) && isValidActivity(incoming());
+      allow update: if isVerifiedUser() && isValidId(activityId) && (hasRole('ADMIN') || (hasRole('ORGANIZER') && incoming().orgId == getUserData().targetId && existing().orgId == getUserData().targetId)) && isValidActivity(incoming());
+      allow delete: if isVerifiedUser() && isValidId(activityId) && (hasRole('ADMIN') || (hasRole('ORGANIZER') && existing().orgId == getUserData().targetId));
     }
 
     match /attendance/{attendanceId} {
       allow get, list: if isVerifiedUser();
-      allow create, update: if isVerifiedUser() && isValidId(attendanceId) && isValidActivityAttendance(incoming());
-      allow delete: if isVerifiedUser() && isValidId(attendanceId);
+      allow create: if isVerifiedUser() && isValidId(attendanceId) && (
+        hasRole('ADMIN') || 
+        (hasRole('STUDENT') && incoming().studentId == getUserData().targetId && incoming().attended == false && incoming().verified == false && incoming().role == 'MEM') ||
+        (hasRole('ORGANIZER') && get(/databases/$(database)/documents/activities/$(incoming().activityId)).data.orgId == getUserData().targetId)
+      ) && isValidActivityAttendance(incoming());
+      allow update: if isVerifiedUser() && isValidId(attendanceId) && (
+        hasRole('ADMIN') || 
+        (hasRole('ORGANIZER') && get(/databases/$(database)/documents/activities/$(existing().activityId)).data.orgId == getUserData().targetId)
+      ) && isValidActivityAttendance(incoming());
+      allow delete: if isVerifiedUser() && isValidId(attendanceId) && (
+        hasRole('ADMIN') || 
+        (hasRole('ORGANIZER') && get(/databases/$(database)/documents/activities/$(existing().activityId)).data.orgId == getUserData().targetId) ||
+        (hasRole('STUDENT') && existing().studentId == getUserData().targetId && existing().verified == false)
+      );
     }
 
     match /evidence/{evidenceId} {
       allow get, list: if isVerifiedUser();
-      allow create, update: if isVerifiedUser() && isValidId(evidenceId) && isValidEvidenceSubmission(incoming());
-      allow delete: if isVerifiedUser() && isValidId(evidenceId);
+      allow create: if isVerifiedUser() && isValidId(evidenceId) && (
+        hasRole('ADMIN') || 
+        (hasRole('STUDENT') && incoming().studentId == getUserData().targetId && incoming().status == 'PENDING')
+      ) && isValidEvidenceSubmission(incoming());
+      allow update: if isVerifiedUser() && isValidId(evidenceId) && (
+        hasRole('ADMIN') || 
+        ((hasRole('ADVISER') || hasRole('CLASS_MONITOR')) && getUserData().targetId == existing().classId) ||
+        (hasRole('STUDENT') && existing().studentId == getUserData().targetId && existing().status == 'PENDING' && incoming().status == 'PENDING' && incoming().studentId == existing().studentId)
+      ) && isValidEvidenceSubmission(incoming());
+      allow delete: if isVerifiedUser() && isValidId(evidenceId) && (
+        hasRole('ADMIN') || 
+        (existing().studentId == getUserData().targetId && existing().status == 'PENDING')
+      );
     }
 
     match /results/{resultId} {
       allow get, list: if isVerifiedUser();
-      allow create, update: if isVerifiedUser() && isValidId(resultId) && isValidEvaluationResult(incoming());
-      allow delete: if isVerifiedUser() && isValidId(resultId);
+      allow create, update: if isVerifiedUser() && isValidId(resultId) && (
+        hasRole('ADMIN') || (
+          (existing() == null || existing().status != 'LOCKED') && (
+            (hasRole('ADVISER') && getUserData().targetId == existing().classId) ||
+            (hasRole('CLASS_MONITOR') && getUserData().targetId == existing().classId) ||
+            (hasRole('FACULTY') && getUserData().targetId == existing().facultyId) ||
+            (hasRole('STUDENT') && incoming().studentId == getUserData().targetId && incoming().status == 'AUTO' && (existing() == null || incoming().adviserNotes == existing().adviserNotes))
+          )
+        )
+      ) && isValidEvaluationResult(incoming());
+      allow delete: if isVerifiedUser() && isValidId(resultId) && hasRole('ADMIN');
     }
 
     match /dailyAttendance/{attendanceId} {
       allow get, list: if isVerifiedUser();
-      allow create, update: if isVerifiedUser() && isValidId(attendanceId) && isValidDailyAttendanceReport(incoming());
-      allow delete: if isVerifiedUser() && isValidId(attendanceId);
+      allow create, update: if isVerifiedUser() && isValidId(attendanceId) && (
+        hasRole('ADMIN') || 
+        (hasRole('CLASS_MONITOR') && getUserData().targetId == incoming().classId) ||
+        (hasRole('ADVISER') && getUserData().targetId == incoming().classId)
+      ) && isValidDailyAttendanceReport(incoming());
+      allow delete: if isVerifiedUser() && isValidId(attendanceId) && (
+        hasRole('ADMIN') || 
+        (hasRole('CLASS_MONITOR') && getUserData().targetId == existing().classId) ||
+        (hasRole('ADVISER') && getUserData().targetId == existing().classId)
+      );
     }
 
   }

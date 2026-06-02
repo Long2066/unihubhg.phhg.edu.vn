@@ -126,7 +126,9 @@ export const StudentPortal: React.FC = () => {
     announcements,
     updateMemberDetails,
     activePortletTab,
-    setActivePortletTab
+    setActivePortletTab,
+    selectedSemesterId,
+    setSelectedSemesterId
   } = useUniHub();
 
   const activeTab = (activePortletTab as "TRANG_CHU" | "DIEM" | "HOATDONG" | "CLB" | "MINHCHUNG") || "TRANG_CHU";
@@ -146,7 +148,6 @@ export const StudentPortal: React.FC = () => {
   };
   
   // States
-  const [selectedSemesterId, setSelectedSemesterId] = useState("HOCKY_2_2025_2026");
   const [isNavCollapsed, setIsNavCollapsed] = useState(true);
   const [expandedCriteria, setExpandedCriteria] = useState<string | null>(null);
   const [activityMilestone, setActivityMilestone] = useState<"ALL" | "WEEK" | "MONTH" | "TERM">("ALL");
@@ -326,14 +327,35 @@ export const StudentPortal: React.FC = () => {
   // Filter activities by weekly/monthly/semester milestones
   const filterByMilestone = (act: typeof activities[number]) => {
     if (activityMilestone === "ALL") return true;
-    if (activityMilestone === "WEEK") {
-      return act.id === "ACT_03" || act.title.toLowerCase().includes("hội thảo") || act.title.toLowerCase().includes("tuần");
-    }
-    if (activityMilestone === "MONTH") {
-      return act.id === "ACT_04" || act.title.toLowerCase().includes("nghị quyết") || act.title.toLowerCase().includes("tháng") || act.title.toLowerCase().includes("ngày hội");
-    }
-    if (activityMilestone === "TERM") {
-      return act.id !== "ACT_03" && act.id !== "ACT_04" && !act.title.toLowerCase().includes("hội thảo") && !act.title.toLowerCase().includes("nghị quyết");
+    
+    // Check if the date can be parsed
+    const actDateObj = new Date(act.dateTime.substring(0, 10));
+    const now = new Date();
+    
+    if (!isNaN(actDateObj.getTime())) {
+      const diffTime = Math.abs(now.getTime() - actDateObj.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (activityMilestone === "WEEK") {
+        return diffDays <= 7 || act.title.toLowerCase().includes("hội thảo") || act.title.toLowerCase().includes("tuần");
+      }
+      if (activityMilestone === "MONTH") {
+        return diffDays <= 30 || act.title.toLowerCase().includes("nghị quyết") || act.title.toLowerCase().includes("tháng") || act.title.toLowerCase().includes("ngày hội");
+      }
+      if (activityMilestone === "TERM") {
+        return diffDays <= 120;
+      }
+    } else {
+      // Fallback if not valid ISO/Date structure
+      if (activityMilestone === "WEEK") {
+        return act.id === "ACT_03" || act.title.toLowerCase().includes("hội thảo") || act.title.toLowerCase().includes("tuần");
+      }
+      if (activityMilestone === "MONTH") {
+        return act.id === "ACT_04" || act.title.toLowerCase().includes("nghị quyết") || act.title.toLowerCase().includes("tháng") || act.title.toLowerCase().includes("ngày hội");
+      }
+      if (activityMilestone === "TERM") {
+        return act.id !== "ACT_03" && act.id !== "ACT_04" && !act.title.toLowerCase().includes("hội thảo") && !act.title.toLowerCase().includes("nghị quyết");
+      }
     }
     return true;
   };
@@ -806,20 +828,15 @@ export const StudentPortal: React.FC = () => {
     const joinedClubIds = studentMemberships.map(m => m.orgId);
     const todayStr = new Date().toISOString().split("T")[0];
 
-    // Get active announcements
-    const activeClubAnns = announcements.filter(ann => {
-      const club = organizations.find(o => o.id === ann.orgId);
-      if (!club || club.type !== "CLB") return false;
-      if (onlyMyClubsFilter && !joinedClubIds.includes(ann.orgId)) return false;
-      if (ann.expiryDate && todayStr > ann.expiryDate) return false;
-      return true;
-    });
-
-    // Get active / upcoming / completed club activities
+    // Get active / upcoming / completed club and youth union activities
     const activeClubActs = activities.filter(act => {
       const club = organizations.find(o => o.id === act.orgId);
-      if (!club || club.type !== "CLB") return false;
-      if (onlyMyClubsFilter && !joinedClubIds.includes(act.orgId)) return false;
+      if (!club || (club.type !== "CLB" && club.type !== "DOAN" && club.type !== "HOI")) return false;
+      if (onlyMyClubsFilter) {
+        const isJoined = joinedClubIds.includes(act.orgId) || 
+          (act.orgId === "DOAN_HOI" && (joinedClubIds.includes("DOANTN") || joinedClubIds.includes("HOISV")));
+        if (!isJoined) return false;
+      }
       
       const registered = myAttendance.some(r => r.activityId === act.id);
       if (act.status === "COMPLETED" && !registered) return false;
@@ -830,24 +847,56 @@ export const StudentPortal: React.FC = () => {
       return true;
     });
 
-    // Combine and sort or segregate depending on tab
-    const showAnnouncements = clubFeedTab === "ALL" || clubFeedTab === "ANNOUNCEMENTS";
-    const showActivities = clubFeedTab === "ALL" || clubFeedTab === "ACTIVITIES";
+    // Get active club and youth union announcements
+    const activeClubAnns = announcements.filter(ann => {
+      const club = organizations.find(o => o.id === ann.orgId);
+      if (!club || (club.type !== "CLB" && club.type !== "DOAN" && club.type !== "HOI")) return false;
+      if (onlyMyClubsFilter) {
+        const isJoined = joinedClubIds.includes(ann.orgId) || 
+          (ann.orgId === "DOAN_HOI" && (joinedClubIds.includes("DOANTN") || joinedClubIds.includes("HOISV")));
+        if (!isJoined) return false;
+      }
+      
+      if (ann.expiryDate && todayStr > ann.expiryDate) return false;
+      
+      return true;
+    });
+
+    // Build unified feed items list
+    const feedItems: (
+      | { type: "ACTIVITY"; data: typeof activeClubActs[0]; dateSort: string }
+      | { type: "ANNOUNCEMENT"; data: typeof activeClubAnns[0]; dateSort: string }
+    )[] = [];
+
+    if (clubFeedTab === "ALL" || clubFeedTab === "ACTIVITIES") {
+      activeClubActs.forEach(act => {
+        feedItems.push({ type: "ACTIVITY", data: act, dateSort: act.dateTime || "" });
+      });
+    }
+
+    if (clubFeedTab === "ALL" || clubFeedTab === "ANNOUNCEMENTS") {
+      activeClubAnns.forEach(ann => {
+        feedItems.push({ type: "ANNOUNCEMENT", data: ann, dateSort: ann.createdAt || "" });
+      });
+    }
+
+    // Sort descending by date
+    feedItems.sort((a, b) => b.dateSort.localeCompare(a.dateSort));
 
     return (
       <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm overflow-hidden space-y-5" id="club-portal-integrated-feed">
         {/* Module Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-          <div className="space-y-1">
+          <div className="space-y-1 text-left">
             <span className="text-[9px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100">
-              🔥 KÊNH THÔNG TIN CHUYÊN BIỆT
+              🔥 BẢN TIN CHUYÊN BIỆT
             </span>
             <h4 className="text-xs font-black text-slate-850 uppercase tracking-tight flex items-center gap-1.5 text-slate-800">
               <Megaphone size={13} className="text-indigo-500 animate-pulse" />
-              <span>Bản Tin & Hoạt Động Từ Các Câu Lạc Bộ</span>
+              <span>Bản Tin Hoạt Động & Thông Báo Đoàn Hội, CLB</span>
             </h4>
             <p className="text-[10px] text-slate-450 leading-relaxed">
-              Thông cáo chính thức, tiến trình rèn luyện, và lịch sinh hoạt được cập nhật tức thì bởi BCH các Câu lạc bộ.
+              Các thông cáo khẩn, lịch sinh hoạt thường kỳ, và sự kiện rèn luyện mới nhất từ Ban Chấp hành Đoàn Hội và các CLB.
             </p>
           </div>
 
@@ -860,108 +909,59 @@ export const StudentPortal: React.FC = () => {
                 onChange={(e) => setOnlyMyClubsFilter(e.target.checked)}
                 className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-55 focus:ring-opacity-25 h-3.5 w-3.5 cursor-pointer"
               />
-              <span className="text-[10px] font-bold text-slate-705">Chỉ hiện CLB của tôi ({studentMemberships.length})</span>
+              <span className="text-[10px] font-bold text-slate-705">Chỉ hiện Đoàn Hội/CLB của tôi ({studentMemberships.length})</span>
             </label>
           </div>
         </div>
 
-        {/* Tab Selection Filter */}
-        <div className="flex flex-wrap gap-1.5 font-sans">
-          <button 
+        {/* Tab Selector */}
+        <div className="flex flex-wrap gap-2 border-b border-slate-100 pb-2">
+          <button
             type="button"
             onClick={() => setClubFeedTab("ALL")}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+            className={`px-3 py-1.5 text-[10px] font-black rounded-lg transition-all cursor-pointer ${
               clubFeedTab === "ALL"
-                ? "bg-slate-900 text-white shadow-sm"
-                : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "bg-slate-50 text-slate-600 border border-slate-150/80 hover:bg-slate-100"
             }`}
           >
-            Tất cả cập nhật ({activeClubAnns.length + activeClubActs.length})
+            Tất cả ({activeClubActs.length + activeClubAnns.length})
           </button>
-          <button 
+          <button
             type="button"
             onClick={() => setClubFeedTab("ANNOUNCEMENTS")}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer flex items-center gap-1 ${
+            className={`px-3 py-1.5 text-[10px] font-black rounded-lg transition-all cursor-pointer ${
               clubFeedTab === "ANNOUNCEMENTS"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "bg-slate-50 text-slate-600 border border-slate-150/80 hover:bg-slate-100"
             }`}
           >
-            <Megaphone size={11} />
-            Thông báo CLB ({activeClubAnns.length})
+            Thông báo mới ({activeClubAnns.length})
           </button>
-          <button 
+          <button
             type="button"
             onClick={() => setClubFeedTab("ACTIVITIES")}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer flex items-center gap-1 ${
+            className={`px-3 py-1.5 text-[10px] font-black rounded-lg transition-all cursor-pointer ${
               clubFeedTab === "ACTIVITIES"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "bg-slate-50 text-slate-600 border border-slate-150/80 hover:bg-slate-100"
             }`}
           >
-            <Calendar size={11} />
-            Lịch sinh hoạt & Sự kiện ({activeClubActs.length})
+            Lịch & Hoạt động ({activeClubActs.length})
           </button>
         </div>
 
         {/* Interactive List Containers */}
         <div className="space-y-4">
-          
-          {/* 1. Announcements Container */}
-          {showAnnouncements && activeClubAnns.length > 0 && (
-            <div className="space-y-3">
-              {clubFeedTab === "ALL" && (
-                <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1 bg-slate-50 py-1 px-2 rounded-md max-w-max font-sans">
-                  🚩 THÔNG BÁO MỚI PHÁT SÓNG
-                </div>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {activeClubAnns.map(ann => {
-                  const isMyClub = joinedClubIds.includes(ann.orgId);
-                  
-                  return (
-                    <div 
-                      key={ann.id} 
-                      className="p-4 bg-amber-50/20 hover:bg-amber-50/40 border border-amber-150/70 rounded-2xl relative overflow-hidden transition-all flex flex-col justify-between group h-full space-y-3 shadow-xs hover:shadow-xs"
-                    >
-                      <div className="space-y-1 text-left">
-                        <div className="flex justify-between items-start gap-2 flex-wrap">
-                          <span className="text-[8.5px] font-black px-2 py-0.5 bg-amber-55 border border-amber-205 text-amber-800 rounded uppercase font-mono tracking-tight shrink-0">
-                            📢 {ann.orgName}
-                          </span>
-                          {isMyClub && (
-                            <span className="text-[8.5px] font-black px-1.5 py-0.5 bg-indigo-50 border border-indigo-150 text-indigo-700 rounded uppercase font-serif tracking-tight flex items-center gap-1 shrink-0">
-                              <Sparkles size={9} /> CLB Của Tôi
-                            </span>
-                          )}
-                        </div>
-                        <h5 className="text-[12px] font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors pt-1.5 line-clamp-2">
-                          {ann.title}
-                        </h5>
-                        <p className="text-[11px] text-slate-600 leading-relaxed font-sans">{ann.content}</p>
-                      </div>
-
-                      <div className="pt-2 border-t border-slate-100/50 flex justify-between items-center text-[9px] text-slate-400 font-mono">
-                        <span>Đăng: {ann.createdAt}</span>
-                        {ann.expiryDate && <span className="text-amber-700 font-bold">Hạn gỡ: {ann.expiryDate}</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+          {feedItems.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 border border-slate-150/60 rounded-2xl text-[11px] font-bold text-slate-500">
+              Không có bài đăng hay sự kiện nào phù hợp bộ lọc!
             </div>
-          )}
-
-          {/* 2. Activities Container */}
-          {showActivities && activeClubActs.length > 0 && (
-            <div className="space-y-3 pt-2">
-              {clubFeedTab === "ALL" && (
-                <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1 bg-slate-50 py-1 px-2 rounded-md max-w-max mt-4 font-sans">
-                  ⭐ LỊCH SINH HOẠT & PHONG TRÀO CLB
-                </div>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {activeClubActs.map(act => {
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {feedItems.map(item => {
+                if (item.type === "ACTIVITY") {
+                  const act = item.data;
                   const isMyClub = joinedClubIds.includes(act.orgId);
                   const registered = myAttendance.some(r => r.activityId === act.id);
                   const isActCompleted = act.status === "COMPLETED";
@@ -969,17 +969,26 @@ export const StudentPortal: React.FC = () => {
                   return (
                     <div 
                       key={act.id} 
-                      className="p-4 bg-white hover:bg-slate-50/50 border border-slate-150 rounded-2xl relative transition-all flex flex-col justify-between group h-full space-y-3 shadow-xs hover:shadow-xs"
+                      className="p-4 bg-white hover:bg-slate-50/50 border border-slate-155 rounded-2xl relative transition-all flex flex-col justify-between group h-full space-y-3 shadow-xs hover:shadow-xs text-left"
                     >
+                      {act.imageUrl && (
+                        <div className="w-full h-32 rounded-xl overflow-hidden shrink-0 border border-slate-100/80 relative">
+                          <img 
+                            src={act.imageUrl} 
+                            alt={act.title} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                          />
+                        </div>
+                      )}
                       <div className="space-y-2 text-left">
                         <div className="flex justify-between items-start gap-2 flex-wrap">
-                          <span className="text-[8.5px] font-black px-2 py-0.5 bg-indigo-50 border border-indigo-150 text-indigo-700 rounded uppercase font-mono tracking-tight shrink-0 animate-pulse">
+                          <span className="text-[8.5px] font-black px-2 py-0.5 bg-indigo-50 border border-indigo-150 text-indigo-700 rounded uppercase font-mono tracking-tight shrink-0">
                             📅 {act.orgName}
                           </span>
                           <div className="flex gap-1.5 shrink-0">
                             {isMyClub && (
                               <span className="text-[8.5px] font-black px-1.5 py-0.5 bg-emerald-50 border border-emerald-150 text-emerald-700 rounded uppercase tracking-tight flex items-center gap-1">
-                                <Sparkles size={9} /> CLB Của Tôi
+                                <Sparkles size={9} /> Thành viên
                               </span>
                             )}
                             <span className="text-[8.5px] font-black px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded uppercase font-mono">
@@ -996,7 +1005,7 @@ export const StudentPortal: React.FC = () => {
                           <p className="text-[10px] text-slate-550 leading-normal line-clamp-2 italic font-sans">{act.description}</p>
                         )}
 
-                        <div className="space-y-1 pt-1 text-[9.5px] text-slate-500 font-sans border-t border-slate-50">
+                        <div className="space-y-1 pt-1 text-[9.5px] text-slate-500 font-sans border-t border-slate-55">
                           <div className="flex items-center gap-1.5"><Clock size={11} className="text-indigo-500 shrink-0" /> {act.dateTime}</div>
                           <div className="flex items-center gap-1.5"><MapPin size={11} className="text-indigo-500 shrink-0" /> {act.location}</div>
                         </div>
@@ -1018,7 +1027,7 @@ export const StudentPortal: React.FC = () => {
                               registerForActivity(act.id, studentId);
                               alert(`Đăng ký thành công hoạt động "${act.title}"! Ban chủ nhiệm sẽ tiến hành kiểm diện điểm danh trực tiếp tại sự kiện.`);
                             }}
-                            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[9.5px] rounded-lg cursor-pointer shadow-xs transition-colors shrink-0"
+                            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[9.5px] rounded-lg cursor-pointer shadow-xs transition-colors shrink-0 animate-pulse"
                           >
                             Đăng ký tham diễn
                           </button>
@@ -1026,22 +1035,58 @@ export const StudentPortal: React.FC = () => {
                       </div>
                     </div>
                   );
-                })}
-              </div>
+                } else {
+                  // Rendering ANNOUNCEMENT
+                  const ann = item.data;
+                  const isMyClub = joinedClubIds.includes(ann.orgId);
+
+                  return (
+                    <div 
+                      key={ann.id} 
+                      className="p-4 bg-amber-50/20 hover:bg-amber-50/30 border border-amber-100 rounded-2xl relative transition-all flex flex-col justify-between group h-full space-y-3 shadow-xs hover:shadow-xs text-left"
+                    >
+                      {ann.imageUrl && (
+                        <div className="w-full h-32 rounded-xl overflow-hidden shrink-0 border border-amber-100 relative">
+                          <img 
+                            src={ann.imageUrl} 
+                            alt={ann.title} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                          />
+                        </div>
+                      )}
+                      <div className="space-y-2 text-left">
+                        <div className="flex justify-between items-start gap-2 flex-wrap">
+                          <span className="text-[8.5px] font-black px-2 py-0.5 bg-amber-50 border border-amber-150 text-amber-700 rounded uppercase font-mono tracking-tight shrink-0 flex items-center gap-1">
+                            <Megaphone size={9} /> {ann.orgName}
+                          </span>
+                          <div className="flex gap-1.5 shrink-0">
+                            {isMyClub && (
+                              <span className="text-[8.5px] font-black px-1.5 py-0.5 bg-emerald-50 border border-emerald-150 text-emerald-700 rounded uppercase tracking-tight flex items-center gap-1">
+                                <Sparkles size={9} /> Thành viên
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <h5 className="text-[12px] font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-2">
+                          {ann.title}
+                        </h5>
+                        
+                        {ann.content && (
+                          <p className="text-[10px] text-slate-550 leading-normal line-clamp-3 italic font-sans">{ann.content}</p>
+                        )}
+
+                        <div className="space-y-1 pt-1 text-[9.5px] text-slate-450 border-t border-slate-100 flex items-center gap-1.5">
+                          <Clock size={11} className="text-amber-500 shrink-0" />
+                          <span>Đăng ngày: {ann.createdAt}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+              })}
             </div>
           )}
-
-          {/* 3. Empty state handler */}
-          {((showAnnouncements ? activeClubAnns.length : 0) + (showActivities ? activeClubActs.length : 0)) === 0 && (
-            <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed flex flex-col items-center justify-center gap-2.5">
-              <span className="text-2xl animate-bounce">📪</span>
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Không tìm thấy thông tin phù hợp</p>
-              <p className="text-[9.5px] text-slate-400 max-w-sm">
-                Hiện tại chưa có thông báo hoặc hoạt động nào được công bố, hoặc các bản tin đã quá hạn hiển thị tự dọn.
-              </p>
-            </div>
-          )}
-
         </div>
       </div>
     );
@@ -1160,8 +1205,6 @@ export const StudentPortal: React.FC = () => {
           {/* TAB 1: TRANG CHỦ - CHỈ CHỨA HỒ SƠ SINH VIÊN VÀ BẢNG TIN QUAN TRỌNG */}
           {activeTab === "TRANG_CHU" && (
             <div className="space-y-6 animate-fade-in text-slate-800">
-              {/* Profile banner info */}
-              {renderProfileBanner()}
 
               {/* News Board container */}
               <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm overflow-hidden space-y-4">
@@ -1448,6 +1491,15 @@ export const StudentPortal: React.FC = () => {
 
                     return (
                       <div key={act.id} className="p-4 border border-slate-100 rounded-xl hover:shadow-xs hover:border-slate-200 transition-all bg-white shadow-xs">
+                        {act.imageUrl && (
+                          <div className="w-full h-40 rounded-xl overflow-hidden mb-3 border border-slate-100 relative shrink-0">
+                            <img 
+                              src={act.imageUrl} 
+                              alt={act.title} 
+                              className="w-full h-full object-cover" 
+                            />
+                          </div>
+                        )}
                         <div className="flex justify-between items-start gap-4">
                           <div className="space-y-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
@@ -1656,6 +1708,11 @@ export const StudentPortal: React.FC = () => {
                             <div className="space-y-3">
                               {activeClubAnns.map(ann => (
                                 <div key={ann.id} className="p-3.5 bg-yellow-50/30 border border-amber-100 rounded-xl text-xs space-y-1">
+                                  {ann.imageUrl && (
+                                    <div className="w-full h-32 rounded-lg overflow-hidden border border-amber-150/50 mb-2 relative shrink-0">
+                                      <img src={ann.imageUrl} alt={ann.title} className="w-full h-full object-cover" />
+                                    </div>
+                                  )}
                                   <div className="flex justify-between items-center">
                                     <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-mono">
                                       Hạn phát sóng: {ann.expiryDate || "Không giới hạn"}

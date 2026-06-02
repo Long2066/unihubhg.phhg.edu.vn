@@ -49,7 +49,7 @@ export const ClassStatisticsBottom: React.FC = () => {
   const missingCidsToday = classes.filter(cid => !reportedCidsToday.includes(cid));
 
   return (
-    <div className="bg-white mt-10 rounded-2xl border border-slate-200/80 shadow-md p-6 max-w-7xl mx-auto space-y-6" id="class-statistics-bottom">
+    <div className="bg-white mt-2 rounded-2xl border border-slate-200/80 shadow-md p-6 max-w-7xl mx-auto space-y-6" id="class-statistics-bottom">
       
       {/* Visual Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">

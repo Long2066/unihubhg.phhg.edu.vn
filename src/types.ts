@@ -104,6 +104,7 @@ export interface ExtracurricularActivity {
   description: string;
   registrationOpen: boolean;
   status: "UPCOMING" | "ONGOING" | "COMPLETED"; // Completed means attendance list has been verified
+  imageUrl?: string;
 }
 
 export interface ActivityAttendance {
@@ -230,4 +231,6 @@ export interface ClubAnnouncement {
   content: string;
   createdAt: string;
   expiryDate: string; // Customizable expiry date
+  activityId?: string;
+  imageUrl?: string;
 }
