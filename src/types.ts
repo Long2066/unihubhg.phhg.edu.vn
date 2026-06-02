@@ -57,6 +57,21 @@ export interface Student {
   learningWarning?: boolean;
   learningStatus?: string; // "Bình thường", "Bị cảnh báo", "Đình chỉ"
   learningDataLocked?: boolean; // Tín chỉ GPA đã khóa từ phòng đào tạo
+  
+  // New fields from training excel template
+  gender?: string;         // Giới tính
+  dob?: string;            // Ngày sinh
+  pob?: string;            // Nơi sinh
+  ethnicity?: string;      // Dân tộc
+  idCard?: string;         // Số CCCD/CMND
+  idCardDate?: string;     // Ngày cấp
+  idCardPlace?: string;    // Nơi cấp
+  subjects?: string;       // Học phần
+  subjectGrades?: string;  // Điểm học phần
+  gpa10?: number;          // Điểm hệ 10
+  academicGrade?: string;  // Xếp loại học tập
+  notes?: string;          // Ghi chú
+  updatedAt?: string;      // Ngày cập nhật
 }
 
 export interface Organization {
@@ -233,4 +248,17 @@ export interface ClubAnnouncement {
   expiryDate: string; // Customizable expiry date
   activityId?: string;
   imageUrl?: string;
+}
+
+export interface ScheduleSlot {
+  id: string;            // Mã định danh duy nhất (UUID)
+  classId: string;       // Lớp áp dụng (e.g. "K20-CNTT", "K2-GDTH-A")
+  subjectName: string;   // Tên học phần
+  teacherName: string;   // Tên giảng viên
+  dayOfWeek: number;     // Thứ trong tuần (2: Thứ Hai, 3: Thứ Ba, ..., 8: Chủ Nhật)
+  periodStart: number;   // Tiết bắt đầu (e.g. 1)
+  periodEnd: number;     // Tiết kết thúc (e.g. 3)
+  room: string;          // Phòng học (e.g. "Phòng 302 - Nhà A")
+  semester: string;      // Học kỳ (e.g. "Học kỳ II, 2025-2026")
+  colorHex?: string;     // Màu sắc đại diện hiển thị trên lịch tuần
 }

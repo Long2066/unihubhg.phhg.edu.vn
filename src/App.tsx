@@ -126,6 +126,20 @@ const AppContent: React.FC = () => {
     return cached ? JSON.parse(cached) : [];
   });
 
+  // Local state to track seen activity IDs for STUDENT role
+  const [seenActivityIds, setSeenActivityIds] = useState<string[]>(() => {
+    if (!currentUser) return [];
+    const cached = localStorage.getItem(`unihub_seen_activities_${currentUser.id}`);
+    return cached ? JSON.parse(cached) : [];
+  });
+
+  // Local state to track seen rejected evidence IDs for STUDENT role
+  const [seenRejectedEvidenceIds, setSeenRejectedEvidenceIds] = useState<string[]>(() => {
+    if (!currentUser) return [];
+    const cached = localStorage.getItem(`unihub_seen_rejected_ev_${currentUser.id}`);
+    return cached ? JSON.parse(cached) : [];
+  });
+
   const [selectedAnnForModal, setSelectedAnnForModal] = useState<any | null>(null);
 
   const saveReadNotifIds = (ids: string[]) => {
@@ -139,6 +153,20 @@ const AppContent: React.FC = () => {
     setDeletedNotifIds(ids);
     localStorage.setItem(`unihub_deleted_notifs_${currentUser.id}`, JSON.stringify(ids));
   };
+
+  const saveSeenActivityIds = (ids: string[]) => {
+    if (!currentUser) return;
+    setSeenActivityIds(ids);
+    localStorage.setItem(`unihub_seen_activities_${currentUser.id}`, JSON.stringify(ids));
+  };
+
+  const saveSeenRejectedEvidenceIds = (ids: string[]) => {
+    if (!currentUser) return;
+    setSeenRejectedEvidenceIds(ids);
+    localStorage.setItem(`unihub_seen_rejected_ev_${currentUser.id}`, JSON.stringify(ids));
+  };
+
+
 
   // Generate dynamic notification list based on roles and DB states
   const notifications: NotificationItem[] = React.useMemo(() => {
@@ -179,26 +207,85 @@ const AppContent: React.FC = () => {
         }
       });
 
-      // 3. New club announcements
+      // 3. New club announcements / BCH Meeting Announcements
       announcements.forEach(ann => {
-        // Check if student is a member of the club
-        const isMember = members.some(m => m.studentId === targetId && m.orgId === ann.orgId && m.status === "ACTIVE");
-        if (isMember) {
+        const titleLower = ann.title.toLowerCase();
+        const contentLower = ann.content.toLowerCase();
+        const isBCHMeeting = titleLower.includes("họp bch") || 
+                             titleLower.includes("họp ban chấp hành") ||
+                             contentLower.includes("họp bch") || 
+                             contentLower.includes("họp ban chấp hành");
+
+        if (isBCHMeeting) {
+          // Check if student holds active BCH role in the publishing organization
+          let isEligible = false;
+          if (ann.orgId === "DOANTN") {
+            isEligible = members.some(m => 
+              m.studentId === targetId && 
+              m.orgId === "DOANTN" && 
+              m.status === "ACTIVE" && 
+              ["BAN CHẤP HÀNH", "ỦY VIÊN", "CHỦ NHIỆM"].includes(m.role)
+            );
+          } else if (ann.orgId === "HOISV") {
+            isEligible = members.some(m => 
+              m.studentId === targetId && 
+              m.orgId === "HOISV" && 
+              m.status === "ACTIVE" && 
+              ["BAN CHẤP HÀNH", "ỦY VIÊN", "CHỦ NHIỆM"].includes(m.role)
+            );
+          } else if (ann.orgId === "DOAN_HOI") {
+            isEligible = members.some(m => 
+              m.studentId === targetId && 
+              (m.orgId === "DOANTN" || m.orgId === "HOISV") && 
+              m.status === "ACTIVE" && 
+              ["BAN CHẤP HÀNH", "ỦY VIÊN", "CHỦ NHIỆM"].includes(m.role)
+            );
+          } else {
+            // For general clubs/orgs, check if active member has BCH/Leader role
+            isEligible = members.some(m => 
+              m.studentId === targetId && 
+              m.orgId === ann.orgId && 
+              m.status === "ACTIVE" && 
+              ["BAN CHẤP HÀNH", "ỦY VIÊN", "CHỦ NHIỆM"].includes(m.role)
+            );
+          }
+
+          if (!isEligible) return; // Non-BCH members do not get this notification
+
           if (ann.expiryDate && todayStr > ann.expiryDate) return;
+
           list.push({
             id: `ann-${ann.id}`,
-            title: `📢 THÔNG BÁO CLB: ${ann.title}`,
+            title: `📅 HỌP BCH KHẨN: ${ann.title}`,
             message: `${ann.content.substring(0, 80)}${ann.content.length > 80 ? "..." : ""}`,
             time: ann.createdAt,
-            type: "info",
+            type: "warning",
             isRead: readNotifIds.includes(`ann-${ann.id}`),
             linkTab: "CLB",
-            // Custom announcement fields for render and click modals
             isClubAnnouncement: true,
             clubName: ann.orgName,
             fullContent: ann.content,
             activityId: ann.activityId
           });
+        } else {
+          // Normal announcement: check if active member
+          const isMember = members.some(m => m.studentId === targetId && m.orgId === ann.orgId && m.status === "ACTIVE");
+          if (isMember) {
+            if (ann.expiryDate && todayStr > ann.expiryDate) return;
+            list.push({
+              id: `ann-${ann.id}`,
+              title: `📢 THÔNG BÁO CLB: ${ann.title}`,
+              message: `${ann.content.substring(0, 80)}${ann.content.length > 80 ? "..." : ""}`,
+              time: ann.createdAt,
+              type: "info",
+              isRead: readNotifIds.includes(`ann-${ann.id}`),
+              linkTab: "CLB",
+              isClubAnnouncement: true,
+              clubName: ann.orgName,
+              fullContent: ann.content,
+              activityId: ann.activityId
+            });
+          }
         }
       });
 
@@ -362,6 +449,47 @@ const AppContent: React.FC = () => {
     return list.filter(n => !deletedNotifIds.includes(n.id));
   }, [currentUser, evidence, members, organizations, announcements, feedbacks, students, classReviews, facultyReviews, period, readNotifIds, deletedNotifIds]);
 
+  // Reactively mark notifications/activities as seen/read when visiting tabs
+  React.useEffect(() => {
+    if (!currentUser || currentUser.role !== UserRole.STUDENT) return;
+
+    if (activePortletTab === "TRANG_CHU") {
+      const unread = notifications.filter(n => !n.isRead && (n.linkTab === "TRANG_CHU" || n.id === "welcome-notif"));
+      if (unread.length > 0) {
+        const newReadIds = [...readNotifIds, ...unread.map(n => n.id)];
+        saveReadNotifIds(Array.from(new Set(newReadIds)));
+      }
+    } else if (activePortletTab === "DIEM") {
+      const unread = notifications.filter(n => !n.isRead && n.linkTab === "DIEM");
+      if (unread.length > 0) {
+        const newReadIds = [...readNotifIds, ...unread.map(n => n.id)];
+        saveReadNotifIds(Array.from(new Set(newReadIds)));
+      }
+    } else if (activePortletTab === "CLB") {
+      const unread = notifications.filter(n => !n.isRead && n.linkTab === "CLB");
+      if (unread.length > 0) {
+        const newReadIds = [...readNotifIds, ...unread.map(n => n.id)];
+        saveReadNotifIds(Array.from(new Set(newReadIds)));
+      }
+    } else if (activePortletTab === "HOATDONG") {
+      const upcomingUnregisteredIds = activities
+        .filter(a => a.status === "UPCOMING" && a.registrationOpen && !attendance.some(att => att.activityId === a.id && att.studentId === studentId))
+        .map(a => a.id);
+      const newSeenIds = Array.from(new Set([...seenActivityIds, ...upcomingUnregisteredIds]));
+      if (newSeenIds.length !== seenActivityIds.length) {
+        saveSeenActivityIds(newSeenIds);
+      }
+    } else if (activePortletTab === "MINHCHUNG") {
+      const rejectedEvIds = evidence
+        .filter(ev => ev.studentId === studentId && ev.status === "REJECTED")
+        .map(ev => ev.id);
+      const newSeenRejectedIds = Array.from(new Set([...seenRejectedEvidenceIds, ...rejectedEvIds]));
+      if (newSeenRejectedIds.length !== seenRejectedEvidenceIds.length) {
+        saveSeenRejectedEvidenceIds(newSeenRejectedIds);
+      }
+    }
+  }, [activePortletTab, currentUser, notifications, activities, attendance, studentId]);
+
   if (!currentUser) {
     return <LoginScreen />;
   }
@@ -487,6 +615,7 @@ const AppContent: React.FC = () => {
         return [
           { id: "TRANG_CHU", label: "Bảng tin & Hồ sơ chính", icon: Home },
           { id: "DIEM", label: "Tiến trình & Điểm số", icon: Award },
+          { id: "THOI_KHOA_BIEU", label: "Thời khóa biểu", icon: Clock },
           { id: "HOATDONG", label: "SỰ kiện ngoại khóa", icon: Calendar },
           { id: "CLB", label: "Câu lạc bộ của tôi", icon: Users },
           { id: "MINHCHUNG", label: "Cấp minh chứng ngoại lệ", icon: FileText },
@@ -503,6 +632,7 @@ const AppContent: React.FC = () => {
         return [
           { id: "IMPORT", label: "Nạp Điểm Học Tập", icon: UploadCloud },
           { id: "IMPORT_CLASSES", label: "Nạp Lớp Mới", icon: FileCode },
+          { id: "THOI_KHOA_BIEU", label: "Thời khóa biểu lớp", icon: Clock },
           { id: "LIST", label: "Đồng bộ rèn luyện", icon: BookOpen },
           { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
         ];
@@ -550,18 +680,23 @@ const AppContent: React.FC = () => {
           // Unread notifications linking to DIEM (e.g. gpa update, adviser feedback, evidence status changes)
           return notifications.filter(n => !n.isRead && n.linkTab === "DIEM").length;
         case "HOATDONG":
-          // Number of upcoming activities open for registration that the student has not registered for
+          // Number of upcoming activities open for registration that the student has not registered for and has not seen yet
           return activities.filter(a => 
             a.status === "UPCOMING" && 
             a.registrationOpen && 
-            !attendance.some(att => att.activityId === a.id && att.studentId === studentId)
+            !attendance.some(att => att.activityId === a.id && att.studentId === studentId) &&
+            !seenActivityIds.includes(a.id)
           ).length;
         case "CLB":
           // Unread notifications linking to CLB (e.g. club announcements, membership approved)
           return notifications.filter(n => !n.isRead && n.linkTab === "CLB").length;
         case "MINHCHUNG":
-          // Count of rejected or pending evidence submissions that the student might need to check/react to
-          return evidence.filter(ev => ev.studentId === studentId && ev.status === "REJECTED").length;
+          // Count of rejected evidence submissions that the student has not seen yet
+          return evidence.filter(ev => 
+            ev.studentId === studentId && 
+            ev.status === "REJECTED" &&
+            !seenRejectedEvidenceIds.includes(ev.id)
+          ).length;
         default:
           return 0;
       }
@@ -1044,6 +1179,47 @@ const AppContent: React.FC = () => {
         </div>
 
       </div>
+
+      {selectedAnnForModal && (
+        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in font-sans">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-lg w-full overflow-hidden transform transition-all scale-100 flex flex-col max-h-[90vh]">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <span className="text-xs bg-indigo-50 border border-indigo-150 text-indigo-700 px-2 py-0.5 rounded-md font-black">
+                  {selectedAnnForModal.clubName}
+                </span>
+                <span className="text-[10px] font-mono text-slate-400">
+                  {selectedAnnForModal.time}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedAnnForModal(null)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-full hover:bg-slate-100 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-4 text-left">
+              <h3 className="text-base font-black text-slate-905 leading-snug">
+                {selectedAnnForModal.title}
+              </h3>
+              <div className="text-xs text-slate-655 whitespace-pre-wrap leading-relaxed">
+                {selectedAnnForModal.fullContent}
+              </div>
+            </div>
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedAnnForModal(null)}
+                className="px-4 py-2 border border-slate-200 text-slate-700 font-bold hover:bg-slate-100 rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile Navigation Bottom Bar for high-quality universal platform layout */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 py-2 px-1 z-50 flex justify-around items-center shadow-[0_-4px_12px_rgba(15,23,42,0.06)] bg-white/95 backdrop-blur-md">

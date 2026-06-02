@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useUniHub } from "../state";
-import { UserRole, Student, UserAccount } from "../types";
+import { UserRole, Student, UserAccount, ScheduleSlot } from "../types";
+import * as XLSX from "xlsx";
 import { 
   FileSpreadsheet, 
   Upload, 
@@ -14,7 +15,10 @@ import {
   Users,
   Grid,
   ShieldAlert,
-  Key
+  Key,
+  Download,
+  Trash2,
+  UploadCloud
 } from "lucide-react";
 
 export const TrainingPortal: React.FC = () => {
@@ -25,11 +29,15 @@ export const TrainingPortal: React.FC = () => {
     importNewClassesExcel,
     users,
     activePortletTab,
-    setActivePortletTab
+    setActivePortletTab,
+    schedules,
+    importScheduleData,
+    deleteScheduleSlot,
+    clearSchedules
   } = useUniHub();
 
-  const activeTab = (activePortletTab as "IMPORT" | "IMPORT_CLASSES" | "LIST") || "IMPORT";
-  const setActiveTab = (tab: "IMPORT" | "IMPORT_CLASSES" | "LIST") => {
+  const activeTab = (activePortletTab as "IMPORT" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU") || "IMPORT";
+  const setActiveTab = (tab: "IMPORT" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU") => {
     setActivePortletTab(tab);
   };
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -39,6 +47,20 @@ export const TrainingPortal: React.FC = () => {
   const [editCredits, setEditCredits] = useState(15);
   const [editWarning, setEditWarning] = useState(false);
   const [editStatus, setEditStatus] = useState("Bình thường");
+
+  // New fields for manual edit
+  const [editGender, setEditGender] = useState("Nam");
+  const [editDob, setEditDob] = useState("2006-01-01");
+  const [editPob, setEditPob] = useState("Hà Giang");
+  const [editEthnicity, setEditEthnicity] = useState("Kinh");
+  const [editIdCard, setEditIdCard] = useState("");
+  const [editIdCardDate, setEditIdCardDate] = useState("");
+  const [editIdCardPlace, setEditIdCardPlace] = useState("");
+  const [editSubjects, setEditSubjects] = useState("");
+  const [editSubjectGrades, setEditSubjectGrades] = useState("");
+  const [editGpa10, setEditGpa10] = useState(8.0);
+  const [editAcademicGrade, setEditAcademicGrade] = useState("Khá");
+  const [editNotes, setEditNotes] = useState("");
 
   // Mock GPA template upload
   const [showPreview, setShowPreview] = useState(false);
@@ -50,16 +72,249 @@ export const TrainingPortal: React.FC = () => {
   const [importedClassStudents, setImportedClassStudents] = useState<Student[]>([]);
   const [importedClassUsers, setImportedClassUsers] = useState<UserAccount[]>([]);
 
+  // Timetable State
+  const [schedulePreviewData, setSchedulePreviewData] = useState<ScheduleSlot[]>([]);
+  const [showSchedulePreview, setShowSchedulePreview] = useState(false);
+  const [selectedScheduleClass, setSelectedScheduleClass] = useState("");
+
   const handleMockExcelUpload = () => {
-    // Generate simulated high-performing student updates to show the power of the engine
     const updates = [
-      { id: "DTG245140202053", gpa: 3.52, creditsEarned: 21, learningWarning: false, learningStatus: "Bình thường" },
-      { id: "SV20CN02", gpa: 2.85, creditsEarned: 18, learningWarning: false, learningStatus: "Bình thường" },
-      { id: "SV20CN04", gpa: 1.82, creditsEarned: 13, learningWarning: true, learningStatus: "Bị cảnh báo" }
+      { 
+        id: "DTG245140202053", 
+        name: "Nguyễn Văn An",
+        gpa: 3.52, 
+        gpa10: 8.8,
+        creditsEarned: 21, 
+        learningWarning: false, 
+        learningStatus: "Bình thường",
+        gender: "Nam",
+        dob: "2006-05-14",
+        pob: "Vị Xuyên, Hà Giang",
+        ethnicity: "Kinh",
+        idCard: "001206009876",
+        idCardDate: "2022-04-12",
+        idCardPlace: "Cục Cảnh sát QLHC về TTXH",
+        subjects: "Lập trình Web, Cơ sở dữ liệu, Cấu trúc dữ liệu",
+        subjectGrades: "8.5, 9.0, 8.8, -, -, -, -, -",
+        academicGrade: "Giỏi",
+        notes: "Gương mẫu tham gia phong trào, học tập xuất sắc học kỳ II.",
+        updatedAt: new Date().toISOString().split("T")[0]
+      },
+      { 
+        id: "SV20CN02", 
+        name: "Phan Thị Bình",
+        gpa: 2.85, 
+        gpa10: 7.1,
+        creditsEarned: 18, 
+        learningWarning: false, 
+        learningStatus: "Bình thường",
+        gender: "Nữ",
+        dob: "2006-08-22",
+        pob: "Yên Minh, Hà Giang",
+        ethnicity: "Tày",
+        idCard: "001206005544",
+        idCardDate: "2022-09-18",
+        idCardPlace: "Cục Cảnh sát QLHC về TTXH",
+        subjects: "Lập trình Web, Cơ sở dữ liệu, Thiết kế UI/UX",
+        subjectGrades: "7.5, 6.8, 7.0, -, -, -, -, -",
+        academicGrade: "Khá",
+        notes: "",
+        updatedAt: new Date().toISOString().split("T")[0]
+      },
+      { 
+        id: "SV20CN04", 
+        name: "Vũ Đăng Khoa",
+        gpa: 1.82, 
+        gpa10: 4.5,
+        creditsEarned: 13, 
+        learningWarning: true, 
+        learningStatus: "Bị cảnh báo",
+        gender: "Nam",
+        dob: "2006-03-01",
+        pob: "Bắc Quang, Hà Giang",
+        ethnicity: "Kinh",
+        idCard: "001206001122",
+        idCardDate: "2021-12-05",
+        idCardPlace: "Công an tỉnh Hà Giang",
+        subjects: "Cơ sở dữ liệu, Toán rời rạc",
+        subjectGrades: "4.0, 5.0, -, -, -, -, -, -",
+        academicGrade: "Yếu",
+        notes: "Nợ môn Cơ sở dữ liệu.",
+        updatedAt: new Date().toISOString().split("T")[0]
+      }
     ];
 
     setPreviewData(updates);
     setShowPreview(true);
+  };
+
+  const handleExportExcel = () => {
+    const headers = [
+      "STT",
+      "Mã sinh viên",
+      "Họ và tên",
+      "Giới tính",
+      "Ngày sinh",
+      "Nơi sinh",
+      "Dân tộc",
+      "Số CCCD/CMND",
+      "Ngày cấp CCCD/CMND",
+      "Nơi cấp CCCD/CMND",
+      "Lớp",
+      "Điểm Học phần 1",
+      "Điểm Học phần 2",
+      "Điểm Học phần 3",
+      "Điểm Học phần 4",
+      "Điểm Học phần 5",
+      "Điểm Học phần 6",
+      "Điểm Học phần 7",
+      "Điểm Học phần 8",
+      "Điểm TB hệ 10",
+      "Điểm TB hệ 4",
+      "Xếp loại học tập",
+      "Ghi chú",
+      "Ngày cập nhật"
+    ];
+    
+    const data = students.map((s, idx) => {
+      const grades = s.subjectGrades ? s.subjectGrades.split(",").map(g => g.trim()) : [];
+      const gradeCols = Array.from({ length: 8 }, (_, i) => {
+        const val = grades[i] || "-";
+        return val === "" ? "-" : val;
+      });
+
+      return [
+        idx + 1,
+        s.id,
+        s.name,
+        s.gender || "Nam",
+        s.dob || "2006-01-01",
+        s.pob || "Hà Giang",
+        s.ethnicity || "Kinh",
+        s.idCard || "00120600" + (1000 + idx),
+        s.idCardDate || "2022-10-15",
+        s.idCardPlace || "Cục Cảnh sát QLHC về TTXH",
+        s.classId,
+        ...gradeCols,
+        s.gpa10 || (s.gpa ? s.gpa * 2.5 : 8.0),
+        s.gpa || 3.2,
+        s.academicGrade || (s.gpa && s.gpa >= 3.6 ? "Xuất sắc" : s.gpa && s.gpa >= 3.2 ? "Giỏi" : "Khá"),
+        s.notes || "",
+        s.updatedAt || new Date().toISOString().split("T")[0]
+      ];
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "DanhSachDiem");
+    XLSX.writeFile(workbook, "Danh_sach_diem_Phan_hieu.xlsx");
+  };
+
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const workbook = XLSX.read(bstr, { type: "binary" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const rawData = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+        
+        const headers = rawData[0] as string[];
+        if (!headers || headers.length === 0) {
+          alert("File không hợp lệ hoặc rỗng!");
+          return;
+        }
+
+        const colIdx = {
+          id: headers.findIndex(h => h?.toString().trim().toLowerCase() === "mã sinh viên"),
+          name: headers.findIndex(h => h?.toString().trim().toLowerCase() === "họ và tên"),
+          gender: headers.findIndex(h => h?.toString().trim().toLowerCase() === "giới tính"),
+          dob: headers.findIndex(h => h?.toString().trim().toLowerCase() === "ngày sinh"),
+          pob: headers.findIndex(h => h?.toString().trim().toLowerCase() === "nơi sinh"),
+          ethnicity: headers.findIndex(h => h?.toString().trim().toLowerCase() === "dân tộc"),
+          idCard: headers.findIndex(h => h?.toString().trim().toLowerCase() === "số cccd/cmnd"),
+          idCardDate: headers.findIndex(h => h?.toString().trim().toLowerCase() === "ngày cấp cccd/cmnd" || h?.toString().trim().toLowerCase() === "ngày ngày cấp"),
+          idCardPlace: headers.findIndex(h => h?.toString().trim().toLowerCase() === "nơi cấp cccd/cmnd" || h?.toString().trim().toLowerCase() === "nơi cấp"),
+          classId: headers.findIndex(h => h?.toString().trim().toLowerCase() === "lớp"),
+          gpa10: headers.findIndex(h => h?.toString().trim().toLowerCase() === "điểm tb hệ 10"),
+          gpa4: headers.findIndex(h => h?.toString().trim().toLowerCase() === "điểm tb hệ 4"),
+          academicGrade: headers.findIndex(h => h?.toString().trim().toLowerCase() === "xếp loại học tập"),
+          notes: headers.findIndex(h => h?.toString().trim().toLowerCase() === "ghi chú"),
+          updatedAt: headers.findIndex(h => h?.toString().trim().toLowerCase() === "ngày cập nhật")
+        };
+
+        const gradeColIndexes: number[] = [];
+        for (let g = 1; g <= 8; g++) {
+          const idx = headers.findIndex(h => h?.toString().trim().toLowerCase() === `điểm học phần ${g}`);
+          gradeColIndexes.push(idx);
+        }
+
+        if (colIdx.id === -1) {
+          alert("Không tìm thấy cột 'Mã sinh viên' trong file Excel!");
+          return;
+        }
+
+        const updates: any[] = [];
+        for (let i = 1; i < rawData.length; i++) {
+          const row = rawData[i];
+          if (!row || row.length === 0) continue;
+          const id = row[colIdx.id]?.toString().trim();
+          if (!id) continue;
+
+          const gpa = colIdx.gpa4 !== -1 && row[colIdx.gpa4] !== undefined ? Number(row[colIdx.gpa4]) : 3.0;
+          const gpa10 = colIdx.gpa10 !== -1 && row[colIdx.gpa10] !== undefined ? Number(row[colIdx.gpa10]) : 8.0;
+          const warning = gpa < 2.0;
+          const status = warning ? "Bị cảnh báo" : "Bình thường";
+
+          const rowGrades: string[] = [];
+          for (let g = 0; g < 8; g++) {
+            const cIdx = gradeColIndexes[g];
+            let val = cIdx !== -1 && row[cIdx] !== undefined ? row[cIdx]?.toString().trim() : "-";
+            if (!val) val = "-";
+            rowGrades.push(val);
+          }
+          const subjectGradesStr = rowGrades.join(", ");
+
+          updates.push({
+            id,
+            name: colIdx.name !== -1 && row[colIdx.name] ? row[colIdx.name]?.toString().trim() : undefined,
+            gender: colIdx.gender !== -1 && row[colIdx.gender] ? row[colIdx.gender]?.toString().trim() : "Nam",
+            dob: colIdx.dob !== -1 && row[colIdx.dob] ? row[colIdx.dob]?.toString().trim() : "2006-01-01",
+            pob: colIdx.pob !== -1 && row[colIdx.pob] ? row[colIdx.pob]?.toString().trim() : "Hà Giang",
+            ethnicity: colIdx.ethnicity !== -1 && row[colIdx.ethnicity] ? row[colIdx.ethnicity]?.toString().trim() : "Kinh",
+            idCard: colIdx.idCard !== -1 && row[colIdx.idCard] ? row[colIdx.idCard]?.toString().trim() : "",
+            idCardDate: colIdx.idCardDate !== -1 && row[colIdx.idCardDate] ? row[colIdx.idCardDate]?.toString().trim() : "",
+            idCardPlace: colIdx.idCardPlace !== -1 && row[colIdx.idCardPlace] ? row[colIdx.idCardPlace]?.toString().trim() : "",
+            classId: colIdx.classId !== -1 && row[colIdx.classId] ? row[colIdx.classId]?.toString().trim() : undefined,
+            subjects: undefined,
+            subjectGrades: subjectGradesStr,
+            gpa10: gpa10,
+            gpa: gpa,
+            academicGrade: colIdx.academicGrade !== -1 && row[colIdx.academicGrade] ? row[colIdx.academicGrade]?.toString().trim() : "Khá",
+            notes: colIdx.notes !== -1 && row[colIdx.notes] ? row[colIdx.notes]?.toString().trim() : "",
+            updatedAt: colIdx.updatedAt !== -1 && row[colIdx.updatedAt] ? row[colIdx.updatedAt]?.toString().trim() : new Date().toISOString().split("T")[0],
+            creditsEarned: 18,
+            learningWarning: warning,
+            learningStatus: status
+          });
+        }
+
+        if (updates.length === 0) {
+          alert("Không tìm thấy dữ liệu sinh viên nào trong tệp!");
+          return;
+        }
+
+        setPreviewData(updates);
+        setShowPreview(true);
+      } catch (err) {
+        alert("Lỗi khi đọc file Excel: " + err);
+      }
+    };
+    reader.readAsBinaryString(file);
   };
 
   const handleApplyImport = () => {
@@ -136,6 +391,132 @@ export const TrainingPortal: React.FC = () => {
     alert("Nhập danh mục nhiều lớp & auto-provision tài khoản BCS lớp (cblk2gdtha@hg.edu.vn / password123) thành công!");
   };
 
+  const handleExportScheduleTemplate = () => {
+    const headers = [
+      "Mã lớp",
+      "Tên học phần",
+      "Giảng viên",
+      "Thứ",
+      "Tiết bắt đầu",
+      "Tiết kết thúc",
+      "Phòng học",
+      "Học kỳ"
+    ];
+    
+    const data = schedules.length > 0 
+      ? schedules.map(s => [
+          s.classId,
+          s.subjectName,
+          s.teacherName,
+          s.dayOfWeek,
+          s.periodStart,
+          s.periodEnd,
+          s.room,
+          s.semester
+        ])
+      : [
+          ["K20-CNTT", "Lập trình Web", "ThS. Nguyễn Văn A", 2, 1, 3, "Phòng 302 - Nhà A", "Học kỳ II, 2025-2026"],
+          ["K20-CNTT", "Cơ sở dữ liệu", "TS. Hoàng Minh Đức", 4, 4, 6, "Phòng 102 - Nhà B", "Học kỳ II, 2025-2026"]
+        ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "ThờiKhóaBiểuMẫu");
+    XLSX.writeFile(workbook, "Mau_Thoi_khoa_bieu_Phan_hieu.xlsx");
+  };
+
+  const handleImportScheduleExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const workbook = XLSX.read(bstr, { type: "binary" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const rawData = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+        
+        const headers = rawData[0] as string[];
+        if (!headers || headers.length === 0) {
+          alert("File không hợp lệ hoặc rỗng!");
+          return;
+        }
+
+        const colIdx = {
+          classId: headers.findIndex(h => h?.toString().trim().toLowerCase() === "mã lớp"),
+          subjectName: headers.findIndex(h => h?.toString().trim().toLowerCase() === "tên học phần"),
+          teacherName: headers.findIndex(h => h?.toString().trim().toLowerCase() === "giảng viên"),
+          dayOfWeek: headers.findIndex(h => h?.toString().trim().toLowerCase() === "thứ"),
+          periodStart: headers.findIndex(h => h?.toString().trim().toLowerCase() === "tiết bắt đầu"),
+          periodEnd: headers.findIndex(h => h?.toString().trim().toLowerCase() === "tiết kết thúc"),
+          room: headers.findIndex(h => h?.toString().trim().toLowerCase() === "phòng học"),
+          semester: headers.findIndex(h => h?.toString().trim().toLowerCase() === "học kỳ")
+        };
+
+        if (colIdx.classId === -1 || colIdx.subjectName === -1) {
+          alert("Không tìm thấy các cột bắt buộc ('Mã lớp', 'Tên học phần') trong file Excel!");
+          return;
+        }
+
+        const updates: ScheduleSlot[] = [];
+        const fallbackColors = ["#4F46E5", "#0EA5E9", "#10B981", "#F59E0B", "#EC4899", "#8B5CF6", "#EF4444"];
+        
+        for (let i = 1; i < rawData.length; i++) {
+          const row = rawData[i];
+          if (!row || row.length === 0) continue;
+          
+          const classId = row[colIdx.classId]?.toString().trim();
+          const subjectName = row[colIdx.subjectName]?.toString().trim();
+          if (!classId || !subjectName) continue;
+
+          const dayVal = Number(row[colIdx.dayOfWeek]);
+          const dayOfWeek = isNaN(dayVal) ? 2 : dayVal;
+          const pStart = Number(row[colIdx.periodStart]);
+          const periodStart = isNaN(pStart) ? 1 : pStart;
+          const pEnd = Number(row[colIdx.periodEnd]);
+          const periodEnd = isNaN(pEnd) ? 3 : pEnd;
+
+          const teacherName = colIdx.teacherName !== -1 && row[colIdx.teacherName] ? row[colIdx.teacherName]?.toString().trim() : "Chưa phân công";
+          const room = colIdx.room !== -1 && row[colIdx.room] ? row[colIdx.room]?.toString().trim() : "Phòng học";
+          const semester = colIdx.semester !== -1 && row[colIdx.semester] ? row[colIdx.semester]?.toString().trim() : "Học kỳ II, 2025-2026";
+          
+          updates.push({
+            id: `SCH_IMPORT_${i}_${Date.now()}`,
+            classId,
+            subjectName,
+            teacherName,
+            dayOfWeek,
+            periodStart,
+            periodEnd,
+            room,
+            semester,
+            colorHex: fallbackColors[i % fallbackColors.length]
+          });
+        }
+
+        if (updates.length === 0) {
+          alert("Không tìm thấy dữ liệu thời khóa biểu nào trong tệp!");
+          return;
+        }
+
+        setSchedulePreviewData(updates);
+        setShowSchedulePreview(true);
+      } catch (err) {
+        alert("Lỗi khi đọc file Excel: " + err);
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleApplyScheduleImport = () => {
+    importScheduleData(schedulePreviewData);
+    setShowSchedulePreview(false);
+    setSchedulePreviewData([]);
+    alert("Thời khóa biểu toàn trường đã được đồng bộ & khóa chính thức thành công!");
+  };
+
   const startEdit = (studentId: string) => {
     const s = students.find(item => item.id === studentId);
     if (s) {
@@ -144,6 +525,18 @@ export const TrainingPortal: React.FC = () => {
       setEditCredits(s.creditsEarned || 15);
       setEditWarning(!!s.learningWarning);
       setEditStatus(s.learningStatus || "Bình thường");
+      setEditGender(s.gender || "Nam");
+      setEditDob(s.dob || "2006-01-01");
+      setEditPob(s.pob || "Hà Giang");
+      setEditEthnicity(s.ethnicity || "Kinh");
+      setEditIdCard(s.idCard || "");
+      setEditIdCardDate(s.idCardDate || "");
+      setEditIdCardPlace(s.idCardPlace || "");
+      setEditSubjects(s.subjects || "");
+      setEditSubjectGrades(s.subjectGrades || "");
+      setEditGpa10(s.gpa10 || 8.0);
+      setEditAcademicGrade(s.academicGrade || "Khá");
+      setEditNotes(s.notes || "");
     }
   };
 
@@ -154,7 +547,19 @@ export const TrainingPortal: React.FC = () => {
         gpa: Number(editGpa),
         creditsEarned: Number(editCredits),
         learningWarning: editWarning,
-        learningStatus: editStatus
+        learningStatus: editStatus,
+        gender: editGender,
+        dob: editDob,
+        pob: editPob,
+        ethnicity: editEthnicity,
+        idCard: editIdCard,
+        idCardDate: editIdCardDate,
+        idCardPlace: editIdCardPlace,
+        subjects: editSubjects,
+        subjectGrades: editSubjectGrades,
+        gpa10: Number(editGpa10),
+        academicGrade: editAcademicGrade,
+        notes: editNotes
       }]);
       setSelectedStudentId(null);
       alert("Đã hiệu chỉnh học vụ thành công.");
@@ -184,37 +589,10 @@ export const TrainingPortal: React.FC = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="w-full">
         
-        {/* Navigation Sidebar */}
-        <div className="lg:col-span-3 bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-row lg:flex-col gap-1.5 overflow-x-auto shrink-0">
-          <button 
-            onClick={() => setActiveTab("IMPORT")}
-            className={`w-full text-left px-3.5 py-3 rounded-lg text-xs font-bold transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${activeTab === "IMPORT" ? "bg-amber-600 text-white shadow-md shadow-amber-100" : "text-slate-650 hover:bg-slate-50"}`}
-          >
-            <Upload size={14} />
-            <span>Nạp Excel GPA học kỳ</span>
-          </button>
-          
-          <button 
-            onClick={() => setActiveTab("IMPORT_CLASSES")}
-            className={`w-full text-left px-3.5 py-3 rounded-lg text-xs font-bold transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${activeTab === "IMPORT_CLASSES" ? "bg-amber-600 text-white shadow-md shadow-amber-100" : "text-slate-650 hover:bg-slate-50"}`}
-          >
-            <Users size={14} />
-            <span>Nhập danh sách lớp học</span>
-          </button>
-
-          <button 
-            onClick={() => setActiveTab("LIST")}
-            className={`w-full text-left px-3.5 py-3 rounded-lg text-xs font-bold transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${activeTab === "LIST" ? "bg-amber-600 text-white shadow-md shadow-amber-100" : "text-slate-650 hover:bg-slate-50"}`}
-          >
-            <FileSpreadsheet size={14} />
-            <span>Hồ sơ học lực ({students.length})</span>
-          </button>
-        </div>
-
         {/* Action Panel */}
-        <div className="lg:col-span-9 bg-white p-6 rounded-xl border border-slate-100 shadow-sm min-h-[460px] flex flex-col justify-between">
+        <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm min-h-[460px] flex flex-col justify-between">
           
           {/* TAB 1: CSV / EXCEL MOCK IMPORTER */}
           {activeTab === "IMPORT" && (
@@ -224,14 +602,37 @@ export const TrainingPortal: React.FC = () => {
                 <p className="text-[11px] text-slate-400 leading-relaxed">Phòng Đào tạo tải lên mẫu file chứa thông tin GPA học kỳ nhằm tự động cộng hoặc khấu trừ rèn luyện hệ thống.</p>
               </div>
 
+              {/* Action buttons for Real Excel */}
+              <div className="flex gap-2.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleExportExcel}
+                  className="px-4 py-2 border border-amber-300 hover:border-amber-400 bg-amber-50/50 hover:bg-amber-100/50 text-amber-800 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Download size={14} />
+                  <span>Xuất File Excel Mẫu (Chứa danh sách hiện tại)</span>
+                </button>
+                
+                <label className="px-4 py-2 border border-slate-200 hover:border-slate-350 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer">
+                  <Upload size={14} />
+                  <span>Chọn Tệp Excel Đã Nhập Điểm</span>
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls"
+                    onChange={handleImportExcel}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
               {/* Upload zone */}
               <div 
-                className="border-2 border-dashed border-amber-200 bg-amber-50/10 hover:bg-amber-50/20 p-8 rounded-2xl text-center cursor-pointer transition-colors"
+                className="border-2 border-dashed border-amber-250 bg-amber-50/10 hover:bg-amber-50/20 p-8 rounded-2xl text-center cursor-pointer transition-colors"
                 onClick={handleMockExcelUpload}
               >
                 <FileText size={40} className="mx-auto text-amber-500 mb-3" />
-                <h4 className="text-xs font-black text-slate-800">Nhấp vào đây để mô phỏng tải lên tệp Excel GPA (`unihub_gpa_template.xlsx`)</h4>
-                <p className="text-[10px] text-slate-450 mt-1 max-w-sm mx-auto">Mẫu Excel chứa điểm GPA mới: Nguyễn Văn An được nâng lên 3.52, Phan Thị Bình nâng lên 2.85.</p>
+                <h4 className="text-xs font-black text-slate-800">Nhấp vào đây để mô phỏng tải lên tệp Excel Điểm học thuật học kỳ</h4>
+                <p className="text-[10px] text-slate-450 mt-1 max-w-sm mx-auto">Click để mô phỏng tự động nạp dữ liệu lý lịch và kết quả GPA đầy đủ của 3 sinh viên mẫu.</p>
               </div>
 
               {/* Preview table */}
@@ -240,43 +641,72 @@ export const TrainingPortal: React.FC = () => {
                   <div className="flex justify-between items-center px-1">
                     <span className="text-[11px] font-bold text-amber-800 flex items-center gap-1.5">
                       <Lock size={12} />
-                      XEM TRƯỚC BẢNG ĐỒNG BỘ GPA ({previewData.length} dòng)
+                      XEM TRƯỚC BẢNG ĐỒNG BỘ ĐIỂM HỌC VỤ ({previewData.length} dòng)
                     </span>
                     <button 
                       onClick={handleApplyImport}
                       className="px-3.5 py-1.5 bg-indigo-650 hover:bg-indigo-700 text-white text-[11px] font-bold rounded-lg hover:cursor-pointer shadow-sm transition-all"
                     >
-                      Xác nhận & Đồng bộ học lý lịch
+                      Xác nhận & Đồng bộ vào CSDL
                     </button>
                   </div>
 
-                  <div className="border border-slate-200 bg-white rounded-lg overflow-x-auto text-[11px] font-mono">
-                    <div className="min-w-[650px] divide-y divide-slate-100">
-                      <div className="p-2.5 bg-slate-100 font-bold grid grid-cols-4 gap-2 text-slate-700">
-                        <span>Mã SV</span>
-                        <span>GPA nạp</span>
-                        <span>Số TC tích lũy</span>
-                        <span>Cảnh báo học phẩm</span>
-                      </div>
-                      {previewData.map(row => {
-                        const origin = students.find(s => s.id === row.id);
-                        return (
-                          <div key={row.id} className="p-2 grid grid-cols-4 gap-2 text-slate-800 items-center">
-                            <span className="font-bold">{row.id}</span>
-                            <span>
-                              {row.gpa.toFixed(2)}{" "}
-                              <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1 rounded-sm ml-1">
-                                (Cũ: {origin?.gpa?.toFixed(2)})
-                              </span>
-                            </span>
-                            <span>{row.creditsEarned} TC</span>
-                            <span className={`text-[10px] font-bold ${row.learningWarning ? 'text-rose-600' : 'text-emerald-600'}`}>
-                              {row.learningStatus}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                  <div className="border border-slate-200 bg-white rounded-lg overflow-x-auto text-[11.5px] font-mono">
+                    <table className="min-w-[1000px] w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                          <th className="p-2.5 text-[10px] uppercase tracking-wider font-mono">Mã SV</th>
+                          <th className="p-2.5 text-[10px] uppercase tracking-wider font-mono">Họ & Tên</th>
+                          <th className="p-2.5 text-[10px] uppercase tracking-wider font-mono">Lớp</th>
+                          <th className="p-2.5 text-[10px] uppercase tracking-wider font-mono">Giới tính</th>
+                          <th className="p-2.5 text-[10px] uppercase tracking-wider font-mono">Ngày sinh</th>
+                          <th className="p-2.5 text-[10px] uppercase tracking-wider font-mono">Quê quán</th>
+                          <th className="p-2.5 text-[10px] uppercase tracking-wider font-mono">Dân tộc</th>
+                          <th className="p-2.5 text-[10px] uppercase tracking-wider font-mono">Số CCCD</th>
+                          <th className="p-2.5 text-[10px] uppercase tracking-wider font-mono">Điểm HP 1-8</th>
+                          <th className="p-2.5 text-[10px] uppercase tracking-wider font-mono text-center">Hệ 10</th>
+                          <th className="p-2.5 text-[10px] uppercase tracking-wider font-mono text-center">Hệ 4 (GPA)</th>
+                          <th className="p-2.5 text-[10px] uppercase tracking-wider font-mono">Xếp loại</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-800">
+                        {previewData.map(row => {
+                          const origin = students.find(s => s.id === row.id);
+                          return (
+                            <tr key={row.id} className="hover:bg-slate-50/50">
+                              <td className="p-2 font-bold">{row.id}</td>
+                              <td className="p-2 truncate max-w-[120px]">{row.name || origin?.name}</td>
+                              <td className="p-2">{row.classId || origin?.classId}</td>
+                              <td className="p-2">{row.gender}</td>
+                              <td className="p-2 font-sans">{row.dob}</td>
+                              <td className="p-2 truncate max-w-[100px]">{row.pob}</td>
+                              <td className="p-2">{row.ethnicity}</td>
+                              <td className="p-2 font-mono text-[10px]">{row.idCard}</td>
+                              <td className="p-2 font-mono text-[11px] text-slate-650" title={row.subjectGrades}>{row.subjectGrades || "-"}</td>
+                              <td className="p-2 text-center font-bold">{row.gpa10.toFixed(2)}</td>
+                              <td className="p-2 text-center font-bold text-blue-650">
+                                {row.gpa.toFixed(2)}
+                                {origin?.gpa !== undefined && (
+                                  <span className="text-[9px] text-slate-400 block font-normal">
+                                    Cũ: {origin.gpa.toFixed(2)}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-2 font-sans font-bold text-[10px]">
+                                <span className={`px-1.5 py-0.5 rounded ${
+                                  row.gpa >= 3.6 ? "bg-emerald-50 text-emerald-700" :
+                                  row.gpa >= 3.2 ? "bg-blue-50 text-blue-700" :
+                                  row.gpa >= 2.5 ? "bg-purple-50 text-purple-700" :
+                                  row.gpa >= 2.0 ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700"
+                                }`}>
+                                  {row.academicGrade || "Khá"}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}
@@ -358,33 +788,15 @@ export const TrainingPortal: React.FC = () => {
                       ))}
                     </div>
                   </div>
-
-                  {/* Provisioned Class Monitor account preview */}
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2.5 text-xs text-amber-950">
-                    <Key size={16} className="text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <strong className="block">Mẫu xem trước 2: Auto provision tài khoản Lớp trưởng (BCS)</strong>
-                      {importedClassUsers.map(iu => (
-                        <div key={iu.id} className="mt-1 space-y-0.5 font-mono text-[10px]">
-                          <div>• Tên hiển thị: {iu.name}</div>
-                          <div>• Email đăng nhập: <strong className="bg-yellow-100 px-1 rounded text-red-700">{iu.email}</strong></div>
-                          <div>• Mật khẩu: <code>{iu.password}</code></div>
-                          <div>• Quyền hạn: CLASS_MONITOR | Quản lý mã lớp: {iu.targetId}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
                 </div>
               )}
-
             </div>
           )}
 
-          {/* TAB 3: MANUAL DATABASE EDIT OR INSPECTION */}
+        {/* TAB 3: MANUAL DATABASE EDIT OR INSPECTION */}
           {activeTab === "LIST" && (
             <div className="space-y-4 text-left">
-              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Danh mục hồ sơ học vị của sinh viên Phân hiệu</h4>
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Danh mục hồ sơ học lực của sinh viên Phân hiệu</h4>
               
               <div className="border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-100 max-h-[350px] overflow-y-auto">
                 {students.map(s => (
@@ -416,6 +828,183 @@ export const TrainingPortal: React.FC = () => {
             </div>
           )}
 
+          {/* TAB 4: THOI_KHOA_BIEU */}
+          {activeTab === "THOI_KHOA_BIEU" && (() => {
+            const availableScheduleClasses = Array.from(new Set([
+              ...students.map(s => s.classId),
+              ...schedules.map(s => s.classId)
+            ])).filter(Boolean).sort();
+
+            // Set default class if empty
+            if (!selectedScheduleClass && availableScheduleClasses.length > 0) {
+              setSelectedScheduleClass(availableScheduleClasses[0]);
+            }
+
+            const classSchedules = schedules.filter(s => s.classId === selectedScheduleClass);
+
+            return (
+              <div className="space-y-6 text-left animate-fade-in">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 uppercase mb-1">Quản lý Thời khóa biểu Phân hiệu</h3>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Xuất file mẫu thời khóa biểu hiện tại, chỉnh sửa các ca học, sau đó tải lên (import) tệp tin Excel để đồng bộ toàn bộ lịch học của sinh viên.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-4 items-center bg-slate-50 p-4 rounded-2xl border">
+                  <div>
+                    <button 
+                      onClick={handleExportScheduleTemplate}
+                      className="px-3.5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                    >
+                      <Download size={14} />
+                      <span>Xuất File Excel Mẫu (Template)</span>
+                    </button>
+                  </div>
+                  
+                  <div className="relative cursor-pointer">
+                    <input 
+                      type="file" 
+                      accept=".xlsx, .xls" 
+                      onChange={handleImportScheduleExcel}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      id="schedule-excel-upload"
+                    />
+                    <label 
+                      htmlFor="schedule-excel-upload"
+                      className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                    >
+                      <UploadCloud size={14} />
+                      <span>Tải lên Excel Thời khóa biểu</span>
+                    </label>
+                  </div>
+
+                  {schedules.length > 0 && (
+                    <button
+                      onClick={() => {
+                        if (confirm("Bạn có chắc chắn muốn xóa toàn bộ thời khóa biểu hiện tại không?")) {
+                          clearSchedules();
+                        }
+                      }}
+                      className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm ml-auto cursor-pointer"
+                    >
+                      <Trash2 size={14} />
+                      <span>Xóa Toàn Bộ Lịch Học</span>
+                    </button>
+                  )}
+                </div>
+
+                {showSchedulePreview && (
+                  <div className="space-y-3.5 bg-amber-50/20 p-4 rounded-xl border border-amber-250/30">
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-[11px] font-bold text-amber-800 flex items-center gap-1.5">
+                        <Lock size={12} />
+                        XEM TRƯỚC BẢNG LỊCH HỌC SẼ ĐỒNG BỘ ({schedulePreviewData.length} lớp học)
+                      </span>
+                      <button 
+                        onClick={handleApplyScheduleImport}
+                        className="px-3.5 py-1.5 bg-indigo-650 hover:bg-indigo-700 text-white text-[11px] font-bold rounded-lg cursor-pointer shadow-sm transition-all"
+                      >
+                        Xác nhận & Ghi đè lịch học
+                      </button>
+                    </div>
+
+                    <div className="border border-slate-200 bg-white rounded-lg overflow-x-auto text-[11.5px] font-mono">
+                      <table className="w-full text-left border-collapse min-w-[700px]">
+                        <thead>
+                          <tr className="bg-slate-100 text-slate-705 font-bold border-b border-slate-200">
+                            <th className="p-2 text-[10px] uppercase tracking-wider font-mono">Lớp</th>
+                            <th className="p-2 text-[10px] uppercase tracking-wider font-mono">Học phần</th>
+                            <th className="p-2 text-[10px] uppercase tracking-wider font-mono">Giảng viên</th>
+                            <th className="p-2 text-[10px] uppercase tracking-wider font-mono text-center">Thứ</th>
+                            <th className="p-2 text-[10px] uppercase tracking-wider font-mono text-center">Tiết bắt đầu</th>
+                            <th className="p-2 text-[10px] uppercase tracking-wider font-mono text-center">Tiết kết thúc</th>
+                            <th className="p-2 text-[10px] uppercase tracking-wider font-mono">Phòng</th>
+                            <th className="p-2 text-[10px] uppercase tracking-wider font-mono">Học kỳ</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-slate-800">
+                          {schedulePreviewData.map((row, index) => (
+                            <tr key={index} className="hover:bg-slate-50/50">
+                              <td className="p-2 font-bold text-slate-900">{row.classId}</td>
+                              <td className="p-2 font-medium">{row.subjectName}</td>
+                              <td className="p-2 text-slate-600">{row.teacherName}</td>
+                              <td className="p-2 text-center font-bold">Thứ {row.dayOfWeek === 8 ? "Chủ Nhật" : row.dayOfWeek}</td>
+                              <td className="p-2 text-center">{row.periodStart}</td>
+                              <td className="p-2 text-center">{row.periodEnd}</td>
+                              <td className="p-2 font-bold text-indigo-650">{row.room}</td>
+                              <td className="p-2 text-slate-500">{row.semester}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-white p-4 rounded-xl border border-slate-150 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold text-slate-600">Chọn lớp xem lịch biểu:</span>
+                    <select 
+                      value={selectedScheduleClass}
+                      onChange={(e) => setSelectedScheduleClass(e.target.value)}
+                      className="text-xs p-1.5 border rounded-lg bg-white outline-none cursor-pointer focus:ring-1 focus:ring-indigo-500"
+                    >
+                      {availableScheduleClasses.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {classSchedules.length === 0 ? (
+                    <div className="p-6 text-center text-slate-450 italic border border-dashed rounded-lg text-xs">
+                      Chưa có dữ liệu thời khóa biểu cho lớp này.
+                    </div>
+                  ) : (
+                    <div className="border rounded-lg overflow-x-auto text-[11.5px] font-mono">
+                      <table className="w-full text-left border-collapse min-w-[700px]">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-650 font-bold border-b">
+                            <th className="p-2 text-[10px] uppercase tracking-wider font-mono">Học phần</th>
+                            <th className="p-2 text-[10px] uppercase tracking-wider font-mono">Giảng viên</th>
+                            <th className="p-2 text-[10px] uppercase tracking-wider font-mono text-center">Thứ</th>
+                            <th className="p-2 text-[10px] uppercase tracking-wider font-mono text-center">Ca/Tiết</th>
+                            <th className="p-2 text-[10px] uppercase tracking-wider font-mono">Phòng học</th>
+                            <th className="p-2 text-[10px] uppercase tracking-wider font-mono text-center">Tác vụ</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {classSchedules.map(slot => (
+                            <tr key={slot.id} className="hover:bg-slate-50/30">
+                              <td className="p-2 font-bold text-slate-800">{slot.subjectName}</td>
+                              <td className="p-2 text-slate-650">{slot.teacherName}</td>
+                              <td className="p-2 text-center font-semibold">Thứ {slot.dayOfWeek === 8 ? "Chủ Nhật" : slot.dayOfWeek}</td>
+                              <td className="p-2 text-center">Tiết {slot.periodStart} - {slot.periodEnd}</td>
+                              <td className="p-2 font-mono text-indigo-700 font-bold">{slot.room}</td>
+                              <td className="p-2 text-center">
+                                <button 
+                                  onClick={() => {
+                                    if (confirm(`Bạn có chắc chắn muốn xóa ca học ${slot.subjectName} không?`)) {
+                                      deleteScheduleSlot(slot.id);
+                                    }
+                                  }}
+                                  className="p-1 text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+                                  title="Xóa ca học"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="bg-slate-50 p-3.5 border-t border-slate-100 shrink-0 text-center rounded-b-xl mt-4">
             <span className="text-[9px] text-slate-400 font-mono">
               Công cụ đồng bộ học bạ UniHub liên kết dữ liệu Phân hiệu, bảo mật tài khoản BCS.
@@ -429,11 +1018,11 @@ export const TrainingPortal: React.FC = () => {
       {/* MODAL: MANUAL STUDENT EDIT DIALOG */}
       {selectedStudentId && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-sm w-full overflow-hidden">
-            <div className="flex justify-between items-center bg-slate-50 px-6 py-4 border-b border-slate-100">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-md w-full overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="flex justify-between items-center bg-slate-50 px-6 py-4 border-b border-slate-100 shrink-0">
               <h3 className="text-xs font-bold text-slate-800 uppercase flex items-center gap-2">
                 <Edit size={14} />
-                <span>Hiệu chỉnh học học vị: {selectedStudentId}</span>
+                <span>Hiệu chỉnh học vụ: {selectedStudentId}</span>
               </h3>
               <button 
                 onClick={() => setSelectedStudentId(null)}
@@ -443,55 +1032,197 @@ export const TrainingPortal: React.FC = () => {
               </button>
             </div>
 
-            <div className="p-6 space-y-4 text-left text-xs">
-              <div>
-                <label className="text-[10px] font-bold text-slate-450 block mb-1">ĐIỂM GPA CHÍNH THỨC</label>
-                <input 
-                  type="number"
-                  step="0.01"
-                  value={editGpa}
-                  onChange={(e) => setEditGpa(Number(e.target.value))}
-                  className="w-full text-xs p-2 border rounded-lg"
-                />
+            <div className="p-6 space-y-4 text-left text-xs overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-455 block mb-1">HỌ VÀ TÊN</label>
+                  <input 
+                    type="text"
+                    value={students.find(s => s.id === selectedStudentId)?.name || ""}
+                    disabled
+                    className="w-full text-xs p-2 border rounded-lg bg-slate-50 text-slate-455 cursor-not-allowed"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-455 block mb-1">MÃ SINH VIÊN</label>
+                  <input 
+                    type="text"
+                    value={selectedStudentId}
+                    disabled
+                    className="w-full text-xs p-2 border rounded-lg bg-slate-50 text-slate-455 cursor-not-allowed"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-[10px] font-bold text-slate-455 block mb-1">GIỚI TÍNH</label>
+                  <select
+                    value={editGender}
+                    onChange={(e) => setEditGender(e.target.value)}
+                    className="w-full text-xs p-2 border rounded-lg bg-white"
+                  >
+                    <option value="Nam">Nam</option>
+                    <option value="Nữ">Nữ</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-455 block mb-1">NGÀY SINH</label>
+                  <input 
+                    type="text"
+                    placeholder="YYYY-MM-DD"
+                    value={editDob}
+                    onChange={(e) => setEditDob(e.target.value)}
+                    className="w-full text-xs p-2 border rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-455 block mb-1">DÂN TỘC</label>
+                  <input 
+                    type="text"
+                    value={editEthnicity}
+                    onChange={(e) => setEditEthnicity(e.target.value)}
+                    className="w-full text-xs p-2 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-455 block mb-1">NƠI SINH</label>
+                  <input 
+                    type="text"
+                    value={editPob}
+                    onChange={(e) => setEditPob(e.target.value)}
+                    className="w-full text-xs p-2 border rounded-lg"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-slate-455 block mb-1">SỐ CCCD/CMND</label>
+                  <input 
+                    type="text"
+                    value={editIdCard}
+                    onChange={(e) => setEditIdCard(e.target.value)}
+                    className="w-full text-xs p-2 border rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-455 block mb-1">NGÀY CẤP CCCD</label>
+                  <input 
+                    type="text"
+                    placeholder="YYYY-MM-DD"
+                    value={editIdCardDate}
+                    onChange={(e) => setEditIdCardDate(e.target.value)}
+                    className="w-full text-xs p-2 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-455 block mb-1">NƠI CẤP CCCD</label>
+                  <input 
+                    type="text"
+                    value={editIdCardPlace}
+                    onChange={(e) => setEditIdCardPlace(e.target.value)}
+                    className="w-full text-xs p-2 border rounded-lg"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-slate-455 block mb-1">HỌC PHẦN ĐĂNG KÝ (CÁCH NHAU BẰNG DẤU PHẨY)</label>
+                  <input 
+                    type="text"
+                    value={editSubjects}
+                    onChange={(e) => setEditSubjects(e.target.value)}
+                    className="w-full text-xs p-2 border rounded-lg"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-slate-455 block mb-1">ĐIỂM HỌC PHẦN TƯƠNG ỨNG (CÁCH NHAU BẰNG DẤU PHẨY)</label>
+                  <input 
+                    type="text"
+                    placeholder="Ví dụ: 8.5, 9.0, 7.5"
+                    value={editSubjectGrades}
+                    onChange={(e) => setEditSubjectGrades(e.target.value)}
+                    className="w-full text-xs p-2 border rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-455 block mb-1">ĐIỂM TB HỆ 10</label>
+                  <input 
+                    type="number"
+                    step="0.01"
+                    value={editGpa10}
+                    onChange={(e) => setEditGpa10(Number(e.target.value))}
+                    className="w-full text-xs p-2 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-455 block mb-1">ĐIỂM GPA HỆ 4</label>
+                  <input 
+                    type="number"
+                    step="0.01"
+                    value={editGpa}
+                    onChange={(e) => setEditGpa(Number(e.target.value))}
+                    className="w-full text-xs p-2 border rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-455 block mb-1">TÍN CHỈ TÍCH LŨY</label>
+                  <input 
+                    type="number"
+                    value={editCredits}
+                    onChange={(e) => setEditCredits(Number(e.target.value))}
+                    className="w-full text-xs p-2 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-455 block mb-1">XẾP LOẠI HỌC TẬP</label>
+                  <input 
+                    type="text"
+                    value={editAcademicGrade}
+                    onChange={(e) => setEditAcademicGrade(e.target.value)}
+                    className="w-full text-xs p-2 border rounded-lg"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-slate-455 block mb-1">TRẠNG THÁI HỌC TẬP</label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full text-xs p-2 border rounded-lg bg-white"
+                  >
+                    <option value="Bình thường">Bình thường</option>
+                    <option value="Bị cảnh báo">Bị cảnh báo</option>
+                    <option value="Đình chỉ học">Đình chỉ học</option>
+                  </select>
+                </div>
+
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-slate-455 block mb-1">GHI CHÚ</label>
+                  <input 
+                    type="text"
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    className="w-full text-xs p-2 border rounded-lg"
+                  />
+                </div>
+
+                <div className="col-span-2 flex items-center gap-2 py-1">
+                  <input 
+                    type="checkbox"
+                    id="chk-warning-learning"
+                    checked={editWarning}
+                    onChange={(e) => setEditWarning(e.target.checked)}
+                    className="rounded cursor-pointer"
+                  />
+                  <label htmlFor="chk-warning-learning" className="text-[11px] font-extrabold text-red-650 cursor-pointer">
+                    Cảnh báo kết quả học vụ học kỳ (Trừ 5đ TC1.5)
+                  </label>
+                </div>
               </div>
 
-              <div>
-                <label className="text-[10px] font-bold text-slate-450 block mb-1">SỐ TÍN CHỈ TÍCH LŨY</label>
-                <input 
-                  type="number"
-                  value={editCredits}
-                  onChange={(e) => setEditCredits(Number(e.target.value))}
-                  className="w-full text-xs p-2 border rounded-lg"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 py-1">
-                <input 
-                  type="checkbox"
-                  id="chk-warning-learning"
-                  checked={editWarning}
-                  onChange={(e) => setEditWarning(e.target.checked)}
-                  className="rounded cursor-pointer"
-                />
-                <label htmlFor="chk-warning-learning" className="text-[11px] font-extrabold text-red-650 cursor-pointer">
-                  Cảnh báo kết quả tình trạng học vụ
-                </label>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-450 block mb-1">TRẠNG THÁI HỌC TẬP</label>
-                <select
-                  value={editStatus}
-                  onChange={(e) => setEditStatus(e.target.value)}
-                  className="w-full text-xs p-2 border rounded-lg bg-white"
-                >
-                  <option value="Bình thường">Bình thường</option>
-                  <option value="Bị cảnh báo">Bị cảnh báo</option>
-                  <option value="Đình chỉ học">Đình chỉ học</option>
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-2 border-t shrink-0">
                 <button
                   onClick={() => setSelectedStudentId(null)}
                   className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold cursor-pointer"

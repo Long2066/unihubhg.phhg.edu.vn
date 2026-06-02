@@ -25,7 +25,8 @@ import {
   DailyAttendanceReport,
   ScoreFeedback,
   GroupEvaluationCriteria,
-  ClubAnnouncement
+  ClubAnnouncement,
+  ScheduleSlot
 } from "./types";
 import { 
   SEED_PERIOD, 
@@ -40,7 +41,8 @@ import {
   SEED_CLASS_REVIEW, 
   SEED_FACULTY_REVIEW, 
   SEED_RESULTS,
-  SEED_DAILY_ATTENDANCE
+  SEED_DAILY_ATTENDANCE,
+  SEED_SCHEDULES
 } from "./data";
 
 interface UniHubContextType {
@@ -61,11 +63,17 @@ interface UniHubContextType {
   feedbacks: ScoreFeedback[];
   groupCriteria: GroupEvaluationCriteria[];
   announcements: ClubAnnouncement[];
+  schedules: ScheduleSlot[];
   
   // Actions
   login: (email: string, password?: string) => boolean;
   logout: () => void;
   updatePeriodStatus: (status: "ACTIVE" | "LOCKED") => void;
+  
+  // Schedule Actions
+  importScheduleData: (slots: ScheduleSlot[]) => void;
+  deleteScheduleSlot: (id: string) => void;
+  clearSchedules: () => void;
   
   // Student Actions
   registerForActivity: (activityId: string, studentId: string) => void;
@@ -174,6 +182,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // New features databases
   const [dailyAttendance, setDailyAttendance] = useState<DailyAttendanceReport[]>(SEED_DAILY_ATTENDANCE);
+  const [schedules, setSchedules] = useState<ScheduleSlot[]>(SEED_SCHEDULES);
   const [feedbacks, setFeedbacks] = useState<ScoreFeedback[]>([
     { id: "FB1", fromRole: UserRole.ADVISER, fromName: "Hoàng Minh Đức", toClassId: "K20-CNTT", comment: "Cần điều chỉnh, đối chiếu kỹ hơn danh sách nề nếp thi đua lớp trước khi gửi ký chính thống.", createdAt: "2026-05-23", resolved: false }
   ]);
@@ -222,6 +231,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const cachedFeedbacks = localStorage.getItem("unihub_feedbacks");
     const cachedGroupCriteria = localStorage.getItem("unihub_group_criteria");
     const cachedAnnouncements = localStorage.getItem("unihub_announcements");
+    const cachedSchedules = localStorage.getItem("unihub_schedules");
 
     let shouldReset = false;
     if (cachedUsers) {
@@ -259,6 +269,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (cachedFeedbacks) setFeedbacks(JSON.parse(cachedFeedbacks));
     if (cachedGroupCriteria) setGroupCriteria(JSON.parse(cachedGroupCriteria));
     if (cachedAnnouncements) setAnnouncements(JSON.parse(cachedAnnouncements));
+    if (cachedSchedules) setSchedules(JSON.parse(cachedSchedules));
   }, []);
 
   // Validate Connection to Firestore on startup
@@ -702,12 +713,28 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         logs.push({ criteriaId: "TC5.1", points: monitorPt, reason: "Đảm nhiệm chức vụ Ban cán sự Lớp hoàn thành tốt nhiệm vụ", source: "BCS_DUYỆT", timestamp: timestampNow });
       }
 
-      // Org leader bonus
-      const isLeader = members.some(m => m.studentId === student.id && m.role === "CHỦ NHIỆM" && m.status === "ACTIVE");
-      if (isLeader && !isMonitor) {
+      // Org leader / BCH bonus (TC5.2)
+      const isBCHMember = members.some(m => 
+        m.studentId === student.id && 
+        m.status === "ACTIVE" && 
+        (m.orgId === "DOANTN" || m.orgId === "HOISV") && 
+        ["BAN CHẤP HÀNH", "ỦY VIÊN", "CHỦ NHIỆM"].includes(m.role)
+      );
+      const isClubLeader = members.some(m => 
+        m.studentId === student.id && 
+        m.status === "ACTIVE" && 
+        m.orgId !== "DOANTN" && 
+        m.orgId !== "HOISV" && 
+        m.role === "CHỦ NHIỆM"
+      );
+
+      if ((isBCHMember || isClubLeader) && !isMonitor) {
         const leaderPt = getRulePoints("TC5", "TC5.2", 8);
         achievementPoints += leaderPt;
-        logs.push({ criteriaId: "TC5.2", points: leaderPt, reason: "Đóng vai trò Chủ nhiệm / Ban điều hành CLB sinh viên xuất sắc", source: "MINH_CHỨNG", timestamp: timestampNow });
+        const reasonStr = isBCHMember 
+          ? "Đóng vai trò Ủy viên BCH Đoàn / Hội Phân hiệu" 
+          : "Đóng vai trò Chủ nhiệm / Ban điều hành CLB sinh viên xuất sắc";
+        logs.push({ criteriaId: "TC5.2", points: leaderPt, reason: reasonStr, source: "MINH_CHỨNG", timestamp: timestampNow });
       }
 
       achievementPoints = Math.min(maxTC5, achievementPoints);
@@ -1093,6 +1120,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           creditsEarned: item.creditsEarned !== undefined ? item.creditsEarned : s.creditsEarned,
           learningWarning: item.learningWarning !== undefined ? item.learningWarning : s.learningWarning,
           learningStatus: item.learningStatus !== undefined ? item.learningStatus : s.learningStatus,
+          gender: item.gender !== undefined ? item.gender : s.gender,
+          dob: item.dob !== undefined ? item.dob : s.dob,
+          pob: item.pob !== undefined ? item.pob : s.pob,
+          ethnicity: item.ethnicity !== undefined ? item.ethnicity : s.ethnicity,
+          idCard: item.idCard !== undefined ? item.idCard : s.idCard,
+          idCardDate: item.idCardDate !== undefined ? item.idCardDate : s.idCardDate,
+          idCardPlace: item.idCardPlace !== undefined ? item.idCardPlace : s.idCardPlace,
+          subjects: item.subjects !== undefined ? item.subjects : s.subjects,
+          subjectGrades: item.subjectGrades !== undefined ? item.subjectGrades : s.subjectGrades,
+          gpa10: item.gpa10 !== undefined ? item.gpa10 : s.gpa10,
+          academicGrade: item.academicGrade !== undefined ? item.academicGrade : s.academicGrade,
+          notes: item.notes !== undefined ? item.notes : s.notes,
+          updatedAt: item.updatedAt !== undefined ? item.updatedAt : s.updatedAt,
           learningDataLocked: true
         };
       }
@@ -1323,6 +1363,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setFacultyReviews(SEED_FACULTY_REVIEW);
     setResults(SEED_RESULTS);
     setDailyAttendance(SEED_DAILY_ATTENDANCE);
+    setSchedules(SEED_SCHEDULES);
     setFeedbacks([
       { id: "FB1", fromRole: UserRole.ADVISER, fromName: "Hoàng Minh Đức", toClassId: "K20-CNTT", comment: "Cần điều chỉnh, đối chiếu kỹ hơn danh sách nề nếp thi đua lớp trước khi gửi ký chính thống.", createdAt: "2026-05-23", resolved: false }
     ]);
@@ -1332,6 +1373,22 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     ]);
     setCurrentUser(SEED_USERS[0]); // Default back to Student Nguyễn Văn An
     saveToStorage("unihub_current_user", SEED_USERS[0]);
+  };
+
+  const importScheduleData = (slots: ScheduleSlot[]) => {
+    setSchedules(slots);
+    saveToStorage("unihub_schedules", slots);
+  };
+
+  const deleteScheduleSlot = (id: string) => {
+    const updated = schedules.filter(s => s.id !== id);
+    setSchedules(updated);
+    saveToStorage("unihub_schedules", updated);
+  };
+
+  const clearSchedules = () => {
+    setSchedules([]);
+    saveToStorage("unihub_schedules", []);
   };
 
   const reportDailyAttendance = (
@@ -1629,10 +1686,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       feedbacks,
       groupCriteria,
       announcements,
+      schedules,
       
       login,
       logout,
       updatePeriodStatus,
+      importScheduleData,
+      deleteScheduleSlot,
+      clearSchedules,
+      
       registerForActivity,
       submitEvidence,
       joinOrganizationRequest,

@@ -12,7 +12,8 @@ import {
   FacultyReviewState,
   EvaluationResult,
   EvaluationPeriod,
-  DailyAttendanceReport
+  DailyAttendanceReport,
+  ScheduleSlot
 } from "./types";
 
 export const SEED_PERIOD: EvaluationPeriod = {
@@ -167,7 +168,20 @@ export const SEED_STUDENTS: Student[] = [
     creditsEarned: 18,
     learningWarning: false,
     learningStatus: "Bình thường",
-    learningDataLocked: true
+    learningDataLocked: true,
+    gender: "Nam",
+    dob: "2006-05-14",
+    pob: "Vị Xuyên, Hà Giang",
+    ethnicity: "Kinh",
+    idCard: "001206009876",
+    idCardDate: "2022-04-12",
+    idCardPlace: "Cục Cảnh sát QLHC về TTXH",
+    subjects: "Lập trình Web, Cơ sở dữ liệu, Thiết kế UI/UX",
+    subjectGrades: "8.5, 9.0, 7.5, -, -, -, -, -",
+    gpa10: 8.55,
+    academicGrade: "Giỏi",
+    notes: "Ủy viên BCH Đoàn Phân hiệu năng nổ.",
+    updatedAt: "2026-06-02"
   },
   {
     id: "SV20CN02",
@@ -179,7 +193,20 @@ export const SEED_STUDENTS: Student[] = [
     creditsEarned: 15,
     learningWarning: false,
     learningStatus: "Bình thường",
-    learningDataLocked: true
+    learningDataLocked: true,
+    gender: "Nữ",
+    dob: "2006-08-22",
+    pob: "Yên Minh, Hà Giang",
+    ethnicity: "Tày",
+    idCard: "001206005544",
+    idCardDate: "2022-09-18",
+    idCardPlace: "Cục Cảnh sát QLHC về TTXH",
+    subjects: "Lập trình Web, Cơ sở dữ liệu, Thiết kế UI/UX",
+    subjectGrades: "5.5, 6.0, 6.5, -, -, -, -, -",
+    gpa10: 6.0,
+    academicGrade: "Trung bình",
+    notes: "",
+    updatedAt: "2026-06-02"
   },
   {
     id: "SV20CN03",
@@ -191,7 +218,20 @@ export const SEED_STUDENTS: Student[] = [
     creditsEarned: 20,
     learningWarning: false,
     learningStatus: "Bình thường",
-    learningDataLocked: true
+    learningDataLocked: true,
+    gender: "Nam",
+    dob: "2006-11-02",
+    pob: "Đồng Văn, Hà Giang",
+    ethnicity: "H'Mông",
+    idCard: "001206004455",
+    idCardDate: "2022-05-10",
+    idCardPlace: "Cục Cảnh sát QLHC về TTXH",
+    subjects: "Lập trình Web, Cơ sở dữ liệu, Cấu trúc dữ liệu",
+    subjectGrades: "9.5, 9.8, 9.0, -, -, -, -, -",
+    gpa10: 9.43,
+    academicGrade: "Xuất sắc",
+    notes: "Đạt thành tích Xuất sắc học kỳ.",
+    updatedAt: "2026-06-02"
   },
   {
     id: "SV20CN04",
@@ -203,7 +243,20 @@ export const SEED_STUDENTS: Student[] = [
     creditsEarned: 11,
     learningWarning: true,
     learningStatus: "Bị cảnh báo",
-    learningDataLocked: true
+    learningDataLocked: true,
+    gender: "Nam",
+    dob: "2006-03-01",
+    pob: "Bắc Quang, Hà Giang",
+    ethnicity: "Kinh",
+    idCard: "001206001122",
+    idCardDate: "2021-12-05",
+    idCardPlace: "Công an tỉnh Hà Giang",
+    subjects: "Cơ sở dữ liệu, Toán rời rạc",
+    subjectGrades: "4.0, 5.0, -, -, -, -, -, -",
+    gpa10: 4.5,
+    academicGrade: "Yếu",
+    notes: "Nợ môn Cơ sở dữ liệu.",
+    updatedAt: "2026-06-02"
   },
   {
     id: "SV20CN05",
@@ -283,6 +336,17 @@ export const SEED_MEMBERS: OrganizationMember[] = [
     orgId: "UNITECH",
     role: "THÀNH VIÊN",
     joinedDate: "2025-09-10",
+    term: "2025-2026",
+    status: "ACTIVE"
+  },
+  // Nguyễn Văn An (DTG245140202053) inside DOANTN (BCH Đoàn Phân hiệu)
+  {
+    id: "M_05",
+    studentId: "DTG245140202053",
+    classId: "K20-CNTT",
+    orgId: "DOANTN",
+    role: "ỦY VIÊN",
+    joinedDate: "2025-09-15",
     term: "2025-2026",
     status: "ACTIVE"
   },
@@ -741,3 +805,67 @@ export const SEED_DAILY_ATTENDANCE: DailyAttendanceReport[] = [
     reportedAt: "2026-05-23T07:20:01.000Z"
   }
 ];
+
+export const SEED_SCHEDULES: ScheduleSlot[] = [
+  {
+    id: "SCH_01",
+    classId: "K20-CNTT",
+    subjectName: "Lập trình Web",
+    teacherName: "ThS. Nguyễn Văn A",
+    dayOfWeek: 2,
+    periodStart: 1,
+    periodEnd: 3,
+    room: "Phòng 302 - Nhà A",
+    semester: "Học kỳ II, 2025-2026",
+    colorHex: "#4F46E5"
+  },
+  {
+    id: "SCH_02",
+    classId: "K20-CNTT",
+    subjectName: "Cơ sở dữ liệu",
+    teacherName: "TS. Hoàng Minh Đức",
+    dayOfWeek: 4,
+    periodStart: 4,
+    periodEnd: 6,
+    room: "Phòng 102 - Nhà B",
+    semester: "Học kỳ II, 2025-2026",
+    colorHex: "#0EA5E9"
+  },
+  {
+    id: "SCH_03",
+    classId: "K20-CNTT",
+    subjectName: "Cấu trúc dữ liệu",
+    teacherName: "ThS. Nông Văn B",
+    dayOfWeek: 6,
+    periodStart: 1,
+    periodEnd: 2,
+    room: "Lab 3 - Nhà C",
+    semester: "Học kỳ II, 2025-2026",
+    colorHex: "#10B981"
+  },
+  {
+    id: "SCH_04",
+    classId: "K2-GDTH-A",
+    subjectName: "Phương pháp dạy học Toán",
+    teacherName: "Cô Hoàng Thị B",
+    dayOfWeek: 3,
+    periodStart: 1,
+    periodEnd: 3,
+    room: "Phòng 201 - Nhà B",
+    semester: "Học kỳ II, 2025-2026",
+    colorHex: "#F59E0B"
+  },
+  {
+    id: "SCH_05",
+    classId: "K2-GDTH-A",
+    subjectName: "Tâm lý học tiểu học",
+    teacherName: "ThS. Trần Thị D",
+    dayOfWeek: 5,
+    periodStart: 4,
+    periodEnd: 6,
+    room: "Phòng 105 - Nhà C",
+    semester: "Học kỳ II, 2025-2026",
+    colorHex: "#EC4899"
+  }
+];
+

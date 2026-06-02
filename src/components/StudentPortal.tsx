@@ -128,16 +128,30 @@ export const StudentPortal: React.FC = () => {
     activePortletTab,
     setActivePortletTab,
     selectedSemesterId,
-    setSelectedSemesterId
+    setSelectedSemesterId,
+    schedules
   } = useUniHub();
 
-  const activeTab = (activePortletTab as "TRANG_CHU" | "DIEM" | "HOATDONG" | "CLB" | "MINHCHUNG") || "TRANG_CHU";
-  const setActiveTab = (tab: "TRANG_CHU" | "DIEM" | "HOATDONG" | "CLB" | "MINHCHUNG") => {
+  const activeTab = (activePortletTab as "TRANG_CHU" | "DIEM" | "HOATDONG" | "CLB" | "MINHCHUNG" | "THOI_KHOA_BIEU") || "TRANG_CHU";
+  const setActiveTab = (tab: "TRANG_CHU" | "DIEM" | "HOATDONG" | "CLB" | "MINHCHUNG" | "THOI_KHOA_BIEU") => {
     setActivePortletTab(tab);
   };
 
   const studentId = currentUser?.targetId || "DTG245140202053";
   const sObj = students?.find(s => s.id === studentId);
+
+  const isDoanBCH = members.some(m => 
+    m.studentId === studentId && 
+    m.orgId === "DOANTN" && 
+    m.status === "ACTIVE" && 
+    ["BAN CHẤP HÀNH", "ỦY VIÊN", "CHỦ NHIỆM"].includes(m.role)
+  );
+  const isHoiBCH = members.some(m => 
+    m.studentId === studentId && 
+    m.orgId === "HOISV" && 
+    m.status === "ACTIVE" && 
+    ["BAN CHẤP HÀNH", "ỦY VIÊN", "CHỦ NHIỆM"].includes(m.role)
+  );
 
   const statusColors = (status: string) => {
     switch (status) {
@@ -411,6 +425,16 @@ export const StudentPortal: React.FC = () => {
               <span className="text-[10px] font-mono bg-slate-50 border border-slate-100 text-slate-500 px-1.5 py-0.2 rounded font-semibold">
                 MSSV: {studentId}
               </span>
+              {isDoanBCH && (
+                <span className="text-[10px] bg-blue-50 border border-blue-200 text-blue-705 px-2 py-0.5 rounded-full font-extrabold flex items-center gap-1">
+                  ★ Ủy viên BCH Đoàn Phân hiệu
+                </span>
+              )}
+              {isHoiBCH && (
+                <span className="text-[10px] bg-emerald-50 border border-emerald-200 text-emerald-705 px-2 py-0.5 rounded-full font-extrabold flex items-center gap-1">
+                  ★ Ủy viên BCH Hội Phân hiệu
+                </span>
+              )}
               <button 
                 type="button"
                 onClick={() => setShowProfileModal(true)}
@@ -1130,16 +1154,90 @@ export const StudentPortal: React.FC = () => {
             </div>
           </div>
 
-          <div className="w-full border-t border-slate-100 pt-4 mt-5 space-y-2.5 text-left text-xs text-slate-500 font-mono font-medium">
-            <div className="flex justify-between items-center text-[11px]">
-              <span>Số tín chỉ đăng ký:</span>
+          <div className="w-full border-t border-slate-100 pt-4 mt-4 space-y-3 text-left text-xs text-slate-600 font-sans">
+            <div className="flex justify-between items-center text-[11px] font-mono">
+              <span className="text-slate-400">Số tín chỉ tích lũy:</span>
               <span className="font-bold text-slate-800">{currentCreditsEarned} Tín chỉ</span>
             </div>
-            <div className="flex justify-between items-center text-[11px]">
-              <span>Trạng thái học tập:</span>
+            <div className="flex justify-between items-center text-[11px] font-mono">
+              <span className="text-slate-400">Trạng thái học tập:</span>
               <span className={`font-bold uppercase ${currentLearningStatus.includes("cảnh báo") ? "text-rose-600" : "text-emerald-600"}`}>
                 {currentLearningStatus}
               </span>
+            </div>
+            
+            <div className="border-t border-slate-100/60 pt-3 space-y-2 text-[11px]">
+              <div className="font-bold text-[9px] uppercase text-slate-400 tracking-wider font-mono">Thông tin lý lịch & Học vụ chi tiết:</div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 font-medium text-slate-650">
+                <div>Giới tính: <strong className="text-slate-850 font-bold">{sObj?.gender || "Chưa cập nhật"}</strong></div>
+                <div>Ngày sinh: <strong className="text-slate-850 font-bold">{sObj?.dob || "Chưa cập nhật"}</strong></div>
+                <div>Dân tộc: <strong className="text-slate-850 font-bold">{sObj?.ethnicity || "Chưa cập nhật"}</strong></div>
+                <div>Quê quán: <strong className="text-slate-850 font-bold">{sObj?.pob || "Chưa cập nhật"}</strong></div>
+                <div className="col-span-2">Số CCCD: <strong className="text-slate-850 font-mono">{sObj?.idCard || "Chưa cập nhật"}</strong></div>
+                {sObj?.idCardDate && (
+                  <div className="col-span-2 text-[10px] text-slate-400 font-normal leading-tight">
+                    Cấp ngày {sObj.idCardDate} tại {sObj.idCardPlace}
+                  </div>
+                )}
+                <div className="col-span-2 space-y-1">
+                  <span className="text-slate-400 block font-mono text-[9px] uppercase tracking-wider font-bold">Học phần & Điểm chi tiết:</span>
+                  {(() => {
+                    const gradesList = sObj?.subjectGrades 
+                      ? sObj.subjectGrades.split(",").map(p => p.trim())
+                      : [];
+                    const subjectsList = sObj?.subjects 
+                      ? sObj.subjects.split(",").map(p => p.trim()).filter(Boolean)
+                      : [];
+                    
+                    if (gradesList.length === 0 && subjectsList.length === 0) {
+                      return <strong className="text-slate-450 italic text-[11px]">Chưa cập nhật học phần</strong>;
+                    }
+                    
+                    const itemsCount = Math.max(subjectsList.length, gradesList.length);
+                    const pairedItems = Array.from({ length: itemsCount }, (_, idx) => {
+                      const name = subjectsList[idx] || `Học phần ${idx + 1}`;
+                      let grade = gradesList[idx] || "-";
+                      if (grade === "") grade = "-";
+                      return { name, grade };
+                    });
+                    
+                    return (
+                      <div className="border border-slate-100/80 rounded-xl overflow-hidden shadow-xs mt-1">
+                        <table className="w-full text-left text-[11px] font-sans">
+                          <thead>
+                            <tr className="bg-slate-50/50 border-b border-slate-100 text-slate-450 text-[9px] font-bold uppercase tracking-wider">
+                              <th className="p-2 pl-3">Tên học phần</th>
+                              <th className="p-2 pr-3 text-right">Điểm số</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100/60 bg-white">
+                            {pairedItems.map((item, idx) => {
+                              const scoreNum = Number(item.grade);
+                              const scoreColor = item.grade !== "-" && !isNaN(scoreNum)
+                                ? scoreNum >= 8.5 ? "text-emerald-600 font-bold"
+                                  : scoreNum >= 7.0 ? "text-blue-600 font-bold"
+                                  : scoreNum >= 5.0 ? "text-slate-700"
+                                  : "text-rose-500 font-bold"
+                                : "text-slate-400";
+                              return (
+                                <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
+                                  <td className="p-2 pl-3 text-slate-800 font-medium">{item.name}</td>
+                                  <td className={`p-2 pr-3 text-right font-mono font-black ${scoreColor}`}>{item.grade}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()}
+                </div>
+                <div>Điểm hệ 10: <strong className="text-indigo-650 font-mono font-bold">{sObj?.gpa10 !== undefined ? sObj.gpa10.toFixed(2) : "Chưa cập nhật"}</strong></div>
+                <div>Điểm hệ 4: <strong className="text-blue-650 font-mono font-bold">{sObj?.gpa !== undefined ? sObj.gpa.toFixed(2) : "Chưa cập nhật"}</strong></div>
+                <div className="col-span-2">Xếp loại: <strong className="text-slate-850 font-bold">{sObj?.academicGrade || "Chưa cập nhật"}</strong></div>
+                {sObj?.notes && <div className="col-span-2 text-[10.5px]">Ghi chú: <span className="text-slate-500 italic">{sObj.notes}</span></div>}
+                {sObj?.updatedAt && <div className="col-span-2 text-[9px] text-slate-400 font-mono">Ngày cập nhật: {sObj.updatedAt}</div>}
+              </div>
             </div>
           </div>
         </div>
@@ -2150,6 +2248,138 @@ export const StudentPortal: React.FC = () => {
               )}
             </div>
           )}
+
+          {/* TAB: THOI_KHOA_BIEU */}
+          {activeTab === "THOI_KHOA_BIEU" && (() => {
+            const getVNDayOfWeek = () => {
+              const day = new Date().getDay();
+              if (day === 0) return 8; // Chủ Nhật
+              return day + 1;
+            };
+            const todayVN = getVNDayOfWeek();
+            const mySchedules = schedules.filter(s => s.classId === sObj?.classId);
+            const todayClasses = mySchedules
+              .filter(s => s.dayOfWeek === todayVN)
+              .sort((a, b) => a.periodStart - b.periodStart);
+
+            const dayLabels = [
+              { day: 2, label: "Thứ Hai", short: "T2" },
+              { day: 3, label: "Thứ Ba", short: "T3" },
+              { day: 4, label: "Thứ Tư", short: "T4" },
+              { day: 5, label: "Thứ Năm", short: "T5" },
+              { day: 6, label: "Thứ Sáu", short: "T6" },
+              { day: 7, label: "Thứ Bảy", short: "T7" },
+              { day: 8, label: "Chủ Nhật", short: "CN" }
+            ];
+
+            return (
+              <div className="space-y-6 text-left animate-fade-in">
+                {/* 1. Today's Highlight widget */}
+                <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                  <div className="border-b border-slate-100 pb-3 mb-4 flex items-center justify-between">
+                    <h4 className="text-xs font-black text-slate-850 uppercase tracking-wider flex items-center gap-1.5 text-slate-800">
+                      <Clock size={14} className="text-indigo-600 animate-spin" style={{ animationDuration: '12s' }} />
+                      <span>Lịch học hôm nay (Thứ {todayVN === 8 ? "Chủ Nhật" : todayVN})</span>
+                    </h4>
+                    <span className="text-[10px] text-slate-400 font-mono">Hôm nay</span>
+                  </div>
+
+                  {todayClasses.length === 0 ? (
+                    <div className="p-8 text-center bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                      <Sparkles className="mx-auto text-indigo-500 mb-2 animate-bounce" size={24} />
+                      <strong className="text-slate-700 text-xs block">Hôm nay bạn không có lịch học!</strong>
+                      <p className="text-[10px] text-slate-400 mt-1">Hãy dành thời gian tham gia các hoạt động ngoại khóa hoặc học tập nghiên cứu cá nhân.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {todayClasses.map(cls => (
+                        <div 
+                          key={cls.id} 
+                          className="p-4 rounded-xl border border-slate-100 bg-indigo-50/10 relative overflow-hidden flex flex-col justify-between"
+                          style={{ borderLeft: `4px solid ${cls.colorHex || '#4F46E5'}` }}
+                        >
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-wider">
+                              Tiết {cls.periodStart} - {cls.periodEnd}
+                            </span>
+                            <h5 className="text-xs font-black text-slate-800 mt-1">{cls.subjectName}</h5>
+                            <p className="text-[10.5px] text-slate-500 font-medium">{cls.teacherName}</p>
+                          </div>
+                          <div className="mt-3 flex items-center gap-1.5 text-[10.5px] text-slate-600 font-mono bg-white border rounded-lg px-2.5 py-1 w-fit shadow-2xs">
+                            <MapPin size={11} className="text-rose-500 shrink-0" />
+                            <span className="font-bold">{cls.room}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Full Weekly Grid layout */}
+                <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                  <div className="border-b border-slate-100 pb-3 mb-5">
+                    <h4 className="text-xs font-black text-slate-850 uppercase tracking-wider flex items-center gap-1.5 text-slate-800">
+                      <Calendar size={14} className="text-indigo-600" />
+                      <span>Bảng thời khóa biểu tuần chi tiết ({sObj?.classId})</span>
+                    </h4>
+                    <p className="text-[10px] text-slate-405 mt-0.5">Lịch học chính thức được cập nhật trực tiếp bởi Phòng Đào tạo phân hiệu.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+                    {dayLabels.map(({ day, label }) => {
+                      const dayClasses = mySchedules
+                        .filter(s => s.dayOfWeek === day)
+                        .sort((a, b) => a.periodStart - b.periodStart);
+                      const isToday = day === todayVN;
+
+                      return (
+                        <div 
+                          key={day} 
+                          className={`rounded-xl p-3 border flex flex-col space-y-3 min-h-[180px] transition-all ${
+                            isToday 
+                              ? "bg-indigo-50/20 border-indigo-200 ring-1 ring-indigo-200/50 shadow-xs" 
+                              : "bg-slate-50/40 border-slate-150"
+                          }`}
+                        >
+                          <div className="border-b border-slate-200/80 pb-1.5 flex justify-between items-center">
+                            <span className={`text-[10.5px] font-black tracking-wider uppercase ${isToday ? "text-indigo-700 font-extrabold" : "text-slate-500"}`}>
+                              {label}
+                            </span>
+                            {isToday && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-ping"></span>
+                            )}
+                          </div>
+
+                          <div className="flex-1 flex flex-col space-y-2">
+                            {dayClasses.length === 0 ? (
+                              <span className="text-[9.5px] text-slate-400 italic block py-4 text-center">Không học</span>
+                            ) : (
+                              dayClasses.map(cls => (
+                                <div 
+                                  key={cls.id} 
+                                  className="p-2.5 rounded-lg border border-slate-100 bg-white hover:shadow-xs transition-shadow flex flex-col space-y-1.5 text-[10.5px]"
+                                  style={{ borderLeft: `3px solid ${cls.colorHex || '#4F46E5'}` }}
+                                >
+                                  <div>
+                                    <strong className="text-slate-800 font-bold block leading-tight">{cls.subjectName}</strong>
+                                    <span className="text-[9px] text-slate-450 block italic mt-0.5">{cls.teacherName}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 mt-1 bg-slate-50 px-1 rounded">
+                                    <span>T{cls.periodStart}-{cls.periodEnd}</span>
+                                    <span className="font-bold text-slate-700">{cls.room}</span>
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
               </div> {/* Close dynamic scrollable padding wrapper */}
 
