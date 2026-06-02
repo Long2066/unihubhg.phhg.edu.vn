@@ -2392,34 +2392,87 @@ export const StudentPortal: React.FC = () => {
                             )}
                           </div>
 
-                          <div className="flex-1 flex flex-col space-y-2">
+                          <div className="flex-1 flex flex-col space-y-3">
                             {dayClasses.length === 0 ? (
-                              <span className="text-[9.5px] text-slate-400 italic block py-4 text-center">Không học</span>
+                              <span className="text-[9.5px] text-slate-400 italic block py-4 text-center my-auto">Không học</span>
                             ) : (
-                              dayClasses.map(cls => (
-                                <div 
-                                  key={cls.id} 
-                                  className="p-2.5 rounded-lg border border-slate-100 bg-white hover:shadow-xs transition-shadow flex flex-col space-y-1.5 text-[10.5px] text-left"
-                                  style={{ borderLeft: `3px solid ${cls.colorHex || '#4F46E5'}` }}
-                                >
-                                  <div>
-                                    <strong className="text-slate-800 font-bold block leading-tight truncate" title={cls.subjectName}>{cls.subjectName}</strong>
-                                    {cls.subjectCode && (
-                                      <span className="text-[8.5px] font-mono text-slate-400 block font-semibold">{cls.subjectCode} {cls.credits ? `(${cls.credits}TC)` : ""}</span>
-                                    )}
-                                    <span className="text-[9px] text-slate-450 block italic mt-0.5 truncate" title={cls.teacherName}>{cls.teacherName}</span>
-                                  </div>
-                                  <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 mt-1 bg-slate-50 px-1 rounded">
-                                    <span>T{cls.periodStart}-{cls.periodEnd} {cls.session ? `(${cls.session[0]})` : ""}</span>
-                                    <span className="font-bold text-slate-700">{cls.room}</span>
-                                  </div>
-                                  {cls.studyMode && (
-                                    <span className={`text-[8px] self-start px-1.5 py-0.2 rounded-xs font-semibold ${cls.studyMode === "Online" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
-                                      {cls.studyMode}
-                                    </span>
-                                  )}
-                                </div>
-                              ))
+                              (() => {
+                                const morningClasses = dayClasses.filter(s => !s.session || s.session.trim().toLowerCase() === "sáng");
+                                const afternoonClasses = dayClasses.filter(s => s.session && s.session.trim().toLowerCase() === "chiều");
+                                return (
+                                  <>
+                                    {/* Sáng */}
+                                    <div className="space-y-1.5 flex-1">
+                                      <div className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 border-b border-slate-100 pb-0.5 mb-1.5">
+                                        <span>🌅 Sáng</span>
+                                      </div>
+                                      {morningClasses.length === 0 ? (
+                                        <span className="text-[8px] text-slate-300 italic block py-1 text-center">Không học</span>
+                                      ) : (
+                                        morningClasses.map(cls => (
+                                          <div 
+                                            key={cls.id} 
+                                            className="p-2 rounded-lg border border-slate-100 bg-white hover:shadow-xs transition-shadow flex flex-col space-y-1 text-[10.5px] text-left"
+                                            style={{ borderLeft: `3px solid ${cls.colorHex || '#4F46E5'}` }}
+                                          >
+                                            <div>
+                                              <strong className="text-slate-800 font-bold block leading-tight truncate" title={cls.subjectName}>{cls.subjectName}</strong>
+                                              {cls.subjectCode && (
+                                                <span className="text-[8px] font-mono text-slate-400 block font-semibold leading-none mt-0.5">{cls.subjectCode} {cls.credits ? `(${cls.credits}TC)` : ""}</span>
+                                              )}
+                                              <span className="text-[8.5px] text-slate-450 block italic mt-0.5 truncate" title={cls.teacherName}>{cls.teacherName}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-[8.5px] font-mono text-slate-500 mt-1 bg-slate-50 px-1 rounded">
+                                              <span>T{cls.periodStart}-{cls.periodEnd}</span>
+                                              <span className="font-bold text-slate-700">{cls.room}</span>
+                                            </div>
+                                            {cls.studyMode && (
+                                              <span className={`text-[7.5px] self-start px-1 rounded-xs font-semibold ${cls.studyMode === "Online" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
+                                                {cls.studyMode}
+                                              </span>
+                                            )}
+                                          </div>
+                                        ))
+                                      )}
+                                    </div>
+
+                                    {/* Chiều */}
+                                    <div className="space-y-1.5 flex-1">
+                                      <div className="text-[8.5px] font-bold text-indigo-500/80 uppercase tracking-wider flex items-center gap-1 border-b border-indigo-50/50 pb-0.5 mb-1.5 mt-2">
+                                        <span>🌇 Chiều</span>
+                                      </div>
+                                      {afternoonClasses.length === 0 ? (
+                                        <span className="text-[8px] text-slate-300 italic block py-1 text-center">Không học</span>
+                                      ) : (
+                                        afternoonClasses.map(cls => (
+                                          <div 
+                                            key={cls.id} 
+                                            className="p-2 rounded-lg border border-slate-100 bg-white hover:shadow-xs transition-shadow flex flex-col space-y-1 text-[10.5px] text-left"
+                                            style={{ borderLeft: `3px solid ${cls.colorHex || '#4F46E5'}` }}
+                                          >
+                                            <div>
+                                              <strong className="text-slate-800 font-bold block leading-tight truncate" title={cls.subjectName}>{cls.subjectName}</strong>
+                                              {cls.subjectCode && (
+                                                <span className="text-[8px] font-mono text-slate-400 block font-semibold leading-none mt-0.5">{cls.subjectCode} {cls.credits ? `(${cls.credits}TC)` : ""}</span>
+                                              )}
+                                              <span className="text-[8.5px] text-slate-450 block italic mt-0.5 truncate" title={cls.teacherName}>{cls.teacherName}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-[8.5px] font-mono text-slate-500 mt-1 bg-slate-50 px-1 rounded">
+                                              <span>T{cls.periodStart}-{cls.periodEnd}</span>
+                                              <span className="font-bold text-slate-700">{cls.room}</span>
+                                            </div>
+                                            {cls.studyMode && (
+                                              <span className={`text-[7.5px] self-start px-1 rounded-xs font-semibold ${cls.studyMode === "Online" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
+                                                {cls.studyMode}
+                                              </span>
+                                            )}
+                                          </div>
+                                        ))
+                                      )}
+                                    </div>
+                                  </>
+                                );
+                              })()
                             )}
                           </div>
                         </div>
