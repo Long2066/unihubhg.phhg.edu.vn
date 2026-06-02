@@ -140,6 +140,41 @@ const AppContent: React.FC = () => {
     return cached ? JSON.parse(cached) : [];
   });
 
+  // Local state to track seen locked faculty reviews for TRAINING_DEPT
+  const [seenFacultyReviewIds, setSeenFacultyReviewIds] = useState<string[]>(() => {
+    if (!currentUser) return [];
+    const cached = localStorage.getItem(`unihub_seen_faculty_reviews_${currentUser.id}`);
+    return cached ? JSON.parse(cached) : [];
+  });
+
+  // Local state to track seen pending members for ORGANIZER
+  const [seenPendingMemberIds, setSeenPendingMemberIds] = useState<string[]>(() => {
+    if (!currentUser) return [];
+    const cached = localStorage.getItem(`unihub_seen_pending_members_${currentUser.id}`);
+    return cached ? JSON.parse(cached) : [];
+  });
+
+  // Local state to track seen pending evidence for CLASS_MONITOR & ADVISER
+  const [seenPendingEvidenceIds, setSeenPendingEvidenceIds] = useState<string[]>(() => {
+    if (!currentUser) return [];
+    const cached = localStorage.getItem(`unihub_seen_pending_evidence_${currentUser.id}`);
+    return cached ? JSON.parse(cached) : [];
+  });
+
+  // Local state to track seen class reviews for FACULTY
+  const [seenClassReviewIds, setSeenClassReviewIds] = useState<string[]>(() => {
+    if (!currentUser) return [];
+    const cached = localStorage.getItem(`unihub_seen_class_reviews_${currentUser.id}`);
+    return cached ? JSON.parse(cached) : [];
+  });
+
+  // Local state to track seen pending adviser reviews for ADVISER
+  const [seenAdviserReviews, setSeenAdviserReviews] = useState<string[]>(() => {
+    if (!currentUser) return [];
+    const cached = localStorage.getItem(`unihub_seen_adviser_reviews_${currentUser.id}`);
+    return cached ? JSON.parse(cached) : [];
+  });
+
   const [selectedAnnForModal, setSelectedAnnForModal] = useState<any | null>(null);
 
   const saveReadNotifIds = (ids: string[]) => {
@@ -164,6 +199,36 @@ const AppContent: React.FC = () => {
     if (!currentUser) return;
     setSeenRejectedEvidenceIds(ids);
     localStorage.setItem(`unihub_seen_rejected_ev_${currentUser.id}`, JSON.stringify(ids));
+  };
+
+  const saveSeenFacultyReviewIds = (ids: string[]) => {
+    if (!currentUser) return;
+    setSeenFacultyReviewIds(ids);
+    localStorage.setItem(`unihub_seen_faculty_reviews_${currentUser.id}`, JSON.stringify(ids));
+  };
+
+  const saveSeenPendingMemberIds = (ids: string[]) => {
+    if (!currentUser) return;
+    setSeenPendingMemberIds(ids);
+    localStorage.setItem(`unihub_seen_pending_members_${currentUser.id}`, JSON.stringify(ids));
+  };
+
+  const saveSeenPendingEvidenceIds = (ids: string[]) => {
+    if (!currentUser) return;
+    setSeenPendingEvidenceIds(ids);
+    localStorage.setItem(`unihub_seen_pending_evidence_${currentUser.id}`, JSON.stringify(ids));
+  };
+
+  const saveSeenClassReviewIds = (ids: string[]) => {
+    if (!currentUser) return;
+    setSeenClassReviewIds(ids);
+    localStorage.setItem(`unihub_seen_class_reviews_${currentUser.id}`, JSON.stringify(ids));
+  };
+
+  const saveSeenAdviserReviews = (ids: string[]) => {
+    if (!currentUser) return;
+    setSeenAdviserReviews(ids);
+    localStorage.setItem(`unihub_seen_adviser_reviews_${currentUser.id}`, JSON.stringify(ids));
   };
 
 
@@ -451,44 +516,99 @@ const AppContent: React.FC = () => {
 
   // Reactively mark notifications/activities as seen/read when visiting tabs
   React.useEffect(() => {
-    if (!currentUser || currentUser.role !== UserRole.STUDENT) return;
+    if (!currentUser) return;
 
-    if (activePortletTab === "TRANG_CHU") {
-      const unread = notifications.filter(n => !n.isRead && (n.linkTab === "TRANG_CHU" || n.id === "welcome-notif"));
-      if (unread.length > 0) {
-        const newReadIds = [...readNotifIds, ...unread.map(n => n.id)];
-        saveReadNotifIds(Array.from(new Set(newReadIds)));
+    if (currentUser.role === UserRole.STUDENT) {
+      if (activePortletTab === "TRANG_CHU") {
+        const unread = notifications.filter(n => !n.isRead && (n.linkTab === "TRANG_CHU" || n.id === "welcome-notif"));
+        if (unread.length > 0) {
+          const newReadIds = [...readNotifIds, ...unread.map(n => n.id)];
+          saveReadNotifIds(Array.from(new Set(newReadIds)));
+        }
+      } else if (activePortletTab === "DIEM") {
+        const unread = notifications.filter(n => !n.isRead && n.linkTab === "DIEM");
+        if (unread.length > 0) {
+          const newReadIds = [...readNotifIds, ...unread.map(n => n.id)];
+          saveReadNotifIds(Array.from(new Set(newReadIds)));
+        }
+      } else if (activePortletTab === "CLB") {
+        const unread = notifications.filter(n => !n.isRead && n.linkTab === "CLB");
+        if (unread.length > 0) {
+          const newReadIds = [...readNotifIds, ...unread.map(n => n.id)];
+          saveReadNotifIds(Array.from(new Set(newReadIds)));
+        }
+      } else if (activePortletTab === "HOATDONG") {
+        const upcomingUnregisteredIds = activities
+          .filter(a => a.status === "UPCOMING" && a.registrationOpen && !attendance.some(att => att.activityId === a.id && att.studentId === studentId))
+          .map(a => a.id);
+        const newSeenIds = Array.from(new Set([...seenActivityIds, ...upcomingUnregisteredIds]));
+        if (newSeenIds.length !== seenActivityIds.length) {
+          saveSeenActivityIds(newSeenIds);
+        }
+      } else if (activePortletTab === "MINHCHUNG") {
+        const rejectedEvIds = evidence
+          .filter(ev => ev.studentId === studentId && ev.status === "REJECTED")
+          .map(ev => ev.id);
+        const newSeenRejectedIds = Array.from(new Set([...seenRejectedEvidenceIds, ...rejectedEvIds]));
+        if (newSeenRejectedIds.length !== seenRejectedEvidenceIds.length) {
+          saveSeenRejectedEvidenceIds(newSeenRejectedIds);
+        }
       }
-    } else if (activePortletTab === "DIEM") {
-      const unread = notifications.filter(n => !n.isRead && n.linkTab === "DIEM");
-      if (unread.length > 0) {
-        const newReadIds = [...readNotifIds, ...unread.map(n => n.id)];
-        saveReadNotifIds(Array.from(new Set(newReadIds)));
+    } else if (currentUser.role === UserRole.ORGANIZER) {
+      if (activePortletTab === "DS_THANHVIEN") {
+        const orgId = currentUser.targetId || "UNITECH";
+        const pendingMemberIds = members.filter(m => m.orgId === orgId && m.status === "PENDING").map(m => m.id);
+        const newSeenIds = Array.from(new Set([...seenPendingMemberIds, ...pendingMemberIds]));
+        if (newSeenIds.length !== seenPendingMemberIds.length) {
+          saveSeenPendingMemberIds(newSeenIds);
+        }
       }
-    } else if (activePortletTab === "CLB") {
-      const unread = notifications.filter(n => !n.isRead && n.linkTab === "CLB");
-      if (unread.length > 0) {
-        const newReadIds = [...readNotifIds, ...unread.map(n => n.id)];
-        saveReadNotifIds(Array.from(new Set(newReadIds)));
+    } else if (currentUser.role === UserRole.CLASS_MONITOR) {
+      if (activePortletTab === "TRANG_CHU") {
+        const classId = currentUser.targetId || "";
+        const pendingEvIds = evidence.filter(ev => ev.classId === classId && ev.status === "PENDING").map(ev => ev.id);
+        const newSeenIds = Array.from(new Set([...seenPendingEvidenceIds, ...pendingEvIds]));
+        if (newSeenIds.length !== seenPendingEvidenceIds.length) {
+          saveSeenPendingEvidenceIds(newSeenIds);
+        }
       }
-    } else if (activePortletTab === "HOATDONG") {
-      const upcomingUnregisteredIds = activities
-        .filter(a => a.status === "UPCOMING" && a.registrationOpen && !attendance.some(att => att.activityId === a.id && att.studentId === studentId))
-        .map(a => a.id);
-      const newSeenIds = Array.from(new Set([...seenActivityIds, ...upcomingUnregisteredIds]));
-      if (newSeenIds.length !== seenActivityIds.length) {
-        saveSeenActivityIds(newSeenIds);
+    } else if (currentUser.role === UserRole.ADVISER) {
+      if (activePortletTab === "TRANG_CHU") {
+        const classId = currentUser.targetId || "";
+        const pendingEvIds = evidence.filter(ev => ev.classId === classId && ev.status === "PENDING").map(ev => ev.id);
+        const newSeenIds = Array.from(new Set([...seenPendingEvidenceIds, ...pendingEvIds]));
+        if (newSeenIds.length !== seenPendingEvidenceIds.length) {
+          saveSeenPendingEvidenceIds(newSeenIds);
+        }
+        
+        const reviewClassIds = classReviews.filter(cr => cr.classId === classId && cr.representativeApproved && !cr.adviserApproved).map(cr => cr.classId);
+        const newSeenReviews = Array.from(new Set([...seenAdviserReviews, ...reviewClassIds]));
+        if (newSeenReviews.length !== seenAdviserReviews.length) {
+          saveSeenAdviserReviews(newSeenReviews);
+        }
       }
-    } else if (activePortletTab === "MINHCHUNG") {
-      const rejectedEvIds = evidence
-        .filter(ev => ev.studentId === studentId && ev.status === "REJECTED")
-        .map(ev => ev.id);
-      const newSeenRejectedIds = Array.from(new Set([...seenRejectedEvidenceIds, ...rejectedEvIds]));
-      if (newSeenRejectedIds.length !== seenRejectedEvidenceIds.length) {
-        saveSeenRejectedEvidenceIds(newSeenRejectedIds);
+    } else if (currentUser.role === UserRole.FACULTY) {
+      if (activePortletTab === "LOCKS") {
+        const facultyId = currentUser.targetId || "";
+        const pendingReviewClassIds = classReviews.filter(cr => {
+          const studentObj = students.find(s => s.classId === cr.classId);
+          return studentObj?.facultyId === facultyId && cr.adviserApproved && !cr.facultyApproved;
+        }).map(cr => cr.classId);
+        const newSeenIds = Array.from(new Set([...seenClassReviewIds, ...pendingReviewClassIds]));
+        if (newSeenIds.length !== seenClassReviewIds.length) {
+          saveSeenClassReviewIds(newSeenIds);
+        }
+      }
+    } else if (currentUser.role === UserRole.TRAINING_DEPT) {
+      if (activePortletTab === "LIST") {
+        const lockedIds = facultyReviews.filter(fr => fr.locked).map(fr => fr.facultyId);
+        const newSeenIds = Array.from(new Set([...seenFacultyReviewIds, ...lockedIds]));
+        if (newSeenIds.length !== seenFacultyReviewIds.length) {
+          saveSeenFacultyReviewIds(newSeenIds);
+        }
       }
     }
-  }, [activePortletTab, currentUser, notifications, activities, attendance, studentId]);
+  }, [activePortletTab, currentUser, notifications, activities, attendance, studentId, evidence, members, classReviews, facultyReviews, students, seenActivityIds, seenRejectedEvidenceIds, seenPendingMemberIds, seenPendingEvidenceIds, seenClassReviewIds, seenAdviserReviews, seenFacultyReviewIds, readNotifIds]);
 
   if (!currentUser) {
     return <LoginScreen />;
@@ -706,7 +826,7 @@ const AppContent: React.FC = () => {
       const orgId = currentUser.targetId || "UNITECH";
       switch (tabId) {
         case "DS_THANHVIEN":
-          return members.filter(m => m.orgId === orgId && m.status === "PENDING").length;
+          return members.filter(m => m.orgId === orgId && m.status === "PENDING" && !seenPendingMemberIds.includes(m.id)).length;
         default:
           return 0;
       }
@@ -716,7 +836,7 @@ const AppContent: React.FC = () => {
       const classId = currentUser.targetId || "";
       switch (tabId) {
         case "TRANG_CHU":
-          return evidence.filter(ev => ev.classId === classId && ev.status === "PENDING").length;
+          return evidence.filter(ev => ev.classId === classId && ev.status === "PENDING" && !seenPendingEvidenceIds.includes(ev.id)).length;
         default:
           return 0;
       }
@@ -726,8 +846,8 @@ const AppContent: React.FC = () => {
       const classId = currentUser.targetId || "";
       switch (tabId) {
         case "TRANG_CHU":
-          const pendingEv = evidence.filter(ev => ev.classId === classId && ev.status === "PENDING").length;
-          const pendingReview = classReviews.some(cr => cr.classId === classId && cr.representativeApproved && !cr.adviserApproved) ? 1 : 0;
+          const pendingEv = evidence.filter(ev => ev.classId === classId && ev.status === "PENDING" && !seenPendingEvidenceIds.includes(ev.id)).length;
+          const pendingReview = classReviews.some(cr => cr.classId === classId && cr.representativeApproved && !cr.adviserApproved && !seenAdviserReviews.includes(cr.classId)) ? 1 : 0;
           return pendingEv + pendingReview;
         default:
           return 0;
@@ -740,7 +860,7 @@ const AppContent: React.FC = () => {
         case "LOCKS":
           return classReviews.filter(cr => {
             const studentObj = students.find(s => s.classId === cr.classId);
-            return studentObj?.facultyId === facultyId && cr.adviserApproved && !cr.facultyApproved;
+            return studentObj?.facultyId === facultyId && cr.adviserApproved && !cr.facultyApproved && !seenClassReviewIds.includes(cr.classId);
           }).length;
         default:
           return 0;
@@ -750,7 +870,7 @@ const AppContent: React.FC = () => {
     if (currentUser.role === UserRole.TRAINING_DEPT) {
       switch (tabId) {
         case "LIST":
-          return facultyReviews.filter(fr => fr.locked).length;
+          return facultyReviews.filter(fr => fr.locked && !seenFacultyReviewIds.includes(fr.facultyId)).length;
         default:
           return 0;
       }
