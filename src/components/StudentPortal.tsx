@@ -2257,7 +2257,13 @@ export const StudentPortal: React.FC = () => {
               return day + 1;
             };
             const todayVN = getVNDayOfWeek();
-            const mySchedules = schedules.filter(s => s.classId === sObj?.classId);
+            
+            const norm = (str: string) => str.toLowerCase().replace(/[-_\s]/g, "");
+            const mySchedules = schedules.filter(s => 
+              s.classId === sObj?.classId || 
+              (sObj?.classId && norm(s.classId) === norm(sObj.classId))
+            );
+
             const todayClasses = mySchedules
               .filter(s => s.dayOfWeek === todayVN)
               .sort((a, b) => a.periodStart - b.periodStart);
@@ -2299,11 +2305,21 @@ export const StudentPortal: React.FC = () => {
                           style={{ borderLeft: `4px solid ${cls.colorHex || '#4F46E5'}` }}
                         >
                           <div className="space-y-1">
-                            <span className="text-[9px] font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-wider">
-                              Tiết {cls.periodStart} - {cls.periodEnd}
-                            </span>
-                            <h5 className="text-xs font-black text-slate-800 mt-1">{cls.subjectName}</h5>
-                            <p className="text-[10.5px] text-slate-500 font-medium">{cls.teacherName}</p>
+                            <div className="flex justify-between items-center">
+                              <span className="text-[9px] font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-wider">
+                                Tiết {cls.periodStart} - {cls.periodEnd} {cls.session ? `(${cls.session})` : ""}
+                              </span>
+                              {cls.studyMode && (
+                                <span className={`text-[8px] font-bold px-1.5 py-0.2 rounded-sm ${cls.studyMode === "Online" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
+                                  {cls.studyMode}
+                                </span>
+                              )}
+                            </div>
+                            <h5 className="text-xs font-black text-slate-800 mt-1.5">{cls.subjectName}</h5>
+                            {cls.subjectCode && (
+                              <p className="text-[9px] font-mono text-slate-400 font-semibold">{cls.subjectCode} {cls.credits ? `• ${cls.credits} Tín chỉ` : ""}</p>
+                            )}
+                            <p className="text-[10.5px] text-slate-500 font-medium mt-1">{cls.teacherName}</p>
                           </div>
                           <div className="mt-3 flex items-center gap-1.5 text-[10.5px] text-slate-600 font-mono bg-white border rounded-lg px-2.5 py-1 w-fit shadow-2xs">
                             <MapPin size={11} className="text-rose-500 shrink-0" />
@@ -2357,17 +2373,25 @@ export const StudentPortal: React.FC = () => {
                               dayClasses.map(cls => (
                                 <div 
                                   key={cls.id} 
-                                  className="p-2.5 rounded-lg border border-slate-100 bg-white hover:shadow-xs transition-shadow flex flex-col space-y-1.5 text-[10.5px]"
+                                  className="p-2.5 rounded-lg border border-slate-100 bg-white hover:shadow-xs transition-shadow flex flex-col space-y-1.5 text-[10.5px] text-left"
                                   style={{ borderLeft: `3px solid ${cls.colorHex || '#4F46E5'}` }}
                                 >
                                   <div>
-                                    <strong className="text-slate-800 font-bold block leading-tight">{cls.subjectName}</strong>
-                                    <span className="text-[9px] text-slate-450 block italic mt-0.5">{cls.teacherName}</span>
+                                    <strong className="text-slate-800 font-bold block leading-tight truncate" title={cls.subjectName}>{cls.subjectName}</strong>
+                                    {cls.subjectCode && (
+                                      <span className="text-[8.5px] font-mono text-slate-400 block font-semibold">{cls.subjectCode} {cls.credits ? `(${cls.credits}TC)` : ""}</span>
+                                    )}
+                                    <span className="text-[9px] text-slate-450 block italic mt-0.5 truncate" title={cls.teacherName}>{cls.teacherName}</span>
                                   </div>
                                   <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 mt-1 bg-slate-50 px-1 rounded">
-                                    <span>T{cls.periodStart}-{cls.periodEnd}</span>
+                                    <span>T{cls.periodStart}-{cls.periodEnd} {cls.session ? `(${cls.session[0]})` : ""}</span>
                                     <span className="font-bold text-slate-700">{cls.room}</span>
                                   </div>
+                                  {cls.studyMode && (
+                                    <span className={`text-[8px] self-start px-1.5 py-0.2 rounded-xs font-semibold ${cls.studyMode === "Online" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
+                                      {cls.studyMode}
+                                    </span>
+                                  )}
                                 </div>
                               ))
                             )}

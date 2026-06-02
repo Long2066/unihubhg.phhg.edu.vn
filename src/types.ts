@@ -253,12 +253,18 @@ export interface ClubAnnouncement {
 export interface ScheduleSlot {
   id: string;            // Mã định danh duy nhất (UUID)
   classId: string;       // Lớp áp dụng (e.g. "K20-CNTT", "K2-GDTH-A")
-  subjectName: string;   // Tên học phần
+  className?: string;    // Tên lớp (e.g. "K2 GDTH A")
+  subjectName: string;   // Tên học phần (e.g. "CSTN&XH")
+  subjectCode?: string;  // Mã học phần (e.g. "HKO4587520")
+  credits?: number;      // Số tín chỉ (e.g. 2)
   teacherName: string;   // Tên giảng viên
-  dayOfWeek: number;     // Thứ trong tuần (2: Thứ Hai, 3: Thứ Ba, ..., 8: Chủ Nhật)
+  dayOfWeek: number;     // Thứ trong tuần (2: Thứ Hai, ..., 8: Chủ Nhật)
+  session?: string;      // Buổi (Sáng/Chiều)
   periodStart: number;   // Tiết bắt đầu (e.g. 1)
   periodEnd: number;     // Tiết kết thúc (e.g. 3)
-  room: string;          // Phòng học (e.g. "Phòng 302 - Nhà A")
-  semester: string;      // Học kỳ (e.g. "Học kỳ II, 2025-2026")
+  room: string;          // Phòng học (e.g. "102B")
+  semester: string;      // Học kỳ (e.g. "II")
+  academicYear?: string; // Năm học (e.g. "2025-2026")
+  studyMode?: string;    // Hình thức học (e.g. "Trực tiếp", "Online")
   colorHex?: string;     // Màu sắc đại diện hiển thị trên lịch tuần
 }
