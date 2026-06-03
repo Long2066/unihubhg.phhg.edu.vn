@@ -4,6 +4,38 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Custom Color Tokens to fix unrecognized Tailwind classes */
+  --color-slate-150: #edf2f7;
+  --color-slate-350: #b4c5da;
+  --color-slate-450: #7c8fa6;
+  --color-slate-650: #3d4b5f;
+  --color-slate-750: #283548;
+
+  --color-indigo-55: #f0f3ff;
+  --color-indigo-150: #dbe1fc;
+  --color-indigo-650: #493fde;
+
+  --color-emerald-5: #f0fdf4;
+  --color-emerald-150: #bbf7dd;
+  --color-emerald-650: #058760;
+  --color-emerald-750: #036c4e;
+
+  --color-rose-5: #fff5f5;
+  --color-rose-50: #fff1f2;
+  --color-rose-150: #ffe4e6;
+  --color-rose-705: #be123c;
+  --color-rose-650: #cc2121;
+
+  --color-amber-50: #fffbeb;
+  --color-amber-150: #fde68a;
+  --color-amber-705: #b45309;
+
+  --color-sky-150: #e0f2fe;
+  --color-purple-150: #f3e8ff;
+
+  --color-blue-650: #2159e1;
+  --color-red-650: #cc2121;
 }
 
 /* Custom gorgeous scrollbar for lists */

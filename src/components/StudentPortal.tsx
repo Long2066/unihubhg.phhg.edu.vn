@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useUniHub } from "../state";
+import { STUDENT_FIELDS_META, Student } from "../types";
 import { 
   Award, 
   Calendar, 
@@ -207,6 +208,8 @@ export const StudentPortal: React.FC = () => {
   const [editAvatar, setEditAvatar] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [profileSuccessMsg, setProfileSuccessMsg] = useState("");
+  const [profileFields, setProfileFields] = useState<Partial<any>>({});
+  const [activeProfileTab, setActiveProfileTab] = useState<"personal" | "family" | "education" | "account">("personal");
 
   // Modal State for Evidence Upload
   const [showEvModal, setShowEvModal] = useState(false);
@@ -221,6 +224,7 @@ export const StudentPortal: React.FC = () => {
   const [clubFeedTab, setClubFeedTab] = useState<"ALL" | "ANNOUNCEMENTS" | "ACTIVITIES">("ALL");
   const [onlyMyClubsFilter, setOnlyMyClubsFilter] = useState(false);
   const [selectedStudentScheduleClass, setSelectedStudentScheduleClass] = useState("");
+  const [announcementKeyword, setAnnouncementKeyword] = useState("");
 
   // States for professional activity news board ticker & carousel
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -248,6 +252,14 @@ export const StudentPortal: React.FC = () => {
       setEditName(currentUser.name);
       setEditAvatar(sObj?.avatar || "");
       setEditPassword(currentUser.password || "password123");
+      
+      if (sObj) {
+        const fields: Partial<any> = {};
+        STUDENT_FIELDS_META.forEach(f => {
+          (fields as any)[f.key] = (sObj as any)[f.key] || "";
+        });
+        setProfileFields(fields);
+      }
     }
   }, [currentUser, sObj, showProfileModal]);
 
@@ -258,7 +270,7 @@ export const StudentPortal: React.FC = () => {
       alert("Họ và tên không được để trống!");
       return;
     }
-    updateStudentProfile(studentId, editName, editAvatar, editPassword);
+    updateStudentProfile(studentId, editName, editAvatar, editPassword, profileFields);
     setProfileSuccessMsg("Đã cập nhật thông tin thành viên và mật khẩu thành công!");
     setTimeout(() => {
       setProfileSuccessMsg("");
@@ -2509,8 +2521,8 @@ export const StudentPortal: React.FC = () => {
       {/* MODAL EDIT STUDENT PROFILE (Requirement #8) */}
       {showProfileModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-md w-full overflow-hidden">
-            <div className="flex justify-between items-center bg-indigo-50/50 px-6 py-4 border-b border-indigo-100">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center bg-indigo-50/50 px-6 py-4 border-b border-indigo-100 shrink-0">
               <h3 className="text-xs font-black text-indigo-900 flex items-center gap-2">
                 <User size={15} />
                 <span>Cập Nhật Thông Tin Hồ Sơ Cá Nhân & Đổi Mật Khẩu</span>
@@ -2520,116 +2532,276 @@ export const StudentPortal: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSaveProfile} className="p-6 space-y-4">
-              {profileSuccessMsg && (
-                <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold rounded-xl text-center">
-                  {profileSuccessMsg}
-                </div>
-              )}
+            {/* Profile Tab Navigation */}
+            <div className="flex border-b border-slate-100 bg-slate-50/50 p-2 overflow-x-auto shrink-0 gap-1 select-none">
+              <button
+                type="button"
+                onClick={() => setActiveProfileTab("personal")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeProfileTab === "personal"
+                    ? "bg-indigo-650 text-white shadow-xs"
+                    : "text-slate-650 hover:bg-slate-100"
+                }`}
+              >
+                Cá nhân & Liên lạc
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveProfileTab("family")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeProfileTab === "family"
+                    ? "bg-indigo-650 text-white shadow-xs"
+                    : "text-slate-650 hover:bg-slate-100"
+                }`}
+              >
+                Gia đình
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveProfileTab("education")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeProfileTab === "education"
+                    ? "bg-indigo-650 text-white shadow-xs"
+                    : "text-slate-650 hover:bg-slate-100"
+                }`}
+              >
+                Học tập & Tài chính
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveProfileTab("account")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeProfileTab === "account"
+                    ? "bg-indigo-650 text-white shadow-xs"
+                    : "text-slate-650 hover:bg-slate-100"
+                }`}
+              >
+                Tài khoản & Ảnh
+              </button>
+            </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Họ tên sinh viên</label>
-                <input 
-                  type="text"
-                  required
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Ảnh đại diện</label>
-                <div className="flex flex-col gap-2">
-                  <div className="flex gap-2">
-                    <input 
-                      type="text"
-                      placeholder="https://images.unsplash.com/..."
-                      value={editAvatar}
-                      onChange={(e) => setEditAvatar(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 text-slate-800 font-mono"
-                    />
-                    <button 
-                      type="button"
-                      onClick={() => setEditAvatar(`https://api.dicebear.com/7.x/avataaars/svg?seed=${studentId}`)}
-                      className="px-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-slate-700 text-xs shrink-0 cursor-pointer"
-                    >
-                      Mẫu
-                    </button>
+            <form onSubmit={handleSaveProfile} className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-6 overflow-y-auto space-y-4 flex-1">
+                {profileSuccessMsg && (
+                  <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-250 text-xs font-bold rounded-xl text-center">
+                    {profileSuccessMsg}
                   </div>
+                )}
 
-                  <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-100">
-                    {editAvatar ? (
-                      <img 
-                        referrerPolicy="no-referrer"
-                        src={editAvatar} 
-                        alt="Preview Avatar" 
-                        className="w-10 h-10 rounded-full object-cover border border-slate-200 shrink-0"
-                        onError={(e) => {
-                          e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${studentId}`;
-                        }}
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-400 shrink-0">
-                        <ImageIcon size={16} />
-                      </div>
-                    )}
-                    <label className="flex-1 cursor-pointer">
-                      <div className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-105 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-indigo-700 text-xs text-center font-bold transition-colors flex items-center justify-center gap-1.5">
-                        <Upload size={12} />
-                        <span>Tải ảnh từ máy</span>
-                      </div>
+                {activeProfileTab === "account" && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Họ tên sinh viên</label>
                       <input 
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
+                        type="text"
+                        required
+                        value={editName}
                         onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (event) => {
-                              if (event.target?.result) {
-                                setEditAvatar(event.target.result as string);
-                              }
-                            };
-                            reader.readAsDataURL(file);
-                          }
+                          setEditName(e.target.value);
+                          setProfileFields(prev => ({ ...prev, name: e.target.value }));
                         }}
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-650 text-slate-800"
                       />
-                    </label>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Ảnh đại diện (URL)</label>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                          <input 
+                            type="text"
+                            placeholder="https://images.unsplash.com/..."
+                            value={editAvatar}
+                            onChange={(e) => {
+                              setEditAvatar(e.target.value);
+                              setProfileFields(prev => ({ ...prev, avatar: e.target.value }));
+                            }}
+                            className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-655 text-slate-800 font-mono"
+                          />
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              const seedUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${studentId}`;
+                              setEditAvatar(seedUrl);
+                              setProfileFields(prev => ({ ...prev, avatar: seedUrl }));
+                            }}
+                            className="px-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-slate-700 text-xs shrink-0 cursor-pointer"
+                          >
+                            Mẫu
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                          {editAvatar ? (
+                            <img 
+                              referrerPolicy="no-referrer"
+                              src={editAvatar} 
+                              alt="Preview Avatar" 
+                              className="w-10 h-10 rounded-full object-cover border border-slate-200 shrink-0"
+                              onError={(e) => {
+                                e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${studentId}`;
+                              }}
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                              <ImageIcon size={16} />
+                            </div>
+                          )}
+                          <label className="flex-1 cursor-pointer">
+                            <div className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-indigo-750 text-xs text-center font-bold transition-colors flex items-center justify-center gap-1.5">
+                              <Upload size={12} />
+                              <span>Tải ảnh từ máy</span>
+                            </div>
+                            <input 
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    if (event.target?.result) {
+                                      const dataUrl = event.target.result as string;
+                                      setEditAvatar(dataUrl);
+                                      setProfileFields(prev => ({ ...prev, avatar: dataUrl }));
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                      <p className="text-[9px] text-slate-400 mt-1">Ấn nút "Mẫu" để tự động tạo avatar ngẫu nhiên, hoặc tải ảnh từ máy tính của bạn.</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Mật khẩu mới</label>
+                      <div className="relative">
+                        <input 
+                          type="text"
+                          placeholder="Chưa đổi mật khẩu mới"
+                          value={editPassword}
+                          onChange={(e) => setEditPassword(e.target.value)}
+                          className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-650 text-slate-800 font-mono"
+                        />
+                        <Lock size={12} className="absolute left-3 top-3 text-slate-400" />
+                      </div>
+                      <p className="text-[9px] text-slate-400 mt-1">Mật khẩu này sẽ được lưu để đăng nhập cho các lần sau.</p>
+                    </div>
                   </div>
-                </div>
-                <p className="text-[9px] text-slate-400 mt-1">Ấn nút "Mẫu" để tự động tạo avatar ngẫu nhiên, hoặc bấm "Tải ảnh từ máy" để chọn ảnh lưu cục bộ.</p>
+                )}
+
+                {activeProfileTab === "personal" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {STUDENT_FIELDS_META.filter(meta => meta.category === "personal").map(meta => {
+                      const isReadOnly = meta.readOnly;
+                      const value = (profileFields as any)[meta.key] || "";
+                      
+                      return (
+                        <div key={meta.key} className={meta.key === "permanentAddress" || meta.key === "temporaryAddress" ? "sm:col-span-2" : ""}>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">{meta.label}</label>
+                          {meta.type === "select" ? (
+                            <select
+                              value={value}
+                              disabled={isReadOnly}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setProfileFields(prev => ({ ...prev, [meta.key]: val }));
+                                if (meta.key === "name") {
+                                  setEditName(val);
+                                }
+                              }}
+                              className={`w-full px-3 py-2 text-xs rounded-lg border focus:outline-none text-slate-800 bg-white ${
+                                isReadOnly ? "bg-slate-50 cursor-not-allowed border-slate-200 text-slate-450" : "border-slate-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-650"
+                              }`}
+                            >
+                              <option value="">-- Chọn {meta.label} --</option>
+                              {meta.options?.map(opt => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type={meta.type === "number" ? "number" : meta.type === "date" ? "date" : "text"}
+                              value={value}
+                              disabled={isReadOnly}
+                              onChange={(e) => {
+                                const val = meta.type === "number" ? Number(e.target.value) : e.target.value;
+                                setProfileFields(prev => ({ ...prev, [meta.key]: val }));
+                                if (meta.key === "name") {
+                                  setEditName(e.target.value);
+                                }
+                              }}
+                              className={`w-full px-3 py-2 text-xs rounded-lg border focus:outline-none text-slate-800 ${
+                                isReadOnly ? "bg-slate-50 border-slate-250/60 text-slate-450 cursor-not-allowed font-semibold" : "border-slate-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-650"
+                              }`}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {activeProfileTab === "family" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {STUDENT_FIELDS_META.filter(meta => meta.category === "family").map(meta => {
+                      const value = (profileFields as any)[meta.key] || "";
+                      return (
+                        <div key={meta.key}>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">{meta.label}</label>
+                          <input
+                            type="text"
+                            value={value}
+                            onChange={(e) => setProfileFields(prev => ({ ...prev, [meta.key]: e.target.value }))}
+                            className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-650 text-slate-800"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {activeProfileTab === "education" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {STUDENT_FIELDS_META.filter(meta => meta.category === "education" || meta.category === "finance").map(meta => {
+                      const isReadOnly = meta.readOnly;
+                      const value = (profileFields as any)[meta.key] || "";
+                      return (
+                        <div key={meta.key} className={meta.key === "creditClassesList" || meta.key === "enrollmentNotes" ? "sm:col-span-2" : ""}>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">{meta.label}</label>
+                          <input
+                            type={meta.type === "number" ? "number" : "text"}
+                            value={value}
+                            disabled={isReadOnly}
+                            onChange={(e) => setProfileFields(prev => ({ ...prev, [meta.key]: meta.type === "number" ? Number(e.target.value) : e.target.value }))}
+                            className={`w-full px-3 py-2 text-xs rounded-lg border focus:outline-none text-slate-800 ${
+                              isReadOnly ? "bg-slate-50 border-slate-250/60 text-slate-450 cursor-not-allowed font-semibold" : "border-slate-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-655"
+                            }`}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Mật khẩu mới</label>
-                <div className="relative">
-                  <input 
-                    type="text"
-                    placeholder="Chưa đổi mật khẩu mới"
-                    value={editPassword}
-                    onChange={(e) => setEditPassword(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 text-slate-800 font-mono"
-                  />
-                  <Lock size={12} className="absolute left-3 top-3 text-slate-400" />
-                </div>
-                <p className="text-[9px] text-slate-400 mt-1">Lưu trữ ngoại tuyến an toàn trong bộ nhớ cục bộ (Local Storage).</p>
-              </div>
-
-              <div className="flex gap-2 justify-end pt-3 border-t border-slate-100">
+              <div className="flex gap-2 justify-end p-4 border-t border-slate-100 bg-slate-50 shrink-0">
                 <button 
                   type="button"
                   onClick={() => setShowProfileModal(false)}
-                  className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold rounded-lg cursor-pointer"
+                  className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-650 text-xs font-bold rounded-lg cursor-pointer"
                 >
                   Đóng
                 </button>
                 <button 
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg cursor-pointer"
+                  className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg cursor-pointer"
                 >
-                  Cập nhật ngay
+                  Lưu thay đổi
                 </button>
               </div>
             </form>

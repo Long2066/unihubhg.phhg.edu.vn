@@ -79,7 +79,7 @@ interface UniHubContextType {
   registerForActivity: (activityId: string, studentId: string) => void;
   submitEvidence: (data: Omit<EvidenceSubmission, "id" | "submittedAt" | "status">) => void;
   joinOrganizationRequest: (studentId: string, orgId: string, details?: Partial<OrganizationMember>) => void;
-  updateStudentProfile: (studentId: string, name: string, avatar: string, password?: string) => void;
+  updateStudentProfile: (studentId: string, name: string, avatar: string, password?: string, additionalFields?: Partial<Student>) => void;
   
   // Organizer Actions
   createActivity: (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName"> & { expiryDate?: string }) => string;
@@ -102,6 +102,8 @@ interface UniHubContextType {
   importAcademicData: (excelData: Partial<Student>[]) => void;
   toggleLearningDataLock: () => void;
   importNewClassesExcel: (studentsToImport: Student[], usersToImport: UserAccount[]) => void;
+  customClasses: string[];
+  addNewClass: (className: string) => void;
   
   // BCS / Class Actions
   approveClassScores: (classId: string) => void;
@@ -133,6 +135,9 @@ interface UniHubContextType {
   setActivePortletTab: (tab: string) => void;
   selectedSemesterId: string;
   setSelectedSemesterId: (sem: string) => void;
+  createUserAccount: (account: UserAccount) => void;
+  updateUserAccount: (userId: string, updatedAccount: Partial<UserAccount>) => void;
+  deleteUserAccount: (userId: string) => void;
 }
 
 const UniHubContext = createContext<UniHubContextType | undefined>(undefined);
@@ -183,6 +188,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // New features databases
   const [dailyAttendance, setDailyAttendance] = useState<DailyAttendanceReport[]>(SEED_DAILY_ATTENDANCE);
   const [schedules, setSchedules] = useState<ScheduleSlot[]>(SEED_SCHEDULES);
+  const [customClasses, setCustomClasses] = useState<string[]>(() => {
+    const cached = localStorage.getItem("unihub_custom_classes");
+    return cached ? JSON.parse(cached) : [];
+  });
   const [feedbacks, setFeedbacks] = useState<ScoreFeedback[]>([
     { id: "FB1", fromRole: UserRole.ADVISER, fromName: "Hoàng Minh Đức", toClassId: "K20-CNTT", comment: "Cần điều chỉnh, đối chiếu kỹ hơn danh sách nề nếp thi đua lớp trước khi gửi ký chính thống.", createdAt: "2026-05-23", resolved: false }
   ]);
@@ -876,11 +885,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveToStorage("unihub_members", updated);
   };
 
-  const updateStudentProfile = (studentId: string, name: string, avatar: string, password?: string) => {
+  const updateStudentProfile = (studentId: string, name: string, avatar: string, password?: string, additionalFields?: Partial<Student>) => {
     // 1. Update students array
     const updatedStudents = students.map(s => {
       if (s.id === studentId) {
-        return { ...s, name, avatar };
+        return { ...s, ...additionalFields, name, avatar };
       }
       return s;
     });
@@ -1116,23 +1125,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (item) {
         return {
           ...s,
-          gpa: item.gpa !== undefined ? item.gpa : s.gpa,
-          creditsEarned: item.creditsEarned !== undefined ? item.creditsEarned : s.creditsEarned,
-          learningWarning: item.learningWarning !== undefined ? item.learningWarning : s.learningWarning,
-          learningStatus: item.learningStatus !== undefined ? item.learningStatus : s.learningStatus,
-          gender: item.gender !== undefined ? item.gender : s.gender,
-          dob: item.dob !== undefined ? item.dob : s.dob,
-          pob: item.pob !== undefined ? item.pob : s.pob,
-          ethnicity: item.ethnicity !== undefined ? item.ethnicity : s.ethnicity,
-          idCard: item.idCard !== undefined ? item.idCard : s.idCard,
-          idCardDate: item.idCardDate !== undefined ? item.idCardDate : s.idCardDate,
-          idCardPlace: item.idCardPlace !== undefined ? item.idCardPlace : s.idCardPlace,
-          subjects: item.subjects !== undefined ? item.subjects : s.subjects,
-          subjectGrades: item.subjectGrades !== undefined ? item.subjectGrades : s.subjectGrades,
-          gpa10: item.gpa10 !== undefined ? item.gpa10 : s.gpa10,
-          academicGrade: item.academicGrade !== undefined ? item.academicGrade : s.academicGrade,
-          notes: item.notes !== undefined ? item.notes : s.notes,
-          updatedAt: item.updatedAt !== undefined ? item.updatedAt : s.updatedAt,
+          ...item,
           learningDataLocked: true
         };
       }
@@ -1570,6 +1563,29 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveToStorage("unihub_users", updatedUsers);
   };
 
+  const createUserAccount = (account: UserAccount) => {
+    const updated = [...users, account];
+    setUsers(updated);
+    saveToStorage("unihub_users", updated);
+  };
+
+  const updateUserAccount = (userId: string, updatedAccount: Partial<UserAccount>) => {
+    const updated = users.map(u => {
+      if (u.id === userId) {
+        return { ...u, ...updatedAccount };
+      }
+      return u;
+    });
+    setUsers(updated);
+    saveToStorage("unihub_users", updated);
+  };
+
+  const deleteUserAccount = (userId: string) => {
+    const updated = users.filter(u => u.id !== userId);
+    setUsers(updated);
+    saveToStorage("unihub_users", updated);
+  };
+
   const importNewClassesExcel = (studentsToImport: Student[], usersToImport: UserAccount[]) => {
     const combinedStudents = [...students];
     studentsToImport.forEach(newStud => {
@@ -1595,6 +1611,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setUsers(combinedUsers);
     saveToStorage("unihub_students", combinedStudents);
     saveToStorage("unihub_users", combinedUsers);
+  };
+
+  const addNewClass = (className: string) => {
+    if (!className.trim()) return;
+    const normalized = className.trim();
+    if (!customClasses.includes(normalized)) {
+      const updated = [...customClasses, normalized];
+      setCustomClasses(updated);
+      localStorage.setItem("unihub_custom_classes", JSON.stringify(updated));
+    }
   };
 
   const bulkApproveScores = (classId: string, studentIds: string[], role: UserRole) => {
@@ -1715,6 +1741,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       importAcademicData,
       toggleLearningDataLock,
       importNewClassesExcel,
+      customClasses,
+      addNewClass,
       approveClassScores,
       toggleClassMeetingDuty,
       reportDailyAttendance,
@@ -1737,7 +1765,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       activePortletTab,
       setActivePortletTab,
       selectedSemesterId,
-      setSelectedSemesterId
+      setSelectedSemesterId,
+      createUserAccount,
+      updateUserAccount,
+      deleteUserAccount
     }}>
       {children}
     </UniHubContext.Provider>

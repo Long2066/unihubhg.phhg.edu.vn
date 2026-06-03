@@ -72,7 +72,110 @@ export interface Student {
   academicGrade?: string;  // Xếp loại học tập
   notes?: string;          // Ghi chú
   updatedAt?: string;      // Ngày cập nhật
+
+  // 44 columns extension
+  religion?: string;           // Tôn giáo
+  nationality?: string;        // Quốc tịch
+  bhyt?: string;               // Mã BHYT
+  priorityObject?: string;     // Đối tượng ưu tiên
+  priorityArea?: string;       // Khu vực ưu tiên
+  phone?: string;              // Số điện thoại
+  permanentAddress?: string;   // Địa chỉ thường trú
+  permanentProvince?: string;  // Tỉnh/TP thường trú
+  permanentWard?: string;      // Xã/Phường thường trú
+  temporaryAddress?: string;   // Địa chỉ tạm trú
+  
+  // Gia đình
+  fatherName?: string;         // Họ tên cha
+  fatherJob?: string;          // Nghề nghiệp cha
+  fatherPhone?: string;        // SĐT cha
+  motherName?: string;         // Họ tên mẹ
+  motherJob?: string;          // Nghề nghiệp mẹ
+  motherPhone?: string;        // SĐT mẹ
+
+  // Học tập & Quản lý vụ
+  trainingSystem?: string;     // Hệ đào tạo
+  trainingCourse?: string;     // Khóa đào tạo
+  trainingMajor?: string;      // Ngành đào tạo
+  specialization?: string;     // Chuyên ngành
+  facultyInCharge?: string;    // Khoa/Đơn vị quản lý
+  academicYears?: string;      // Niên khóa
+  adviser?: string;            // Cố vấn học tập
+  registeredSubjectsCount?: number; // Số học phần đã đăng ký
+  creditClassesList?: string;  // Danh sách lớp tín chỉ
+  enrollmentNotes?: string;    // Ghi chú đăng ký học
+  accumulatedCredits?: number; // Tín chỉ đã tích lũy
+  
+  // Tài chính
+  totalTuition?: number;       // Tổng học phí phải nộp
+  paidTuition?: number;        // Học phí đã nộp
+  debtTuition?: number;        // Học phí còn nợ
+  paymentStatus?: string;      // Trạng thái thanh toán
 }
+
+export interface FieldMeta {
+  key: keyof Student;
+  label: string;
+  category: "personal" | "family" | "education" | "finance" | "other";
+  type: "text" | "number" | "select" | "date";
+  options?: string[];
+  readOnly?: boolean;
+}
+
+export const STUDENT_FIELDS_META: FieldMeta[] = [
+  { key: "id", label: "Mã sinh viên", category: "personal", type: "text", readOnly: true },
+  { key: "name", label: "Họ và tên", category: "personal", type: "text" },
+  { key: "gender", label: "Giới tính", category: "personal", type: "select", options: ["Nam", "Nữ", "Khác"] },
+  { key: "dob", label: "Ngày sinh", category: "personal", type: "date" },
+  { key: "pob", label: "Nơi sinh", category: "personal", type: "text" },
+  { key: "ethnicity", label: "Dân tộc", category: "personal", type: "text" },
+  { key: "religion", label: "Tôn giáo", category: "personal", type: "text" },
+  { key: "nationality", label: "Quốc tịch", category: "personal", type: "text" },
+  { key: "idCard", label: "Số CCCD/CMND", category: "personal", type: "text" },
+  { key: "idCardDate", label: "Ngày cấp CCCD/CMND", category: "personal", type: "date" },
+  { key: "idCardPlace", label: "Nơi cấp CCCD/CMND", category: "personal", type: "text" },
+  { key: "bhyt", label: "Mã BHYT", category: "personal", type: "text" },
+  { key: "priorityObject", label: "Đối tượng ưu tiên", category: "personal", type: "text" },
+  { key: "priorityArea", label: "Khu vực ưu tiên", category: "personal", type: "text" },
+  { key: "email", label: "Email", category: "personal", type: "text" },
+  { key: "phone", label: "Số điện thoại", category: "personal", type: "text" },
+  { key: "permanentAddress", label: "Địa chỉ thường trú", category: "personal", type: "text" },
+  { key: "permanentProvince", label: "Tỉnh/TP thường trú", category: "personal", type: "text" },
+  { key: "permanentWard", label: "Xã/Phường thường trú", category: "personal", type: "text" },
+  { key: "temporaryAddress", label: "Địa chỉ tạm trú", category: "personal", type: "text" },
+  
+  // Gia đình
+  { key: "fatherName", label: "Họ tên cha", category: "family", type: "text" },
+  { key: "fatherJob", label: "Nghề nghiệp cha", category: "family", type: "text" },
+  { key: "fatherPhone", label: "SĐT cha", category: "family", type: "text" },
+  { key: "motherName", label: "Họ tên mẹ", category: "family", type: "text" },
+  { key: "motherJob", label: "Nghề nghiệp mẹ", category: "family", type: "text" },
+  { key: "motherPhone", label: "SĐT mẹ", category: "family", type: "text" },
+  
+  // Đào tạo / Học vụ
+  { key: "classId", label: "Lớp", category: "education", type: "text", readOnly: true },
+  { key: "trainingSystem", label: "Hệ đào tạo", category: "education", type: "text" },
+  { key: "trainingCourse", label: "Khóa đào tạo", category: "education", type: "text" },
+  { key: "trainingMajor", label: "Ngành đào tạo", category: "education", type: "text" },
+  { key: "specialization", label: "Chuyên ngành", category: "education", type: "text" },
+  { key: "facultyInCharge", label: "Khoa/Đơn vị quản lý", category: "education", type: "text" },
+  { key: "academicYears", label: "Niên khóa", category: "education", type: "text" },
+  { key: "adviser", label: "Cố vấn học tập", category: "education", type: "text" },
+  { key: "registeredSubjectsCount", label: "Số học phần đã đăng ký", category: "education", type: "number" },
+  { key: "creditClassesList", label: "Danh sách lớp tín chỉ", category: "education", type: "text" },
+  { key: "enrollmentNotes", label: "Ghi chú đăng ký học", category: "education", type: "text" },
+  { key: "accumulatedCredits", label: "Tín chỉ đã tích lũy", category: "education", type: "number" },
+  
+  // Tài chính
+  { key: "totalTuition", label: "Tổng học phí phải nộp", category: "finance", type: "number" },
+  { key: "paidTuition", label: "Học phí đã nộp", category: "finance", type: "number" },
+  { key: "debtTuition", label: "Học phí còn nợ", category: "finance", type: "number" },
+  { key: "paymentStatus", label: "Trạng thái thanh toán", category: "finance", type: "text" },
+  
+  // Khác
+  { key: "notes", label: "Ghi chú", category: "other", type: "text" },
+  { key: "updatedAt", label: "Ngày cập nhật", category: "other", type: "text", readOnly: true }
+];
 
 export interface Organization {
   id: string;           // Code - e.g. "UNITECH"

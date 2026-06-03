@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useUniHub } from "../state";
-import { UserRole } from "../types";
+import { UserRole, UserAccount } from "../types";
 import { 
   Settings, 
   Trash2, 
@@ -21,7 +21,9 @@ import {
   UploadCloud,
   X,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  Plus,
+  Copy
 } from "lucide-react";
 
 export const AdminPortal: React.FC = () => {
@@ -40,7 +42,10 @@ export const AdminPortal: React.FC = () => {
     updateClubAndAccount,
     deleteClubAndAccount,
     activePortletTab,
-    setActivePortletTab
+    setActivePortletTab,
+    createUserAccount,
+    updateUserAccount,
+    deleteUserAccount
   } = useUniHub();
 
   const activeTab = (activePortletTab as "CONFIG" | "PERIOD" | "STATIONS" | "CLUBS") || "CONFIG";
@@ -80,6 +85,43 @@ export const AdminPortal: React.FC = () => {
   const [clubFormUsername, setClubFormUsername] = useState("");
   const [clubFormPassword, setClubFormPassword] = useState("");
 
+  const [activeAccountTab, setActiveAccountTab] = useState<"CLUBS" | "CLASS_ACCOUNTS" | "UNIT_ACCOUNTS">("CLUBS");
+  const [showClubModal, setShowClubModal] = useState(false);
+  const [showAccountModal, setShowAccountModal] = useState(false);
+
+  // States & actions for General Account Management
+  const [selectedAccId, setSelectedAccId] = useState<string | null>(null);
+  const [accFormName, setAccFormName] = useState("");
+  const [accFormRole, setAccFormRole] = useState<UserRole>(UserRole.STUDENT);
+  const [accFormUsername, setAccFormUsername] = useState("");
+  const [accFormPassword, setAccFormPassword] = useState("");
+  const [accFormTargetId, setAccFormTargetId] = useState("");
+  const [accountSearch, setAccountSearch] = useState("");
+  const [accountRoleFilter, setAccountRoleFilter] = useState<string>("ALL");
+  const [selectedClassIdForForm, setSelectedClassIdForForm] = useState("");
+  const [selectedFacultyIdForForm, setSelectedFacultyIdForForm] = useState("");
+
+  const getRoleBadge = (role: UserRole) => {
+    switch (role) {
+      case UserRole.ADMIN:
+        return { label: "CTHSSV / Admin", className: "bg-red-50 text-red-700 border-red-150" };
+      case UserRole.TRAINING_DEPT:
+        return { label: "Phòng Đào tạo", className: "bg-indigo-50 text-indigo-700 border-indigo-150" };
+      case UserRole.FACULTY:
+        return { label: "Vấn phòng Khoa", className: "bg-amber-50 text-amber-700 border-amber-150" };
+      case UserRole.ADVISER:
+        return { label: "GV Cố vấn (GVCN)", className: "bg-emerald-50 text-emerald-700 border-emerald-150" };
+      case UserRole.CLASS_MONITOR:
+        return { label: "Cán bộ lớp (BCS)", className: "bg-teal-50 text-teal-700 border-teal-150" };
+      case UserRole.STUDENT:
+        return { label: "Sinh viên", className: "bg-slate-100 text-slate-700 border-slate-200" };
+      case UserRole.ORGANIZER:
+        return { label: "Ban chủ nhiệm CLB", className: "bg-purple-50 text-purple-700 border-purple-150" };
+      default:
+        return { label: role, className: "bg-slate-50 text-slate-600 border-slate-150" };
+    }
+  };
+
   const selectClubForEditing = (orgId: string) => {
     const org = organizations.find(o => o.id === orgId);
     if (!org) return;
@@ -99,6 +141,87 @@ export const AdminPortal: React.FC = () => {
     } else {
       setClubFormUsername("");
       setClubFormPassword("");
+    }
+    setShowClubModal(true);
+  };
+
+  const selectAccountForEditing = (user: UserAccount) => {
+    setSelectedAccId(user.id);
+    setAccFormName(user.name);
+    setAccFormRole(user.role);
+    setAccFormUsername(user.username);
+    setAccFormPassword(user.password || "password123");
+    setAccFormTargetId(user.targetId || "");
+    
+    // Auto populate Class or Faculty state based on role
+    if (user.role === UserRole.STUDENT) {
+      const studentObj = students.find(s => s.id === user.targetId);
+      if (studentObj) {
+        setSelectedClassIdForForm(studentObj.classId);
+      }
+    } else if (user.role === UserRole.CLASS_MONITOR || user.role === UserRole.ADVISER) {
+      setSelectedClassIdForForm(user.targetId || "");
+    } else if (user.role === UserRole.FACULTY) {
+      setSelectedFacultyIdForForm(user.targetId || "");
+    }
+    
+    setShowAccountModal(true);
+  };
+
+  const clearAccountForm = () => {
+    setSelectedAccId(null);
+    setAccFormName("");
+    setAccFormRole(UserRole.STUDENT);
+    setAccFormUsername("");
+    setAccFormPassword("");
+    setAccFormTargetId("");
+    setSelectedClassIdForForm("");
+    setSelectedFacultyIdForForm("");
+  };
+
+  const handleSaveAccount = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!accFormUsername.trim() || !accFormName.trim() || !accFormPassword.trim()) {
+      alert("Vui lòng nhập đầy đủ họ tên, tài khoản và mật khẩu!");
+      return;
+    }
+
+    const userData: UserAccount = {
+      id: selectedAccId || `U_GEN_${Date.now()}`,
+      username: accFormUsername.trim(),
+      name: accFormName.trim(),
+      role: accFormRole,
+      email: accFormUsername.trim(),
+      targetId: accFormTargetId.trim() || undefined,
+      password: accFormPassword.trim()
+    };
+
+    if (selectedAccId) {
+      updateUserAccount(selectedAccId, userData);
+      alert("Cập nhật tài khoản hệ thống thành công!");
+    } else {
+      const exists = users.some(u => u.username.toLowerCase() === accFormUsername.trim().toLowerCase());
+      if (exists) {
+        alert("Tên tài khoản này đã tồn tại! Vui lòng dùng tên khác.");
+        return;
+      }
+      createUserAccount(userData);
+      alert("Thêm tài khoản hệ thống mới thành công!");
+    }
+
+    clearAccountForm();
+    setShowAccountModal(false);
+  };
+
+  const handleDeleteAccount = (user: UserAccount) => {
+    const activeUser = users.find(u => u.id === user.id);
+    if (activeUser && activeUser.username === "cthssv@hg.edu.vn") {
+      alert("Bạn không thể xóa tài khoản của admin tổng!");
+      return;
+    }
+    if (confirm(`Xác nhận xóa tài khoản "${user.name}" (${user.username})?`)) {
+      deleteUserAccount(user.id);
+      alert("Đã xóa tài khoản thành công!");
     }
   };
 
@@ -163,6 +286,7 @@ export const AdminPortal: React.FC = () => {
     }
 
     clearClubForm();
+    setShowClubModal(false);
   };
 
   const handleDeleteClub = (orgId: string) => {
@@ -817,40 +941,8 @@ export const AdminPortal: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Navigation Sidebar */}
-        <div className="lg:col-span-3 bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-row lg:flex-col gap-1.5 overflow-x-auto shrink-0">
-          <button 
-            onClick={() => setActiveTab("CONFIG")}
-            className={`w-full text-left px-3.5 py-3 rounded-lg text-xs font-bold transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${activeTab === "CONFIG" ? "bg-slate-900 text-white" : "text-slate-650 hover:bg-slate-50"}`}
-          >
-            <SlidersHorizontal size={14} />
-            <span>Thang điểm quy tắc tự động</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab("PERIOD")}
-            className={`w-full text-left px-3.5 py-3 rounded-lg text-xs font-bold transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${activeTab === "PERIOD" ? "bg-slate-900 text-white" : "text-slate-650 hover:bg-slate-50"}`}
-          >
-            <Clock size={14} />
-            <span>Cấu hình Kỳ học rèn luyện</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab("STATIONS")}
-            className={`w-full text-left px-3.5 py-3 rounded-lg text-xs font-bold transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${activeTab === "STATIONS" ? "bg-slate-900 text-white" : "text-slate-650 hover:bg-slate-50"}`}
-          >
-            <Grid size={14} />
-            <span>Giám sát đồng bộ phân hiệu</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab("CLUBS")}
-            className={`w-full text-left px-3.5 py-3 rounded-lg text-xs font-bold transition-all shrink-0 hover:cursor-pointer flex items-center gap-2 ${activeTab === "CLUBS" ? "bg-slate-900 text-white" : "text-slate-650 hover:bg-slate-50"}`}
-          >
-            <UserSquare2 size={14} />
-            <span>Quản lý CLB & Tài khoản</span>
-          </button>
-        </div>
-
         {/* Action Pane Area */}
-        <div className="lg:col-span-9 bg-white p-6 rounded-xl border border-slate-100 shadow-sm min-h-[460px] flex flex-col justify-between">
+        <div className="lg:col-span-12 bg-white p-6 rounded-xl border border-slate-100 shadow-sm min-h-[460px] flex flex-col justify-between">
           
           {/* TAB 1: DYNAMIC CRITERIA RULES EDITOR (Section 1.1) */}
           {activeTab === "CONFIG" && (
@@ -1010,243 +1102,445 @@ export const AdminPortal: React.FC = () => {
           {/* TAB 4: CLUB & ACCOUNT MANAGEMENT (ROOM CTHSSV) */}
           {activeTab === "CLUBS" && (
             <div className="space-y-6">
-              <div>
-                <h3 className="text-sm font-bold text-slate-800 uppercase mb-1 font-sans">
-                  Quản lý Câu lạc bộ & Tài khoản Đăng nhập
-                </h3>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Thiết lập, kiến tạo danh sách Câu lạc bộ (CLB) trực thuộc Phân hiệu đồng thời cấp quyền/tài khoản chuẩn hóa cho mỗi Ban chủ nhiệm. Đăng nhập đúng thông tin tài khoản nào sẽ chỉ có quyền kiểm soát nội bộ CLB đó, tránh chồng chéo các hoạt động giữa các đơn vị.
-                </p>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 uppercase mb-1 font-sans">
+                    Quản lý Câu lạc bộ & Tài khoản Đăng nhập
+                  </h3>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Thiết lập danh sách các đơn vị trực thuộc (Đoàn, Hội, CLB) hoặc quản lý, cấp phát mật khẩu cho tất cả tài khoản thuộc các luồng vai trò khác trong hệ thống.
+                  </p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                
-                {/* Left Column: Clubs and Linked Accounts Listing */}
-                <div className="xl:col-span-7 space-y-3">
-                  <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                    <span className="text-[11px] font-bold text-slate-600">Đơn vị ({organizations.length})</span>
-                    <span className="text-[10px] text-slate-400 italic">Bấm "Sửa" để cấu hình tài khoản hoặc đổi mật khẩu</span>
-                  </div>
+              {/* Sub-tab navigation and Thêm mới button */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-2">
+                <div className="flex gap-4 flex-wrap">
+                  <button
+                    onClick={() => {
+                      setActiveAccountTab("CLUBS");
+                      setAccountSearch("");
+                      setAccountRoleFilter("ALL");
+                    }}
+                    className={`pb-2 px-1 text-xs font-bold transition-all relative cursor-pointer ${
+                      activeAccountTab === "CLUBS" 
+                        ? "text-indigo-655 font-black border-b-2 border-indigo-600" 
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    Tài khoản Ban chủ nhiệm (CLB/Đoàn/Hội)
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveAccountTab("CLASS_ACCOUNTS");
+                      setAccountSearch("");
+                      setAccountRoleFilter("ALL");
+                    }}
+                    className={`pb-2 px-1 text-xs font-bold transition-all relative cursor-pointer ${
+                      activeAccountTab === "CLASS_ACCOUNTS" 
+                        ? "text-indigo-655 font-black border-b-2 border-indigo-600" 
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    Tài khoản theo Lớp (SV/Cán bộ/GVCN)
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveAccountTab("UNIT_ACCOUNTS");
+                      setAccountSearch("");
+                      setAccountRoleFilter("ALL");
+                    }}
+                    className={`pb-2 px-1 text-xs font-bold transition-all relative cursor-pointer ${
+                      activeAccountTab === "UNIT_ACCOUNTS" 
+                        ? "text-indigo-655 font-black border-b-2 border-indigo-600" 
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    Tài khoản Đơn vị / Quản lý
+                  </button>
+                </div>
+                <button
+                  onClick={() => {
+                    if (activeAccountTab === "CLUBS") {
+                      clearClubForm();
+                      setShowClubModal(true);
+                    } else {
+                      clearAccountForm();
+                      if (activeAccountTab === "CLASS_ACCOUNTS") {
+                        setAccFormRole(UserRole.STUDENT);
+                      } else {
+                        setAccFormRole(UserRole.FACULTY);
+                      }
+                      setShowAccountModal(true);
+                    }
+                  }}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-750 text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition-all shadow-xs shrink-0 self-end sm:self-center animate-pulse-subtle"
+                >
+                  <Plus size={14} />
+                  <span>Thêm mới</span>
+                </button>
+              </div>
 
-                  <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
-                    {organizations.map(org => {
-                      const assocUser = users.find(u => u.role === UserRole.ORGANIZER && u.targetId === org.id);
-                      return (
-                        <div 
-                          key={org.id} 
-                          className={`p-3.5 rounded-xl border transition-all ${
-                            selectedClubId === org.id 
-                              ? 'border-indigo-500 bg-indigo-50/20 shadow-xs' 
-                              : 'border-slate-150 bg-white hover:border-slate-350'
-                          }`}
-                        >
+              {/* Tab 1: CLUBS */}
+              {activeAccountTab === "CLUBS" && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {organizations.map(org => {
+                    const assocUser = users.find(u => u.role === UserRole.ORGANIZER && u.targetId === org.id);
+                    return (
+                      <div 
+                        key={org.id} 
+                        className="p-4 rounded-xl border border-slate-150 bg-white hover:border-slate-350 transition-all flex flex-col justify-between space-y-4 hover:shadow-md"
+                      >
+                        <div>
                           <div className="flex justify-between items-start gap-2">
-                            <div>
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={`px-2 py-0.5 text-[9px] font-black rounded border uppercase whitespace-nowrap ${
-                                  org.type === "DOAN" 
-                                    ? "bg-rose-50 text-rose-700 border-rose-150" 
-                                    : (org.type === "HOI" ? "bg-sky-50 text-sky-700 border-sky-150" : "bg-purple-50 text-purple-700 border-purple-150")
-                                }`}>
-                                  {org.type === "DOAN" ? "Đoàn" : (org.type === "HOI" ? "Hội" : "CLB")}
-                                </span>
-                                <span className="font-mono text-[10px] text-slate-450 font-bold">#{org.id}</span>
-                              </div>
-                              <h4 className="text-xs font-black text-slate-850 mt-1.5">{org.name}</h4>
-                              <p className="text-[10px] text-slate-500 mt-1">
-                                Lĩnh vực: <strong className="text-slate-700 font-semibold">{org.field}</strong> | Đại diện: <strong className="text-slate-700 font-semibold">{org.leaderName}</strong> | Cấp: <span className="font-mono uppercase font-black text-[9px] text-slate-500 bg-slate-100 px-1 py-0.5 rounded">{org.level}</span>
-                              </p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`px-2 py-0.5 text-[9px] font-black rounded border uppercase whitespace-nowrap ${
+                                org.type === "DOAN" 
+                                  ? "bg-rose-50 text-rose-700 border-rose-150" 
+                                  : (org.type === "HOI" ? "bg-sky-50 text-sky-700 border-sky-150" : "bg-purple-50 text-purple-700 border-purple-150")
+                              }`}>
+                                {org.type === "DOAN" ? "Đoàn" : (org.type === "HOI" ? "Hội" : "CLB")}
+                              </span>
+                              <span className="font-mono text-[10px] text-slate-450 font-bold">#{org.id}</span>
                             </div>
-
-                            <div className="flex gap-1.5 shrink-0">
+                            <div className="flex gap-1">
                               <button
                                 onClick={() => selectClubForEditing(org.id)}
-                                className="p-1 px-2 border border-slate-200 hover:border-indigo-200 text-indigo-600 hover:bg-indigo-50/50 rounded-lg text-[10px] font-bold flex items-center gap-0.5 cursor-pointer"
+                                className="p-1 px-2 border border-slate-200 hover:border-indigo-200 text-indigo-650 hover:bg-indigo-50/50 rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
                               >
                                 Sửa
                               </button>
                               <button
                                 onClick={() => handleDeleteClub(org.id)}
-                                className="p-1 px-1.5 border border-red-100 hover:border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-[10px] font-bold flex items-center justify-center cursor-pointer"
+                                className="p-1 text-rose-600 hover:bg-rose-50 border border-rose-100 hover:border-rose-200 rounded-lg cursor-pointer flex items-center justify-center transition-colors"
                                 title="Xóa Câu lạc bộ"
                               >
                                 <Trash2 size={12} />
                               </button>
                             </div>
                           </div>
-
-                          {/* Account box */}
-                          <div className="mt-3 p-2 bg-slate-50/80 rounded-lg border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-[10.5px]">
-                            <div>
-                              <span className="text-slate-400 font-mono text-[9px] block">TÀI KHOẢN ĐĂNG NHẬP</span>
-                              <span className="text-slate-700 font-bold block mt-0.5 font-mono">
-                                {assocUser ? assocUser.username : <span className="text-rose-500 italic font-medium">Chưa cấp tài khoản!</span>}
-                              </span>
-                            </div>
-                            <div className="sm:text-right">
-                              <span className="text-slate-400 font-mono text-[9px] block">MẬT KHẨU</span>
-                              <span className="text-slate-750 font-mono font-medium block mt-0.5">
-                                {assocUser ? (
-                                  <span className="bg-slate-250 px-2 py-0.5 rounded select-all font-bold tracking-wider font-mono">
-                                    {assocUser.password || "password123"}
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-350">-</span>
-                                )}
-                              </span>
-                            </div>
+                          
+                          <h4 className="text-xs font-black text-slate-850 mt-2">{org.name}</h4>
+                          
+                          <div className="text-[10px] text-slate-500 space-y-1 mt-2">
+                            <div>Lĩnh vực: <strong className="text-slate-700 font-semibold">{org.field}</strong></div>
+                            <div>Đại diện: <strong className="text-slate-700 font-semibold">{org.leaderName}</strong></div>
+                            <div>Cấp: <span className="font-mono uppercase font-black text-[9px] text-slate-500 bg-slate-100 px-1 py-0.5 rounded">{org.level}</span></div>
                           </div>
                         </div>
-                      );
-                    })}
+
+                        {/* Account Box */}
+                        <div className="p-2.5 bg-slate-50/80 rounded-lg border border-slate-100 flex flex-col gap-1.5 text-[10.5px]">
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-400 font-mono text-[9px] uppercase">Tài khoản</span>
+                            <span className="text-slate-750 font-bold font-mono">
+                              {assocUser ? assocUser.username : <span className="text-rose-500 italic font-medium">Chưa cấp!</span>}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-400 font-mono text-[9px] uppercase">Mật khẩu</span>
+                            <span className="text-slate-750 font-mono font-medium flex items-center gap-1.5">
+                              {assocUser ? (
+                                <>
+                                  <span className="bg-slate-200/70 px-2 py-0.5 rounded select-all font-bold tracking-wider font-mono text-[10px]">
+                                    {assocUser.password || "password123"}
+                                  </span>
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(assocUser.password || "password123");
+                                      alert("Đã sao chép mật khẩu!");
+                                    }}
+                                    className="p-0.5 hover:bg-slate-200 rounded text-slate-450 hover:text-slate-700 transition-colors cursor-pointer"
+                                    title="Sao chép mật khẩu"
+                                  >
+                                    <Copy size={11} />
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="text-slate-350">-</span>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Tab 2: CLASS ACCOUNTS */}
+              {activeAccountTab === "CLASS_ACCOUNTS" && (
+                <div className="space-y-4">
+                  {/* Search and Filters */}
+                  <div className="flex flex-col md:flex-row gap-3 bg-slate-50/60 p-4 rounded-xl border border-slate-200">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        placeholder="Tìm kiếm sinh viên, cán bộ, GVCN theo tên, tài khoản hoặc lớp..."
+                        value={accountSearch}
+                        onChange={(e) => setAccountSearch(e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div className="w-full md:w-48">
+                      <select
+                        value={accountRoleFilter}
+                        onChange={(e) => setAccountRoleFilter(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-sans"
+                      >
+                        <option value="ALL">TẤT CẢ VAI TRÒ LỚP</option>
+                        <option value={UserRole.STUDENT}>SINH VIÊN</option>
+                        <option value={UserRole.CLASS_MONITOR}>CÁN BỘ LỚP (BCS)</option>
+                        <option value={UserRole.ADVISER}>GV CỐ VẤN (GVCN)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* List/Table */}
+                  <div className="overflow-x-auto border border-slate-150 rounded-xl bg-white shadow-xs">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-150 text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                          <th className="p-3.5 pl-4">Họ và tên</th>
+                          <th className="p-3.5">Vai trò</th>
+                          <th className="p-3.5">Tài khoản</th>
+                          <th className="p-3.5">Mật khẩu</th>
+                          <th className="p-3.5">Lớp học</th>
+                          <th className="p-3.5 pr-4 text-right">Hành động</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {users.filter(u => {
+                          // Only include STUDENT, CLASS_MONITOR, ADVISER
+                          if (u.role !== UserRole.STUDENT && u.role !== UserRole.CLASS_MONITOR && u.role !== UserRole.ADVISER) return false;
+                          
+                          if (accountRoleFilter !== "ALL" && u.role !== accountRoleFilter) return false;
+                          
+                          const studentObj = students.find(s => s.id === u.targetId);
+                          const linkedClass = u.role === UserRole.STUDENT ? (studentObj?.classId || "") : (u.targetId || "");
+
+                          if (accountSearch.trim()) {
+                            const q = accountSearch.toLowerCase().trim();
+                            return (
+                              u.name.toLowerCase().includes(q) ||
+                              u.username.toLowerCase().includes(q) ||
+                              linkedClass.toLowerCase().includes(q) ||
+                              (u.targetId || "").toLowerCase().includes(q)
+                            );
+                          }
+                          return true;
+                        }).map((user) => {
+                          const badge = getRoleBadge(user.role);
+                          const studentObj = students.find(s => s.id === user.targetId);
+                          const linkedClass = user.role === UserRole.STUDENT ? (studentObj?.classId || user.targetId || "-") : (user.targetId || "-");
+
+                          return (
+                            <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="p-3.5 pl-4 font-bold text-slate-800">{user.name}</td>
+                              <td className="p-3.5">
+                                <span className={`px-2 py-0.5 text-[9px] font-black rounded border uppercase whitespace-nowrap ${badge.className}`}>
+                                  {badge.label}
+                                </span>
+                              </td>
+                              <td className="p-3.5 font-mono font-medium text-slate-655">{user.username}</td>
+                              <td className="p-3.5 font-mono text-slate-750 font-medium">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="bg-slate-100 px-2 py-0.5 rounded select-all font-bold tracking-wider text-[10.5px]">
+                                    {user.password || "password123"}
+                                  </span>
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(user.password || "password123");
+                                      alert("Đã sao chép mật khẩu!");
+                                    }}
+                                    className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                                    title="Sao chép mật khẩu"
+                                  >
+                                    <Copy size={11} />
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="p-3.5 font-mono font-bold text-indigo-700">{linkedClass}</td>
+                              <td className="p-3.5 pr-4 text-right">
+                                <div className="flex justify-end gap-1.5">
+                                  <button
+                                    onClick={() => selectAccountForEditing(user)}
+                                    className="p-1 px-2 border border-slate-200 hover:border-indigo-200 text-indigo-650 hover:bg-indigo-50/50 rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
+                                  >
+                                    Sửa
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteAccount(user)}
+                                    className="p-1 text-rose-600 hover:bg-rose-50 border border-rose-100 hover:border-rose-200 rounded-lg cursor-pointer flex items-center justify-center transition-colors"
+                                    title="Xóa tài khoản"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {users.filter(u => {
+                          if (u.role !== UserRole.STUDENT && u.role !== UserRole.CLASS_MONITOR && u.role !== UserRole.ADVISER) return false;
+                          if (accountRoleFilter !== "ALL" && u.role !== accountRoleFilter) return false;
+                          
+                          const studentObj = students.find(s => s.id === u.targetId);
+                          const linkedClass = u.role === UserRole.STUDENT ? (studentObj?.classId || "") : (u.targetId || "");
+
+                          if (accountSearch.trim()) {
+                            const q = accountSearch.toLowerCase().trim();
+                            return (
+                              u.name.toLowerCase().includes(q) ||
+                              u.username.toLowerCase().includes(q) ||
+                              linkedClass.toLowerCase().includes(q) ||
+                              (u.targetId || "").toLowerCase().includes(q)
+                            );
+                          }
+                          return true;
+                        }).length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="p-8 text-center text-slate-400 italic">
+                              Không tìm thấy tài khoản lớp học nào phù hợp.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
+              )}
 
-                {/* Right Column: Add or Edit Form */}
-                <div className="xl:col-span-5 bg-slate-50/60 p-4 rounded-xl border border-slate-200 space-y-4">
-                  <div className="border-b border-slate-200 pb-2 flex justify-between items-center">
-                    <h4 className="text-xs font-bold text-slate-800 uppercase font-sans">
-                      {selectedClubId ? "Cập nhật CLB & Tài khoản" : "Khởi tạo CLB & Cấp tài khoản"}
-                    </h4>
-                    {selectedClubId && (
-                      <button 
-                        onClick={clearClubForm}
-                        className="text-[10px] text-slate-550 hover:text-slate-800 underline font-semibold cursor-pointer"
+              {/* Tab 3: UNIT ACCOUNTS */}
+              {activeAccountTab === "UNIT_ACCOUNTS" && (
+                <div className="space-y-4">
+                  {/* Search and Filters */}
+                  <div className="flex flex-col md:flex-row gap-3 bg-slate-50/60 p-4 rounded-xl border border-slate-200">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        placeholder="Tìm kiếm tài khoản đơn vị quản lý theo tên, tài khoản hoặc mã liên kết..."
+                        value={accountSearch}
+                        onChange={(e) => setAccountSearch(e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div className="w-full md:w-48">
+                      <select
+                        value={accountRoleFilter}
+                        onChange={(e) => setAccountRoleFilter(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-sans"
                       >
-                        Hủy chọn
-                      </button>
-                    )}
+                        <option value="ALL">TẤT CẢ ĐƠN VỊ</option>
+                        <option value={UserRole.FACULTY}>VĂN PHÒNG KHOA</option>
+                        <option value={UserRole.TRAINING_DEPT}>PHÒNG ĐÀO TẠO</option>
+                        <option value={UserRole.ADMIN}>ADMIN / PHÒNG CTHSSV</option>
+                      </select>
+                    </div>
                   </div>
 
-                  <form onSubmit={handleSaveClub} className="space-y-3.5 text-xs">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-650 mb-1">Mã định danh CLB (Viết liền, viết hoa)*</label>
-                      <input 
-                        type="text"
-                        value={clubFormId}
-                        onChange={(e) => setClubFormId(e.target.value)}
-                        disabled={selectedClubId !== null}
-                        placeholder="Ví dụ: VANNX (Văn nghệ Xanh)"
-                        className="w-full px-3 py-1.5 border border-slate-200 font-mono uppercase bg-white disabled:bg-slate-100 disabled:text-slate-500 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg inline-block"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-650 mb-1">Tên tổ chức / Câu lạc bộ*</label>
-                      <input 
-                        type="text"
-                        value={clubFormName}
-                        onChange={(e) => setClubFormName(e.target.value)}
-                        placeholder="Ví dụ: Câu lạc bộ Văn nghệ Xanh"
-                        className="w-full px-3 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg inline-block"
-                        required
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-650 mb-1 font-sans">Phân loại*</label>
-                        <select
-                          value={clubFormType}
-                          onChange={(e) => setClubFormType(e.target.value as any)}
-                          className="w-full px-2.5 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg font-sans"
-                        >
-                          <option value="CLB">CÂU LẠC BỘ (CLB)</option>
-                          <option value="DOAN">ĐOÀN THANH NIÊN</option>
-                          <option value="HOI">HỘI SINH VIÊN</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-650 mb-1 font-sans">Cấp trực thuộc*</label>
-                        <select
-                          value={clubFormLevel}
-                          onChange={(e) => setClubFormLevel(e.target.value as any)}
-                          className="w-full px-2.5 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg font-sans"
-                        >
-                          <option value="TRUONG">CẤP TRƯỜNG</option>
-                          <option value="KHOA">CẤP KHOA</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-650 mb-1 font-sans">Trưởng đơn vị / Đại diện đại biểu Ban chủ nhiệm*</label>
-                      <input 
-                        type="text"
-                        value={clubFormLeader}
-                        onChange={(e) => setClubFormLeader(e.target.value)}
-                        placeholder="Ví dụ: Nguyễn Văn Hải"
-                        className="w-full px-3 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg inline-block"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-650 mb-1 font-sans">Lĩnh vực hoạt động</label>
-                      <input 
-                        type="text"
-                        value={clubFormField}
-                        onChange={(e) => setClubFormField(e.target.value)}
-                        placeholder="Ví dụ: Văn nghệ, Thể thao, Tình nguyện..."
-                        className="w-full px-3 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg inline-block"
-                      />
-                    </div>
-
-                    {/* Login Account Box inside Form */}
-                    <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100 space-y-3">
-                      <span className="text-[10px] font-black text-indigo-700 flex items-center gap-1 font-sans">
-                        <Lock size={12} />
-                        CẤP TÀI KHOẢN TRUY CẬP ĐỒNG BỘ
-                      </span>
-
-                      <div>
-                        <label className="block text-[10.5px] font-bold text-slate-600 mb-1">Tài khoản đăng nhập (Email / User ID)*</label>
-                        <input 
-                          type="text"
-                          value={clubFormUsername}
-                          onChange={(e) => setClubFormUsername(e.target.value)}
-                          placeholder="Ví dụ: clbvannghe@hg.edu.vn"
-                          className="w-full px-3 py-1.5 border border-slate-200 font-mono bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg inline-block"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10.5px] font-bold text-slate-600 mb-1">Mật khẩu đăng nhập*</label>
-                        <input 
-                          type="text"
-                          value={clubFormPassword}
-                          onChange={(e) => setClubFormPassword(e.target.value)}
-                          placeholder="Mật khẩu bảo mật"
-                          className="w-full px-3 py-1.5 border border-slate-200 font-mono bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg inline-block"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="pt-2 flex justify-end gap-2 text-xs">
-                      {selectedClubId && (
-                        <button 
-                          type="button"
-                          onClick={clearClubForm}
-                          className="px-3 py-1.5 border border-slate-200 hover:bg-slate-100 text-slate-600 font-bold rounded-lg cursor-pointer"
-                        >
-                          Hủy
-                        </button>
-                      )}
-                      <button 
-                        type="submit"
-                        className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg cursor-pointer font-sans"
-                      >
-                        {selectedClubId ? "Lưu thay đổi" : "Tạo & Cấp quyền"}
-                      </button>
-                    </div>
-                  </form>
+                  {/* List/Table */}
+                  <div className="overflow-x-auto border border-slate-150 rounded-xl bg-white shadow-xs">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-150 text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                          <th className="p-3.5 pl-4">Họ và tên</th>
+                          <th className="p-3.5">Vai trò</th>
+                          <th className="p-3.5">Tài khoản</th>
+                          <th className="p-3.5">Mật khẩu</th>
+                          <th className="p-3.5">ID Liên kết</th>
+                          <th className="p-3.5 pr-4 text-right">Hành động</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {users.filter(u => {
+                          // Only include FACULTY, TRAINING_DEPT, ADMIN
+                          if (u.role !== UserRole.FACULTY && u.role !== UserRole.TRAINING_DEPT && u.role !== UserRole.ADMIN) return false;
+                          
+                          if (accountRoleFilter !== "ALL" && u.role !== accountRoleFilter) return false;
+                          if (accountSearch.trim()) {
+                            const q = accountSearch.toLowerCase().trim();
+                            return (
+                              u.name.toLowerCase().includes(q) ||
+                              u.username.toLowerCase().includes(q) ||
+                              (u.targetId || "").toLowerCase().includes(q)
+                            );
+                          }
+                          return true;
+                        }).map((user) => {
+                          const badge = getRoleBadge(user.role);
+                          return (
+                            <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="p-3.5 pl-4 font-bold text-slate-800">{user.name}</td>
+                              <td className="p-3.5">
+                                <span className={`px-2 py-0.5 text-[9px] font-black rounded border uppercase whitespace-nowrap ${badge.className}`}>
+                                  {badge.label}
+                                </span>
+                              </td>
+                              <td className="p-3.5 font-mono font-medium text-slate-655">{user.username}</td>
+                              <td className="p-3.5 font-mono text-slate-750 font-medium">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="bg-slate-100 px-2 py-0.5 rounded select-all font-bold tracking-wider text-[10.5px]">
+                                    {user.password || "password123"}
+                                  </span>
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(user.password || "password123");
+                                      alert("Đã sao chép mật khẩu!");
+                                    }}
+                                    className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                                    title="Sao chép mật khẩu"
+                                  >
+                                    <Copy size={11} />
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="p-3.5 font-mono text-slate-500">{user.targetId || <span className="text-slate-350 italic">-</span>}</td>
+                              <td className="p-3.5 pr-4 text-right">
+                                <div className="flex justify-end gap-1.5">
+                                  <button
+                                    onClick={() => selectAccountForEditing(user)}
+                                    className="p-1 px-2 border border-slate-200 hover:border-indigo-200 text-indigo-650 hover:bg-indigo-50/50 rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
+                                  >
+                                    Sửa
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteAccount(user)}
+                                    disabled={user.username === "cthssv@hg.edu.vn"}
+                                    className="p-1 text-rose-600 hover:bg-rose-50 disabled:opacity-30 disabled:hover:bg-transparent border border-rose-100 hover:border-rose-200 disabled:border-transparent rounded-lg cursor-pointer flex items-center justify-center transition-colors"
+                                    title={user.username === "cthssv@hg.edu.vn" ? "Không thể xóa admin tổng" : "Xóa tài khoản"}
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {users.filter(u => {
+                          if (u.role !== UserRole.FACULTY && u.role !== UserRole.TRAINING_DEPT && u.role !== UserRole.ADMIN) return false;
+                          if (accountRoleFilter !== "ALL" && u.role !== accountRoleFilter) return false;
+                          if (accountSearch.trim()) {
+                            const q = accountSearch.toLowerCase().trim();
+                            return (
+                              u.name.toLowerCase().includes(q) ||
+                              u.username.toLowerCase().includes(q) ||
+                              (u.targetId || "").toLowerCase().includes(q)
+                            );
+                          }
+                          return true;
+                        }).length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="p-8 text-center text-slate-400 italic">
+                              Không tìm thấy tài khoản ban quản lý nào phù hợp.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-
-              </div>
+              )}
             </div>
           )}
 
@@ -1494,6 +1788,413 @@ export const AdminPortal: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* CLUB MODAL (ADD / EDIT) */}
+      {showClubModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in text-sans">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="flex justify-between items-center bg-slate-50 px-6 py-4 border-b shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="p-2 bg-indigo-50 text-indigo-700 rounded-lg flex items-center justify-center">
+                  <Grid size={18} />
+                </span>
+                <div>
+                  <h3 className="text-sm font-black text-slate-850 uppercase">
+                    {selectedClubId ? "Cập nhật CLB & Tài khoản" : "Khởi tạo CLB & Cấp tài khoản"}
+                  </h3>
+                  <p className="text-[10px] text-slate-450 font-medium">Thiết lập đơn vị Đoàn/Hội/CLB đồng bộ với tài khoản đăng nhập</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  clearClubForm();
+                  setShowClubModal(false);
+                }}
+                className="p-1 px-2 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded cursor-pointer transition-colors"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Form Content */}
+            <form onSubmit={handleSaveClub} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-650 mb-1">Mã định danh CLB (Viết liền, viết hoa)*</label>
+                  <input 
+                    type="text"
+                    value={clubFormId}
+                    onChange={(e) => setClubFormId(e.target.value)}
+                    disabled={selectedClubId !== null}
+                    placeholder="Ví dụ: VANNX"
+                    className="w-full px-3 py-1.5 border border-slate-200 font-mono uppercase bg-white disabled:bg-slate-100 disabled:text-slate-500 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-655 mb-1">Tên tổ chức / Câu lạc bộ*</label>
+                  <input 
+                    type="text"
+                    value={clubFormName}
+                    onChange={(e) => setClubFormName(e.target.value)}
+                    placeholder="Ví dụ: Câu lạc bộ Văn nghệ Xanh"
+                    className="w-full px-3 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-655 mb-1 font-sans">Phân loại*</label>
+                  <select
+                    value={clubFormType}
+                    onChange={(e) => setClubFormType(e.target.value as any)}
+                    className="w-full px-2.5 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg font-sans"
+                  >
+                    <option value="CLB">CÂU LẠC BỘ (CLB)</option>
+                    <option value="DOAN">ĐOÀN THANH NIÊN</option>
+                    <option value="HOI">HỘI SINH VIÊN</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-655 mb-1 font-sans">Cấp trực thuộc*</label>
+                  <select
+                    value={clubFormLevel}
+                    onChange={(e) => setClubFormLevel(e.target.value as any)}
+                    className="w-full px-2.5 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg font-sans"
+                  >
+                    <option value="TRUONG">CẤP TRƯỜNG</option>
+                    <option value="KHOA">CẤP KHOA</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-655 mb-1 font-sans">Trưởng đơn vị / Đại diện đại biểu Ban chủ nhiệm*</label>
+                <input 
+                  type="text"
+                  value={clubFormLeader}
+                  onChange={(e) => setClubFormLeader(e.target.value)}
+                  placeholder="Ví dụ: Nguyễn Văn Hải"
+                  className="w-full px-3 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-655 mb-1 font-sans">Lĩnh vực hoạt động</label>
+                <input 
+                  type="text"
+                  value={clubFormField}
+                  onChange={(e) => setClubFormField(e.target.value)}
+                  placeholder="Ví dụ: Văn nghệ, Thể thao, Tình nguyện..."
+                  className="w-full px-3 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg"
+                />
+              </div>
+
+              {/* Login Account Box inside Form */}
+              <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 space-y-3">
+                <span className="text-[10px] font-black text-indigo-750 flex items-center gap-1 font-sans uppercase">
+                  <Lock size={12} />
+                  CẤP TÀI KHOẢN TRUY CẬP ĐỒNG BỘ
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-600 mb-1">Tài khoản đăng nhập (Email / User ID)*</label>
+                    <input 
+                      type="text"
+                      value={clubFormUsername}
+                      onChange={(e) => setClubFormUsername(e.target.value)}
+                      placeholder="Ví dụ: clbvannghe@hg.edu.vn"
+                      className="w-full px-3 py-1.5 border border-slate-200 font-mono bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-600 mb-1">Mật khẩu đăng nhập*</label>
+                    <input 
+                      type="text"
+                      value={clubFormPassword}
+                      onChange={(e) => setClubFormPassword(e.target.value)}
+                      placeholder="Mật khẩu bảo mật"
+                      className="w-full px-3 py-1.5 border border-slate-200 font-mono bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Buttons inside Form */}
+              <div className="pt-4 border-t border-slate-100 flex justify-end gap-3 font-bold text-xs shrink-0">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    clearClubForm();
+                    setShowClubModal(false);
+                  }}
+                  className="px-4 py-2 border hover:bg-slate-100 text-slate-600 rounded-xl cursor-pointer transition-colors"
+                >
+                  Hủy bỏ
+                </button>
+                <button 
+                  type="submit"
+                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl cursor-pointer transition-all shadow-md font-sans"
+                >
+                  {selectedClubId ? "Lưu thay đổi" : "Khởi tạo & Cấp quyền"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* SYSTEM ACCOUNT MODAL (ADD / EDIT) */}
+      {showAccountModal && (() => {
+        const availableClasses = Array.from(new Set(students.map(s => s.classId))).filter(Boolean).sort();
+        const availableFaculties = Array.from(new Set(students.map(s => s.facultyId))).filter(Boolean).sort();
+        
+        return (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in text-sans">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-md w-full overflow-hidden flex flex-col max-h-[90vh]">
+              {/* Header */}
+              <div className="flex justify-between items-center bg-slate-50 px-6 py-4 border-b shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="p-2 bg-indigo-50 text-indigo-700 rounded-lg flex items-center justify-center">
+                    <UserSquare2 size={18} />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-850 uppercase">
+                      {selectedAccId ? "Cập nhật tài khoản hệ thống" : "Tạo tài khoản hệ thống mới"}
+                    </h3>
+                    <p className="text-[10px] text-slate-450 font-medium">Cấp và cấu hình tài khoản cho các vai trò trong hệ thống</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => {
+                    clearAccountForm();
+                    setShowAccountModal(false);
+                  }}
+                  className="p-1 px-2 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded cursor-pointer transition-colors"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              {/* Form Content */}
+              <form onSubmit={handleSaveAccount} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
+                {/* 1. Chọn Vai trò */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-655 mb-1 font-sans">Vai trò hệ thống*</label>
+                  <select
+                    value={accFormRole}
+                    onChange={(e) => {
+                      const newRole = e.target.value as UserRole;
+                      setAccFormRole(newRole);
+                      // Clear mapping states when role changes
+                      setAccFormName("");
+                      setAccFormUsername("");
+                      setAccFormTargetId("");
+                      setSelectedClassIdForForm("");
+                      setSelectedFacultyIdForForm("");
+                    }}
+                    className="w-full px-2.5 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg font-sans"
+                  >
+                    <option value={UserRole.STUDENT}>SINH VIÊN</option>
+                    <option value={UserRole.CLASS_MONITOR}>CÁN BỘ LỚP (BCS)</option>
+                    <option value={UserRole.ADVISER}>GV CỐ VẤN (GVCN)</option>
+                    <option value={UserRole.FACULTY}>VĂN PHÒNG KHOA</option>
+                    <option value={UserRole.TRAINING_DEPT}>PHÒNG ĐÀO TẠO</option>
+                    <option value={UserRole.ADMIN}>ADMIN / PHÒNG CTHSSV</option>
+                  </select>
+                </div>
+
+                {/* 2. Điều kiện chọn lớp hoặc khoa tương ứng */}
+                {accFormRole === UserRole.STUDENT && (
+                  <div className="space-y-4 p-3 bg-slate-50 rounded-xl border border-slate-150">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-655 mb-1 font-sans">Chọn Lớp học*</label>
+                      <select
+                        value={selectedClassIdForForm}
+                        onChange={(e) => {
+                          const cls = e.target.value;
+                          setSelectedClassIdForForm(cls);
+                          setAccFormName("");
+                          setAccFormUsername("");
+                          setAccFormTargetId("");
+                        }}
+                        className="w-full px-2.5 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg font-sans"
+                        required
+                      >
+                        <option value="">-- Chọn Lớp --</option>
+                        {availableClasses.map(cls => (
+                          <option key={cls} value={cls}>{cls}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {selectedClassIdForForm && (
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-655 mb-1 font-sans">Chọn Sinh viên*</label>
+                        <select
+                          value={accFormTargetId}
+                          onChange={(e) => {
+                            const studentId = e.target.value;
+                            const studentObj = students.find(s => s.id === studentId);
+                            if (studentObj) {
+                              setAccFormName(studentObj.name);
+                              setAccFormUsername(studentObj.email || `${studentId.toLowerCase()}@hg.edu.vn`);
+                              setAccFormTargetId(studentId);
+                            } else {
+                              setAccFormName("");
+                              setAccFormUsername("");
+                              setAccFormTargetId("");
+                            }
+                          }}
+                          className="w-full px-2.5 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg font-sans"
+                          required
+                        >
+                          <option value="">-- Chọn Sinh viên --</option>
+                          {students
+                            .filter(s => s.classId === selectedClassIdForForm)
+                            .map(s => (
+                              <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
+                            ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {(accFormRole === UserRole.CLASS_MONITOR || accFormRole === UserRole.ADVISER) && (
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-655 mb-1 font-sans">Chọn Lớp học phụ trách*</label>
+                    <select
+                      value={selectedClassIdForForm}
+                      onChange={(e) => {
+                        const cls = e.target.value;
+                        setSelectedClassIdForForm(cls);
+                        setAccFormTargetId(cls);
+                      }}
+                      className="w-full px-2.5 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg font-sans"
+                      required
+                    >
+                      <option value="">-- Chọn Lớp --</option>
+                      {availableClasses.map(cls => (
+                        <option key={cls} value={cls}>{cls}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {accFormRole === UserRole.FACULTY && (
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-655 mb-1 font-sans">Chọn Khoa phụ trách*</label>
+                    <select
+                      value={selectedFacultyIdForForm}
+                      onChange={(e) => {
+                        const fac = e.target.value;
+                        setSelectedFacultyIdForForm(fac);
+                        setAccFormTargetId(fac);
+                      }}
+                      className="w-full px-2.5 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg font-sans"
+                      required
+                    >
+                      <option value="">-- Chọn Khoa --</option>
+                      {availableFaculties.map(fac => (
+                        <option key={fac} value={fac}>{fac}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* 3. Họ và Tên và Target ID (ID Liên kết) */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-655 mb-1">Họ và tên người sử dụng / Tên đơn vị*</label>
+                  <input 
+                    type="text"
+                    value={accFormName}
+                    onChange={(e) => setAccFormName(e.target.value)}
+                    disabled={accFormRole === UserRole.STUDENT && accFormTargetId !== ""}
+                    placeholder="Ví dụ: Nguyễn Văn A, VP Khoa CNTT..."
+                    className="w-full px-3 py-1.5 border border-slate-200 bg-white disabled:bg-slate-100 disabled:text-slate-500 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-655 mb-1">Mã liên kết hệ thống (Target ID)</label>
+                  <input 
+                    type="text"
+                    value={accFormTargetId}
+                    onChange={(e) => setAccFormTargetId(e.target.value)}
+                    disabled={
+                      accFormRole === UserRole.STUDENT || 
+                      accFormRole === UserRole.CLASS_MONITOR || 
+                      accFormRole === UserRole.ADVISER || 
+                      accFormRole === UserRole.FACULTY
+                    }
+                    placeholder="Tự động gán hoặc nhập thủ công..."
+                    className="w-full px-3 py-1.5 border border-slate-200 bg-white disabled:bg-slate-100 disabled:text-slate-550 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg font-mono"
+                  />
+                </div>
+
+                {/* 4. Credentials fields */}
+                <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-150 space-y-3">
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-600 mb-1">Tài khoản đăng nhập (Email / ID)*</label>
+                    <input 
+                      type="text"
+                      value={accFormUsername}
+                      onChange={(e) => setAccFormUsername(e.target.value)}
+                      placeholder="Ví dụ: giaovencovan@hg.edu.vn"
+                      className="w-full px-3 py-1.5 border border-slate-200 font-mono bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-600 mb-1">Mật khẩu đăng nhập*</label>
+                    <input 
+                      type="text"
+                      value={accFormPassword}
+                      onChange={(e) => setAccFormPassword(e.target.value)}
+                      placeholder="Nhập mật khẩu"
+                      className="w-full px-3 py-1.5 border border-slate-200 font-mono bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Footer Buttons inside Form */}
+                <div className="pt-4 border-t border-slate-150 flex justify-end gap-3 font-bold text-xs shrink-0">
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      clearAccountForm();
+                      setShowAccountModal(false);
+                    }}
+                    className="px-4 py-2 border hover:bg-slate-100 text-slate-655 rounded-xl cursor-pointer transition-colors"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button 
+                    type="submit"
+                    className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl cursor-pointer transition-all shadow-md font-sans"
+                  >
+                    {selectedAccId ? "Lưu thay đổi" : "Tạo tài khoản"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
