@@ -324,8 +324,10 @@ export default function App() {
           console.error("Superadmin auto-registration failed:", regErr);
           if (regErr.code === "auth/operation-not-allowed") {
             setLoginError("Lỗi: Phương thức đăng nhập bằng Email/Password chưa được kích hoạt trong Firebase Console của bạn. Vui lòng vào Build -> Authentication -> Sign-in method và BẬT 'Email/Password' lên.");
+          } else if (regErr.code === "auth/email-already-in-use") {
+            setLoginError("Mật khẩu Super Admin không chính xác! (Tài khoản superadmin@unihub.edu.vn đã tồn tại trên Firebase Authentication). Nếu quên mật khẩu, vui lòng vào Firebase Console -> Authentication -> Users xóa người dùng này và thử đăng nhập lại với mật khẩu mới.");
           } else {
-            setLoginError("Đăng nhập thất bại và không thể tạo tài khoản Super Admin mới: " + regErr.message);
+            setLoginError("Đăng nhập thất bại: " + regErr.message);
           }
           return;
         }
