@@ -77,7 +77,7 @@ import * as XLSX from "xlsx";
 
 type ActiveTab = "DASHBOARD" | "USERS" | "DATABASE" | "RULES" | "TOOLS" | "FEEDBACK" | "THEME";
 
-const compressAndReadFile = (file: File, maxWidth: number, maxHeight: number, quality: number = 0.8, isCircularClip: boolean = false): Promise<string> => {
+const compressAndReadFile = (file: File, maxWidth: number, maxHeight: number, quality: number = 0.8, isCircularClip: boolean = false, forceJpeg: boolean = false): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -122,8 +122,14 @@ const compressAndReadFile = (file: File, maxWidth: number, maxHeight: number, qu
           } else {
             ctx.drawImage(img, 0, 0, width, height);
           }
-          // Force PNG for circular clip to preserve transparency
-          const dataUrl = canvas.toDataURL(isCircularClip ? "image/png" : (file.type === "image/png" ? "image/png" : "image/jpeg"), quality);
+          // Force PNG for circular clip to preserve transparency, force JPEG for background
+          let mimeType = "image/jpeg";
+          if (isCircularClip) {
+            mimeType = "image/png";
+          } else if (!forceJpeg && file.type === "image/png") {
+            mimeType = "image/png";
+          }
+          const dataUrl = canvas.toDataURL(mimeType, quality);
           resolve(dataUrl);
         } else {
           resolve(e.target?.result as string);
@@ -190,9 +196,9 @@ export default function App() {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         if (file.size > 10 * 1024 * 1024) continue;
-        // Compress background to 1280x720 and quality 0.55 so that each image is ~45KB.
-        // This ensures 8 images take only ~360KB in total, which safely avoids the 1MB Firestore limit.
-        const base64 = await compressAndReadFile(file, 1280, 720, 0.55);
+        // Compress background to 1280x720 and quality 0.5 JPEG.
+        // This ensures 8 images take only ~250KB in total, which safely avoids the 1MB Firestore limit.
+        const base64 = await compressAndReadFile(file, 1280, 720, 0.5, false, true);
         newUrls.push(base64);
       }
       setThemeConfig(prev => {
@@ -2310,7 +2316,7 @@ export default function App() {
                     ))}
                   </div>
 
-                  <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+                  <div style={{ display: "flex", gap: "10px", marginTop: "8px", flexWrap: "wrap" }}>
                     <input 
                       type="file" 
                       id="bg-file-input" 
@@ -2327,6 +2333,21 @@ export default function App() {
                       <Image size={14} />
                       <span>Tải thêm ảnh từ máy tính (chọn 1 hoặc nhiều)...</span>
                     </label>
+                    
+                    {((themeConfig.loginBgUrls && themeConfig.loginBgUrls.length > 0) || themeConfig.loginBgUrl) && (
+                      <button
+                        type="button"
+                        className="btn-solid-danger"
+                        style={{ padding: "8px 14px", fontSize: "12px" }}
+                        onClick={() => {
+                          if (window.confirm("Bạn có chắc chắn muốn xóa tất cả ảnh nền hiện tại để tải ảnh mới nhẹ hơn không?")) {
+                            setThemeConfig({ ...themeConfig, loginBgUrl: "", loginBgUrls: [] });
+                          }
+                        }}
+                      >
+                        Xóa tất cả ảnh nền
+                      </button>
+                    )}
                   </div>
                 </div>
 
