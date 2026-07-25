@@ -77,6 +77,44 @@ import * as XLSX from "xlsx";
 
 type ActiveTab = "DASHBOARD" | "USERS" | "DATABASE" | "RULES" | "TOOLS" | "FEEDBACK" | "THEME";
 
+const compressAndReadFile = (file: File, maxWidth: number, maxHeight: number, quality: number = 0.8): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL(file.type === "image/png" ? "image/png" : "image/jpeg", quality);
+          resolve(dataUrl);
+        } else {
+          resolve(e.target?.result as string);
+        }
+      };
+      img.onerror = () => reject(new Error("Không thể đọc tệp ảnh."));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+};
+
 export default function App() {
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -97,6 +135,48 @@ export default function App() {
     loginSubtitle: "Chào mừng bạn đến với Phân hiệu ĐHTN tại Hà Giang - Tra cứu ngay thông tin của bạn",
     bgOverlayOpacity: 0.75
   });
+
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [bgUploading, setBgUploading] = useState(false);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLogoUploading(true);
+    setStatusMessage("Đang nén và xử lý ảnh logo...");
+    try {
+      const base64 = await compressAndReadFile(file, 256, 256, 0.9);
+      setThemeConfig(prev => ({ ...prev, logoUrl: base64 }));
+    } catch (err: any) {
+      alert("Lỗi khi xử lý ảnh logo: " + err.message);
+    } finally {
+      setLogoUploading(false);
+      setStatusMessage("");
+    }
+  };
+
+  const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Kích thước file ảnh quá lớn (Vui lòng chọn ảnh dưới 10MB).");
+      return;
+    }
+
+    setBgUploading(true);
+    setStatusMessage("Đang nén và tối ưu hóa ảnh nền...");
+    try {
+      const base64 = await compressAndReadFile(file, 1920, 1080, 0.75);
+      setThemeConfig(prev => ({ ...prev, loginBgUrl: base64 }));
+    } catch (err: any) {
+      alert("Lỗi khi xử lý ảnh nền: " + err.message);
+    } finally {
+      setBgUploading(false);
+      setStatusMessage("");
+    }
+  };
 
   // Real-time Firestore Collections state
   const [users, setUsers] = useState<UserAccount[]>([]);
@@ -2066,30 +2146,128 @@ export default function App() {
                   />
                 </div>
 
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "8px", fontWeight: 600 }}>
-                    Đường dẫn logo tùy chỉnh (Logo URL)
+                {/* Logo Customization section */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", borderBottom: "1px solid var(--border-normal)", paddingBottom: "20px" }}>
+                  <label style={{ display: "block", fontSize: "14px", color: "#fff", fontWeight: 700 }}>
+                    1. Logo hệ thống (Logo Image)
                   </label>
-                  <input 
-                    type="text" 
-                    className="input-dark" 
-                    value={themeConfig.logoUrl || ""} 
-                    onChange={(e) => setThemeConfig({ ...themeConfig, logoUrl: e.target.value })}
-                    placeholder="e.g. https://domain.com/logo.png (Để trống để dùng logo mặc định)"
-                  />
+                  <p style={{ margin: "0", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>
+                    Tải ảnh lên trực tiếp từ máy tính của bạn (tự động nén và tối ưu hóa):
+                  </p>
+                  
+                  <div style={{ display: "flex", alignItems: "center", gap: "16px", marginTop: "8px" }}>
+                    <div style={{ width: "64px", height: "64px", borderRadius: "12px", border: "1px dashed var(--accent-cyan)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "rgba(0,0,0,0.2)" }}>
+                      {themeConfig.logoUrl ? (
+                        <img src={themeConfig.logoUrl} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                      ) : (
+                        <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Mặc định</span>
+                      )}
+                    </div>
+                    
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <input 
+                        type="file" 
+                        id="logo-file-input" 
+                        accept="image/*" 
+                        onChange={handleLogoUpload} 
+                        style={{ display: "none" }} 
+                      />
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <label 
+                          htmlFor="logo-file-input" 
+                          className="btn-neon-cyan" 
+                          style={{ cursor: "pointer", fontSize: "12px", padding: "8px 14px", display: "inline-flex" }}
+                        >
+                          Tải ảnh lên...
+                        </label>
+                        {themeConfig.logoUrl && (
+                          <button 
+                            type="button" 
+                            className="btn-solid-danger" 
+                            style={{ padding: "8px 12px", fontSize: "12px" }}
+                            onClick={() => setThemeConfig({ ...themeConfig, logoUrl: "" })}
+                          >
+                            Xóa ảnh
+                          </button>
+                        )}
+                      </div>
+                      <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Hỗ trợ JPG, PNG. Khuyên dùng ảnh vuông nền trong suốt.</span>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: "8px" }}>
+                    <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Hoặc sử dụng Link URL:</label>
+                    <input 
+                      type="text" 
+                      className="input-dark" 
+                      style={{ fontSize: "12px", padding: "8px" }}
+                      value={themeConfig.logoUrl || ""} 
+                      onChange={(e) => setThemeConfig({ ...themeConfig, logoUrl: e.target.value })}
+                      placeholder="e.g. https://domain.com/logo.png (Để trống để dùng logo mặc định)"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "8px", fontWeight: 600 }}>
-                    Đường dẫn hình nền đăng nhập (Background URL)
+                {/* Background image section */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", borderBottom: "1px solid var(--border-normal)", paddingBottom: "20px" }}>
+                  <label style={{ display: "block", fontSize: "14px", color: "#fff", fontWeight: 700 }}>
+                    2. Hình nền đăng nhập (Background Image)
                   </label>
-                  <input 
-                    type="text" 
-                    className="input-dark" 
-                    value={themeConfig.loginBgUrl || ""} 
-                    onChange={(e) => setThemeConfig({ ...themeConfig, loginBgUrl: e.target.value })}
-                    placeholder="Dán link ảnh nền tại đây (Để trống để dùng hình nền mặc định)"
-                  />
+                  <p style={{ margin: "0", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>
+                    Tải ảnh nền chất lượng cao lên trực tiếp từ máy tính của bạn (tự động nén thông minh):
+                  </p>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "16px", marginTop: "8px" }}>
+                    <div style={{ width: "96px", height: "54px", borderRadius: "8px", border: "1px dashed var(--accent-cyan)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "rgba(0,0,0,0.2)" }}>
+                      {themeConfig.loginBgUrl ? (
+                        <img src={themeConfig.loginBgUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Mặc định</span>
+                      )}
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <input 
+                        type="file" 
+                        id="bg-file-input" 
+                        accept="image/*" 
+                        onChange={handleBgUpload} 
+                        style={{ display: "none" }} 
+                      />
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <label 
+                          htmlFor="bg-file-input" 
+                          className="btn-neon-cyan" 
+                          style={{ cursor: "pointer", fontSize: "12px", padding: "8px 14px", display: "inline-flex" }}
+                        >
+                          Tải ảnh lên...
+                        </label>
+                        {themeConfig.loginBgUrl && (
+                          <button 
+                            type="button" 
+                            className="btn-solid-danger" 
+                            style={{ padding: "8px 12px", fontSize: "12px" }}
+                            onClick={() => setThemeConfig({ ...themeConfig, loginBgUrl: "" })}
+                          >
+                            Xóa ảnh
+                          </button>
+                        )}
+                      </div>
+                      <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Hỗ trợ JPG, PNG. Dung lượng tối đa 10MB.</span>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: "8px" }}>
+                    <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Hoặc sử dụng Link URL:</label>
+                    <input 
+                      type="text" 
+                      className="input-dark" 
+                      style={{ fontSize: "12px", padding: "8px" }}
+                      value={themeConfig.loginBgUrl || ""} 
+                      onChange={(e) => setThemeConfig({ ...themeConfig, loginBgUrl: e.target.value })}
+                      placeholder="Dán link ảnh nền tại đây"
+                    />
+                  </div>
                 </div>
 
                 <div>
