@@ -168,13 +168,14 @@ export default function App() {
     setLogoUploading(true);
     setStatusMessage("Đang nén và xử lý ảnh logo...");
     try {
-      const base64 = await compressAndReadFile(file, 256, 256, 0.9, true);
+      const base64 = await compressAndReadFile(file, 256, 256, 0.85, true);
       setThemeConfig(prev => ({ ...prev, logoUrl: base64 }));
     } catch (err: any) {
       alert("Lỗi khi xử lý ảnh logo: " + err.message);
     } finally {
       setLogoUploading(false);
       setStatusMessage("");
+      if (e.target) e.target.value = ""; // Reset value so file change is always triggered
     }
   };
 
@@ -189,7 +190,9 @@ export default function App() {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         if (file.size > 10 * 1024 * 1024) continue;
-        const base64 = await compressAndReadFile(file, 1920, 1080, 0.7);
+        // Compress background to 1280x720 and quality 0.55 so that each image is ~45KB.
+        // This ensures 8 images take only ~360KB in total, which safely avoids the 1MB Firestore limit.
+        const base64 = await compressAndReadFile(file, 1280, 720, 0.55);
         newUrls.push(base64);
       }
       setThemeConfig(prev => {
@@ -208,7 +211,24 @@ export default function App() {
     } finally {
       setBgUploading(false);
       setStatusMessage("");
+      if (e.target) e.target.value = ""; // Reset value so file change is always triggered
     }
+  };
+
+  const addBgUrlToList = (newUrl: string) => {
+    if (!newUrl) return;
+    setThemeConfig(prev => {
+      const currentList = prev.loginBgUrls && prev.loginBgUrls.length > 0 
+        ? prev.loginBgUrls 
+        : (prev.loginBgUrl ? [prev.loginBgUrl] : []);
+      if (currentList.includes(newUrl)) return prev;
+      const updatedList = [...currentList, newUrl].slice(0, 8);
+      return {
+        ...prev,
+        loginBgUrls: updatedList,
+        loginBgUrl: updatedList[0] || ""
+      };
+    });
   };
 
   const removeBgImage = (indexToRemove: number) => {
@@ -2386,7 +2406,13 @@ export default function App() {
                         type="button"
                         className="btn-neon-purple"
                         style={{ padding: "8px", fontSize: "11px", justifyContent: "center" }}
-                        onClick={() => setThemeConfig({ ...themeConfig, loginBgUrl: p.url })}
+                        onClick={() => {
+                          if (p.url) {
+                            addBgUrlToList(p.url);
+                          } else {
+                            setThemeConfig({ ...themeConfig, loginBgUrl: "", loginBgUrls: [] });
+                          }
+                        }}
                       >
                         {p.name}
                       </button>

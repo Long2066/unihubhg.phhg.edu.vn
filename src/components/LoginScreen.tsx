@@ -114,9 +114,9 @@ export const LoginScreen: React.FC = () => {
           <div 
             className="absolute inset-0 bg-slate-950 transition-all duration-500 z-10"
             style={{ 
-              opacity: showLoginModal ? 0.85 : (themeConfig?.bgOverlayOpacity ?? 0.5),
-              backdropFilter: showLoginModal ? "blur(8px)" : "none",
-              WebkitBackdropFilter: showLoginModal ? "blur(8px)" : "none"
+              opacity: showLoginModal ? 0.35 : (themeConfig?.bgOverlayOpacity ?? 0.3),
+              backdropFilter: showLoginModal ? "blur(6px)" : "none",
+              WebkitBackdropFilter: showLoginModal ? "blur(6px)" : "none"
             }}
           />
         </div>
@@ -178,7 +178,7 @@ export const LoginScreen: React.FC = () => {
       {/* Login Modal Popup */}
       {showLoginModal && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/25 backdrop-blur-sm animate-fade-in"
           onClick={() => setShowLoginModal(false)}
         >
           {/* Modal Card */}
