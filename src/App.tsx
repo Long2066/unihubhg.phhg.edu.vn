@@ -111,7 +111,8 @@ const AppContent: React.FC = () => {
     results,
     dailyAttendance,
     groupAttendances,
-    sendSystemFeedback
+    sendSystemFeedback,
+    themeConfig
   } = useUniHub();
 
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
@@ -1044,8 +1045,12 @@ const AppContent: React.FC = () => {
           {/* Logo brand and toggle line */}
           <div className={`flex items-center ${isSidebarExpanded ? "justify-between w-full px-2" : "justify-center w-full"}`}>
             <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 select-none cursor-pointer transform hover:scale-105 active:scale-95 transition-all flex items-center justify-center bg-white rounded-xl shadow-sm border border-slate-100 shrink-0" title="UniHubHG Hệ thống">
-                <TnuLogo size={32} />
+              <div className="w-10 h-10 select-none cursor-pointer transform hover:scale-105 active:scale-95 transition-all flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 overflow-hidden shrink-0" title="UniHubHG Hệ thống">
+                {themeConfig?.logoUrl ? (
+                  <img src={themeConfig.logoUrl} alt="Logo" className="w-full h-full object-cover rounded-full" />
+                ) : (
+                  <TnuLogo size={32} />
+                )}
               </div>
               {isSidebarExpanded && (
                 <div className="flex flex-col leading-none">

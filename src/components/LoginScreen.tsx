@@ -129,12 +129,12 @@ export const LoginScreen: React.FC = () => {
       {/* Header */}
       <div className="relative z-10 max-w-6xl mx-auto w-full text-center my-4">
         <div className="inline-flex items-center gap-4 justify-center mb-2">
-          <div className="w-14 h-14 bg-white rounded-2xl shadow-lg border border-indigo-100 flex items-center justify-center overflow-hidden shrink-0">
+          <div className="w-14 h-14 bg-white rounded-full shadow-lg border border-indigo-100 flex items-center justify-center overflow-hidden shrink-0">
             {themeConfig?.logoUrl ? (
               <img 
                 src={themeConfig.logoUrl} 
                 alt="Logo" 
-                className="w-11 h-11 object-contain"
+                className="w-full h-full object-cover rounded-full"
                 onError={(e) => {
                   (e.currentTarget as HTMLElement).style.display = 'none';
                 }}

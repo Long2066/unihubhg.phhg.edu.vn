@@ -77,7 +77,7 @@ import * as XLSX from "xlsx";
 
 type ActiveTab = "DASHBOARD" | "USERS" | "DATABASE" | "RULES" | "TOOLS" | "FEEDBACK" | "THEME";
 
-const compressAndReadFile = (file: File, maxWidth: number, maxHeight: number, quality: number = 0.8): Promise<string> => {
+const compressAndReadFile = (file: File, maxWidth: number, maxHeight: number, quality: number = 0.8, isCircularClip: boolean = false): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -87,21 +87,43 @@ const compressAndReadFile = (file: File, maxWidth: number, maxHeight: number, qu
         let width = img.width;
         let height = img.height;
 
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
-        }
-        if (height > maxHeight) {
-          width = Math.round((width * maxHeight) / height);
-          height = maxHeight;
+        if (isCircularClip) {
+          // Force square for circular clip
+          const size = Math.min(width, height, maxWidth);
+          width = size;
+          height = size;
+        } else {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
         }
 
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext("2d");
         if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL(file.type === "image/png" ? "image/png" : "image/jpeg", quality);
+          if (isCircularClip) {
+            // Apply circular clip path
+            ctx.beginPath();
+            ctx.arc(width / 2, height / 2, width / 2, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+            
+            // Draw image covering the square canvas area
+            const imgSize = Math.min(img.width, img.height);
+            const sx = (img.width - imgSize) / 2;
+            const sy = (img.height - imgSize) / 2;
+            ctx.drawImage(img, sx, sy, imgSize, imgSize, 0, 0, width, height);
+          } else {
+            ctx.drawImage(img, 0, 0, width, height);
+          }
+          // Force PNG for circular clip to preserve transparency
+          const dataUrl = canvas.toDataURL(isCircularClip ? "image/png" : (file.type === "image/png" ? "image/png" : "image/jpeg"), quality);
           resolve(dataUrl);
         } else {
           resolve(e.target?.result as string);
@@ -146,7 +168,7 @@ export default function App() {
     setLogoUploading(true);
     setStatusMessage("Đang nén và xử lý ảnh logo...");
     try {
-      const base64 = await compressAndReadFile(file, 256, 256, 0.9);
+      const base64 = await compressAndReadFile(file, 256, 256, 0.9, true);
       setThemeConfig(prev => ({ ...prev, logoUrl: base64 }));
     } catch (err: any) {
       alert("Lỗi khi xử lý ảnh logo: " + err.message);
@@ -2369,11 +2391,11 @@ export default function App() {
                     {/* Simulated login card content */}
                     <div style={{ position: "relative", zIndex: 2, textAlign: "center", padding: "16px", color: "#fff" }}>
                       <div style={{ display: "flex", justifyContent: "center", gap: "8px", alignItems: "center", marginBottom: "8px" }}>
-                        <div style={{ width: "24px", height: "24px", borderRadius: "6px", backgroundColor: "#fff", display: "flex", alignItems: "center", justifyItems: "center", overflow: "hidden" }}>
+                        <div style={{ width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "#fff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", border: "1px solid rgba(255,255,255,0.4)" }}>
                           {themeConfig.logoUrl ? (
-                            <img src={themeConfig.logoUrl} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                            <img src={themeConfig.logoUrl} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
                           ) : (
-                            <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: "#0c529c", margin: "auto" }}></div>
+                            <div style={{ width: "14px", height: "14px", borderRadius: "50%", backgroundColor: "#0c529c", margin: "auto" }}></div>
                           )}
                         </div>
                         <span style={{ fontSize: "10px", fontWeight: 800, color: "var(--accent-cyan)" }}>TNU HGC</span>
