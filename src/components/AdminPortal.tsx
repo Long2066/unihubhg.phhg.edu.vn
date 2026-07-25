@@ -1456,6 +1456,8 @@ export const AdminPortal: React.FC = () => {
                         {users.filter(u => {
                           // Only include FACULTY, TRAINING_DEPT, ADMIN
                           if (u.role !== UserRole.FACULTY && u.role !== UserRole.TRAINING_DEPT && u.role !== UserRole.ADMIN) return false;
+                          // Filter out the supreme admin (superadmin) from client portal view
+                          if (u.username === "superadmin" || u.email === "superadmin@unihub.edu.vn") return false;
                           
                           if (accountRoleFilter !== "ALL" && u.role !== accountRoleFilter) return false;
                           if (accountSearch.trim()) {
@@ -1519,6 +1521,7 @@ export const AdminPortal: React.FC = () => {
                         })}
                         {users.filter(u => {
                           if (u.role !== UserRole.FACULTY && u.role !== UserRole.TRAINING_DEPT && u.role !== UserRole.ADMIN) return false;
+                          if (u.username === "superadmin" || u.email === "superadmin@unihub.edu.vn") return false;
                           if (accountRoleFilter !== "ALL" && u.role !== accountRoleFilter) return false;
                           if (accountSearch.trim()) {
                             const q = accountSearch.toLowerCase().trim();

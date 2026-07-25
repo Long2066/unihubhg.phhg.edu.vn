@@ -3,19 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { Suspense, lazy, useState } from "react";
 import { UniHubProvider, useUniHub } from "./state";
-import { UserRole, STUDENT_FIELDS_META, Student } from "./types";
-import { LoginScreen } from "./components/LoginScreen";
-import { StudentPortal } from "./components/StudentPortal";
+import { UserRole, STUDENT_FIELDS_META, Student, SEMESTER_LIST } from "./types";
 import { TnuLogo } from "./components/TnuLogo";
-import { OrganizerPortal } from "./components/OrganizerPortal";
-import { TrainingPortal } from "./components/TrainingPortal";
-import { ClassPortal } from "./components/ClassPortal";
-import { AdviserPortal } from "./components/AdviserPortal";
-import { FacultyPortal } from "./components/FacultyPortal";
-import { AdminPortal } from "./components/AdminPortal";
-import { ClassStatisticsBottom } from "./components/ClassStatisticsBottom";
 import { 
   LogOut, 
   School, 
@@ -28,7 +19,6 @@ import {
   UserCheck,
   ShieldAlert,
   Settings,
-  ShieldAlert as AdviserIcon,
   Home,
   ClipboardList,
   Award,
@@ -57,9 +47,31 @@ import {
   Sparkles,
   ChevronDown,
   RefreshCw,
-  Upload
+  Upload,
+  MessageSquare
 } from "lucide-react";
 
+const AdviserIcon = ShieldAlert;
+
+const LoginScreen = lazy(() => import("./components/LoginScreen").then(module => ({ default: module.LoginScreen })));
+const StudentPortal = lazy(() => import("./components/StudentPortal").then(module => ({ default: module.StudentPortal })));
+const OrganizerPortal = lazy(() => import("./components/OrganizerPortal").then(module => ({ default: module.OrganizerPortal })));
+const TrainingPortal = lazy(() => import("./components/TrainingPortal").then(module => ({ default: module.TrainingPortal })));
+const ClassPortal = lazy(() => import("./components/ClassPortal").then(module => ({ default: module.ClassPortal })));
+const AdviserPortal = lazy(() => import("./components/AdviserPortal").then(module => ({ default: module.AdviserPortal })));
+const FacultyPortal = lazy(() => import("./components/FacultyPortal").then(module => ({ default: module.FacultyPortal })));
+const AdminPortal = lazy(() => import("./components/AdminPortal").then(module => ({ default: module.AdminPortal })));
+const ClassStatisticsBottom = lazy(() => import("./components/ClassStatisticsBottom").then(module => ({ default: module.ClassStatisticsBottom })));
+
+const PortalLoader: React.FC = () => (
+  <div className="min-h-[45vh] flex items-center justify-center">
+    <div className="rounded-3xl border border-white/60 bg-white/80 px-8 py-6 text-center shadow-2xl shadow-indigo-100/60 backdrop-blur-xl">
+      <div className="mx-auto mb-4 h-11 w-11 animate-spin rounded-full border-4 border-indigo-100 border-t-indigo-600" />
+      <p className="text-sm font-bold text-slate-700">Đang tải phân hệ...</p>
+      <p className="mt-1 text-xs text-slate-500">UniHub đang tối ưu tài nguyên cho đúng vai trò của bạn.</p>
+    </div>
+  </div>
+);
 interface NotificationItem {
   id: string;
   title: string;
@@ -97,7 +109,9 @@ const AppContent: React.FC = () => {
     facultyReviews,
     feedbacks,
     results,
-    dailyAttendance
+    dailyAttendance,
+    groupAttendances,
+    sendSystemFeedback
   } = useUniHub();
 
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
@@ -105,6 +119,12 @@ const AppContent: React.FC = () => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileTab, setProfileTab] = useState<"info" | "password">("info");
+
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackCategory, setFeedbackCategory] = useState("Giao diện");
+  const [feedbackTitle, setFeedbackTitle] = useState("");
+  const [feedbackContent, setFeedbackContent] = useState("");
+  const [isSendingFeedback, setIsSendingFeedback] = useState(false);
 
   // States for Editing profile
   const [editName, setEditName] = useState("");
@@ -114,8 +134,9 @@ const AppContent: React.FC = () => {
   const [profileFields, setProfileFields] = useState<Partial<any>>({});
   const [activeSubProfileTab, setActiveSubProfileTab] = useState<"personal" | "family" | "education" | "account">("personal");
 
-  const studentId = currentUser?.targetId || "DTG245140202053";
-  const studentObj = students.find(s => s.id === studentId || s.username === currentUser?.username);
+  const isStudentOrMonitor = currentUser?.role === UserRole.STUDENT || currentUser?.role === UserRole.CLASS_MONITOR;
+  const studentId = isStudentOrMonitor ? currentUser?.targetId : undefined;
+  const studentObj = studentId ? students.find(s => s.id === studentId) : undefined;
 
   // Sync profile editing states for detailed student fields
   React.useEffect(() => {
@@ -411,7 +432,7 @@ const AppContent: React.FC = () => {
         if ((fb.studentId === targetId || (fb.toClassId === studentObj?.classId && !fb.studentId)) && !fb.resolved) {
           list.push({
             id: `fb-${fb.id}`,
-            title: `⚠️ Lưu ý từ GVCN ${fb.fromName}`,
+            title: `⚠️ Lưu ý từ ${fb.fromRole === UserRole.ADVISER ? "GVCN" : "Cán sự"} ${fb.fromName}`,
             message: fb.comment,
             time: fb.createdAt,
             type: "warning",
@@ -745,29 +766,60 @@ const AppContent: React.FC = () => {
     }, 1500);
   };
 
-  // Choose corresponding Portal View based on current logged in user role
+  const handleSendFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedbackTitle.trim() || !feedbackContent.trim()) {
+      alert("Vui lòng điền đầy đủ tiêu đề và nội dung góp ý!");
+      return;
+    }
+    try {
+      setIsSendingFeedback(true);
+      await sendSystemFeedback(feedbackCategory, feedbackTitle, feedbackContent);
+      alert("Đóng góp ý kiến thành công! Hệ thống đã ghi nhận phản hồi của bạn.");
+      setFeedbackTitle("");
+      setFeedbackContent("");
+      setShowFeedbackModal(false);
+    } catch (err) {
+      alert("Đã xảy ra lỗi khi gửi góp ý. Vui lòng thử lại!");
+    } finally {
+      setIsSendingFeedback(false);
+    }
+  };
+
   const renderPortal = () => {
+    let portal: React.ReactNode;
+
     if (activePortletTab === "GIAM_SAT_SI_SO" && currentUser.role !== UserRole.ORGANIZER) {
-      return <ClassStatisticsBottom />;
+      portal = <ClassStatisticsBottom />;
+    } else {
+      switch (currentUser.role) {
+        case UserRole.STUDENT:
+          portal = <StudentPortal />;
+          break;
+        case UserRole.ORGANIZER:
+          portal = <OrganizerPortal />;
+          break;
+        case UserRole.TRAINING_DEPT:
+          portal = <TrainingPortal />;
+          break;
+        case UserRole.CLASS_MONITOR:
+          portal = <ClassPortal />;
+          break;
+        case UserRole.ADVISER:
+          portal = <AdviserPortal />;
+          break;
+        case UserRole.FACULTY:
+          portal = <FacultyPortal />;
+          break;
+        case UserRole.ADMIN:
+          portal = <AdminPortal />;
+          break;
+        default:
+          portal = <StudentPortal />;
+      }
     }
-    switch (currentUser.role) {
-      case UserRole.STUDENT:
-        return <StudentPortal />;
-      case UserRole.ORGANIZER:
-        return <OrganizerPortal />;
-      case UserRole.TRAINING_DEPT:
-        return <TrainingPortal />;
-      case UserRole.CLASS_MONITOR:
-        return <ClassPortal />;
-      case UserRole.ADVISER:
-        return <AdviserPortal />;
-      case UserRole.FACULTY:
-        return <FacultyPortal />;
-      case UserRole.ADMIN:
-        return <AdminPortal />;
-      default:
-        return <StudentPortal />;
-    }
+
+    return <Suspense fallback={<PortalLoader />}>{portal}</Suspense>;
   };
 
   const getRoleLabel = (role: UserRole) => {
@@ -827,6 +879,7 @@ const AppContent: React.FC = () => {
         return [
           { id: "STAT", label: "Theo dõi rèn luyện khoa", icon: BarChart2 },
           { id: "LOCKS", label: "Khóa dữ liệu & Ký duyệt", icon: Lock },
+          { id: "EVENTS", label: "Phát động & Cộng điểm", icon: Megaphone },
           { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
         ];
       case UserRole.ADMIN:
@@ -838,13 +891,26 @@ const AppContent: React.FC = () => {
           { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
         ];
       case UserRole.CLASS_MONITOR:
+        if (currentUser?.isGroupLeader) {
+          return [
+            { id: "TRANG_CHU", label: "Trang chủ Tổ", icon: Home },
+            { id: "BCS_DIEMDANH", label: "Điểm danh Tổ", icon: Users },
+            { id: "BCS_XETDUYET", label: "Đề xuất ĐRL Tổ", icon: BookOpen }
+          ];
+        }
         return [
-          { id: "TRANG_CHU", label: "Phân hệ báo cáo lớp", icon: Home },
-          { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
+          { id: "TRANG_CHU", label: "Trang chủ tổng quan", icon: Home },
+          { id: "BCS_DIEMDANH", label: "Giám sát sĩ số & điểm danh", icon: ClipboardList },
+          { id: "BCS_DUYET_TO", label: "Phê duyệt Tổ", icon: CheckCircle2 },
+          { id: "BCS_THONG_KE", label: "Thống kê chuyên cần", icon: ClipboardList },
+          { id: "BCS_CHIA_TO", label: "Phân Tổ & Cấp quyền", icon: UserPlus },
+          { id: "BCS_XETDUYET", label: "Xét duyệt ĐRL & Minh chứng", icon: BookOpen }
         ];
       case UserRole.ADVISER:
         return [
-          { id: "TRANG_CHU", label: "Xét duyệt & QL lớp", icon: Home },
+          { id: "ADVISER_DUYETDEM", label: "Thống kê & Xét duyệt lớp", icon: BookOpen },
+          { id: "ADVISER_MINHCHUNG", label: "Minh chứng của lớp", icon: FileText },
+          { id: "ADVISER_NOTIFICATIONS", label: "Nhật ký sĩ số & Thư từ lớp", icon: MessageSquare },
           { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
         ];
       default:
@@ -900,10 +966,24 @@ const AppContent: React.FC = () => {
     }
     
     if (currentUser.role === UserRole.CLASS_MONITOR) {
-      const classId = currentUser.targetId || "";
+      const classId = currentUser.isGroupLeader 
+        ? (students.find(s => s.id === currentUser.targetId)?.classId || "") 
+        : (currentUser.targetId || "");
       switch (tabId) {
-        case "TRANG_CHU":
-          return evidence.filter(ev => ev.classId === classId && ev.status === "PENDING" && !seenPendingEvidenceIds.includes(ev.id)).length;
+        case "BCS_XETDUYET":
+          if (currentUser.isGroupLeader) {
+            const groupName = currentUser.groupInCharge;
+            const groupStudentIds = students.filter(s => s.classId === classId && s.groupName === groupName).map(s => s.id);
+            const pendingResults = results.filter(r => r.classId === classId && groupStudentIds.includes(r.studentId) && (r.status === "AUTO" || r.status === "DRAFT")).length;
+            const pendingEv = evidence.filter(ev => groupStudentIds.includes(ev.studentId) && ev.status === "PENDING").length;
+            return pendingResults + pendingEv;
+          } else {
+            const pendingResults = results.filter(r => r.classId === classId && (r.status === "AUTO" || r.status === "DRAFT")).length;
+            const pendingEv = evidence.filter(ev => ev.classId === classId && ev.status === "PENDING").length;
+            return pendingResults + pendingEv;
+          }
+        case "BCS_DUYET_TO":
+          return groupAttendances.filter(ga => ga.classId === classId && ga.status === "PENDING").length;
         default:
           return 0;
       }
@@ -911,11 +991,14 @@ const AppContent: React.FC = () => {
     
     if (currentUser.role === UserRole.ADVISER) {
       const classId = currentUser.targetId || "";
+      const classStudents = students.filter(s => s.classId === classId).map(s => s.id);
       switch (tabId) {
-        case "TRANG_CHU":
-          const pendingEv = evidence.filter(ev => ev.classId === classId && ev.status === "PENDING" && !seenPendingEvidenceIds.includes(ev.id)).length;
-          const pendingReview = classReviews.some(cr => cr.classId === classId && cr.representativeApproved && !cr.adviserApproved && !seenAdviserReviews.includes(cr.classId)) ? 1 : 0;
-          return pendingEv + pendingReview;
+        case "ADVISER_DUYETDEM":
+          return results.filter(r => r.classId === classId).length;
+        case "ADVISER_MINHCHUNG":
+          return evidence.filter(e => classStudents.includes(e.studentId) && e.status === "PENDING").length;
+        case "ADVISER_NOTIFICATIONS":
+          return dailyAttendance.filter(da => da.classId === classId).length;
         default:
           return 0;
       }
@@ -949,11 +1032,11 @@ const AppContent: React.FC = () => {
   const sidebarTabs = getSidebarTabs();
 
   return (
-    <div className="h-screen w-screen bg-slate-50 flex flex-row selection:bg-indigo-500 selection:text-white font-sans overflow-hidden" id="unihub-app-layout">
+    <div className="h-screen h-dvh w-screen bg-slate-50 flex flex-row selection:bg-indigo-500 selection:text-white font-sans overflow-hidden" id="unihub-app-layout">
       
       {/* 1. DYNAMIC EXPANDABLE/COLLAPSIBLE LEFT MENU SIDEBAR */}
       <aside 
-        className={`hidden md:flex flex-col py-5 justify-between bg-white border-r border-slate-200 sticky top-0 h-screen z-50 shrink-0 transition-all duration-300 ease-in-out ${
+        className={`hidden md:flex flex-col py-5 justify-between bg-white border-r border-slate-200 sticky top-0 h-screen h-dvh z-50 shrink-0 transition-all duration-300 ease-in-out ${
           isSidebarExpanded ? "w-[240px] px-4" : "w-[72px] items-center px-0"
         }`}
       >
@@ -1055,7 +1138,7 @@ const AppContent: React.FC = () => {
       </aside>
 
       {/* 2. RIGHT HAND CONTENT SIDEBAR (Header sits right here, so it does NOT cut across the sidebar!) */}
-      <div className="flex-1 flex flex-col min-w-0 bg-slate-50/60 h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 bg-slate-50/60 h-screen h-dvh overflow-hidden">
         
         {/* Horizontal Header (Bounded beside the menu sidebar!) */}
         <header className="bg-white border-b border-slate-200/80 sticky top-0 z-40 backdrop-blur-md bg-white/90 shadow-2xs shrink-0 h-18 flex items-center justify-between px-6 lg:px-8">
@@ -1081,7 +1164,7 @@ const AppContent: React.FC = () => {
               >
                 {/* Profile Image/Avatar representation */}
                 <div className="relative shrink-0">
-                  {studentObj?.avatar || currentUser.role === "STUDENT" ? (
+                  {studentObj?.avatar || isStudentOrMonitor ? (
                     <img 
                       referrerPolicy="no-referrer"
                       src={studentObj?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name}`} 
@@ -1112,10 +1195,10 @@ const AppContent: React.FC = () => {
               {showProfileDropdown && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowProfileDropdown(false)} />
-                  <div className="absolute right-0 top-12 mt-1.5 bg-white border border-slate-200 shadow-2xl rounded-2xl w-76 sm:w-80 overflow-hidden z-200 animate-fade-in text-left divide-y divide-slate-100 shrink-0">
+                  <div className="fixed md:absolute top-20 md:top-12 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:right-0 mt-1.5 bg-white border border-slate-200 shadow-2xl rounded-2xl w-[92vw] max-w-[340px] md:w-80 overflow-hidden z-200 animate-fade-in text-left divide-y divide-slate-100 shrink-0">
                     <div className="p-4 bg-slate-50 flex items-center gap-3">
                       <div>
-                        {studentObj?.avatar || currentUser.role === "STUDENT" ? (
+                        {studentObj?.avatar || isStudentOrMonitor ? (
                           <img 
                             referrerPolicy="no-referrer"
                             src={studentObj?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name}`} 
@@ -1138,26 +1221,29 @@ const AppContent: React.FC = () => {
                     </div>
 
                     <div className="p-3 space-y-3 font-sans">
-                      {currentUser.role === "STUDENT" && studentObj && (
-                        <div className="bg-slate-50/50 p-2.5 rounded-xl border border-slate-150/60 space-y-2">
-                          <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-600 font-medium text-left">
+                      <div className="bg-slate-50/50 p-2.5 rounded-xl border border-slate-150/60 space-y-2">
+                        {currentUser.role === "STUDENT" && studentObj && (
+                          <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-600 font-medium text-left mb-1">
                             <div>Lớp: <span className="font-bold text-slate-900">{studentObj.classId}</span></div>
                             <div>Khoa: <span className="font-bold text-slate-900">{studentObj.facultyId}</span></div>
                           </div>
+                        )}
                       
-                          <div className="space-y-1">
-                            <label className="block text-[9.5px] font-black uppercase text-slate-500 tracking-wider">Chọn học kì truy vấn:</label>
-                            <select
-                              value={selectedSemesterId}
-                              onChange={(e) => setSelectedSemesterId(e.target.value)}
-                              className="w-full bg-white border border-slate-250 text-[10.5px] font-bold rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/15 text-slate-800 focus:border-indigo-500 cursor-pointer"
-                            >
-                              <option value="HOCKY_2_2025_2026">Học kỳ II - 2025-2026 (Hiện tại)</option>
-                              <option value="HOCKY_1_2025_2026">Học kỳ I - 2025-2026 (Đã khóa)</option>
-                            </select>
-                          </div>
+                        <div className="space-y-1">
+                          <label className="block text-[9.5px] font-black uppercase text-slate-500 tracking-wider text-left">Chọn học kì truy vấn:</label>
+                          <select
+                            value={selectedSemesterId}
+                            onChange={(e) => setSelectedSemesterId(e.target.value)}
+                            className="w-full bg-white border border-slate-250 text-[10.5px] font-bold rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/15 text-slate-800 focus:border-indigo-500 cursor-pointer"
+                          >
+                            {SEMESTER_LIST.map(sem => (
+                              <option key={sem.id} value={sem.id}>
+                                {sem.name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
-                      )}
+                      </div>
 
                       <div className="space-y-1">
                         <button 
@@ -1220,7 +1306,7 @@ const AppContent: React.FC = () => {
                   <div className="fixed inset-0 z-40" onClick={() => setShowNotificationsDropdown(false)} />
                   
                   {/* Floating Droplist Panel */}
-                  <div className="absolute right-0 top-11 mt-2 bg-white border border-slate-200/90 shadow-2xl rounded-2xl w-80 sm:w-[380px] overflow-hidden z-50 text-left animate-fade-in divide-y divide-slate-100/80">
+                  <div className="fixed md:absolute top-20 md:top-11 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:right-0 mt-2 bg-white border border-slate-200/90 shadow-2xl rounded-2xl w-[92vw] max-w-[360px] md:w-[380px] overflow-hidden z-50 text-left animate-fade-in divide-y divide-slate-100/80">
                     {/* Header */}
                     <div className="px-4 py-3 bg-indigo-50/50 flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
@@ -1369,7 +1455,7 @@ const AppContent: React.FC = () => {
 
       {selectedAnnForModal && (
         <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in font-sans">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-lg w-full overflow-hidden transform transition-all scale-100 flex flex-col max-h-[90vh]">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-lg w-full overflow-hidden transform transition-all scale-100 flex flex-col max-h-[90vh] max-h-[90dvh]">
             <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div className="flex items-center gap-2">
                 <span className="text-xs bg-indigo-50 border border-indigo-150 text-indigo-700 px-2 py-0.5 rounded-md font-black">
@@ -1410,7 +1496,7 @@ const AppContent: React.FC = () => {
 
       {showProfileModal && (
         <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in font-sans">
-          <div className={`bg-white rounded-2xl border border-slate-105 border-slate-200 shadow-2xl ${currentUser?.role === UserRole.STUDENT ? 'max-w-2xl' : 'max-w-md'} w-full overflow-hidden transform transition-all scale-100 flex flex-col max-h-[90vh] animate-fade-in-up`}>
+          <div className={`bg-white rounded-2xl border border-slate-105 border-slate-200 shadow-2xl ${currentUser?.role === UserRole.STUDENT ? 'max-w-2xl' : 'max-w-md'} w-full overflow-hidden transform transition-all scale-100 flex flex-col max-h-[90vh] max-h-[90dvh] animate-fade-in-up`}>
             
             {/* Modal Header */}
             <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
@@ -1826,28 +1912,177 @@ const AppContent: React.FC = () => {
       )}
 
       {/* Mobile Navigation Bottom Bar for high-quality universal platform layout */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 py-2 px-1 z-50 flex justify-around items-center shadow-[0_-4px_12px_rgba(15,23,42,0.06)] bg-white/95 backdrop-blur-md">
-        {sidebarTabs.map((tab) => {
-          const TabIcon = tab.icon;
-          const isActive = activePortletTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActivePortletTab(tab.id)}
-              className={`flex flex-col items-center gap-1.5 py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
-                isActive 
-                  ? "text-indigo-600 font-extrabold scale-102" 
-                  : "text-slate-600 hover:text-slate-800"
-              }`}
-            >
-              <TabIcon size={18} className={isActive ? "text-indigo-600" : "text-slate-400"} />
-              <span className="text-[9px] font-bold tracking-tight truncate max-w-[76px]">
-                {tab.label.split(" & ")[0].split(" / ")[0]}
-              </span>
-            </button>
-          );
-        })}
-      </nav>
+      {(() => {
+        const isScrollableNav = sidebarTabs.length > 4;
+        return (
+          <nav 
+            className={`md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 py-1.5 z-50 flex shadow-[0_-4px_12px_rgba(15,23,42,0.06)] bg-white/95 backdrop-blur-md scrollbar-none ${
+              isScrollableNav 
+                ? "overflow-x-auto justify-start gap-2.5 px-3 whitespace-nowrap" 
+                : "justify-around items-center px-1"
+            }`}
+          >
+            {sidebarTabs.map((tab) => {
+              const TabIcon = tab.icon;
+              const isActive = activePortletTab === tab.id;
+              const badgeCount = getTabBadgeCount(tab.id);
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActivePortletTab(tab.id)}
+                  className={`flex flex-col items-center gap-1.5 py-1 px-2 rounded-xl transition-all cursor-pointer relative ${
+                    isScrollableNav ? "shrink-0 min-w-[70px]" : ""
+                  } ${
+                    isActive 
+                      ? "text-indigo-600 font-extrabold scale-102" 
+                      : "text-slate-600 hover:text-slate-800"
+                  }`}
+                >
+                  <div className="relative">
+                    <TabIcon size={18} className={isActive ? "text-indigo-600" : "text-slate-400"} />
+                    {badgeCount > 0 && (
+                      <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white text-[8px] font-black h-4 min-w-4 px-1 rounded-full flex items-center justify-center shadow-xs ring-1 ring-white">
+                        {badgeCount}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[9px] font-bold tracking-tight truncate max-w-[76px]">
+                    {tab.label.split(" & ")[0].split(" / ")[0]}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+        );
+      })()}
+
+      {/* FLOATING SYSTEM FEEDBACK BUTTON (FAB) */}
+      {currentUser && (
+        <button
+          onClick={() => setShowFeedbackModal(true)}
+          className="fixed bottom-20 md:bottom-6 right-6 z-40 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white p-3.5 rounded-full shadow-lg shadow-indigo-200/50 hover:shadow-indigo-300/60 transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer group border-0"
+          title="Góp ý & Báo lỗi hệ thống"
+        >
+          <MessageSquare size={20} className="group-hover:rotate-6 transition-transform" />
+          <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-500 ease-in-out font-bold text-[11px] uppercase tracking-wider pl-0 group-hover:pl-2 whitespace-nowrap">
+            Góp ý hệ thống
+          </span>
+        </button>
+      )}
+
+      {/* SYSTEM FEEDBACK MODAL */}
+      {showFeedbackModal && currentUser && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in animate-duration-200">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden flex flex-col justify-between transform transition-all duration-300 text-left">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-slate-50 to-slate-100/50 px-5 py-4 border-b border-slate-150 flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+                  <MessageSquare size={16} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-wide font-mono">Hòm Thư Góp Ý Phát Triển</h3>
+                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Ý kiến đóng góp giúp UniHub hoàn thiện hơn</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowFeedbackModal(false)}
+                className="text-slate-400 hover:text-slate-650 transition-colors p-1 rounded-lg hover:bg-slate-100 cursor-pointer border-0 bg-transparent flex items-center justify-center"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSendFeedback} className="p-5 space-y-4">
+              {/* Sender Info (read-only info card) */}
+              <div className="bg-slate-50 border border-slate-150 rounded-xl p-3 flex items-center justify-between text-[11px]">
+                <div className="space-y-0.5">
+                  <span className="text-slate-400 block font-semibold text-[10px] uppercase tracking-wider">Người gửi</span>
+                  <span className="font-extrabold text-slate-800">{currentUser.name}</span>
+                </div>
+                <div className="text-right space-y-0.5">
+                  <span className="text-slate-400 block font-semibold text-[10px] uppercase tracking-wider">Vai trò</span>
+                  <span className="px-2 py-0.5 bg-indigo-50 border border-indigo-150 text-indigo-650 font-black rounded-lg text-[9px]">
+                    {currentUser.role === UserRole.STUDENT ? "Sinh viên" : 
+                     currentUser.role === UserRole.CLASS_MONITOR ? "Ban cán sự" : 
+                     currentUser.role === UserRole.ADVISER ? "Cố vấn lớp" : 
+                     currentUser.role === UserRole.FACULTY ? "Khoa" : 
+                     currentUser.role === UserRole.TRAINING_DEPT ? "Phòng Đào tạo" : 
+                     currentUser.role === UserRole.ORGANIZER ? "CLB / Đoàn Hội" : "Admin"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Category Dropdown */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-black uppercase text-slate-450 tracking-wider">Phân loại góp ý</label>
+                <select
+                  value={feedbackCategory}
+                  onChange={(e) => setFeedbackCategory(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:bg-white transition-all cursor-pointer"
+                >
+                  <option value="Giao diện">Cải tiến giao diện (UI/UX)</option>
+                  <option value="Tính năng">Đề xuất tính năng mới</option>
+                  <option value="Báo lỗi">Báo cáo lỗi hệ thống (Bug)</option>
+                  <option value="Khác">Góp ý khác</option>
+                </select>
+              </div>
+
+              {/* Title Input */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-black uppercase text-slate-450 tracking-wider">Tiêu đề góp ý</label>
+                <input
+                  type="text"
+                  value={feedbackTitle}
+                  onChange={(e) => setFeedbackTitle(e.target.value)}
+                  placeholder="Nhập tiêu đề ngắn gọn..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:bg-white transition-all placeholder-slate-400"
+                  required
+                />
+              </div>
+
+              {/* Content Textarea */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-black uppercase text-slate-450 tracking-wider">Nội dung chi tiết</label>
+                <textarea
+                  value={feedbackContent}
+                  onChange={(e) => setFeedbackContent(e.target.value)}
+                  placeholder="Mô tả ý kiến hoặc lỗi bạn gặp phải..."
+                  rows={4}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-805 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:bg-white transition-all placeholder-slate-400 resize-none"
+                  required
+                ></textarea>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="pt-3 border-t border-slate-150 flex justify-end gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowFeedbackModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors cursor-pointer border-0"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSendingFeedback}
+                  className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-md shadow-indigo-100 border-0 flex items-center gap-1.5"
+                >
+                  {isSendingFeedback ? (
+                    <>
+                      <RefreshCw size={12} className="animate-spin" />
+                      <span>Đang gửi...</span>
+                    </>
+                  ) : (
+                    <span>Gửi góp ý</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

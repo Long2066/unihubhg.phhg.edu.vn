@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "module": "ESNext",
     "lib": [
@@ -17,15 +16,10 @@
     "jsx": "react-jsx",
     "paths": {
       "@/*": [
-        "./*"
+        "./src/*"
       ]
     },
-    "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "exclude": [
-    "node_modules",
-    "unihub-admin",
-    "dist"
-  ]
+  "include": ["src"]
 }

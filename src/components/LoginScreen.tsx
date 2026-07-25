@@ -19,23 +19,34 @@ export const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleManualLogin = (e: React.FormEvent) => {
+  const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
       setErrorMsg("Vui lòng nhập tên đăng nhập hoặc mã số.");
       return;
     }
-    const success = login(email, password);
-    if (success) {
-      setErrorMsg("");
-    } else {
-      setErrorMsg("Tên đăng nhập hoặc mật khẩu không chính xác. Thử lại hoặc dùng mặc định 'password123'.");
+    setLoading(true);
+    setErrorMsg("");
+    try {
+      const success = await login(email, password);
+      if (success) {
+        setErrorMsg("");
+      } else {
+        setErrorMsg("Tên đăng nhập hoặc mật khẩu không chính xác. Thử lại hoặc dùng số CCCD làm mật khẩu nếu đăng nhập lần đầu.");
+      }
+    } catch (err) {
+      setErrorMsg("Lỗi hệ thống khi đăng nhập. Vui lòng thử lại.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleQuickLogin = (userEmail: string) => {
-    login(userEmail);
+  const handleQuickLogin = async (userEmail: string) => {
+    setLoading(true);
+    await login(userEmail);
+    setLoading(false);
   };
 
   const roleMeta = (role: UserRole) => {
@@ -93,7 +104,7 @@ export const LoginScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-between py-8 px-4 font-sans selection:bg-indigo-500 selection:text-white" id="unihub-login-screen">
+    <div className="min-h-screen min-h-dvh bg-slate-50 flex flex-col justify-between py-8 px-4 font-sans selection:bg-indigo-500 selection:text-white" id="unihub-login-screen">
       {/* Header */}
       <div className="max-w-6xl mx-auto w-full text-center my-4">
         <div className="inline-flex items-center gap-4 justify-center mb-2">
@@ -127,7 +138,10 @@ export const LoginScreen: React.FC = () => {
                 <input 
                   type="text" 
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setErrorMsg("");
+                  }}
                   placeholder="Nhập tài khoản hoặc mã số..." 
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-sm transition-all text-slate-800"
                 />
@@ -141,7 +155,10 @@ export const LoginScreen: React.FC = () => {
                 <input 
                   type="password" 
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setErrorMsg("");
+                  }}
                   placeholder="••••••••" 
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-sm transition-all text-slate-800"
                 />
@@ -156,39 +173,13 @@ export const LoginScreen: React.FC = () => {
 
               <button 
                 type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-xl shadow-md hover:shadow-lg hover:shadow-indigo-150 transition-all flex items-center justify-center gap-2 text-sm mt-4 hover:cursor-pointer"
+                disabled={loading}
+                className={`w-full ${loading ? "bg-indigo-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700 hover:cursor-pointer"} text-white font-medium py-3 px-4 rounded-xl shadow-md hover:shadow-lg hover:shadow-indigo-150 transition-all flex items-center justify-center gap-2 text-sm mt-4`}
               >
-                <span>Đăng nhập</span>
-                <ArrowRight size={16} />
+                <span>{loading ? "Đang đăng nhập..." : "Đăng nhập"}</span>
+                {!loading && <ArrowRight size={16} />}
               </button>
             </form>
-          </div>
-
-          <div className="border-t border-slate-100 pt-5 mt-5">
-            <div className="p-3 bg-slate-50 rounded-xl flex flex-col gap-2 text-xs text-slate-500">
-              <div className="flex gap-2 items-start">
-                <Info size={14} className="shrink-0 text-slate-400 mt-0.5" />
-                <span>
-                  Mật khẩu chung cho tất cả tài khoản mẫu là <strong>password123</strong>.
-                </span>
-              </div>
-              <details className="mt-1 border-t border-slate-200/60 pt-2 text-[11px]">
-                <summary className="font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer focus:outline-none select-none">
-                  Xem danh sách tài khoản Demo các cấp
-                </summary>
-                <div className="mt-2 space-y-1 bg-white p-2.5 rounded border border-slate-150 font-mono text-[10.5px] text-slate-600 max-h-[180px] overflow-y-auto custom-scrollbar">
-                  <p className="border-b border-slate-50 pb-1">• <strong>Sinh viên:</strong> <span className="text-slate-800 font-bold">DTG245140202053</span></p>
-                  <p className="border-b border-slate-50 pb-1">• <strong>Câu lạc bộ:</strong> <span className="text-slate-800 font-bold">clbnckh@hg.edu.vn</span></p>
-                  <p className="border-b border-slate-50 pb-1">• <strong>BCH Đoàn:</strong> <span className="text-slate-800 font-bold">doantnphhg@hg.edu.vn</span></p>
-                  <p className="border-b border-slate-50 pb-1">• <strong>BCH Hội SV:</strong> <span className="text-slate-800 font-bold">hsvphhg@hg.edu.vn</span></p>
-                  <p className="border-b border-slate-50 pb-1">• <strong>Phòng Đào tạo:</strong> <span className="text-slate-800 font-bold">dtphhg@hg.edu.vn</span></p>
-                  <p className="border-b border-slate-50 pb-1">• <strong>Cán bộ lớp:</strong> <span className="text-slate-800 font-bold">cblk2gdtha@hg.edu.vn</span></p>
-                  <p className="border-b border-slate-50 pb-1">• <strong>GVCN:</strong> <span className="text-slate-800 font-bold">gvcnk2gdtha@hg.edu.vn</span></p>
-                  <p className="border-b border-slate-50 pb-1">• <strong>Khoa Sư phạm:</strong> <span className="text-slate-800 font-bold">khoasp@hg.edu.vn</span></p>
-                  <p className="border-b border-slate-50 pb-1">• <strong>Phòng CTHSSV:</strong> <span className="text-slate-800 font-bold">pcthssvhg.edu.vn</span></p>
-                </div>
-              </details>
-            </div>
           </div>
         </div>
 

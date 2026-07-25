@@ -29,6 +29,10 @@ service cloud.firestore {
       return isSignedIn() && (request.auth.token.email_verified == true || request.auth.uid != null);
     }
 
+    function isSuperAdmin() {
+      return isSignedIn() && request.auth.token.email.toLowerCase() == "superadmin@unihub.edu.vn";
+    }
+
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
@@ -43,23 +47,30 @@ service cloud.firestore {
 
     // 3. Entity Validator Utilities
     function isValidUser(data) {
-      return data.id is string && data.id.size() <= 128
+      return data.keys().hasOnly(['id', 'username', 'name', 'role', 'email', 'targetId', 'password', 'isGroupLeader', 'groupInCharge', 'monitorTitle'])
+        && data.id is string && data.id.size() <= 128
         && data.username is string && data.username.size() <= 128
         && data.name is string && data.name.size() <= 128
         && data.role is string && data.role.size() <= 32
-        && data.email is string && data.email.size() <= 128;
+        && data.email is string && data.email.size() <= 128
+        && (!data.keys().contains('isGroupLeader') || data.isGroupLeader is bool)
+        && (!data.keys().contains('groupInCharge') || (data.groupInCharge is string && data.groupInCharge.size() <= 128))
+        && (!data.keys().contains('monitorTitle') || (data.monitorTitle is string && data.monitorTitle.size() <= 128));
     }
 
     function isValidStudent(data) {
-      return data.id is string && data.id.size() <= 64
+      return data.keys().hasOnly(['id', 'name', 'classId', 'facultyId', 'email', 'avatar', 'gpa', 'creditsEarned', 'learningWarning', 'learningStatus', 'learningDataLocked', 'gender', 'dob', 'pob', 'ethnicity', 'idCard', 'idCardDate', 'idCardPlace', 'subjects', 'subjectGrades', 'gpa10', 'academicGrade', 'notes', 'updatedAt', 'religion', 'nationality', 'bhyt', 'priorityObject', 'priorityArea', 'phone', 'permanentAddress', 'permanentProvince', 'permanentWard', 'temporaryAddress', 'fatherName', 'fatherJob', 'fatherPhone', 'motherName', 'motherJob', 'motherPhone', 'trainingSystem', 'trainingCourse', 'trainingMajor', 'specialization', 'facultyInCharge', 'academicYears', 'adviser', 'registeredSubjectsCount', 'creditClassesList', 'enrollmentNotes', 'accumulatedCredits', 'totalTuition', 'paidTuition', 'debtTuition', 'paymentStatus', 'groupName'])
+        && data.id is string && data.id.size() <= 64
         && data.name is string && data.name.size() <= 128
         && data.classId is string && data.classId.size() <= 64
         && data.facultyId is string && data.facultyId.size() <= 64
-        && data.email is string && data.email.size() <= 128;
+        && data.email is string && data.email.size() <= 128
+        && (!data.keys().contains('groupName') || (data.groupName is string && data.groupName.size() <= 128));
     }
 
     function isValidOrganization(data) {
-      return data.id is string && data.id.size() <= 64
+      return data.keys().hasOnly(['id', 'name', 'type', 'leaderName', 'field', 'level'])
+        && data.id is string && data.id.size() <= 64
         && data.name is string && data.name.size() <= 256
         && data.type is string && (data.type == 'CLB' || data.type == 'DOAN' || data.type == 'HOI')
         && data.leaderName is string && data.leaderName.size() <= 128
@@ -68,7 +79,8 @@ service cloud.firestore {
     }
 
     function isValidMember(data) {
-      return data.id is string && data.id.size() <= 128
+      return data.keys().hasOnly(['id', 'studentId', 'classId', 'orgId', 'role', 'joinedDate', 'term', 'status', 'gender', 'dob', 'ethnicity', 'email', 'phone', 'permanentAddress', 'temporaryAddress', 'major', 'facultyInCharge', 'studentName', 'attachmentUrl'])
+        && data.id is string && data.id.size() <= 128
         && data.studentId is string && data.studentId.size() <= 128
         && data.classId is string && data.classId.size() <= 64
         && data.orgId is string && data.orgId.size() <= 64
@@ -78,7 +90,8 @@ service cloud.firestore {
     }
 
     function isValidClubAnnouncement(data) {
-      return data.id is string && data.id.size() <= 128
+      return data.keys().hasOnly(['id', 'orgId', 'orgName', 'title', 'content', 'createdAt', 'expiryDate', 'activityId', 'imageUrl'])
+        && data.id is string && data.id.size() <= 128
         && data.orgId is string && data.orgId.size() <= 64
         && data.orgName is string && data.orgName.size() <= 256
         && data.title is string && data.title.size() <= 256
@@ -88,7 +101,8 @@ service cloud.firestore {
 
     // Checking validation for activities
     function isValidActivity(data) {
-      return data.id is string && data.id.size() <= 128
+      return data.keys().hasOnly(['id', 'title', 'orgId', 'orgName', 'criteriaId', 'points', 'dateTime', 'location', 'description', 'registrationOpen', 'status', 'imageUrl', 'expiryDate', 'maxParticipants'])
+        && data.id is string && data.id.size() <= 128
         && data.title is string && data.title.size() <= 256
         && data.orgId is string && data.orgId.size() <= 64
         && data.orgName is string && data.orgName.size() <= 256
@@ -96,11 +110,13 @@ service cloud.firestore {
         && data.points is number && data.points <= 100
         && data.dateTime is string && data.dateTime.size() <= 64
         && data.location is string && data.location.size() <= 256
-        && data.status is string && (data.status == 'UPCOMING' || data.status == 'ONGOING' || data.status == 'COMPLETED');
+        && data.status is string && (data.status == 'UPCOMING' || data.status == 'ONGOING' || data.status == 'COMPLETED')
+        && (!data.keys().contains('maxParticipants') || data.maxParticipants is number);
     }
 
     function isValidActivityAttendance(data) {
-      return data.id is string && data.id.size() <= 128
+      return data.keys().hasOnly(['id', 'activityId', 'studentId', 'studentName', 'classId', 'registeredAt', 'role', 'attended', 'verified'])
+        && data.id is string && data.id.size() <= 128
         && data.activityId is string && data.activityId.size() <= 128
         && data.studentId is string && data.studentId.size() <= 64
         && data.studentName is string && data.studentName.size() <= 128
@@ -111,7 +127,8 @@ service cloud.firestore {
     }
 
     function isValidEvidenceSubmission(data) {
-      return data.id is string && data.id.size() <= 128
+      return data.keys().hasOnly(['id', 'studentId', 'studentName', 'classId', 'criteriaId', 'activityName', 'description', 'pointsRequested', 'proofUrl', 'submittedAt', 'status', 'reviewedBy', 'reviewComment'])
+        && data.id is string && data.id.size() <= 128
         && data.studentId is string && data.studentId.size() <= 64
         && data.studentName is string && data.studentName.size() <= 128
         && data.classId is string && data.classId.size() <= 64
@@ -124,7 +141,8 @@ service cloud.firestore {
     }
 
     function isValidEvaluationResult(data) {
-      return data.studentId is string && data.studentId.size() <= 64
+      return data.keys().hasOnly(['studentId', 'studentName', 'classId', 'facultyId', 'periodId', 'studyPoints', 'violationPoints', 'extracurricularPoints', 'communityPoints', 'achievementPoints', 'totalPoints', 'grade', 'status', 'adviserNotes', 'logs'])
+        && data.studentId is string && data.studentId.size() <= 64
         && data.studentName is string && data.studentName.size() <= 128
         && data.classId is string && data.classId.size() <= 64
         && data.facultyId is string && data.facultyId.size() <= 64
@@ -140,7 +158,8 @@ service cloud.firestore {
     }
 
     function isValidDailyAttendanceReport(data) {
-      return data.id is string && data.id.size() <= 128
+      return data.keys().hasOnly(['id', 'classId', 'date', 'totalStudents', 'presentCount', 'absentCount', 'absentees', 'reportedBy', 'reportedAt'])
+        && data.id is string && data.id.size() <= 128
         && data.classId is string && data.classId.size() <= 64
         && data.date is string && data.date.size() <= 64
         && data.totalStudents is number
@@ -150,25 +169,98 @@ service cloud.firestore {
         && data.reportedAt is string && data.reportedAt.size() <= 64;
     }
 
+    function isValidPointCriteria(data) {
+      return data.keys().hasOnly(['id', 'category', 'maxScore', 'description', 'rules'])
+        && data.id is string && data.id.size() <= 64
+        && data.category is string && data.category.size() <= 128
+        && data.maxScore is number
+        && data.description is string && data.description.size() <= 512
+        && data.rules is list;
+    }
+
+    function isValidClassReview(data) {
+      return data.keys().hasOnly([
+        'classId', 'representativeApproved', 'adviserApproved', 'facultyApproved', 'adminApproved',
+        'adviserComment', 'facultyComment', 'adminComment',
+        'representativeApprovedAt', 'adviserApprovedAt', 'facultyApprovedAt', 'adminApprovedAt'
+      ])
+        && data.classId is string && data.classId.size() <= 64
+        && data.representativeApproved is bool
+        && data.adviserApproved is bool
+        && (!data.keys().contains('facultyApproved') || data.facultyApproved is bool)
+        && (!data.keys().contains('adminApproved') || data.adminApproved is bool)
+        && (!data.keys().contains('adviserComment') || (data.adviserComment is string && data.adviserComment.size() <= 500))
+        && (!data.keys().contains('facultyComment') || (data.facultyComment is string && data.facultyComment.size() <= 500))
+        && (!data.keys().contains('adminComment') || (data.adminComment is string && data.adminComment.size() <= 500))
+        && (!data.keys().contains('representativeApprovedAt') || (data.representativeApprovedAt is string && data.representativeApprovedAt.size() <= 64))
+        && (!data.keys().contains('adviserApprovedAt') || (data.adviserApprovedAt is string && data.adviserApprovedAt.size() <= 64))
+        && (!data.keys().contains('facultyApprovedAt') || (data.facultyApprovedAt is string && data.facultyApprovedAt.size() <= 64))
+        && (!data.keys().contains('adminApprovedAt') || (data.adminApprovedAt is string && data.adminApprovedAt.size() <= 64));
+    }
+
+    function isValidFacultyReview(data) {
+      return data.keys().hasOnly(['facultyId', 'locked', 'lockedAt', 'lockedBy'])
+        && data.facultyId is string && data.facultyId.size() <= 64
+        && data.locked is bool
+        && (!data.keys().contains('lockedAt') || (data.lockedAt is string && data.lockedAt.size() <= 64))
+        && (!data.keys().contains('lockedBy') || (data.lockedBy is string && data.lockedBy.size() <= 128));
+    }
+
     // 4. Secure Collections Match rules
     match /users/{userId} {
-      allow get, list: if isVerifiedUser();
+      allow get: if isVerifiedUser() && (
+        userId == request.auth.uid || 
+        hasRole('ADMIN') ||
+        isSuperAdmin() ||
+        hasRole('TRAINING_DEPT') ||
+        hasRole('FACULTY') ||
+        (hasRole('ADVISER') && getUserData().targetId == existing().targetId) ||
+        (hasRole('CLASS_MONITOR') && getUserData().targetId == existing().targetId)
+      );
+      allow list: if isVerifiedUser() && (
+        hasRole('ADMIN') ||
+        isSuperAdmin() ||
+        hasRole('TRAINING_DEPT') ||
+        hasRole('FACULTY') ||
+        hasRole('ADVISER') ||
+        hasRole('CLASS_MONITOR')
+      );
       allow create: if isVerifiedUser() && isValidId(userId) && (
-        (userId == request.auth.uid && incoming().role == 'STUDENT') || hasRole('ADMIN')
+        (userId == request.auth.uid && (incoming().role == 'STUDENT' || isSuperAdmin() || (incoming().role == 'CLASS_MONITOR' && incoming().isGroupLeader == true))) || 
+        (hasRole('CLASS_MONITOR') && incoming().role == 'CLASS_MONITOR' && incoming().isGroupLeader == true) ||
+        hasRole('ADMIN') ||
+        isSuperAdmin()
       ) && isValidUser(incoming());
       allow update: if isVerifiedUser() && isValidId(userId) && (
-        hasRole('ADMIN') || (
+        hasRole('ADMIN') || 
+        isSuperAdmin() || (
           userId == request.auth.uid && 
           incoming().role == existing().role && 
           incoming().targetId == existing().targetId &&
           incoming().id == existing().id
         )
       ) && isValidUser(incoming());
-      allow delete: if isVerifiedUser() && isValidId(userId) && hasRole('ADMIN');
+      allow delete: if hasRole('ADMIN') || isSuperAdmin() || (hasRole('CLASS_MONITOR') && existing().role == 'CLASS_MONITOR' && existing().isGroupLeader == true);
     }
 
     match /students/{studentId} {
-      allow get, list: if isVerifiedUser();
+      allow get: if isVerifiedUser() && (
+        studentId == request.auth.uid || 
+        hasRole('ADMIN') || 
+        hasRole('TRAINING_DEPT') || 
+        hasRole('FACULTY') ||
+        (hasRole('ADVISER') && getUserData().targetId == existing().classId) ||
+        (hasRole('CLASS_MONITOR') && getUserData().targetId == existing().classId) ||
+        hasRole('ORGANIZER')
+      );
+      allow list: if isVerifiedUser() && (
+        hasRole('ADMIN') || 
+        hasRole('TRAINING_DEPT') || 
+        hasRole('FACULTY') ||
+        hasRole('ADVISER') || 
+        hasRole('CLASS_MONITOR') || 
+        hasRole('ORGANIZER')
+      );
       allow create, delete: if isVerifiedUser() && isValidId(studentId) && (hasRole('ADMIN') || hasRole('TRAINING_DEPT'));
       allow update: if isVerifiedUser() && isValidId(studentId) && (
         hasRole('ADMIN') || 
@@ -196,7 +288,16 @@ service cloud.firestore {
     }
 
     match /members/{memberId} {
-      allow get, list: if isVerifiedUser();
+      allow get: if isVerifiedUser() && (
+        existing().studentId == getUserData().targetId ||
+        hasRole('ADMIN') ||
+        (hasRole('ORGANIZER') && existing().orgId == getUserData().targetId)
+      );
+      allow list: if isVerifiedUser() && (
+        hasRole('ADMIN') ||
+        hasRole('ORGANIZER') ||
+        (hasRole('STUDENT') && resource.data.studentId == getUserData().targetId)
+      );
       allow create: if isVerifiedUser() && isValidId(memberId) && (
         hasRole('ADMIN') || 
         (hasRole('STUDENT') && incoming().studentId == getUserData().targetId && incoming().status == 'PENDING' && incoming().role == 'THÀNH VIÊN') ||
@@ -216,7 +317,7 @@ service cloud.firestore {
     match /announcements/{announcementId} {
       allow get, list: if isVerifiedUser();
       allow create: if isVerifiedUser() && isValidId(announcementId) && (hasRole('ADMIN') || (hasRole('ORGANIZER') && incoming().orgId == getUserData().targetId)) && isValidClubAnnouncement(incoming());
-      allow update: if isVerifiedUser() && isValidId(announcementId) && (hasRole('ADMIN') || (hasRole('ORGANIZER') && incoming().orgId == getUserData().targetId && existing().orgId == getUserData().targetId)) && isValidClubAnnouncement(incoming());
+      allow update: if isVerifiedUser() && isValidId(announcementId) && (hasRole('ADMIN') || (hasRole('ORGANIZER') && incoming().orgId == getUserData().targetId && existing().orgId == getUserData().targetId && incoming().createdAt == existing().createdAt)) && isValidClubAnnouncement(incoming());
       allow delete: if isVerifiedUser() && isValidId(announcementId) && (hasRole('ADMIN') || (hasRole('ORGANIZER') && existing().orgId == getUserData().targetId));
     }
 
@@ -246,15 +347,27 @@ service cloud.firestore {
     }
 
     match /evidence/{evidenceId} {
-      allow get, list: if isVerifiedUser();
+      allow get: if isVerifiedUser() && (
+        existing().studentId == getUserData().targetId ||
+        hasRole('ADMIN') ||
+        ((hasRole('ADVISER') || hasRole('CLASS_MONITOR')) && getUserData().targetId == existing().classId) ||
+        hasRole('FACULTY')
+      );
+      allow list: if isVerifiedUser() && (
+        hasRole('ADMIN') ||
+        hasRole('FACULTY') ||
+        hasRole('ADVISER') ||
+        hasRole('CLASS_MONITOR') ||
+        (hasRole('STUDENT') && resource.data.studentId == getUserData().targetId)
+      );
       allow create: if isVerifiedUser() && isValidId(evidenceId) && (
         hasRole('ADMIN') || 
         (hasRole('STUDENT') && incoming().studentId == getUserData().targetId && incoming().status == 'PENDING')
       ) && isValidEvidenceSubmission(incoming());
       allow update: if isVerifiedUser() && isValidId(evidenceId) && (
         hasRole('ADMIN') || 
-        ((hasRole('ADVISER') || hasRole('CLASS_MONITOR')) && getUserData().targetId == existing().classId) ||
-        (hasRole('STUDENT') && existing().studentId == getUserData().targetId && existing().status == 'PENDING' && incoming().status == 'PENDING' && incoming().studentId == existing().studentId)
+        ((hasRole('ADVISER') || hasRole('CLASS_MONITOR')) && getUserData().targetId == existing().classId && incoming().submittedAt == existing().submittedAt) ||
+        (hasRole('STUDENT') && existing().studentId == getUserData().targetId && existing().status == 'PENDING' && incoming().status == 'PENDING' && incoming().studentId == existing().studentId && incoming().submittedAt == existing().submittedAt)
       ) && isValidEvidenceSubmission(incoming());
       allow delete: if isVerifiedUser() && isValidId(evidenceId) && (
         hasRole('ADMIN') || 
@@ -263,13 +376,27 @@ service cloud.firestore {
     }
 
     match /results/{resultId} {
-      allow get, list: if isVerifiedUser();
+      allow get: if isVerifiedUser() && (
+        existing().studentId == getUserData().targetId ||
+        hasRole('ADMIN') ||
+        hasRole('TRAINING_DEPT') ||
+        ((hasRole('ADVISER') || hasRole('CLASS_MONITOR')) && getUserData().targetId == existing().classId) ||
+        (hasRole('FACULTY') && getUserData().targetId == existing().facultyId)
+      );
+      allow list: if isVerifiedUser() && (
+        hasRole('ADMIN') ||
+        hasRole('TRAINING_DEPT') ||
+        hasRole('FACULTY') ||
+        hasRole('ADVISER') ||
+        hasRole('CLASS_MONITOR') ||
+        (hasRole('STUDENT') && resource.data.studentId == getUserData().targetId)
+      );
       allow create, update: if isVerifiedUser() && isValidId(resultId) && (
         hasRole('ADMIN') || (
-          (existing() == null || existing().status != 'LOCKED') && (
-            (hasRole('ADVISER') && getUserData().targetId == existing().classId) ||
-            (hasRole('CLASS_MONITOR') && getUserData().targetId == existing().classId) ||
-            (hasRole('FACULTY') && getUserData().targetId == existing().facultyId) ||
+          (existing() == null || (existing().status != 'LOCKED' && incoming().classId == existing().classId && incoming().facultyId == existing().facultyId)) && (
+            (hasRole('ADVISER') && getUserData().targetId == incoming().classId) ||
+            (hasRole('CLASS_MONITOR') && getUserData().targetId == incoming().classId) ||
+            (hasRole('FACULTY') && getUserData().targetId == incoming().facultyId) ||
             (hasRole('STUDENT') && incoming().studentId == getUserData().targetId && incoming().status == 'AUTO' && (existing() == null || incoming().adviserNotes == existing().adviserNotes))
           )
         )
@@ -278,7 +405,19 @@ service cloud.firestore {
     }
 
     match /dailyAttendance/{attendanceId} {
-      allow get, list: if isVerifiedUser();
+      allow get: if isVerifiedUser() && (
+        hasRole('ADMIN') || 
+        getUserData().targetId == existing().classId ||
+        hasRole('TRAINING_DEPT') ||
+        hasRole('FACULTY')
+      );
+      allow list: if isVerifiedUser() && (
+        hasRole('ADMIN') || 
+        hasRole('TRAINING_DEPT') ||
+        hasRole('FACULTY') ||
+        hasRole('ADVISER') ||
+        hasRole('CLASS_MONITOR')
+      );
       allow create, update: if isVerifiedUser() && isValidId(attendanceId) && (
         hasRole('ADMIN') || 
         (hasRole('CLASS_MONITOR') && getUserData().targetId == incoming().classId) ||
@@ -289,6 +428,36 @@ service cloud.firestore {
         (hasRole('CLASS_MONITOR') && getUserData().targetId == existing().classId) ||
         (hasRole('ADVISER') && getUserData().targetId == existing().classId)
       );
+    }
+
+    match /criteria/{criteriaId} {
+      allow read: if isVerifiedUser();
+      allow create, update: if isVerifiedUser() && isValidId(criteriaId) && (hasRole('ADMIN') || isSuperAdmin()) && isValidPointCriteria(incoming());
+      allow delete: if isVerifiedUser() && isValidId(criteriaId) && (hasRole('ADMIN') || isSuperAdmin());
+    }
+
+    match /classReviews/{classId} {
+      allow get, list: if isVerifiedUser();
+      allow create, update: if isVerifiedUser() && isValidId(classId) && (
+        hasRole('ADMIN') ||
+        isSuperAdmin() ||
+        (hasRole('CLASS_MONITOR') && getUserData().targetId == classId) ||
+        (hasRole('ADVISER') && getUserData().targetId == classId) ||
+        hasRole('FACULTY') ||
+        hasRole('TRAINING_DEPT')
+      ) && isValidClassReview(incoming());
+      allow delete: if isVerifiedUser() && isValidId(classId) && (hasRole('ADMIN') || isSuperAdmin());
+    }
+
+    match /facultyReviews/{facultyId} {
+      allow get, list: if isVerifiedUser();
+      allow create, update: if isVerifiedUser() && isValidId(facultyId) && (
+        hasRole('ADMIN') ||
+        isSuperAdmin() ||
+        (hasRole('FACULTY') && getUserData().targetId == facultyId) ||
+        hasRole('TRAINING_DEPT')
+      ) && isValidFacultyReview(incoming());
+      allow delete: if isVerifiedUser() && isValidId(facultyId) && (hasRole('ADMIN') || isSuperAdmin());
     }
 
   }

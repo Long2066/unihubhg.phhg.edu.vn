@@ -650,6 +650,18 @@ export const StudentPortal: React.FC = () => {
                       <div className="text-left">
                         <span className="text-[10px] text-slate-400 block font-bold">Đơn vị chủ trì</span>
                         <span className="text-xs font-black text-slate-705">{slide.orgName}</span>
+                        {(() => {
+                          const dbAct = activities.find(act => act.id === slide.id);
+                          if (dbAct && dbAct.maxParticipants !== undefined && dbAct.maxParticipants > 0) {
+                            const count = attendance.filter(a => a.activityId === slide.id).length;
+                            return (
+                              <span className="block text-[9.5px] text-indigo-650 font-bold mt-0.5">
+                                Đã đăng ký: {count}/{dbAct.maxParticipants} suất
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                       
                       <div>
@@ -658,18 +670,37 @@ export const StudentPortal: React.FC = () => {
                             <CheckCircle size={12} className="text-emerald-600" />
                             <span>Đã đăng ký</span>
                           </div>
-                        ) : (
-                          <button 
-                            type="button"
-                            onClick={() => {
-                              registerForActivity(slide.id, studentId);
-                            }}
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white hover:cursor-pointer text-xs font-extrabold rounded-lg flex items-center gap-1.5 shadow-sm shadow-indigo-100 transition-all cursor-pointer"
-                          >
-                            <PlusCircle size={13} />
-                            <span>Đăng ký tham gia</span>
-                          </button>
-                        )}
+                        ) : (() => {
+                          const dbAct = activities.find(act => act.id === slide.id);
+                          const count = attendance.filter(a => a.activityId === slide.id).length;
+                          const isFull = dbAct && dbAct.maxParticipants !== undefined && dbAct.maxParticipants > 0 && count >= dbAct.maxParticipants;
+                          
+                          if (isFull) {
+                            return (
+                              <button 
+                                type="button"
+                                disabled
+                                className="px-4 py-2 bg-slate-300 text-slate-500 text-xs font-extrabold rounded-lg flex items-center gap-1.5 border border-slate-200 select-none cursor-not-allowed"
+                              >
+                                <X size={13} />
+                                <span>Hết suất đăng ký</span>
+                              </button>
+                            );
+                          }
+
+                          return (
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                registerForActivity(slide.id, studentId);
+                              }}
+                              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white hover:cursor-pointer text-xs font-extrabold rounded-lg flex items-center gap-1.5 shadow-sm shadow-indigo-100 transition-all cursor-pointer"
+                            >
+                              <PlusCircle size={13} />
+                              <span>Đăng ký tham gia</span>
+                            </button>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -1031,6 +1062,11 @@ export const StudentPortal: React.FC = () => {
                             <span className="text-[8.5px] font-black px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded uppercase font-mono">
                               +{act.points}đ TC{act.criteriaId.substring(2)}
                             </span>
+                            {act.maxParticipants !== undefined && act.maxParticipants > 0 && (
+                              <span className="text-[8.5px] font-black px-1.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded uppercase font-mono">
+                                Đăng ký: {attendance.filter(a => a.activityId === act.id).length}/{act.maxParticipants}
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -1057,18 +1093,31 @@ export const StudentPortal: React.FC = () => {
                           <span className="inline-flex px-3 py-1 bg-slate-100 text-slate-400 border border-slate-200 text-[9px] font-black rounded-lg uppercase select-none font-sans">
                             ĐÃ CHỐT ĐIỂM DANH
                           </span>
-                        ) : (
-                          <button 
-                            type="button"
-                            onClick={() => {
-                              registerForActivity(act.id, studentId);
-                              alert(`Đăng ký thành công hoạt động "${act.title}"! Ban chủ nhiệm sẽ tiến hành kiểm diện điểm danh trực tiếp tại sự kiện.`);
-                            }}
-                            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[9.5px] rounded-lg cursor-pointer shadow-xs transition-colors shrink-0 animate-pulse"
-                          >
-                            Đăng ký tham diễn
-                          </button>
-                        )}
+                        ) : (() => {
+                          const count = attendance.filter(a => a.activityId === act.id).length;
+                          const isFull = act.maxParticipants !== undefined && act.maxParticipants > 0 && count >= act.maxParticipants;
+                          
+                          if (isFull) {
+                            return (
+                              <span className="inline-flex px-3 py-1 bg-slate-100 text-slate-400 border border-slate-200 text-[9px] font-black rounded-lg uppercase select-none font-sans cursor-not-allowed">
+                                HẾT SUẤT ĐĂNG KÝ
+                              </span>
+                            );
+                          }
+
+                          return (
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                registerForActivity(act.id, studentId);
+                                alert(`Đăng ký thành công hoạt động "${act.title}"! Ban chủ nhiệm sẽ tiến hành kiểm diện điểm danh trực tiếp tại sự kiện.`);
+                              }}
+                              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[9.5px] rounded-lg cursor-pointer shadow-xs transition-colors shrink-0 animate-pulse"
+                            >
+                              Đăng ký tham diễn
+                            </button>
+                          );
+                        })()}
                       </div>
                     </div>
                   );
@@ -1625,6 +1674,9 @@ export const StudentPortal: React.FC = () => {
                             <div className="flex items-center gap-3 text-[10px] text-slate-400 pt-1.5 flex-wrap">
                               <span className="flex items-center gap-1 font-mono"><Calendar size={11} className="text-indigo-500" /> {act.dateTime}</span>
                               <span>Điểm rèn luyện: <strong className="text-emerald-600 font-bold font-mono">+{actLivePoints}đ</strong> (Mục TC{act.criteriaId.substring(2)})</span>
+                              {act.maxParticipants !== undefined && act.maxParticipants > 0 && (
+                                <span>Đăng ký: <strong className="text-indigo-650 font-bold font-mono">{attendance.filter(a => a.activityId === act.id).length}/{act.maxParticipants}</strong></span>
+                              )}
                             </div>
                           </div>
 
@@ -1635,16 +1687,31 @@ export const StudentPortal: React.FC = () => {
                                 <span className="inline-flex px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-150 rounded text-[9px] font-black uppercase">
                                   Đã Đăng Ký
                                 </span>
-                              ) : (
-                                <button 
-                                  onClick={() => registerForActivity(act.id, studentId)}
-                                  className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white hover:cursor-pointer transition-colors text-[10px] font-black rounded-lg flex items-center gap-1 shadow-xs"
-                                  disabled={act.status === "COMPLETED"}
-                                >
-                                  <Plus size={11} />
-                                  <span>Đăng ký</span>
-                                </button>
-                              )}
+                              ) : (() => {
+                                const count = attendance.filter(a => a.activityId === act.id).length;
+                                const isFull = act.maxParticipants !== undefined && act.maxParticipants > 0 && count >= act.maxParticipants;
+                                if (isFull) {
+                                  return (
+                                    <button 
+                                      disabled
+                                      className="px-2.5 py-1.5 bg-slate-100 text-slate-405 border border-slate-200 text-[10px] font-black rounded-lg flex items-center gap-1 select-none cursor-not-allowed"
+                                    >
+                                      <X size={11} className="text-slate-405" />
+                                      <span>Hết suất</span>
+                                    </button>
+                                  );
+                                }
+                                return (
+                                  <button 
+                                    onClick={() => registerForActivity(act.id, studentId)}
+                                    className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white hover:cursor-pointer transition-colors text-[10px] font-black rounded-lg flex items-center gap-1 shadow-xs"
+                                    disabled={act.status === "COMPLETED"}
+                                  >
+                                    <Plus size={11} />
+                                    <span>Đăng ký</span>
+                                  </button>
+                                );
+                              })()}
                             </div>
 
                             {/* Confirmation state indicator */}
@@ -1863,6 +1930,9 @@ export const StudentPortal: React.FC = () => {
                                         <span className="flex items-center gap-1"><Clock size={11} /> {act.dateTime}</span>
                                         <span className="flex items-center gap-1"><MapPin size={11} /> {act.location}</span>
                                         <span className="text-emerald-700 font-bold">Chuẩn nạp: +{act.points}đ mốc TC{act.criteriaId.substring(2)}</span>
+                                        {act.maxParticipants !== undefined && act.maxParticipants > 0 && (
+                                          <span className="text-indigo-650 font-bold">Đăng ký: {attendance.filter(a => a.activityId === act.id).length}/{act.maxParticipants}</span>
+                                        )}
                                       </div>
                                       {act.description && <p className="text-[9px] text-slate-400 italic mt-1 leading-normal line-clamp-2">{act.description}</p>}
                                     </div>
@@ -1875,17 +1945,30 @@ export const StudentPortal: React.FC = () => {
                                       <span className="px-3 py-1 bg-slate-100 text-slate-500 font-bold text-[9px] rounded-lg cursor-not-allowed select-none">
                                         ĐÃ HẾT HẠN ĐĂNG KÝ
                                       </span>
-                                    ) : (
-                                      <button 
-                                        onClick={() => {
-                                          registerForActivity(act.id, studentId);
-                                          alert(`Đăng ký thành công hoạt động "${act.title}"! Ban chủ nhiệm sẽ tiến hành kiểm diện điểm danh trực tiếp tại sự kiện.`);
-                                        }}
-                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[10px] rounded-xl cursor-pointer shadow-xs transition-colors shrink-0"
-                                      >
-                                        Đăng ký tham dự
-                                      </button>
-                                    )}
+                                    ) : (() => {
+                                      const count = attendance.filter(a => a.activityId === act.id).length;
+                                      const isFull = act.maxParticipants !== undefined && act.maxParticipants > 0 && count >= act.maxParticipants;
+                                      
+                                      if (isFull) {
+                                        return (
+                                          <span className="px-3 py-1.5 bg-slate-100 text-slate-500 font-bold text-[9px] rounded-lg cursor-not-allowed select-none">
+                                            HẾT SUẤT ĐĂNG KÝ
+                                          </span>
+                                        );
+                                      }
+
+                                      return (
+                                        <button 
+                                          onClick={() => {
+                                            registerForActivity(act.id, studentId);
+                                            alert(`Đăng ký thành công hoạt động "${act.title}"! Ban chủ nhiệm sẽ tiến hành kiểm diện điểm danh trực tiếp tại sự kiện.`);
+                                          }}
+                                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[10px] rounded-xl cursor-pointer shadow-xs transition-colors shrink-0"
+                                        >
+                                          Đăng ký tham dự
+                                        </button>
+                                      );
+                                    })()}
                                   </div>
                                 );
                               })}

@@ -6,8 +6,10 @@ import firebaseConfig from "../firebase-applet-config.json";
 // Initialize standard Firebase App instance
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore utilizing the custom database instance ID specified in config properties
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Initialize Firestore utilizing the custom database instance ID specified in config properties if present
+export const db = firebaseConfig.firestoreDatabaseId 
+  ? getFirestore(app, firebaseConfig.firestoreDatabaseId) 
+  : getFirestore(app);
 
 // Initialize system Firebase Auth instance
 export const auth = getAuth();

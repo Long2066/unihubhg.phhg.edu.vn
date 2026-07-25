@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useUniHub } from "../state";
+import { UserRole } from "../types";
 import { 
   Users, 
   Calendar, 
@@ -13,11 +14,17 @@ import {
 
 export const ClassStatisticsBottom: React.FC = () => {
   const { 
+    currentUser,
     students, 
     dailyAttendance 
   } = useUniHub();
 
-  const [filterClass, setFilterClass] = useState("ALL");
+  const isClassMonitor = currentUser?.role === UserRole.CLASS_MONITOR;
+  const monitorClassId = currentUser?.targetId || "";
+
+  const [filterClass, setFilterClass] = useState(() => {
+    return currentUser?.role === UserRole.CLASS_MONITOR ? (currentUser.targetId || "K20-CNTT") : "ALL";
+  });
   const [filterDate, setFilterDate] = useState("");
 
   // Group students dynamically to find all unique classes across UniHub
@@ -59,13 +66,15 @@ export const ClassStatisticsBottom: React.FC = () => {
           </div>
           <div>
             <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
-              <span>Trung Tâm Giám Sát Sĩ Số Toàn Phân Hiệu</span>
+              <span>{isClassMonitor ? `Giám Sát Sĩ Số Lớp ${monitorClassId}` : "Trung Tâm Giám Sát Sĩ Số Toàn Phân Hiệu"}</span>
               <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-bold font-mono border border-emerald-200">
                 Live Monitor
               </span>
             </h3>
             <p className="text-xs text-slate-500 mt-1 font-sans">
-              Theo dõi và rà soát tình hình nộp sĩ số, chuyên cần, nghỉ có học hoặc vắng không phép theo thời gian thực của tất cả cụm lớp khoa trực thuộc.
+              {isClassMonitor 
+                ? `Theo dõi và rà soát tình hình nộp sĩ số, chuyên cần, nghỉ có phép hoặc vắng không phép theo thời gian thực của lớp ${monitorClassId}.`
+                : "Theo dõi và rà soát tình hình nộp sĩ số, chuyên cần, nghỉ có học hoặc vắng không phép theo thời gian thực của tất cả cụm lớp khoa trực thuộc."}
             </p>
           </div>
         </div>
@@ -81,12 +90,19 @@ export const ClassStatisticsBottom: React.FC = () => {
             <select
               value={filterClass}
               onChange={(e) => setFilterClass(e.target.value)}
-              className="w-full text-xs pl-9 pr-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-805 font-bold uppercase focus:outline-indigo-500"
+              disabled={isClassMonitor}
+              className="w-full text-xs pl-9 pr-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-805 font-bold uppercase focus:outline-indigo-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
             >
-              <option value="ALL">-- Tất Cả Các Lớp ({classes.length}) --</option>
-              {classes.map(cid => (
-                <option key={cid} value={cid}>Lớp {cid}</option>
-              ))}
+              {isClassMonitor ? (
+                <option value={monitorClassId}>Lớp {monitorClassId}</option>
+              ) : (
+                <>
+                  <option value="ALL">-- Tất Cả Các Lớp ({classes.length}) --</option>
+                  {classes.map(cid => (
+                    <option key={cid} value={cid}>Lớp {cid}</option>
+                  ))}
+                </>
+              )}
             </select>
           </div>
         </div>
@@ -104,10 +120,10 @@ export const ClassStatisticsBottom: React.FC = () => {
         </div>
 
         <div className="md:col-span-3 flex justify-end self-end">
-          {(filterClass !== "ALL" || filterDate) ? (
+          {(!isClassMonitor && filterClass !== "ALL") || filterDate ? (
             <button
               onClick={() => {
-                setFilterClass("ALL");
+                if (!isClassMonitor) setFilterClass("ALL");
                 setFilterDate("");
               }}
               className="w-full py-1.8 border bg-white border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
@@ -146,24 +162,39 @@ export const ClassStatisticsBottom: React.FC = () => {
         </div>
 
         <div className="bg-slate-50/50 border border-slate-150 p-4 rounded-xl text-center flex flex-col justify-center space-y-1">
-          <span className="text-[9px] font-bold text-slate-450 uppercase block">Trạng thái ngày hiện hành</span>
-          <span className="text-xs font-sans font-black text-indigo-905 text-indigo-900 block">
+          <span className="text-[9px] font-bold text-slate-450 uppercase block">
+            {isClassMonitor ? "Trạng thái nộp sĩ số lớp" : "Trạng thái ngày hiện hành"}
+          </span>
+          <span className="text-xs font-sans font-black text-indigo-900 block">
             Ngày {todayStr}
           </span>
           <span className="text-[9px] font-mono text-slate-500 block leading-tight mt-0.5">
-            {missingCidsToday.length === 0 ? "100% Các lớp đã nộp" : `Còn ${missingCidsToday.length} lớp chưa nộp sĩ số`}
+            {isClassMonitor 
+              ? (reportedCidsToday.includes(monitorClassId) ? "Đã nộp báo cáo sĩ số" : "Chưa nộp báo cáo sĩ số")
+              : (missingCidsToday.length === 0 ? "100% Các lớp đã nộp" : `Còn ${missingCidsToday.length} lớp chưa nộp sĩ số`)}
           </span>
         </div>
       </div>
 
       {/* ALERT BOX FOR MISSING SUBMISSIONS TODAY */}
-      {missingCidsToday.length > 0 && (
-        <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 flex items-center gap-2 font-sans">
-          <AlertTriangle size={15} className="text-amber-600 shrink-0" />
-          <div>
-            <span className="font-bold">Nhắc nhở nộp sĩ số:</span> Ngày <span className="font-mono font-bold">{todayStr}</span> hiện còn các cụm lớp chưa chốt nộp báo cáo sĩ số nề nếp: <span className="font-mono font-bold text-amber-950 bg-amber-100 px-1.5 py-0.5 rounded text-[10px]">{missingCidsToday.join(", ")}</span>. Đề nghị các Ban cán sự khẩn trương hoàn thành báo cáo sĩ số ngày.
+      {isClassMonitor ? (
+        missingCidsToday.includes(monitorClassId) && (
+          <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 flex items-center gap-2 font-sans">
+            <AlertTriangle size={15} className="text-amber-600 shrink-0" />
+            <div>
+              <span className="font-bold">Nhắc nhở nộp sĩ số:</span> Lớp <span className="font-mono font-bold">{monitorClassId}</span> của bạn chưa nộp báo cáo sĩ số ngày <span className="font-mono font-bold">{todayStr}</span>. Vui lòng hoàn thành báo cáo sĩ số ngày.
+            </div>
           </div>
-        </div>
+        )
+      ) : (
+        missingCidsToday.length > 0 && (
+          <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 flex items-center gap-2 font-sans">
+            <AlertTriangle size={15} className="text-amber-600 shrink-0" />
+            <div>
+              <span className="font-bold">Nhắc nhở nộp sĩ số:</span> Ngày <span className="font-mono font-bold">{todayStr}</span> hiện còn các cụm lớp chưa chốt nộp báo cáo sĩ số nề nếp: <span className="font-mono font-bold text-amber-950 bg-amber-100 px-1.5 py-0.5 rounded text-[10px]">{missingCidsToday.join(", ")}</span>. Đề nghị các Ban cán sự khẩn trương hoàn thành báo cáo sĩ số ngày.
+            </div>
+          </div>
+        )
       )}
 
       {/* DAILY ATTENDANCE FEED */}

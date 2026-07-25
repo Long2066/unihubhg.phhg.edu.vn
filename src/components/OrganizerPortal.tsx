@@ -164,6 +164,7 @@ export const OrganizerPortal: React.FC = () => {
   const [actExpiryDate, setActExpiryDate] = useState(""); // Expiry display duration date
   const [actImageUrl, setActImageUrl] = useState(""); // Banner image marketing/background URL
   const [actDeployUnit, setActDeployUnit] = useState(org.id);
+  const [actMaxParticipants, setActMaxParticipants] = useState<string>(""); // Max registrations
 
   // Form State for CLB Announcement
   const [annTitle, setAnnTitle] = useState("");
@@ -176,6 +177,7 @@ export const OrganizerPortal: React.FC = () => {
   const [linkedPoints, setLinkedPoints] = useState(5);
   const [linkedDate, setLinkedDate] = useState("");
   const [linkedLocation, setLinkedLocation] = useState("");
+  const [linkedMaxParticipants, setLinkedMaxParticipants] = useState<string>(""); // Max registrations for linked activity
 
   // Import Excel XML/CSV States
   const [importStatus, setImportStatus] = useState<string | null>(null);
@@ -593,6 +595,12 @@ export const OrganizerPortal: React.FC = () => {
       return;
     }
 
+    const maxPart = actMaxParticipants.trim() ? Number(actMaxParticipants) : undefined;
+    if (maxPart !== undefined && (isNaN(maxPart) || maxPart <= 0)) {
+      alert("Giới hạn số lượng đăng ký phải là số nguyên dương lớn hơn 0!");
+      return;
+    }
+
     const newActId = createActivity({
       title: actTitle,
       orgId: actDeployUnit,
@@ -603,7 +611,8 @@ export const OrganizerPortal: React.FC = () => {
       description: actDesc,
       registrationOpen: true,
       expiryDate: actExpiryDate || undefined,
-      imageUrl: actImageUrl || undefined
+      imageUrl: actImageUrl || undefined,
+      maxParticipants: maxPart
     } as any);
 
     setActTitle("");
@@ -612,6 +621,7 @@ export const OrganizerPortal: React.FC = () => {
     setActDesc("");
     setActExpiryDate("");
     setActImageUrl("");
+    setActMaxParticipants("");
     alert("Tạo hoạt động mới thành công! Đăng ký sẵn sàng tích hợp trong mục điểm danh.");
     setActivityTimeFilter("ALL");
     setSelectedActId(newActId);
@@ -632,6 +642,12 @@ export const OrganizerPortal: React.FC = () => {
         alert("Vui lòng nhập đầy đủ Thời gian tổ chức và Địa điểm cho hoạt động điểm danh rèn luyện đi kèm!");
         return;
       }
+      const maxPart = linkedMaxParticipants.trim() ? Number(linkedMaxParticipants) : undefined;
+      if (maxPart !== undefined && (isNaN(maxPart) || maxPart <= 0)) {
+        alert("Giới hạn số lượng đăng ký phải là số nguyên dương lớn hơn 0!");
+        return;
+      }
+
       linkedActId = createActivity({
         title: annTitle,
         orgId: annDeployUnit,
@@ -642,7 +658,8 @@ export const OrganizerPortal: React.FC = () => {
         description: annContent,
         registrationOpen: true,
         expiryDate: annExpiryDate || undefined,
-        imageUrl: annImageUrl || undefined
+        imageUrl: annImageUrl || undefined,
+        maxParticipants: maxPart
       } as any);
     }
 
@@ -661,6 +678,7 @@ export const OrganizerPortal: React.FC = () => {
     setAnnImageUrl("");
     setLinkedDate("");
     setLinkedLocation("");
+    setLinkedMaxParticipants("");
     
     alert(createLinkedActivity ? "Đăng tải thông báo & khởi tạo hoạt động điểm danh thành công!" : "Đăng tải thông báo CLB thành công!");
     
@@ -1396,22 +1414,42 @@ export const OrganizerPortal: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Customizable Display Duration Expiry (Requirement 4: Có thời hạn hiển thị tùy chỉnh, hết thời hạn tự auto biến) */}
-                  <div className="p-3 bg-indigo-50/40 rounded-xl border border-indigo-100">
-                    <label className="block text-[11px] font-bold text-indigo-950 mb-1 flex items-center gap-1">
-                      <Clock size={12} className="text-indigo-600" />
-                      <span>Thời hạn hiển thị trên cổng sinh viên * (Ngày hết hạn)</span>
-                    </label>
-                    <input 
-                      type="date"
-                      required
-                      value={actExpiryDate}
-                      onChange={(e) => setActExpiryDate(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs rounded-lg border border-indigo-200 bg-white"
-                    />
-                    <span className="text-[9px] text-slate-400 mt-1 block leading-relaxed">
-                      Lưu ý: Sau ngày này, hoạt động sẽ tự động rút và ẩn khỏi danh bạ tab hiển thị đăng ký của sinh viên.
-                    </span>
+                  {/* Customizable Display Duration Expiry and Max Participants limit */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-3 bg-indigo-55 rounded-xl border border-indigo-150">
+                      <label className="block text-[11px] font-bold text-indigo-950 mb-1 flex items-center gap-1">
+                        <Clock size={12} className="text-indigo-600" />
+                        <span>Thời hạn hiển thị * (Ngày hết hạn)</span>
+                      </label>
+                      <input 
+                        type="date"
+                        required
+                        value={actExpiryDate}
+                        onChange={(e) => setActExpiryDate(e.target.value)}
+                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-indigo-200 bg-white"
+                      />
+                      <span className="text-[9px] text-slate-400 mt-1 block leading-normal">
+                        Sau ngày này, hoạt động sẽ tự động ẩn khỏi cổng đăng ký sinh viên.
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-indigo-55 rounded-xl border border-indigo-150">
+                      <label className="block text-[11px] font-bold text-indigo-950 mb-1 flex items-center gap-1">
+                        <Users size={12} className="text-indigo-600" />
+                        <span>Giới hạn số lượng đăng ký (Tùy chọn)</span>
+                      </label>
+                      <input 
+                        type="number"
+                        min="1"
+                        placeholder="Không giới hạn"
+                        value={actMaxParticipants}
+                        onChange={(e) => setActMaxParticipants(e.target.value)}
+                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-indigo-200 bg-white focus:outline-none"
+                      />
+                      <span className="text-[9px] text-slate-400 mt-1 block leading-normal">
+                        Số lượng đăng ký tối đa (để trống nếu không giới hạn).
+                      </span>
+                    </div>
                   </div>
 
                   <div>
@@ -1629,6 +1667,18 @@ export const OrganizerPortal: React.FC = () => {
                             className="w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-200 focus:outline-none"
                           />
                         </div>
+
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold text-slate-600">Giới hạn đăng ký (Tùy chọn)</label>
+                          <input 
+                            type="number"
+                            min="1"
+                            placeholder="Không giới hạn"
+                            value={linkedMaxParticipants}
+                            onChange={(e) => setLinkedMaxParticipants(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-200 focus:outline-none"
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1745,9 +1795,10 @@ export const OrganizerPortal: React.FC = () => {
                       <div className="space-y-4">
                         <div className="border-b border-slate-100 pb-2">
                           <h4 className="text-xs font-black text-slate-900 leading-tight">{selectedAct.title}</h4>
-                          <div className="flex gap-4 text-[10px] text-slate-500 mt-1">
+                          <div className="flex gap-4 text-[10px] text-slate-500 mt-1 flex-wrap">
                             <span>Địa điểm: <strong className="text-slate-850 font-bold">{selectedAct.location}</strong></span>
                             <span>Chuẩn mốc: <strong className="text-emerald-600">+{realActPoints}đ</strong></span>
+                            <span>Đăng ký: <strong className="text-indigo-650 font-bold">{currentAttendance.length} / {selectedAct.maxParticipants || "Vô hạn"}</strong> sinh viên</span>
                           </div>
                         </div>
 

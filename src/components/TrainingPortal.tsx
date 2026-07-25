@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useUniHub } from "../state";
-import { UserRole, Student, UserAccount, ScheduleSlot, STUDENT_FIELDS_META } from "../types";
+import { UserRole, Student, UserAccount, ScheduleSlot, STUDENT_FIELDS_META, SEMESTER_LIST } from "../types";
 import * as XLSX from "xlsx";
 import { 
   FileSpreadsheet, 
@@ -37,7 +37,9 @@ export const TrainingPortal: React.FC = () => {
     deleteScheduleSlot,
     clearSchedules,
     customClasses,
-    addNewClass
+    addNewClass,
+    selectedSemesterId,
+    setSelectedSemesterId
   } = useUniHub();
 
   const activeTab = (activePortletTab as "IMPORT" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU") || "IMPORT";
@@ -184,11 +186,17 @@ export const TrainingPortal: React.FC = () => {
     ];
     
     const data = students.map((s, idx) => {
-      const grades = s.subjectGrades ? s.subjectGrades.split(",").map(g => g.trim()) : [];
+      const semData = s.academicDataByPeriod?.[selectedSemesterId] || {};
+      const subjectGrades = semData.subjectGrades ?? s.subjectGrades;
+      const grades = subjectGrades ? subjectGrades.split(",").map(g => g.trim()) : [];
       const gradeCols = Array.from({ length: 8 }, (_, i) => {
         const val = grades[i] || "-";
         return val === "" ? "-" : val;
       });
+
+      const gpa4 = semData.gpa ?? s.gpa ?? 3.2;
+      const gpa10 = semData.gpa10 ?? s.gpa10 ?? (gpa4 * 2.5);
+      const academicGrade = semData.academicGrade ?? s.academicGrade ?? (gpa4 >= 3.6 ? "Xuất sắc" : gpa4 >= 3.2 ? "Giỏi" : "Khá");
 
       return [
         idx + 1,
@@ -203,11 +211,11 @@ export const TrainingPortal: React.FC = () => {
         s.idCardPlace || "Cục Cảnh sát QLHC về TTXH",
         s.classId,
         ...gradeCols,
-        s.gpa10 || (s.gpa ? s.gpa * 2.5 : 8.0),
-        s.gpa || 3.2,
-        s.academicGrade || (s.gpa && s.gpa >= 3.6 ? "Xuất sắc" : s.gpa && s.gpa >= 3.2 ? "Giỏi" : "Khá"),
-        s.notes || "",
-        s.updatedAt || new Date().toISOString().split("T")[0]
+        gpa10,
+        gpa4,
+        academicGrade,
+        semData.notes ?? s.notes ?? "",
+        semData.updatedAt ?? s.updatedAt ?? new Date().toISOString().split("T")[0]
       ];
     });
 
@@ -325,7 +333,7 @@ export const TrainingPortal: React.FC = () => {
   };
 
   const handleApplyImport = () => {
-    importAcademicData(previewData);
+    importAcademicData(previewData, selectedSemesterId);
     setShowPreview(false);
     setPreviewData([]);
     alert("Dữ liệu kết quả học tập từ cổng đào tạo đã được đồng bộ & khóa chính thức thành công!");
@@ -828,10 +836,11 @@ export const TrainingPortal: React.FC = () => {
     const s = students.find(item => item.id === studentId);
     if (s) {
       setSelectedStudentId(studentId);
-      setEditGpa(s.gpa || 3.0);
-      setEditCredits(s.creditsEarned || 15);
-      setEditWarning(!!s.learningWarning);
-      setEditStatus(s.learningStatus || "Bình thường");
+      const semData = s.academicDataByPeriod?.[selectedSemesterId] || {};
+      setEditGpa(semData.gpa ?? s.gpa ?? 3.0);
+      setEditCredits(semData.creditsEarned ?? s.creditsEarned ?? 15);
+      setEditWarning(semData.learningWarning ?? !!s.learningWarning);
+      setEditStatus(semData.learningStatus ?? s.learningStatus ?? "Bình thường");
       setEditGender(s.gender || "Nam");
       setEditDob(s.dob || "2006-01-01");
       setEditPob(s.pob || "Hà Giang");
@@ -839,11 +848,11 @@ export const TrainingPortal: React.FC = () => {
       setEditIdCard(s.idCard || "");
       setEditIdCardDate(s.idCardDate || "");
       setEditIdCardPlace(s.idCardPlace || "");
-      setEditSubjects(s.subjects || "");
-      setEditSubjectGrades(s.subjectGrades || "");
-      setEditGpa10(s.gpa10 || 8.0);
-      setEditAcademicGrade(s.academicGrade || "Khá");
-      setEditNotes(s.notes || "");
+      setEditSubjects(semData.subjects ?? s.subjects ?? "");
+      setEditSubjectGrades(semData.subjectGrades ?? s.subjectGrades ?? "");
+      setEditGpa10(semData.gpa10 ?? s.gpa10 ?? 8.0);
+      setEditAcademicGrade(semData.academicGrade ?? s.academicGrade ?? "Khá");
+      setEditNotes(semData.notes ?? s.notes ?? "");
     }
   };
 
@@ -867,7 +876,7 @@ export const TrainingPortal: React.FC = () => {
         gpa10: Number(editGpa10),
         academicGrade: editAcademicGrade,
         notes: editNotes
-      }]);
+      }], selectedSemesterId);
       setSelectedStudentId(null);
       alert("Đã hiệu chỉnh học vụ thành công.");
     }
@@ -907,6 +916,21 @@ export const TrainingPortal: React.FC = () => {
               <div>
                 <h3 className="text-sm font-bold text-slate-800 uppercase mb-1">Đồng quy dữ liệu điểm GPA</h3>
                 <p className="text-[11px] text-slate-400 leading-relaxed">Phòng Đào tạo tải lên mẫu file chứa thông tin GPA học kỳ nhằm tự động cộng hoặc khấu trừ rèn luyện hệ thống.</p>
+              </div>
+
+              <div className="flex flex-col gap-1.5 max-w-xs">
+                <label className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Chọn học kì đồng bộ dữ liệu:</label>
+                <select
+                  value={selectedSemesterId}
+                  onChange={(e) => setSelectedSemesterId(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                >
+                  {SEMESTER_LIST.map(sem => (
+                    <option key={sem.id} value={sem.id}>
+                      {sem.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Action buttons for Real Excel */}
@@ -1283,22 +1307,27 @@ export const TrainingPortal: React.FC = () => {
               <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Danh mục hồ sơ học lực của sinh viên Phân hiệu</h4>
               
               <div className="border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-100 max-h-[350px] overflow-y-auto">
-                {students.map(s => (
-                  <div key={s.id} className="p-3 bg-white flex justify-between items-center flex-wrap gap-2 text-xs">
-                    <div>
-                      <h5 className="font-extrabold text-slate-900">{s.name}</h5>
-                      <p className="text-[10px] text-slate-400 font-mono">MSSV: {s.id} | Lớp: {s.classId} | Khoa: {s.facultyId}</p>
-                    </div>
+                {students.map(s => {
+                  const semData = s.academicDataByPeriod?.[selectedSemesterId] || {};
+                  const studentGpa = semData.gpa ?? s.gpa;
+                  const studentCredits = semData.creditsEarned ?? s.creditsEarned;
 
-                    <div className="flex items-center gap-4">
-                      <div className="text-center bg-slate-50 px-3 py-1.5 rounded-lg">
-                        <div className="text-[10px] text-slate-400 font-medium">Số GPA</div>
-                        <div className="text-xs font-bold text-slate-800 font-mono">{s.gpa?.toFixed(2) || "Chưa nhập"}</div>
+                  return (
+                    <div key={s.id} className="p-3 bg-white flex justify-between items-center flex-wrap gap-2 text-xs">
+                      <div>
+                        <h5 className="font-extrabold text-slate-900">{s.name}</h5>
+                        <p className="text-[10px] text-slate-400 font-mono">MSSV: {s.id} | Lớp: {s.classId} | Khoa: {s.facultyId}</p>
                       </div>
-                      <div className="text-center bg-slate-50 px-3 py-1.5 rounded-lg">
-                        <div className="text-[10px] text-slate-400 font-medium font-mono">Tác vụ phụ</div>
-                        <div className="text-xs font-bold text-slate-800 font-mono">{s.creditsEarned || 0} TC</div>
-                      </div>
+
+                      <div className="flex items-center gap-4">
+                        <div className="text-center bg-slate-50 px-3 py-1.5 rounded-lg">
+                          <div className="text-[10px] text-slate-400 font-medium">Số GPA</div>
+                          <div className="text-xs font-bold text-slate-800 font-mono">{studentGpa !== undefined ? studentGpa.toFixed(2) : "Chưa nhập"}</div>
+                        </div>
+                        <div className="text-center bg-slate-50 px-3 py-1.5 rounded-lg">
+                          <div className="text-[10px] text-slate-400 font-medium font-mono">Tác vụ phụ</div>
+                          <div className="text-xs font-bold text-slate-800 font-mono">{studentCredits || 0} TC</div>
+                        </div>
                       <button 
                         onClick={() => startEdit(s.id)}
                         className="p-1 px-2.5 rounded bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold hover:cursor-pointer transition-colors"
@@ -1307,7 +1336,8 @@ export const TrainingPortal: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                ))}
+                );
+              })}
               </div>
             </div>
           )}

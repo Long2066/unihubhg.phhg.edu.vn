@@ -4,9 +4,21 @@ import {
   getDocFromServer, 
   setDoc, 
   collection, 
-  getDocs 
+  getDocs,
+  onSnapshot,
+  deleteDoc,
+  serverTimestamp
 } from "firebase/firestore";
-import { db } from "./firebase";
+import { db, auth } from "./firebase";
+import { 
+  getAuth,
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged 
+} from "firebase/auth";
+import { initializeApp, deleteApp } from "firebase/app";
+import firebaseConfig from "../firebase-applet-config.json";
 
 import { 
   UserAccount, 
@@ -26,7 +38,9 @@ import {
   ScoreFeedback,
   GroupEvaluationCriteria,
   ClubAnnouncement,
-  ScheduleSlot
+  ScheduleSlot,
+  GroupAttendanceReport,
+  SystemFeedback
 } from "./types";
 import { 
   SEED_PERIOD, 
@@ -42,7 +56,8 @@ import {
   SEED_FACULTY_REVIEW, 
   SEED_RESULTS,
   SEED_DAILY_ATTENDANCE,
-  SEED_SCHEDULES
+  SEED_SCHEDULES,
+  SEED_GROUP_ATTENDANCE
 } from "./data";
 
 interface UniHubContextType {
@@ -64,9 +79,11 @@ interface UniHubContextType {
   groupCriteria: GroupEvaluationCriteria[];
   announcements: ClubAnnouncement[];
   schedules: ScheduleSlot[];
+  systemFeedbacks: SystemFeedback[];
   
   // Actions
-  login: (email: string, password?: string) => boolean;
+  login: (email: string, password?: string) => Promise<boolean>;
+  sendSystemFeedback: (category: string, title: string, content: string) => Promise<void>;
   logout: () => void;
   updatePeriodStatus: (status: "ACTIVE" | "LOCKED") => void;
   
@@ -99,7 +116,7 @@ interface UniHubContextType {
   importMembersExcel: (membersToImport: OrganizationMember[]) => void;
   
   // Training Dept Actions
-  importAcademicData: (excelData: Partial<Student>[]) => void;
+  importAcademicData: (excelData: Partial<Student>[], targetSemesterId?: string) => void;
   toggleLearningDataLock: () => void;
   importNewClassesExcel: (studentsToImport: Student[], usersToImport: UserAccount[]) => void;
   customClasses: string[];
@@ -110,6 +127,7 @@ interface UniHubContextType {
   toggleClassMeetingDuty: (studentId: string, completed: boolean) => void;
   reportDailyAttendance: (classId: string, date: string, absentees: { studentId: string; studentName: string; type: "PHÉP" | "KHÔNG_PHÉP"; reason?: string }[], reportedBy: string) => void;
   bulkApproveScores: (classId: string, studentIds: string[], role: UserRole) => void;
+  reviewEvidence: (subId: string, status: "APPROVED" | "REJECTED", comment?: string) => void;
   
   // GVCN Actions
   approveAdviserScores: (classId: string, comment: string) => void;
@@ -138,6 +156,17 @@ interface UniHubContextType {
   createUserAccount: (account: UserAccount) => void;
   updateUserAccount: (userId: string, updatedAccount: Partial<UserAccount>) => void;
   deleteUserAccount: (userId: string) => void;
+  
+  // Group & Subgroup Actions
+  groupAttendances: GroupAttendanceReport[];
+  saveGroupSettings: (classId: string, assignments: { [studentId: string]: string }, leaders: { [groupName: string]: { studentId: string; username?: string; password?: string } }) => void;
+  reportGroupAttendance: (report: Omit<GroupAttendanceReport, "id" | "reportedAt">) => void;
+  approveGroupAttendance: (reportId: string, reviewerName: string) => void;
+  rejectGroupAttendance: (reportId: string, reviewerName: string) => void;
+  submitGroupLeaderScore: (studentId: string, scores: { studyPoints: number; violationPoints: number; extracurricularPoints: number; communityPoints: number; achievementPoints: number; totalPoints: number; comment?: string }) => void;
+  applyGroupLeaderScore: (studentId: string) => void;
+  aggregateGroupAttendancesToDaily: (classId: string, date: string, reporterName: string) => void;
+  sendGroupReminder: (classId: string, targetStudentIds: string[], message: string) => void;
 }
 
 const UniHubContext = createContext<UniHubContextType | undefined>(undefined);
@@ -165,121 +194,138 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         case UserRole.FACULTY:
           setActivePortletTab("STAT");
           break;
+        case UserRole.ADVISER:
+          setActivePortletTab("ADVISER_DUYETDEM");
+          break;
         default:
           setActivePortletTab("TRANG_CHU");
       }
     }
   }, [currentUser]);
   
-  // Core Databases in LocalStorage or State
+  // Firestore-first databases. Seed data is only used by the bootstrapping routine
+  // when the matching Firestore collection is empty; runtime state is hydrated by
+  // Firestore snapshots below.
   const [period, setPeriod] = useState<EvaluationPeriod>(SEED_PERIOD);
-  const [users, setUsers] = useState<UserAccount[]>(SEED_USERS);
-  const [criteria, setCriteria] = useState<PointCriteria[]>(SEED_CRITERIA);
-  const [students, setStudents] = useState<Student[]>(SEED_STUDENTS);
-  const [organizations, setOrganizations] = useState<Organization[]>(SEED_ORGANIZATIONS);
-  const [members, setMembers] = useState<OrganizationMember[]>(SEED_MEMBERS);
-  const [activities, setActivities] = useState<ExtracurricularActivity[]>(SEED_ACTIVITIES);
-  const [attendance, setAttendance] = useState<ActivityAttendance[]>(SEED_ATTENDANCE);
-  const [evidence, setEvidence] = useState<EvidenceSubmission[]>(SEED_EVIDENCE);
-  const [classReviews, setClassReviews] = useState<ClassReviewState[]>(SEED_CLASS_REVIEW);
-  const [facultyReviews, setFacultyReviews] = useState<FacultyReviewState[]>(SEED_FACULTY_REVIEW);
-  const [results, setResults] = useState<EvaluationResult[]>(SEED_RESULTS);
+  const [users, setUsers] = useState<UserAccount[]>([]);
+  const [criteria, setCriteria] = useState<PointCriteria[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [members, setMembers] = useState<OrganizationMember[]>([]);
+  const [activities, setActivities] = useState<ExtracurricularActivity[]>([]);
+  const [attendance, setAttendance] = useState<ActivityAttendance[]>([]);
+  const [evidence, setEvidence] = useState<EvidenceSubmission[]>([]);
+  const [classReviews, setClassReviews] = useState<ClassReviewState[]>([]);
+  const [facultyReviews, setFacultyReviews] = useState<FacultyReviewState[]>([]);
+  const [results, setResults] = useState<EvaluationResult[]>([]);
 
-  // New features databases
-  const [dailyAttendance, setDailyAttendance] = useState<DailyAttendanceReport[]>(SEED_DAILY_ATTENDANCE);
-  const [schedules, setSchedules] = useState<ScheduleSlot[]>(SEED_SCHEDULES);
-  const [customClasses, setCustomClasses] = useState<string[]>(() => {
-    const cached = localStorage.getItem("unihub_custom_classes");
-    return cached ? JSON.parse(cached) : [];
-  });
-  const [feedbacks, setFeedbacks] = useState<ScoreFeedback[]>([
-    { id: "FB1", fromRole: UserRole.ADVISER, fromName: "Hoàng Minh Đức", toClassId: "K20-CNTT", comment: "Cần điều chỉnh, đối chiếu kỹ hơn danh sách nề nếp thi đua lớp trước khi gửi ký chính thống.", createdAt: "2026-05-23", resolved: false }
-  ]);
-  const [groupCriteria, setGroupCriteria] = useState<GroupEvaluationCriteria[]>([
-    { id: "XS", name: "Tập thể Xuất sắc", minExcellentPercent: 30, maxWeakPercent: 0, description: "Tỉ lệ rèn luyện Xuất sắc & Tốt đạt từ 30% trở lên, không có sinh viên xếp loại Yếu hoặc Kém." },
-    { id: "TT", name: "Tập thể Tiên tiến", minExcellentPercent: 20, maxWeakPercent: 5, description: "Tỉ lệ rèn luyện Xuất sắc & Tốt đạt từ 20% trở lên, tỉ lệ xếp loại Yếu hoặc Kém không quá 5%." }
-  ]);
-  const [announcements, setAnnouncements] = useState<ClubAnnouncement[]>([
-    {
-      id: "ANN_01",
-      orgId: "UNITECH",
-      orgName: "CLB Sáng tạo Công nghệ UniTech",
-      title: "Tuyển thành viên Ban chủ nhiệm nhiệm kỳ mới 2026-2027",
-      content: "CLB thông báo tuyển ứng tuyển nhân sự cho các ban: Truyền thông & Sự kiện, Nghiên cứu phát triển. Hạn chốt đăng ký trước ngày 15/06/2026.",
-      createdAt: "2026-05-20",
-      expiryDate: "2026-06-25"
-    },
-    {
-      id: "ANN_02",
-      orgId: "UNITECH",
-      orgName: "CLB Sáng tạo Công nghệ UniTech",
-      title: "Buổi sinh hoạt chuyên đề: Trí tuệ nhân tạo thế hệ mới",
-      content: "Trân trọng kính mời tất cả các thành viên tham dự buổi sinh hoạt chuyên đề thảo luận ứng dụng của AI vào học tập, giải thưởng và nghiên cứu khoa học sinh viên.",
-      createdAt: "2026-06-01",
-      expiryDate: "2026-06-24"
-    }
-  ]);
+  // Feature databases
+  const [dailyAttendance, setDailyAttendance] = useState<DailyAttendanceReport[]>([]);
+  const [schedules, setSchedules] = useState<ScheduleSlot[]>([]);
+  const [groupAttendances, setGroupAttendances] = useState<GroupAttendanceReport[]>([]);
+  const [customClasses, setCustomClasses] = useState<string[]>([]);
+  const [feedbacks, setFeedbacks] = useState<ScoreFeedback[]>([]);
+  const [groupCriteria, setGroupCriteria] = useState<GroupEvaluationCriteria[]>([]);
+  const [announcements, setAnnouncements] = useState<ClubAnnouncement[]>([]);
+  const [systemFeedbacks, setSystemFeedbacks] = useState<SystemFeedback[]>([]);
 
-  // Load state from local storage on boot
+  // Keep only lightweight session/UI preferences in localStorage. Business data is
+  // loaded from Firestore to avoid stale browser cache overriding the database.
   useEffect(() => {
-    const cachedPeriod = localStorage.getItem("unihub_period");
-    const cachedUsers = localStorage.getItem("unihub_users");
-    const cachedCriteria = localStorage.getItem("unihub_criteria");
-    const cachedStudents = localStorage.getItem("unihub_students");
-    const cachedOrgs = localStorage.getItem("unihub_organizations");
-    const cachedMembers = localStorage.getItem("unihub_members");
-    const cachedActivities = localStorage.getItem("unihub_activities");
-    const cachedAttendance = localStorage.getItem("unihub_attendance");
-    const cachedEvidence = localStorage.getItem("unihub_evidence");
-    const cachedClassReviews = localStorage.getItem("unihub_class_reviews");
-    const cachedFacultyReviews = localStorage.getItem("unihub_faculty_reviews");
-    const cachedResults = localStorage.getItem("unihub_results");
     const cachedCurrentUser = localStorage.getItem("unihub_current_user");
+    const cachedCustomClasses = localStorage.getItem("unihub_custom_classes");
 
-    const cachedDailyAtt = localStorage.getItem("unihub_daily_attendance");
-    const cachedFeedbacks = localStorage.getItem("unihub_feedbacks");
-    const cachedGroupCriteria = localStorage.getItem("unihub_group_criteria");
-    const cachedAnnouncements = localStorage.getItem("unihub_announcements");
-    const cachedSchedules = localStorage.getItem("unihub_schedules");
+    if (cachedCurrentUser) setCurrentUser(JSON.parse(cachedCurrentUser));
+    if (cachedCustomClasses) setCustomClasses(JSON.parse(cachedCustomClasses));
+  }, []);
 
-    let shouldReset = false;
-    if (cachedUsers) {
-      try {
-        const parsedUsers = JSON.parse(cachedUsers) as UserAccount[];
-        if (!parsedUsers.some(u => u.email === "hsvphhg@hg.edu.vn")) {
-          shouldReset = true;
-        }
-      } catch (e) {
-        shouldReset = true;
+  // Handle impersonation/masquerade from standalone admin page (Cổng 3001)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const impersonateUsername = params.get("impersonate");
+    if (impersonateUsername && users.length > 0) {
+      const found = users.find(u => u.username.toLowerCase() === impersonateUsername.toLowerCase() || u.email.toLowerCase() === impersonateUsername.toLowerCase());
+      if (found) {
+        setCurrentUser(found);
+        localStorage.setItem("unihub_current_user", JSON.stringify(found));
+        
+        // Clean up the URL query parameter
+        const url = new URL(window.location.href);
+        url.searchParams.delete("impersonate");
+        window.history.replaceState({}, document.title, url.pathname + url.search);
       }
     }
-    
-    if (shouldReset) {
-      localStorage.clear();
-      window.location.reload();
-      return;
-    }
+  }, [users]);
 
-    if (cachedPeriod) setPeriod(JSON.parse(cachedPeriod));
-    if (cachedUsers) setUsers(JSON.parse(cachedUsers));
-    if (cachedCriteria) setCriteria(JSON.parse(cachedCriteria));
-    if (cachedStudents) setStudents(JSON.parse(cachedStudents));
-    if (cachedOrgs) setOrganizations(JSON.parse(cachedOrgs));
-    if (cachedMembers) setMembers(JSON.parse(cachedMembers));
-    if (cachedActivities) setActivities(JSON.parse(cachedActivities));
-    if (cachedAttendance) setAttendance(JSON.parse(cachedAttendance));
-    if (cachedEvidence) setEvidence(JSON.parse(cachedEvidence));
-    if (cachedClassReviews) setClassReviews(JSON.parse(cachedClassReviews));
-    if (cachedFacultyReviews) setFacultyReviews(JSON.parse(cachedFacultyReviews));
-    if (cachedResults) setResults(JSON.parse(cachedResults));
-    if (cachedCurrentUser) setCurrentUser(JSON.parse(cachedCurrentUser));
+  const cacheCollection = <T,>(key: string, setter: React.Dispatch<React.SetStateAction<T[]>>, sorter?: (items: T[]) => T[]) => {
+    return onSnapshot(
+      collection(db, key),
+      (snap) => {
+        const list = snap.docs.map(d => d.data() as T);
+        const normalized = sorter ? sorter(list) : list;
+        setter(normalized);
+        localStorage.setItem(`unihub_${key}`, JSON.stringify(normalized));
+      },
+      (error) => console.warn(`Firestore listener failed for ${key}:`, error)
+    );
+  };
 
-    if (cachedDailyAtt) setDailyAttendance(JSON.parse(cachedDailyAtt));
-    if (cachedFeedbacks) setFeedbacks(JSON.parse(cachedFeedbacks));
-    if (cachedGroupCriteria) setGroupCriteria(JSON.parse(cachedGroupCriteria));
-    if (cachedAnnouncements) setAnnouncements(JSON.parse(cachedAnnouncements));
-    if (cachedSchedules) setSchedules(JSON.parse(cachedSchedules));
+  // Realtime Firestore hydration: database is the source of truth for all core modules.
+  useEffect(() => {
+    const unsubscribers = [
+      cacheCollection<UserAccount>("users", setUsers),
+      cacheCollection<Student>("students", setStudents),
+      cacheCollection<Organization>("organizations", setOrganizations),
+      cacheCollection<OrganizationMember>("members", setMembers),
+      cacheCollection<ExtracurricularActivity>("activities", setActivities),
+      cacheCollection<ActivityAttendance>("attendance", setAttendance),
+      cacheCollection<EvidenceSubmission>("evidence", setEvidence),
+      cacheCollection<EvaluationResult>("results", setResults),
+      cacheCollection<DailyAttendanceReport>("dailyAttendance", setDailyAttendance),
+      cacheCollection<ClubAnnouncement>("announcements", setAnnouncements),
+      cacheCollection<ScheduleSlot>("schedules", setSchedules),
+      cacheCollection<ScoreFeedback>("feedbacks", setFeedbacks, items => items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())),
+      cacheCollection<GroupEvaluationCriteria>("groupCriteria", setGroupCriteria),
+      cacheCollection<GroupAttendanceReport>("groupAttendances", setGroupAttendances, items => items.sort((a, b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime())),
+      cacheCollection<SystemFeedback>("systemFeedbacks", setSystemFeedbacks, items => items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())),
+      cacheCollection<PointCriteria>("criteria", setCriteria, items => items.sort((a, b) => a.id.localeCompare(b.id))),
+      cacheCollection<ClassReviewState>("classReviews", setClassReviews),
+      cacheCollection<FacultyReviewState>("facultyReviews", setFacultyReviews),
+      onSnapshot(
+        doc(db, "settings", "period"),
+        (snap) => {
+          if (snap.exists()) {
+            const value = snap.data() as EvaluationPeriod;
+            setPeriod(value);
+            localStorage.setItem("unihub_period", JSON.stringify(value));
+          }
+        },
+        (error) => console.warn("Firestore listener failed for settings/period:", error)
+      )
+    ];
+
+    return () => unsubscribers.forEach(unsubscribe => unsubscribe());
   }, []);
+
+  // Listen to Firebase Auth state change to sync currentUser
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (authUser) => {
+      if (authUser) {
+        const found = users.find(u => u.email.toLowerCase() === authUser.email?.toLowerCase());
+        if (found) {
+          setCurrentUser(found);
+          localStorage.setItem("unihub_current_user", JSON.stringify(found));
+        }
+      } else {
+        const params = new URLSearchParams(window.location.search);
+        if (!params.get("impersonate")) {
+          setCurrentUser(null);
+          localStorage.removeItem("unihub_current_user");
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [users]);
 
   // Validate Connection to Firestore on startup
   const testConnection = async () => {
@@ -388,73 +434,274 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setAnnouncements(list);
         localStorage.setItem("unihub_announcements", JSON.stringify(list));
       }
+
+      // 11. Get System Feedbacks
+      const sysFeedSnap = await getDocs(collection(db, "systemFeedbacks"));
+      if (!sysFeedSnap.empty) {
+        const list: SystemFeedback[] = [];
+        sysFeedSnap.forEach(d => list.push(d.data() as SystemFeedback));
+        setSystemFeedbacks(list);
+        localStorage.setItem("unihub_system_feedbacks", JSON.stringify(list));
+      }
+
+      // 12. Get Criteria
+      const critSnap = await getDocs(collection(db, "criteria"));
+      if (!critSnap.empty) {
+        const list: PointCriteria[] = [];
+        critSnap.forEach(d => list.push(d.data() as PointCriteria));
+        list.sort((a, b) => a.id.localeCompare(b.id));
+        setCriteria(list);
+        localStorage.setItem("unihub_criteria", JSON.stringify(list));
+      }
+
+      // 13. Get Class Reviews
+      const crSnap = await getDocs(collection(db, "classReviews"));
+      if (!crSnap.empty) {
+        const list: ClassReviewState[] = [];
+        crSnap.forEach(d => list.push(d.data() as ClassReviewState));
+        setClassReviews(list);
+        localStorage.setItem("unihub_class_reviews", JSON.stringify(list));
+      }
+
+      // 14. Get Faculty Reviews
+      const frSnap = await getDocs(collection(db, "facultyReviews"));
+      if (!frSnap.empty) {
+        const list: FacultyReviewState[] = [];
+        frSnap.forEach(d => list.push(d.data() as FacultyReviewState));
+        setFacultyReviews(list);
+        localStorage.setItem("unihub_faculty_reviews", JSON.stringify(list));
+      }
     } catch (error) {
       console.warn("Could not sync from Firestore (possibly schema rules or empty DB):", error);
     }
   };
 
+
   // Save changes to Firebase Firestore
   const saveToFirestore = async (key: string, data: any) => {
     try {
       if (key === "unihub_users" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "users"));
+        const newIds = new Set(data.map(item => item.id));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) {
+            await deleteDoc(doc(db, "users", docObj.id));
+          }
+        }
         for (const item of data) {
           if (item?.id) {
             await setDoc(doc(db, "users", item.id), item);
           }
         }
       } else if (key === "unihub_students" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "students"));
+        const newIds = new Set(data.map(item => item.id));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) {
+            await deleteDoc(doc(db, "students", docObj.id));
+          }
+        }
         for (const item of data) {
           if (item?.id) {
             await setDoc(doc(db, "students", item.id), item);
           }
         }
       } else if (key === "unihub_organizations" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "organizations"));
+        const newIds = new Set(data.map(item => item.id));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) {
+            await deleteDoc(doc(db, "organizations", docObj.id));
+          }
+        }
         for (const item of data) {
           if (item?.id) {
             await setDoc(doc(db, "organizations", item.id), item);
           }
         }
       } else if (key === "unihub_activities" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "activities"));
+        const newIds = new Set(data.map(item => item.id));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) {
+            await deleteDoc(doc(db, "activities", docObj.id));
+          }
+        }
         for (const item of data) {
           if (item?.id) {
             await setDoc(doc(db, "activities", item.id), item);
           }
         }
       } else if (key === "unihub_attendance" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "attendance"));
+        const newIds = new Set(data.map(item => item.id));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) {
+            await deleteDoc(doc(db, "attendance", docObj.id));
+          }
+        }
         for (const item of data) {
           if (item?.id) {
             await setDoc(doc(db, "attendance", item.id), item);
           }
         }
       } else if (key === "unihub_evidence" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "evidence"));
+        const newIds = new Set(data.map(item => item.id));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) {
+            await deleteDoc(doc(db, "evidence", docObj.id));
+          }
+        }
         for (const item of data) {
           if (item?.id) {
             await setDoc(doc(db, "evidence", item.id), item);
           }
         }
       } else if (key === "unihub_results" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "results"));
+        const newIds = new Set(data.map(item => `${item.studentId}_${item.periodId}`));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) {
+            await deleteDoc(doc(db, "results", docObj.id));
+          }
+        }
         for (const item of data) {
           const docId = `${item.studentId}_${item.periodId}`;
           await setDoc(doc(db, "results", docId), item);
         }
       } else if (key === "unihub_daily_attendance" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "dailyAttendance"));
+        const newIds = new Set(data.map(item => item.id));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) {
+            await deleteDoc(doc(db, "dailyAttendance", docObj.id));
+          }
+        }
         for (const item of data) {
           if (item?.id) {
             await setDoc(doc(db, "dailyAttendance", item.id), item);
           }
         }
       } else if (key === "unihub_members" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "members"));
+        const newIds = new Set(data.map(item => item.id));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) {
+            await deleteDoc(doc(db, "members", docObj.id));
+          }
+        }
         for (const item of data) {
           if (item?.id) {
             await setDoc(doc(db, "members", item.id), item);
           }
         }
       } else if (key === "unihub_announcements" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "announcements"));
+        const newIds = new Set(data.map(item => item.id));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) {
+            await deleteDoc(doc(db, "announcements", docObj.id));
+          }
+        }
         for (const item of data) {
           if (item?.id) {
             await setDoc(doc(db, "announcements", item.id), item);
           }
         }
+      } else if (key === "unihub_schedules" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "schedules"));
+        const newIds = new Set(data.map(item => item.id));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) {
+            await deleteDoc(doc(db, "schedules", docObj.id));
+          }
+        }
+        for (const item of data) {
+          if (item?.id) {
+            await setDoc(doc(db, "schedules", item.id), item);
+          }
+        }
+      } else if (key === "unihub_criteria" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "criteria"));
+        const newIds = new Set(data.map(item => item.id));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) {
+            await deleteDoc(doc(db, "criteria", docObj.id));
+          }
+        }
+        for (const item of data) {
+          if (item?.id) {
+            await setDoc(doc(db, "criteria", item.id), item);
+          }
+        }
+      } else if (key === "unihub_class_reviews" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "classReviews"));
+        const newIds = new Set(data.map(item => item.classId));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) {
+            await deleteDoc(doc(db, "classReviews", docObj.id));
+          }
+        }
+        for (const item of data) {
+          if (item?.classId) {
+            await setDoc(doc(db, "classReviews", item.classId), item);
+          }
+        }
+      } else if (key === "unihub_faculty_reviews" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "facultyReviews"));
+        const newIds = new Set(data.map(item => item.facultyId));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) {
+            await deleteDoc(doc(db, "facultyReviews", docObj.id));
+          }
+        }
+        for (const item of data) {
+          if (item?.facultyId) {
+            await setDoc(doc(db, "facultyReviews", item.facultyId), item);
+          }
+        }
+      } else if (key === "unihub_feedbacks" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "feedbacks"));
+        const newIds = new Set(data.map(item => item.id));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) await deleteDoc(doc(db, "feedbacks", docObj.id));
+        }
+        for (const item of data) {
+          if (item?.id) await setDoc(doc(db, "feedbacks", item.id), item);
+        }
+      } else if (key === "unihub_group_criteria" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "groupCriteria"));
+        const newIds = new Set(data.map(item => item.id));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) await deleteDoc(doc(db, "groupCriteria", docObj.id));
+        }
+        for (const item of data) {
+          if (item?.id) await setDoc(doc(db, "groupCriteria", item.id), item);
+        }
+      } else if (key === "unihub_group_attendances" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "groupAttendances"));
+        const newIds = new Set(data.map(item => item.id));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) await deleteDoc(doc(db, "groupAttendances", docObj.id));
+        }
+        for (const item of data) {
+          if (item?.id) await setDoc(doc(db, "groupAttendances", item.id), item);
+        }
+      } else if (key === "unihub_system_feedbacks" && Array.isArray(data)) {
+        const snap = await getDocs(collection(db, "systemFeedbacks"));
+        const newIds = new Set(data.map(item => item.id));
+        for (const docObj of snap.docs) {
+          if (!newIds.has(docObj.id)) await deleteDoc(doc(db, "systemFeedbacks", docObj.id));
+        }
+        for (const item of data) {
+          if (item?.id) await setDoc(doc(db, "systemFeedbacks", item.id), item);
+        }
+      } else if (key === "unihub_period" && data) {
+        await setDoc(doc(db, "settings", "period"), {
+          ...data,
+          updatedAt: serverTimestamp()
+        });
       }
     } catch (error) {
       console.warn(`Firestore upload failed for key ${key}:`, error);
@@ -473,7 +720,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         
         const hasNewHsv = dbUsers.some(u => u.email === "hsvphhg@hg.edu.vn" || u.username === "hsvphhg@hg.edu.vn");
 
-        if (usersSnap.empty || !hasNewHsv) {
+        if (usersSnap.empty) {
           console.log("Seeding or updating Firestore database with new users and organizations...");
           for (const u of SEED_USERS) {
             await setDoc(doc(db, "users", u.id), u);
@@ -481,63 +728,103 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           for (const o of SEED_ORGANIZATIONS) {
             await setDoc(doc(db, "organizations", o.id), o);
           }
-          
-          if (usersSnap.empty) {
-            for (const s of SEED_STUDENTS) {
-              await setDoc(doc(db, "students", s.id), s);
-            }
-            for (const a of SEED_ACTIVITIES) {
-              await setDoc(doc(db, "activities", a.id), a);
-            }
-            for (const att of SEED_ATTENDANCE) {
-              await setDoc(doc(db, "attendance", att.id), att);
-            }
-            for (const ev of SEED_EVIDENCE) {
-              await setDoc(doc(db, "evidence", ev.id), ev);
-            }
-            for (const m of SEED_MEMBERS) {
-              await setDoc(doc(db, "members", m.id), m);
-            }
-            const initAnns: ClubAnnouncement[] = [
-              {
-                id: "ANN_01",
-                orgId: "UNITECH",
-                orgName: "CLB Sáng tạo Công nghệ UniTech",
-                title: "Tuyển thành viên Ban chủ nhiệm nhiệm kỳ mới 2026-2027",
-                content: "CLB thông báo tuyển ứng tuyển nhân sự cho các ban: Truyền thông & Sự kiện, Nghiên cứu phát triển. Hạn chốt đăng ký trước ngày 15/06/2026.",
-                createdAt: "2026-05-20",
-                expiryDate: "2026-06-25"
-              },
-              {
-                id: "ANN_02",
-                orgId: "UNITECH",
-                orgName: "CLB Sáng tạo Công nghệ UniTech",
-                title: "Buổi sinh hoạt chuyên đề: Trí tuệ nhân tạo thế hệ mới",
-                content: "Trân trọng kính mời tất cả các thành viên tham dự buổi sinh hoạt chuyên đề thảo luận ứng dụng của AI vào học tập, giải thưởng và nghiên cứu khoa học sinh viên.",
-                createdAt: "2026-06-01",
-                expiryDate: "2026-06-24"
-              }
-            ];
-            for (const ann of initAnns) {
-              await setDoc(doc(db, "announcements", ann.id), ann);
-            }
-            for (const da of SEED_DAILY_ATTENDANCE) {
-              await setDoc(doc(db, "dailyAttendance", da.id), da);
-            }
-            for (const r of SEED_RESULTS) {
-              const docId = `${r.studentId}_${r.periodId}`;
-              await setDoc(doc(db, "results", docId), r);
-            }
-            console.log("Seeding complete!");
-          } else {
-            console.log("Firestore users list updated successfully.");
+          for (const s of SEED_STUDENTS) {
+            await setDoc(doc(db, "students", s.id), s);
           }
+          for (const a of SEED_ACTIVITIES) {
+            await setDoc(doc(db, "activities", a.id), a);
+          }
+          for (const att of SEED_ATTENDANCE) {
+            await setDoc(doc(db, "attendance", att.id), att);
+          }
+          for (const ev of SEED_EVIDENCE) {
+            await setDoc(doc(db, "evidence", ev.id), ev);
+          }
+          for (const m of SEED_MEMBERS) {
+            await setDoc(doc(db, "members", m.id), m);
+          }
+          const initAnns: ClubAnnouncement[] = [
+            {
+              id: "ANN_01",
+              orgId: "UNITECH",
+              orgName: "CLB Sáng tạo Công nghệ UniTech",
+              title: "Tuyển thành viên Ban chủ nhiệm nhiệm kỳ mới 2026-2027",
+              content: "CLB thông báo tuyển ứng tuyển nhân sự cho các ban: Truyền thông & Sự kiện, Nghiên cứu phát triển. Hạn chốt đăng ký trước ngày 15/06/2026.",
+              createdAt: "2026-05-20",
+              expiryDate: "2026-06-25"
+            },
+            {
+              id: "ANN_02",
+              orgId: "UNITECH",
+              orgName: "CLB Sáng tạo Công nghệ UniTech",
+              title: "Buổi sinh hoạt chuyên đề: Trí tuệ nhân tạo thế hệ mới",
+              content: "Trân trọng kính mời tất cả các thành viên tham dự buổi sinh hoạt chuyên đề thảo luận ứng dụng của AI vào học tập, giải thưởng và nghiên cứu khoa học sinh viên.",
+              createdAt: "2026-06-01",
+              expiryDate: "2026-06-24"
+            }
+          ];
+          for (const ann of initAnns) {
+            await setDoc(doc(db, "announcements", ann.id), ann);
+          }
+          for (const da of SEED_DAILY_ATTENDANCE) {
+            await setDoc(doc(db, "dailyAttendance", da.id), da);
+          }
+          for (const r of SEED_RESULTS) {
+            const docId = `${r.studentId}_${r.periodId}`;
+            await setDoc(doc(db, "results", docId), r);
+          }
+          for (const c of SEED_CRITERIA) {
+            await setDoc(doc(db, "criteria", c.id), c);
+          }
+          for (const cr of SEED_CLASS_REVIEW) {
+            await setDoc(doc(db, "classReviews", cr.classId), cr);
+          }
+          for (const fr of SEED_FACULTY_REVIEW) {
+            await setDoc(doc(db, "facultyReviews", fr.facultyId), fr);
+          }
+          console.log("Seeding complete!");
 
           // Clear localStorage so it forces re-fetching the updated data
           localStorage.clear();
           window.location.reload();
           return;
         } else {
+          // If users exist but the HSV account is missing, add it individually without overwriting other edits.
+          if (!hasNewHsv) {
+            console.log("Adding missing HSV seed user individually...");
+            const hsvUser = SEED_USERS.find(u => u.email === "hsvphhg@hg.edu.vn");
+            if (hsvUser) {
+              await setDoc(doc(db, "users", hsvUser.id), hsvUser);
+            }
+          }
+
+          // Check if criteria collection is empty, and seed if so
+          const critSnapCheck = await getDocs(collection(db, "criteria"));
+          if (critSnapCheck.empty) {
+            console.log("Seeding criteria collection...");
+            for (const c of SEED_CRITERIA) {
+              await setDoc(doc(db, "criteria", c.id), c);
+            }
+          }
+
+          // Check if classReviews collection is empty, and seed if so
+          const crSnapCheck = await getDocs(collection(db, "classReviews"));
+          if (crSnapCheck.empty) {
+            console.log("Seeding classReviews collection...");
+            for (const cr of SEED_CLASS_REVIEW) {
+              await setDoc(doc(db, "classReviews", cr.classId), cr);
+            }
+          }
+
+          // Check if facultyReviews collection is empty, and seed if so
+          const frSnapCheck = await getDocs(collection(db, "facultyReviews"));
+          if (frSnapCheck.empty) {
+            console.log("Seeding facultyReviews collection...");
+            for (const fr of SEED_FACULTY_REVIEW) {
+              await setDoc(doc(db, "facultyReviews", fr.facultyId), fr);
+            }
+          }
+
           await loadFromFirestore();
         }
       } catch (err) {
@@ -573,32 +860,36 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       // 1. TC1: Ý thức học tập (Max 20 XP)
       let studyPoints = 0;
-      if (student.gpa !== undefined) {
-        if (student.gpa >= 3.6) {
+      const periodData = student.academicDataByPeriod?.[period.id] || {};
+      const studentGpa = periodData.gpa ?? student.gpa;
+      const hasWarning = periodData.learningWarning ?? student.learningWarning;
+
+      if (studentGpa !== undefined) {
+        if (studentGpa >= 3.6) {
           const pt = getRulePoints("TC1", "TC1.1", 20);
           studyPoints = pt;
-          logs.push({ criteriaId: "TC1.1", points: pt, reason: `GPA Đạt loại Xuất sắc (${student.gpa.toFixed(2)})`, source: "ĐÀO TẠO", timestamp: timestampNow });
-        } else if (student.gpa >= 3.2) {
+          logs.push({ criteriaId: "TC1.1", points: pt, reason: `GPA Đạt loại Xuất sắc (${studentGpa.toFixed(2)})`, source: "ĐÀO TẠO", timestamp: timestampNow });
+        } else if (studentGpa >= 3.2) {
           const pt = getRulePoints("TC1", "TC1.2", 18);
           studyPoints = pt;
-          logs.push({ criteriaId: "TC1.2", points: pt, reason: `GPA Đạt loại Giỏi (${student.gpa.toFixed(2)})`, source: "ĐÀO TẠO", timestamp: timestampNow });
-        } else if (student.gpa >= 2.5) {
+          logs.push({ criteriaId: "TC1.2", points: pt, reason: `GPA Đạt loại Giỏi (${studentGpa.toFixed(2)})`, source: "ĐÀO TẠO", timestamp: timestampNow });
+        } else if (studentGpa >= 2.5) {
           const pt = getRulePoints("TC1", "TC1.3", 15);
           studyPoints = pt;
-          logs.push({ criteriaId: "TC1.3", points: pt, reason: `GPA Đạt loại Khá (${student.gpa.toFixed(2)})`, source: "ĐÀO TẠO", timestamp: timestampNow });
-        } else if (student.gpa >= 2.0) {
+          logs.push({ criteriaId: "TC1.3", points: pt, reason: `GPA Đạt loại Khá (${studentGpa.toFixed(2)})`, source: "ĐÀO TẠO", timestamp: timestampNow });
+        } else if (studentGpa >= 2.0) {
           const pt = getRulePoints("TC1", "TC1.4", 10);
           studyPoints = pt;
-          logs.push({ criteriaId: "TC1.4", points: pt, reason: `GPA Đạt loại Trung bình (${student.gpa.toFixed(2)})`, source: "ĐÀO TẠO", timestamp: timestampNow });
+          logs.push({ criteriaId: "TC1.4", points: pt, reason: `GPA Đạt loại Trung bình (${studentGpa.toFixed(2)})`, source: "ĐÀO TẠO", timestamp: timestampNow });
         } else {
           studyPoints = 0;
-          logs.push({ criteriaId: "TC1.4", points: 0, reason: `GPA đạt loại Yếu kém (${student.gpa.toFixed(2)})`, source: "ĐÀO TẠO", timestamp: timestampNow });
+          logs.push({ criteriaId: "TC1.4", points: 0, reason: `GPA đạt loại Yếu kém (${studentGpa.toFixed(2)})`, source: "ĐÀO TẠO", timestamp: timestampNow });
         }
       } else {
         logs.push({ criteriaId: "TC1.x", points: 0, reason: "Chưa có dữ liệu GPA học tập chính thức", source: "ĐÀO TẠO", timestamp: timestampNow });
       }
 
-      if (student.learningWarning) {
+      if (hasWarning) {
         const warningPt = getRulePoints("TC1", "TC1.5", -5);
         studyPoints = Math.max(0, studyPoints + warningPt);
         logs.push({ criteriaId: "TC1.5", points: warningPt, reason: "Bị cảnh báo tình trạng học vụ học kỳ", source: "ĐÀO TẠO", timestamp: timestampNow });
@@ -608,7 +899,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const maxTC2 = criteria.find(c => c.id === "TC2")?.maxScore || 25;
       let violationPoints = maxTC2;
       // Check if student has bad learning warning or manual warning
-      if (student.gpa !== undefined && student.gpa < 1.5) {
+      if (studentGpa !== undefined && studentGpa < 1.5) {
         const rule2pt = getRulePoints("TC2", "TC2.2", -10);
         violationPoints = Math.max(0, violationPoints + rule2pt);
         logs.push({ criteriaId: "TC2.2", points: rule2pt, reason: "Vi phạm quy chế nợ nhiều học phần hoặc cảnh báo học lực quá thấp", source: "ĐÀO TẠO", timestamp: timestampNow });
@@ -800,21 +1091,137 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveToStorage("unihub_results", computedResults);
   }, [students, members, activities, attendance, evidence, classReviews, facultyReviews, period.id, criteria, dailyAttendance]);
 
-  const login = (email: string, password?: string): boolean => {
-    const found = users.find(u => u.username.toLowerCase() === email.toLowerCase() || u.email.toLowerCase() === email.toLowerCase() || (u.targetId && u.targetId.toLowerCase() === email.toLowerCase()));
-    if (found) {
-      const expectedPassword = found.password || "password123";
-      if (password && password !== expectedPassword) {
+  const login = async (emailInput: string, passwordInput?: string): Promise<boolean> => {
+    if (!passwordInput) return false;
+
+    // Normalizing input to get the proper email
+    let formattedEmail = emailInput.trim();
+    if (!formattedEmail.includes("@")) {
+      const stud = students.find(s => s.id.toLowerCase() === formattedEmail.toLowerCase());
+      if (stud && stud.email) {
+        formattedEmail = stud.email;
+      } else {
+        const uAcc = users.find(u => u.username.toLowerCase() === formattedEmail.toLowerCase() || (u.targetId && u.targetId.toLowerCase() === formattedEmail.toLowerCase()));
+        if (uAcc && uAcc.email) {
+          formattedEmail = uAcc.email;
+        } else {
+          formattedEmail = `${formattedEmail}@unihub.edu.vn`; // fallback email
+        }
+      }
+    }
+
+    try {
+      // 1. Try Firebase Auth sign in
+      const userCredential = await signInWithEmailAndPassword(auth, formattedEmail, passwordInput);
+      const authUser = userCredential.user;
+      
+      let foundUser = users.find(u => u.email.toLowerCase() === authUser.email?.toLowerCase());
+      if (!foundUser) {
+        foundUser = users.find(u => u.username.toLowerCase() === emailInput.toLowerCase() || (u.targetId && u.targetId.toLowerCase() === emailInput.toLowerCase()));
+      }
+
+      if (foundUser) {
+        setCurrentUser(foundUser);
+        saveToStorage("unihub_current_user", foundUser);
+        return true;
+      }
+    } catch (authError: any) {
+      console.log("Firebase Auth login failed, checking database rules...", authError.code);
+      if (authError.code === "auth/operation-not-allowed") {
+        alert("Lỗi: Phương thức đăng nhập bằng Email/Password chưa được kích hoạt trong Firebase Console của dự án. Vui lòng liên hệ Admin để kích hoạt.");
         return false;
       }
-      setCurrentUser(found);
-      saveToStorage("unihub_current_user", found);
-      return true;
+      
+      // 2. If Auth fails (e.g. account doesn't exist yet on Firebase Auth):
+      // Check if this is a first-time student registering with their Student ID and CCCD (idCard)
+      const studentId = emailInput.trim();
+      const studentObj = students.find(s => s.id.toLowerCase() === studentId.toLowerCase());
+      
+      if (studentObj && studentObj.idCard === passwordInput) {
+        const studentEmail = studentObj.email || `${studentObj.id}@unihub.edu.vn`;
+        
+        try {
+          // Register via temp app trick to avoid signing out the current context
+          const tempApp = initializeApp(firebaseConfig, `TempApp_${Date.now()}`);
+          const tempAuth = getAuth(tempApp);
+          const userCred = await createUserWithEmailAndPassword(tempAuth, studentEmail, passwordInput);
+          const studentUid = userCred.user.uid;
+          await deleteApp(tempApp);
+          
+          const newAccount: UserAccount = {
+            id: studentUid,
+            username: studentObj.id,
+            name: studentObj.name,
+            role: UserRole.STUDENT,
+            email: studentEmail,
+            targetId: studentObj.id,
+            password: passwordInput // Store CCCD
+          };
+          
+          // Sign in to main auth first to gain permissions to save the UserAccount
+          await signInWithEmailAndPassword(auth, studentEmail, passwordInput);
+          await setDoc(doc(db, "users", studentUid), newAccount);
+          
+          setCurrentUser(newAccount);
+          saveToStorage("unihub_current_user", newAccount);
+          return true;
+        } catch (regError) {
+          console.error("Student auto-registration failed", regError);
+          return false;
+        }
+      }
+
+      // Check if this is a legacy/demo account in users collection that needs migration
+      const legacyUser = users.find(u => 
+        u.username.toLowerCase() === emailInput.toLowerCase() || 
+        u.email.toLowerCase() === emailInput.toLowerCase() ||
+        (u.targetId && u.targetId.toLowerCase() === emailInput.toLowerCase())
+      );
+      if (legacyUser && (legacyUser.password || "password123") === passwordInput) {
+        const legacyEmail = legacyUser.email || `${legacyUser.username}@unihub.edu.vn`;
+        try {
+          const tempApp = initializeApp(firebaseConfig, `TempApp_${Date.now()}`);
+          const tempAuth = getAuth(tempApp);
+          const userCred = await createUserWithEmailAndPassword(tempAuth, legacyEmail, passwordInput);
+          const authUserUid = userCred.user.uid;
+          await deleteApp(tempApp);
+
+          await signInWithEmailAndPassword(auth, legacyEmail, passwordInput);
+          
+          const oldDocId = legacyUser.id;
+          legacyUser.email = legacyEmail;
+          legacyUser.id = authUserUid; // Update the ID to match the UID
+          
+          // Save under the new UID key
+          await setDoc(doc(db, "users", authUserUid), legacyUser);
+          
+          // Delete old document key to keep database clean
+          if (oldDocId !== authUserUid) {
+            try {
+              await deleteDoc(doc(db, "users", oldDocId));
+            } catch (delErr) {
+              console.warn("Could not delete old legacy user document:", delErr);
+            }
+          }
+          
+          setCurrentUser(legacyUser);
+          saveToStorage("unihub_current_user", legacyUser);
+          return true;
+        } catch (migError) {
+          console.error("Legacy account migration failed", migError);
+          return false;
+        }
+      }
     }
     return false;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error("Signout error", err);
+    }
     setCurrentUser(null);
     localStorage.removeItem("unihub_current_user");
   };
@@ -832,6 +1239,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const studentObj = students.find(s => s.id === studentId);
     if (!studentObj) return;
+
+    // Check registration limit
+    const activityObj = activities.find(act => act.id === activityId);
+    if (activityObj && activityObj.maxParticipants !== undefined && activityObj.maxParticipants > 0) {
+      const currentCount = attendance.filter(a => a.activityId === activityId).length;
+      if (currentCount >= activityObj.maxParticipants) {
+        alert("Đăng ký thất bại: Hoạt động đã đạt số lượng người tham gia tối đa!");
+        return;
+      }
+    }
 
     const newAttendee: ActivityAttendance = {
       id: `AT_NEW_${Date.now()}`,
@@ -1119,13 +1536,43 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // Training Dept Actions
-  const importAcademicData = (excelData: Partial<Student>[]) => {
+  const importAcademicData = (excelData: Partial<Student>[], targetSemesterId: string = "HOCKY_2_2025_2026") => {
     const updated = students.map(s => {
       const item = excelData.find(item => item.id === s.id);
       if (item) {
+        const currentAcademicData = s.academicDataByPeriod || {};
+        const newSemesterData = {
+          gpa: item.gpa,
+          gpa10: item.gpa10,
+          creditsEarned: item.creditsEarned,
+          learningWarning: item.learningWarning,
+          learningStatus: item.learningStatus,
+          subjectGrades: item.subjectGrades,
+          academicGrade: item.academicGrade,
+          notes: item.notes,
+          updatedAt: item.updatedAt || new Date().toISOString().split("T")[0]
+        };
+
+        const updatedAcademicData = {
+          ...currentAcademicData,
+          [targetSemesterId]: newSemesterData
+        };
+
+        const isCurrent = targetSemesterId === "HOCKY_2_2025_2026";
         return {
           ...s,
           ...item,
+          academicDataByPeriod: updatedAcademicData,
+          ...(isCurrent ? {
+            gpa: item.gpa,
+            gpa10: item.gpa10,
+            creditsEarned: item.creditsEarned,
+            learningWarning: item.learningWarning,
+            learningStatus: item.learningStatus,
+            subjectGrades: item.subjectGrades,
+            academicGrade: item.academicGrade,
+            notes: item.notes
+          } : {}),
           learningDataLocked: true
         };
       }
@@ -1357,6 +1804,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setResults(SEED_RESULTS);
     setDailyAttendance(SEED_DAILY_ATTENDANCE);
     setSchedules(SEED_SCHEDULES);
+    setGroupAttendances(SEED_GROUP_ATTENDANCE);
     setFeedbacks([
       { id: "FB1", fromRole: UserRole.ADVISER, fromName: "Hoàng Minh Đức", toClassId: "K20-CNTT", comment: "Cần điều chỉnh, đối chiếu kỹ hơn danh sách nề nếp thi đua lớp trước khi gửi ký chính thống.", createdAt: "2026-05-23", resolved: false }
     ]);
@@ -1366,6 +1814,250 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     ]);
     setCurrentUser(SEED_USERS[0]); // Default back to Student Nguyễn Văn An
     saveToStorage("unihub_current_user", SEED_USERS[0]);
+  };
+
+  const saveGroupSettings = (
+    classId: string, 
+    assignments: { [studentId: string]: string }, 
+    leaders: { [groupName: string]: { studentId: string; username?: string; password?: string } }
+  ) => {
+    const updatedStudents = students.map(s => {
+      if (s.classId === classId) {
+        return {
+          ...s,
+          groupName: assignments[s.id] || ""
+        };
+      }
+      return s;
+    });
+    setStudents(updatedStudents);
+    saveToStorage("unihub_students", updatedStudents);
+
+    let updatedUsers = [...users];
+    
+    // Xóa bỏ các tài khoản Tổ trưởng cũ đã được tạo từ trước của lớp này (dựa vào id bắt đầu bằng U_GL_ và role)
+    // Để khi cập nhật tổ trưởng mới, các account cũ không bị lưu rác.
+    const classStudentIds = students.filter(s => s.classId === classId).map(s => s.id);
+    updatedUsers = updatedUsers.filter(u => !(
+      u.role === UserRole.CLASS_MONITOR && 
+      u.isGroupLeader && 
+      u.id.startsWith("U_GL_") &&
+      classStudentIds.includes(u.targetId || "")
+    ));
+
+    Object.entries(leaders).forEach(([groupName, leaderInfo]) => {
+      if (!leaderInfo.studentId) return;
+      const studentObj = students.find(s => s.id === leaderInfo.studentId);
+      if (!studentObj) return;
+
+      const rawUsername = (leaderInfo.username || `totruong_${leaderInfo.studentId}`).trim();
+      const safeUsername = rawUsername.includes("@") ? rawUsername.split("@")[0] : rawUsername;
+      const safeEmail = `${safeUsername}@tnu-hgc.edu.vn`;
+      const passwordToSet = leaderInfo.password || "password123";
+      
+      updatedUsers.push({
+        id: `U_GL_${leaderInfo.studentId}`,
+        username: safeUsername,
+        name: studentObj.name,
+        role: UserRole.CLASS_MONITOR,
+        email: safeEmail,
+        targetId: leaderInfo.studentId,
+        password: passwordToSet,
+        isGroupLeader: true,
+        groupInCharge: groupName
+      });
+    });
+
+    setUsers(updatedUsers);
+    saveToStorage("unihub_users", updatedUsers);
+
+    const classStudentIdsToClean = students.filter(s => s.classId === classId).map(s => s.id);
+    const oldUsersToDelete = users.filter(u => 
+      u.role === UserRole.CLASS_MONITOR && 
+      u.isGroupLeader && 
+      u.id.startsWith("U_GL_") &&
+      classStudentIdsToClean.includes(u.targetId || "")
+    );
+    
+    const newUsersToSave = updatedUsers.filter(u => 
+      u.role === UserRole.CLASS_MONITOR && 
+      u.isGroupLeader && 
+      u.id.startsWith("U_GL_") &&
+      classStudentIdsToClean.includes(u.targetId || "")
+    );
+
+    (async () => {
+      try {
+        for (const u of oldUsersToDelete) {
+          await deleteDoc(doc(db, "users", u.id)).catch(e => console.warn("Lỗi xoá GL cũ", e));
+        }
+        for (const u of newUsersToSave) {
+          await setDoc(doc(db, "users", u.id), u).catch(e => console.warn("Lỗi lưu GL mới", e));
+        }
+      } catch (err) {
+        console.error("Firestore sync error for group leaders:", err);
+      }
+    })();
+  };
+
+  const reportGroupAttendance = (reportData: Omit<GroupAttendanceReport, "id" | "reportedAt">) => {
+    const report: GroupAttendanceReport = {
+      ...reportData,
+      id: `GR_ATT_${Date.now()}`,
+      reportedAt: new Date().toISOString().replace("T", " ").substring(0, 19)
+    };
+
+    const filtered = groupAttendances.filter(ga => !(ga.classId === reportData.classId && ga.groupName === reportData.groupName && ga.date === reportData.date));
+    const updated = [report, ...filtered];
+    setGroupAttendances(updated);
+    saveToStorage("unihub_group_attendances", updated);
+  };
+
+  const approveGroupAttendance = (reportId: string, reviewerName: string) => {
+    const updated = groupAttendances.map(ga => {
+      if (ga.id === reportId) {
+        return {
+          ...ga,
+          status: "APPROVED" as const,
+          reviewedBy: reviewerName,
+          reviewedAt: new Date().toISOString().replace("T", " ").substring(0, 19)
+        };
+      }
+      return ga;
+    });
+    setGroupAttendances(updated);
+    saveToStorage("unihub_group_attendances", updated);
+  };
+
+  const rejectGroupAttendance = (reportId: string, reviewerName: string) => {
+    const updated = groupAttendances.map(ga => {
+      if (ga.id === reportId) {
+        return {
+          ...ga,
+          status: "REJECTED" as const,
+          reviewedBy: reviewerName,
+          reviewedAt: new Date().toISOString().replace("T", " ").substring(0, 19)
+        };
+      }
+      return ga;
+    });
+    setGroupAttendances(updated);
+    saveToStorage("unihub_group_attendances", updated);
+  };
+
+  const submitGroupLeaderScore = (
+    studentId: string, 
+    scores: { studyPoints: number; violationPoints: number; extracurricularPoints: number; communityPoints: number; achievementPoints: number; totalPoints: number; comment?: string }
+  ) => {
+    const updatedResults = results.map(r => {
+      if (r.studentId === studentId && r.periodId === period.id) {
+        return {
+          ...r,
+          groupLeaderScore: {
+            ...scores,
+            approved: true,
+            approvedAt: new Date().toISOString().split("T")[0]
+          }
+        };
+      }
+      return r;
+    });
+    setResults(updatedResults);
+    saveToStorage("unihub_results", updatedResults);
+  };
+
+  const applyGroupLeaderScore = (studentId: string) => {
+    const res = results.find(r => r.studentId === studentId && r.periodId === period.id);
+    if (!res || !res.groupLeaderScore) return;
+    
+    const updatedResults = results.map(r => {
+      if (r.studentId === studentId && r.periodId === period.id) {
+        const gl = r.groupLeaderScore!;
+        const newLogs = [
+          ...r.logs,
+          {
+            criteriaId: "ALL",
+            points: gl.totalPoints - r.totalPoints,
+            reason: `Áp dụng điểm đề xuất từ Tổ trưởng: ${gl.comment || "Đồng thuận"}`,
+            source: "BCS_DUYỆT",
+            timestamp: new Date().toISOString().split("T")[0]
+          }
+        ];
+
+        return {
+          ...r,
+          studyPoints: gl.studyPoints,
+          violationPoints: gl.violationPoints,
+          extracurricularPoints: gl.extracurricularPoints,
+          communityPoints: gl.communityPoints,
+          achievementPoints: gl.achievementPoints,
+          totalPoints: gl.totalPoints,
+          logs: newLogs
+        };
+      }
+      return r;
+    });
+    setResults(updatedResults);
+    saveToStorage("unihub_results", updatedResults);
+    alert("Đã áp dụng toàn bộ điểm đề xuất của Tổ trưởng thành công!");
+  };
+
+  const aggregateGroupAttendancesToDaily = (classId: string, date: string, reporterName: string) => {
+    const approvedReports = groupAttendances.filter(ga => ga.classId === classId && ga.date === date && ga.status === "APPROVED");
+    if (approvedReports.length === 0) {
+      alert("Không có báo cáo chuyên cần cấp Tổ nào đã được duyệt cho ngày này!");
+      return;
+    }
+
+    const allAbsentees: { studentId: string; studentName: string; type: "PHÉP" | "KHÔNG_PHÉP"; reason?: string }[] = [];
+    const seenStudentIds = new Set<string>();
+
+    approvedReports.forEach(r => {
+      r.absentees.forEach(abs => {
+        if (!seenStudentIds.has(abs.studentId)) {
+          seenStudentIds.add(abs.studentId);
+          allAbsentees.push(abs);
+        }
+      });
+    });
+
+    const totalStuds = students.filter(s => s.classId === classId).length;
+    const absCount = allAbsentees.length;
+    const presCount = totalStuds - absCount;
+
+    const classReport: DailyAttendanceReport = {
+      id: `DAR_${Date.now()}`,
+      classId,
+      date,
+      totalStudents: totalStuds,
+      presentCount: presCount,
+      absentCount: absCount,
+      absentees: allAbsentees,
+      reportedBy: `${reporterName} (Tổng hợp từ Tổ)`,
+      reportedAt: new Date().toISOString()
+    };
+
+    const filteredDaily = dailyAttendance.filter(da => !(da.classId === classId && da.date === date));
+    const updatedDaily = [classReport, ...filteredDaily];
+    setDailyAttendance(updatedDaily);
+    saveToStorage("unihub_daily_attendance", updatedDaily);
+  };
+
+  const sendGroupReminder = (classId: string, targetStudentIds: string[], message: string) => {
+    const newFeedbacks = targetStudentIds.map(sid => ({
+      id: `FB_REMIND_${sid}_${Date.now()}_${Math.random()}`,
+      fromRole: currentUser?.role || UserRole.CLASS_MONITOR,
+      fromName: currentUser?.name || "Ban Cán sự Lớp",
+      toClassId: classId,
+      studentId: sid,
+      comment: message,
+      createdAt: new Date().toISOString().split("T")[0],
+      resolved: false
+    }));
+
+    const updated = [...newFeedbacks, ...feedbacks];
+    setFeedbacks(updated);
+    saveToStorage("unihub_feedbacks", updated);
   };
 
   const importScheduleData = (slots: ScheduleSlot[]) => {
@@ -1443,6 +2135,25 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
     setFeedbacks(updated);
     saveToStorage("unihub_feedbacks", updated);
+  };
+
+  const sendSystemFeedback = async (category: string, title: string, content: string) => {
+    if (!currentUser) return;
+    const fbId = "SF_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7);
+    const feedback: SystemFeedback = {
+      id: fbId,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userRole: currentUser.role,
+      category,
+      title,
+      content,
+      createdAt: new Date().toISOString()
+    };
+    await setDoc(doc(db, "systemFeedbacks", fbId), feedback);
+    const updated = [feedback, ...systemFeedbacks];
+    setSystemFeedbacks(updated);
+    localStorage.setItem("unihub_system_feedbacks", JSON.stringify(updated));
   };
 
   const importGroupCriteria = (criteriaList: GroupEvaluationCriteria[]) => {
@@ -1713,6 +2424,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       groupCriteria,
       announcements,
       schedules,
+      groupAttendances,
+      systemFeedbacks,
       
       login,
       logout,
@@ -1747,6 +2460,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       toggleClassMeetingDuty,
       reportDailyAttendance,
       bulkApproveScores,
+      reviewEvidence,
       approveAdviserScores,
       submitAdviserAdjustment,
       lockFacultyData,
@@ -1755,6 +2469,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       approveAdminScores,
       sendFeedback,
       resolveFeedback,
+      sendSystemFeedback,
       adjustStudentScoreSpecific,
       updateCriteriaScore,
       bulkUpdateCriteria,
@@ -1768,7 +2483,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setSelectedSemesterId,
       createUserAccount,
       updateUserAccount,
-      deleteUserAccount
+      deleteUserAccount,
+      
+      saveGroupSettings,
+      reportGroupAttendance,
+      approveGroupAttendance,
+      rejectGroupAttendance,
+      submitGroupLeaderScore,
+      applyGroupLeaderScore,
+      aggregateGroupAttendancesToDaily,
+      sendGroupReminder
     }}>
       {children}
     </UniHubContext.Provider>
