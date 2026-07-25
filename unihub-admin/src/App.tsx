@@ -190,15 +190,27 @@ export default function App() {
     if (!files || files.length === 0) return;
 
     setBgUploading(true);
-    setStatusMessage("Đang nén và tối ưu hóa danh sách ảnh nền...");
+    setStatusMessage("Đang xử lý danh sách ảnh nền...");
     try {
       const newUrls: string[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         if (file.size > 10 * 1024 * 1024) continue;
-        // Compress background to Full HD (1920x1080) and quality 0.85 JPEG for maximum sharpness.
-        // This ensures the image keeps its crystal-clear original sharpness, with each image taking ~100KB-150KB.
-        const base64 = await compressAndReadFile(file, 1920, 1080, 0.85, false, true);
+        
+        let base64 = "";
+        // If image file is already under 600KB, read it directly as raw Base64 without any resizing or quality loss.
+        // This guarantees 100% identical sharpness to the original file.
+        if (file.size <= 600 * 1024) {
+          base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (ev) => resolve(ev.target?.result as string);
+            reader.onerror = (err) => reject(err);
+            reader.readAsDataURL(file);
+          });
+        } else {
+          // If larger than 600KB, compress to Full HD 1920x1080 JPEG at 85% quality to fit within Firestore limit.
+          base64 = await compressAndReadFile(file, 1920, 1080, 0.85, false, true);
+        }
         newUrls.push(base64);
       }
       setThemeConfig(prev => {
@@ -2393,6 +2405,52 @@ export default function App() {
                     value={themeConfig.bgOverlayOpacity ?? 0.75} 
                     onChange={(e) => setThemeConfig({ ...themeConfig, bgOverlayOpacity: parseFloat(e.target.value) })}
                   />
+                </div>
+
+                {/* Contact information section */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "14px", borderTop: "1px solid var(--border-normal)", paddingTop: "20px" }}>
+                  <label style={{ display: "block", fontSize: "14px", color: "#fff", fontWeight: 700 }}>
+                    3. Thông tin liên hệ ở chân trang (Footer Contact Info)
+                  </label>
+                  <p style={{ margin: "0", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>
+                    Nhập địa chỉ, email và điện thoại liên hệ của trường để hiển thị ở góc bên dưới trang cổng thông tin:
+                  </p>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Địa chỉ trường (Address):</label>
+                    <input 
+                      type="text" 
+                      className="input-dark" 
+                      style={{ fontSize: "12px", padding: "8px" }}
+                      value={themeConfig.contactAddress || ""} 
+                      onChange={(e) => setThemeConfig({ ...themeConfig, contactAddress: e.target.value })}
+                      placeholder="e.g. Tổ 10, Phường Nguyễn Trãi, Thành phố Hà Giang"
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Hòm thư Email (Email):</label>
+                    <input 
+                      type="email" 
+                      className="input-dark" 
+                      style={{ fontSize: "12px", padding: "8px" }}
+                      value={themeConfig.contactEmail || ""} 
+                      onChange={(e) => setThemeConfig({ ...themeConfig, contactEmail: e.target.value })}
+                      placeholder="e.g. phhagiang@tnu.edu.vn"
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Số điện thoại (Phone):</label>
+                    <input 
+                      type="text" 
+                      className="input-dark" 
+                      style={{ fontSize: "12px", padding: "8px" }}
+                      value={themeConfig.contactPhone || ""} 
+                      onChange={(e) => setThemeConfig({ ...themeConfig, contactPhone: e.target.value })}
+                      placeholder="e.g. 0219.386.1234"
+                    />
+                  </div>
                 </div>
 
                 <div style={{ marginTop: "12px" }}>

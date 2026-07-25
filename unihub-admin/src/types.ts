@@ -450,5 +450,8 @@ export interface ThemeConfig {
   loginTitle?: string;
   loginSubtitle?: string;
   bgOverlayOpacity?: number;
+  contactAddress?: string;
+  contactEmail?: string;
+  contactPhone?: string;
 }
 

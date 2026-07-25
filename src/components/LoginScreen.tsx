@@ -13,7 +13,10 @@ import {
   ArrowRight,
   Info,
   X,
-  LogIn
+  LogIn,
+  MapPin,
+  Mail,
+  Phone
 } from "lucide-react";
 
 export const LoginScreen: React.FC = () => {
@@ -64,68 +67,14 @@ export const LoginScreen: React.FC = () => {
 
   return (
     <div 
-      className="min-h-screen min-h-dvh flex flex-col justify-between py-4 px-4 sm:px-6 font-sans selection:bg-indigo-500 selection:text-white relative overflow-hidden transition-colors duration-500" 
+      className="min-h-screen min-h-dvh flex flex-col justify-between py-6 px-4 sm:px-8 selection:bg-indigo-500 selection:text-white relative bg-slate-950 font-sans text-white overflow-y-auto" 
       id="unihub-login-screen"
-      style={{
-        backgroundColor: hasBg ? "transparent" : "#f8fafc"
-      }}
     >
-      {/* Background Image Slider Frame with offset margins */}
-      {hasBg && (
-        <div className="absolute inset-3 sm:inset-5 md:inset-6 z-0 overflow-hidden pointer-events-none rounded-[24px] sm:rounded-[32px] md:rounded-[40px] shadow-2xl border border-white/10">
-          {bgList.map((bgUrl, index) => {
-            const isActive = index === currentBgIndex;
-            const isPrev = index === (currentBgIndex - 1 + bgList.length) % bgList.length;
-
-            let translateStyle: React.CSSProperties = {
-              transform: "translateX(100%)",
-              opacity: 0,
-              zIndex: 0,
-            };
-
-            if (isActive) {
-              translateStyle = {
-                transform: "translateX(0)",
-                opacity: 1,
-                zIndex: 10,
-              };
-            } else if (isPrev) {
-              translateStyle = {
-                transform: "translateX(-100%)",
-                opacity: 1,
-                zIndex: 5,
-              };
-            }
-
-            return (
-              <div 
-                key={index}
-                className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-1000 ease-in-out"
-                style={{ 
-                  backgroundImage: `url("${bgUrl}")`,
-                  ...translateStyle
-                }}
-              />
-            );
-          })}
-
-          {/* Dynamic Overlay: dims and blurs when login modal is active */}
-          <div 
-            className="absolute inset-0 bg-slate-950 transition-all duration-500 z-20"
-            style={{ 
-              opacity: showLoginModal ? 0.35 : (themeConfig?.bgOverlayOpacity ?? 0.3),
-              backdropFilter: showLoginModal ? "blur(6px)" : "none",
-              WebkitBackdropFilter: showLoginModal ? "blur(6px)" : "none"
-            }}
-          />
-        </div>
-      )}
-
-      {/* Top Header Navigation Bar (Left: Logo & Info, Right: Login Button) */}
-      <header className="relative z-10 w-full max-w-7xl mx-auto flex items-center justify-between py-3 px-4 sm:px-6 bg-slate-900/60 backdrop-blur-md border border-white/10 rounded-2xl shadow-xl transition-all">
-        {/* Left Side: Brand Logo & Title */}
-        <div className="flex items-center gap-3 sm:gap-4 text-left">
-          <div className="w-11 h-11 sm:w-12 sm:h-12 bg-white rounded-full shadow-md border border-indigo-100 flex items-center justify-center overflow-hidden shrink-0">
+      {/* 1. Top Header Navigation Bar (Transparent, Aligned Left Logo/Title & Right Login) */}
+      <header className="relative z-10 w-full max-w-7xl mx-auto flex items-center justify-between py-4">
+        {/* Left Side: Brand Logo (doubled size!) & Title */}
+        <div className="flex items-center gap-4 sm:gap-6 text-left">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white rounded-full shadow-2xl border border-white/20 flex items-center justify-center overflow-hidden shrink-0 transition-transform transform hover:scale-105">
             {themeConfig?.logoUrl ? (
               <img 
                 src={themeConfig.logoUrl} 
@@ -136,17 +85,17 @@ export const LoginScreen: React.FC = () => {
                 }}
               />
             ) : (
-              <TnuLogo size={40} />
+              <TnuLogo size={80} />
             )}
           </div>
           <div className="flex flex-col justify-center">
-            <h4 className="font-mono text-[10px] sm:text-xs font-black text-indigo-400 tracking-wider uppercase leading-none mb-1">
+            <h4 className="font-mono text-xs sm:text-sm font-bold text-indigo-400 tracking-widest uppercase leading-none mb-1.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
               Phân hiệu ĐHTN tại Hà Giang
             </h4>
-            <h1 className="text-sm sm:text-lg md:text-xl font-black text-white tracking-tight leading-none">
+            <h1 className="text-lg sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
               {themeConfig?.loginTitle || "CỔNG THÔNG TIN UNIHUBHG"}
             </h1>
-            <p className="hidden sm:block text-[11px] text-slate-300 mt-1 leading-tight max-w-xl">
+            <p className="hidden sm:block text-xs sm:text-sm text-slate-200 mt-2 leading-relaxed max-w-2xl drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
               {themeConfig?.loginSubtitle || "Chào mừng bạn đến với Phân hiệu ĐHTN tại Hà Giang - Tra cứu ngay thông tin của bạn"}
             </p>
           </div>
@@ -156,7 +105,7 @@ export const LoginScreen: React.FC = () => {
         <div className="shrink-0">
           <button 
             onClick={() => setShowLoginModal(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm py-2.5 px-4 sm:px-6 rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all flex items-center gap-2 cursor-pointer transform hover:scale-105 active:scale-95"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs sm:text-sm py-3 px-5 sm:px-8 rounded-xl shadow-xl hover:shadow-indigo-500/30 transition-all flex items-center gap-2 cursor-pointer transform hover:scale-105 active:scale-95"
           >
             <LogIn size={16} />
             <span>Đăng nhập</span>
@@ -164,20 +113,92 @@ export const LoginScreen: React.FC = () => {
         </div>
       </header>
 
-      {/* Center Subtitle on Mobile if header is truncated */}
-      <div className="sm:hidden relative z-10 text-center my-2 px-2">
-        <p className="text-xs text-slate-200 drop-shadow">
-          {themeConfig?.loginSubtitle || "Chào mừng bạn đến với Phân hiệu ĐHTN tại Hà Giang"}
-        </p>
-      </div>
+      {/* 2. Middle Section: Widescreen 16:9 Banner Slider Box (Positioned 1/3 from top) */}
+      <main className="relative z-10 w-full max-w-7xl mx-auto my-6 flex-1 flex flex-col justify-center">
+        {hasBg ? (
+          <div className="w-full aspect-[16/9] md:max-h-[500px] overflow-hidden rounded-[24px] sm:rounded-[36px] shadow-2xl border border-white/10 relative">
+            
+            {/* Horizontal Filmstrip Carousel Container */}
+            <div 
+              className="flex flex-row h-full transition-transform duration-[1200ms] ease-[cubic-bezier(0.25,1,0.5,1)]"
+              style={{ 
+                width: `${bgList.length * 100}%`,
+                transform: `translateX(-${currentBgIndex * (100 / bgList.length)}%)`
+              }}
+            >
+              {bgList.map((bgUrl, index) => (
+                <div 
+                  key={index}
+                  className="h-full bg-cover bg-center bg-no-repeat flex-shrink-0"
+                  style={{ 
+                    width: `${100 / bgList.length}%`,
+                    backgroundImage: `url("${bgUrl}")` 
+                  }}
+                />
+              ))}
+            </div>
 
-      {/* Main Showcase Empty Space (Lets the background photo / announcement take center stage) */}
-      <div className="flex-1 min-h-[300px]" />
+            {/* Dark Tint & Blur Overlay (active only when Modal is open) */}
+            <div 
+              className="absolute inset-0 bg-slate-950 transition-all duration-500 z-20 pointer-events-none"
+              style={{ 
+                opacity: showLoginModal ? 0.6 : 0,
+                backdropFilter: showLoginModal ? "blur(6px)" : "none",
+                WebkitBackdropFilter: showLoginModal ? "blur(6px)" : "none"
+              }}
+            />
+          </div>
+        ) : (
+          <div className="w-full aspect-[16/9] md:max-h-[500px] bg-slate-900 rounded-[24px] sm:rounded-[36px] border border-white/5 flex items-center justify-center">
+            <span className="text-slate-400 text-sm">Chưa có ảnh nền nào được tải lên.</span>
+          </div>
+        )}
+      </main>
+
+      {/* 3. Lower Section: Contact Info & Footer (Dynamic parameters from Admin) */}
+      <footer className="relative z-10 w-full max-w-7xl mx-auto pt-6 border-t border-white/10 flex flex-col gap-6">
+        {/* Contact details row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left text-sm text-slate-300">
+          <div className="flex items-start gap-3">
+            <MapPin className="text-indigo-400 shrink-0 mt-0.5" size={18} />
+            <div>
+              <span className="block font-bold text-white mb-0.5">Địa chỉ</span>
+              <span className="text-xs leading-relaxed">{themeConfig?.contactAddress || "Tổ 10, Phường Nguyễn Trãi, Thành phố Hà Giang, Tỉnh Hà Giang"}</span>
+            </div>
+          </div>
+          
+          <div className="flex items-start gap-3">
+            <Mail className="text-indigo-400 shrink-0 mt-0.5" size={18} />
+            <div>
+              <span className="block font-bold text-white mb-0.5">Email liên hệ</span>
+              <span className="text-xs leading-relaxed">{themeConfig?.contactEmail || "phhagiang@tnu.edu.vn"}</span>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <Phone className="text-indigo-400 shrink-0 mt-0.5" size={18} />
+            <div>
+              <span className="block font-bold text-white mb-0.5">Điện thoại</span>
+              <span className="text-xs leading-relaxed">{themeConfig?.contactPhone || "0219.386.1234"}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer legal brand line */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 text-[11px] text-slate-500 border-t border-white/5 pt-4">
+          <div>
+            Hệ thống UniHub Rèn luyện © 2026. Phiên bản 1.0 - Phân hiệu Đại học Thái Nguyên tại Hà Giang.
+          </div>
+          <div className="font-mono">
+            Dùng chung Cơ sở dữ liệu, API & Thang điểm quy chuẩn liên thông.
+          </div>
+        </div>
+      </footer>
 
       {/* Login Modal Popup */}
       {showLoginModal && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/25 backdrop-blur-sm animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/20 backdrop-blur-sm animate-fade-in"
           onClick={() => setShowLoginModal(false)}
         >
           {/* Modal Card */}
@@ -264,17 +285,6 @@ export const LoginScreen: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Footer Branding info */}
-      <footer className={`relative z-10 max-w-7xl mx-auto w-full text-center border-t ${hasBg ? 'border-white/15 text-slate-200' : 'border-slate-200 text-slate-400'} pt-4 mt-4 flex flex-col sm:flex-row justify-between items-center gap-2 text-xs`}>
-        <div>
-          Hệ thống UniHub Rèn luyện © 2026. Phiên bản 1.0 - Phân hiệu ĐHTN tại Hà Giang.
-        </div>
-        <div className="font-mono text-[10px]">
-          Dùng chung Cơ sở dữ liệu, API & Thang điểm quy chuẩn liên thông.
-        </div>
-      </footer>
     </div>
   );
 };
-
