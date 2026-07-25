@@ -196,9 +196,9 @@ export default function App() {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         if (file.size > 10 * 1024 * 1024) continue;
-        // Compress background to 1280x720 and quality 0.5 JPEG.
-        // This ensures 8 images take only ~250KB in total, which safely avoids the 1MB Firestore limit.
-        const base64 = await compressAndReadFile(file, 1280, 720, 0.5, false, true);
+        // Compress background to Full HD (1920x1080) and quality 0.85 JPEG for maximum sharpness.
+        // This ensures the image keeps its crystal-clear original sharpness, with each image taking ~100KB-150KB.
+        const base64 = await compressAndReadFile(file, 1920, 1080, 0.85, false, true);
         newUrls.push(base64);
       }
       setThemeConfig(prev => {
