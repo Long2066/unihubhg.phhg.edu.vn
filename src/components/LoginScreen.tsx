@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useUniHub } from "../state";
 import { UserRole } from "../types";
 import { TnuLogo } from "./TnuLogo";
@@ -23,6 +23,20 @@ export const LoginScreen: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+
+  const bgList = themeConfig?.loginBgUrls && themeConfig.loginBgUrls.length > 0
+    ? themeConfig.loginBgUrls
+    : (themeConfig?.loginBgUrl ? [themeConfig.loginBgUrl] : []);
+
+  useEffect(() => {
+    if (bgList.length <= 1) return;
+    const intervalTime = (themeConfig?.bgTransitionInterval || 5) * 1000;
+    const timer = setInterval(() => {
+      setCurrentBgIndex((prev) => (prev + 1) % bgList.length);
+    }, intervalTime);
+    return () => clearInterval(timer);
+  }, [bgList.length, themeConfig?.bgTransitionInterval]);
 
   const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +60,7 @@ export const LoginScreen: React.FC = () => {
     }
   };
 
-  const hasBg = Boolean(themeConfig?.loginBgUrl);
+  const hasBg = bgList.length > 0;
 
   return (
     <div 
@@ -56,15 +70,49 @@ export const LoginScreen: React.FC = () => {
         backgroundColor: hasBg ? "transparent" : "#f8fafc"
       }}
     >
-      {/* Fullscreen Background Image Layer */}
+      {/* Embedded CSS animation for continuous smooth panning to the left */}
+      <style>{`
+        @keyframes pan-left-slow {
+          0% {
+            transform: scale(1.05) translateX(0%);
+          }
+          100% {
+            transform: scale(1.15) translateX(-4%);
+          }
+        }
+        .animate-pan-left {
+          animation: pan-left-slow 20s ease-out infinite alternate;
+        }
+      `}</style>
+
+      {/* Fullscreen Background Image Slider Layer */}
       {hasBg && (
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0 transition-all duration-700 scale-105"
-          style={{ backgroundImage: `url("${themeConfig?.loginBgUrl}")` }}
-        >
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          {bgList.map((bgUrl, index) => {
+            const isActive = index === currentBgIndex;
+            return (
+              <div 
+                key={index}
+                className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-1000 ease-in-out"
+                style={{ 
+                  backgroundImage: `url("${bgUrl}")`,
+                  opacity: isActive ? 1 : 0,
+                  zIndex: isActive ? 1 : 0
+                }}
+              >
+                {isActive && (
+                  <div 
+                    className="absolute inset-0 bg-cover bg-center bg-no-repeat animate-pan-left"
+                    style={{ backgroundImage: `url("${bgUrl}")` }}
+                  />
+                )}
+              </div>
+            );
+          })}
+
           {/* Dynamic Overlay: dims and blurs when login modal is active */}
           <div 
-            className="absolute inset-0 bg-slate-950 transition-all duration-500"
+            className="absolute inset-0 bg-slate-950 transition-all duration-500 z-10"
             style={{ 
               opacity: showLoginModal ? 0.85 : (themeConfig?.bgOverlayOpacity ?? 0.5),
               backdropFilter: showLoginModal ? "blur(8px)" : "none",
@@ -151,7 +199,13 @@ export const LoginScreen: React.FC = () => {
             <div>
               <div className="mb-6 text-left">
                 <div className="inline-flex items-center gap-2 text-indigo-600 mb-1">
-                  <TnuLogo size={24} />
+                  {themeConfig?.logoUrl ? (
+                    <div className="w-7 h-7 bg-white rounded-full border border-slate-100 flex items-center justify-center overflow-hidden shrink-0">
+                      <img src={themeConfig.logoUrl} alt="Logo" className="w-full h-full object-cover rounded-full" />
+                    </div>
+                  ) : (
+                    <TnuLogo size={24} />
+                  )}
                   <span className="text-xs font-mono font-bold uppercase tracking-wider">UniHub System</span>
                 </div>
                 <h2 className="text-xl font-extrabold text-slate-900">Đăng nhập tài khoản</h2>

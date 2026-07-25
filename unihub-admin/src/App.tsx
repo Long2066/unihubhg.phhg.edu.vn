@@ -179,25 +179,48 @@ export default function App() {
   };
 
   const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 10 * 1024 * 1024) {
-      alert("Kích thước file ảnh quá lớn (Vui lòng chọn ảnh dưới 10MB).");
-      return;
-    }
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setBgUploading(true);
-    setStatusMessage("Đang nén và tối ưu hóa ảnh nền...");
+    setStatusMessage("Đang nén và tối ưu hóa danh sách ảnh nền...");
     try {
-      const base64 = await compressAndReadFile(file, 1920, 1080, 0.75);
-      setThemeConfig(prev => ({ ...prev, loginBgUrl: base64 }));
+      const newUrls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.size > 10 * 1024 * 1024) continue;
+        const base64 = await compressAndReadFile(file, 1920, 1080, 0.7);
+        newUrls.push(base64);
+      }
+      setThemeConfig(prev => {
+        const currentList = prev.loginBgUrls && prev.loginBgUrls.length > 0 
+          ? prev.loginBgUrls 
+          : (prev.loginBgUrl ? [prev.loginBgUrl] : []);
+        const updatedList = [...currentList, ...newUrls].slice(0, 8); // Max 8 images to prevent large documents
+        return { 
+          ...prev, 
+          loginBgUrls: updatedList,
+          loginBgUrl: updatedList[0] || ""
+        };
+      });
     } catch (err: any) {
       alert("Lỗi khi xử lý ảnh nền: " + err.message);
     } finally {
       setBgUploading(false);
       setStatusMessage("");
     }
+  };
+
+  const removeBgImage = (indexToRemove: number) => {
+    setThemeConfig(prev => {
+      const currentList = prev.loginBgUrls || [];
+      const updated = currentList.filter((_, idx) => idx !== indexToRemove);
+      return {
+        ...prev,
+        loginBgUrls: updated,
+        loginBgUrl: updated[0] || ""
+      };
+    });
   };
 
   // Real-time Firestore Collections state
@@ -2230,66 +2253,85 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Background image section */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px", borderBottom: "1px solid var(--border-normal)", paddingBottom: "20px" }}>
-                  <label style={{ display: "block", fontSize: "14px", color: "#fff", fontWeight: 700 }}>
-                    2. Hình nền đăng nhập (Background Image)
-                  </label>
+                {/* Background images gallery section */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px", borderBottom: "1px solid var(--border-normal)", paddingBottom: "20px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <label style={{ display: "block", fontSize: "14px", color: "#fff", fontWeight: 700 }}>
+                      2. Danh sách ảnh nền (Slider / Carousel)
+                    </label>
+                    <span style={{ fontSize: "11px", color: "var(--accent-cyan)", fontWeight: 600 }}>
+                      {(themeConfig.loginBgUrls?.length || (themeConfig.loginBgUrl ? 1 : 0))} / 8 ảnh
+                    </span>
+                  </div>
                   <p style={{ margin: "0", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>
-                    Tải ảnh nền chất lượng cao lên trực tiếp từ máy tính của bạn (tự động nén thông minh):
+                    Tải lên nhiều ảnh từ máy tính để tự động chạy slide chuyển ảnh. Hỗ trợ tự động căn chỉnh (fit) hoàn hảo trên Android, iOS, Windows, macOS.
                   </p>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "16px", marginTop: "8px" }}>
-                    <div style={{ width: "96px", height: "54px", borderRadius: "8px", border: "1px dashed var(--accent-cyan)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "rgba(0,0,0,0.2)" }}>
-                      {themeConfig.loginBgUrl ? (
-                        <img src={themeConfig.loginBgUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      ) : (
-                        <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Mặc định</span>
-                      )}
-                    </div>
-
-                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                      <input 
-                        type="file" 
-                        id="bg-file-input" 
-                        accept="image/*" 
-                        onChange={handleBgUpload} 
-                        style={{ display: "none" }} 
-                      />
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        <label 
-                          htmlFor="bg-file-input" 
-                          className="btn-neon-cyan" 
-                          style={{ cursor: "pointer", fontSize: "12px", padding: "8px 14px", display: "inline-flex" }}
+                  {/* Image Grid / Gallery */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: "10px", marginTop: "6px" }}>
+                    {(themeConfig.loginBgUrls && themeConfig.loginBgUrls.length > 0 
+                      ? themeConfig.loginBgUrls 
+                      : (themeConfig.loginBgUrl ? [themeConfig.loginBgUrl] : [])
+                    ).map((url, idx) => (
+                      <div key={idx} style={{ position: "relative", width: "100%", height: "60px", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--border-normal)", background: "#000" }}>
+                        <img src={url} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <button
+                          type="button"
+                          onClick={() => removeBgImage(idx)}
+                          style={{ position: "absolute", top: "3px", right: "3px", background: "rgba(225, 29, 72, 0.9)", color: "#fff", border: "none", borderRadius: "50%", width: "18px", height: "18px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px", fontWeight: "bold" }}
+                          title="Xóa ảnh này"
                         >
-                          Tải ảnh lên...
-                        </label>
-                        {themeConfig.loginBgUrl && (
-                          <button 
-                            type="button" 
-                            className="btn-solid-danger" 
-                            style={{ padding: "8px 12px", fontSize: "12px" }}
-                            onClick={() => setThemeConfig({ ...themeConfig, loginBgUrl: "" })}
-                          >
-                            Xóa ảnh
-                          </button>
-                        )}
+                          ✕
+                        </button>
+                        <span style={{ position: "absolute", bottom: "2px", left: "4px", fontSize: "9px", background: "rgba(0,0,0,0.6)", padding: "1px 4px", borderRadius: "4px", color: "#fff" }}>
+                          #{idx + 1}
+                        </span>
                       </div>
-                      <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Hỗ trợ JPG, PNG. Dung lượng tối đa 10MB.</span>
-                    </div>
+                    ))}
                   </div>
 
-                  <div style={{ marginTop: "8px" }}>
-                    <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Hoặc sử dụng Link URL:</label>
+                  <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
                     <input 
-                      type="text" 
-                      className="input-dark" 
-                      style={{ fontSize: "12px", padding: "8px" }}
-                      value={themeConfig.loginBgUrl || ""} 
-                      onChange={(e) => setThemeConfig({ ...themeConfig, loginBgUrl: e.target.value })}
-                      placeholder="Dán link ảnh nền tại đây"
+                      type="file" 
+                      id="bg-file-input" 
+                      accept="image/*" 
+                      multiple
+                      onChange={handleBgUpload} 
+                      style={{ display: "none" }} 
                     />
+                    <label 
+                      htmlFor="bg-file-input" 
+                      className="btn-neon-cyan" 
+                      style={{ cursor: "pointer", fontSize: "12px", padding: "8px 14px", display: "inline-flex", gap: "6px", alignItems: "center" }}
+                    >
+                      <Image size={14} />
+                      <span>Tải thêm ảnh từ máy tính (chọn 1 hoặc nhiều)...</span>
+                    </label>
                   </div>
+                </div>
+
+                {/* Slider Interval timing setting */}
+                <div style={{ borderBottom: "1px solid var(--border-normal)", paddingBottom: "20px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <label style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 600 }}>
+                      Thời gian chuyển slide ảnh tự động (giây)
+                    </label>
+                    <span style={{ fontSize: "13px", color: "var(--accent-cyan)", fontWeight: 800 }}>
+                      {themeConfig.bgTransitionInterval || 5} giây / ảnh
+                    </span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="2" 
+                    max="15" 
+                    step="1"
+                    style={{ width: "100%", accentColor: "var(--accent-cyan)" }}
+                    value={themeConfig.bgTransitionInterval || 5} 
+                    onChange={(e) => setThemeConfig({ ...themeConfig, bgTransitionInterval: parseInt(e.target.value, 10) })}
+                  />
+                  <p style={{ margin: "4px 0 0 0", fontSize: "10px", color: "var(--text-muted)" }}>
+                    Ảnh nền sẽ tự động trượt chuyển động sang trái sau khoảng thời gian này.
+                  </p>
                 </div>
 
                 <div>

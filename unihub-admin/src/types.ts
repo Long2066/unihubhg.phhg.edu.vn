@@ -444,6 +444,8 @@ export interface SystemFeedback {
 
 export interface ThemeConfig {
   loginBgUrl?: string;
+  loginBgUrls?: string[];
+  bgTransitionInterval?: number; // In seconds (default: 5)
   logoUrl?: string;
   loginTitle?: string;
   loginSubtitle?: string;
