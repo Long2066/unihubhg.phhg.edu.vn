@@ -70,49 +70,48 @@ export const LoginScreen: React.FC = () => {
         backgroundColor: hasBg ? "transparent" : "#f8fafc"
       }}
     >
-      {/* Embedded CSS animation for continuous smooth panning to the left */}
-      <style>{`
-        @keyframes pan-left-slow {
-          0% {
-            transform: scale(1.05) translateX(0%);
-          }
-          100% {
-            transform: scale(1.15) translateX(-4%);
-          }
-        }
-        .animate-pan-left {
-          animation: pan-left-slow 20s ease-out infinite alternate;
-        }
-      `}</style>
-
-      {/* Fullscreen Background Image Slider Layer */}
+      {/* Background Image Slider Frame with offset margins */}
       {hasBg && (
-        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-3 sm:inset-5 md:inset-6 z-0 overflow-hidden pointer-events-none rounded-[24px] sm:rounded-[32px] md:rounded-[40px] shadow-2xl border border-white/10">
           {bgList.map((bgUrl, index) => {
             const isActive = index === currentBgIndex;
+            const isPrev = index === (currentBgIndex - 1 + bgList.length) % bgList.length;
+
+            let translateStyle: React.CSSProperties = {
+              transform: "translateX(100%)",
+              opacity: 0,
+              zIndex: 0,
+            };
+
+            if (isActive) {
+              translateStyle = {
+                transform: "translateX(0)",
+                opacity: 1,
+                zIndex: 10,
+              };
+            } else if (isPrev) {
+              translateStyle = {
+                transform: "translateX(-100%)",
+                opacity: 1,
+                zIndex: 5,
+              };
+            }
+
             return (
               <div 
                 key={index}
-                className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-1000 ease-in-out"
+                className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-1000 ease-in-out"
                 style={{ 
                   backgroundImage: `url("${bgUrl}")`,
-                  opacity: isActive ? 1 : 0,
-                  zIndex: isActive ? 1 : 0
+                  ...translateStyle
                 }}
-              >
-                {isActive && (
-                  <div 
-                    className="absolute inset-0 bg-cover bg-center bg-no-repeat animate-pan-left"
-                    style={{ backgroundImage: `url("${bgUrl}")` }}
-                  />
-                )}
-              </div>
+              />
             );
           })}
 
           {/* Dynamic Overlay: dims and blurs when login modal is active */}
           <div 
-            className="absolute inset-0 bg-slate-950 transition-all duration-500 z-10"
+            className="absolute inset-0 bg-slate-950 transition-all duration-500 z-20"
             style={{ 
               opacity: showLoginModal ? 0.35 : (themeConfig?.bgOverlayOpacity ?? 0.3),
               backdropFilter: showLoginModal ? "blur(6px)" : "none",
