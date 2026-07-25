@@ -67,11 +67,11 @@ export const LoginScreen: React.FC = () => {
 
   return (
     <div 
-      className="min-h-screen min-h-dvh flex flex-col justify-between py-6 px-4 sm:px-8 selection:bg-indigo-500 selection:text-white relative bg-slate-950 font-sans text-white overflow-y-auto" 
+      className="h-screen h-dvh max-h-screen flex flex-col justify-between py-4 px-4 sm:px-8 selection:bg-indigo-500 selection:text-white relative bg-slate-950 font-sans text-white overflow-hidden max-sm:h-auto max-sm:min-h-screen max-sm:overflow-y-auto" 
       id="unihub-login-screen"
     >
       {/* 1. Top Header Navigation Bar (Transparent, Aligned Left Logo/Title & Right Login) */}
-      <header className="relative z-10 w-full max-w-7xl mx-auto flex items-center justify-between py-4">
+      <header className="relative z-10 w-full max-w-7xl mx-auto flex items-center justify-between py-2 shrink-0">
         {/* Left Side: Brand Logo (doubled size!) & Title */}
         <div className="flex items-center gap-4 sm:gap-6 text-left">
           <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white rounded-full shadow-2xl border border-white/20 flex items-center justify-center overflow-hidden shrink-0 transition-transform transform hover:scale-105">
@@ -114,9 +114,9 @@ export const LoginScreen: React.FC = () => {
       </header>
 
       {/* 2. Middle Section: Widescreen 16:9 Banner Slider Box (Positioned 1/3 from top) */}
-      <main className="relative z-10 w-full max-w-7xl mx-auto my-6 flex-1 flex flex-col justify-center">
+      <main className="relative z-10 w-full max-w-7xl mx-auto my-3 flex-1 flex flex-col justify-center min-h-0 overflow-hidden max-sm:my-4 max-sm:flex-none">
         {hasBg ? (
-          <div className="w-full aspect-video overflow-hidden rounded-[24px] sm:rounded-[36px] shadow-2xl border border-white/10 relative bg-slate-900">
+          <div className="h-full max-h-full aspect-video w-auto max-w-full overflow-hidden rounded-[24px] sm:rounded-[36px] shadow-2xl border border-white/10 relative bg-slate-900 mx-auto max-sm:w-full max-sm:h-auto">
             
             {/* Horizontal Filmstrip Carousel Container */}
             <div 
@@ -157,36 +157,36 @@ export const LoginScreen: React.FC = () => {
       </main>
 
       {/* 3. Lower Section: Contact Info & Footer (Dynamic parameters from Admin) */}
-      <footer className="relative z-10 w-full max-w-7xl mx-auto pt-6 border-t border-white/10 flex flex-col gap-6">
+      <footer className="relative z-10 w-full max-w-7xl mx-auto pt-3 border-t border-white/10 flex flex-col gap-3 shrink-0">
         {/* Contact details row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left text-sm text-slate-300">
-          <div className="flex items-start gap-3">
-            <MapPin className="text-indigo-400 shrink-0 mt-0.5" size={18} />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-left text-sm text-slate-300">
+          <div className="flex items-start gap-2.5">
+            <MapPin className="text-indigo-400 shrink-0 mt-0.5" size={16} />
             <div>
-              <span className="block font-bold text-white mb-0.5">Địa chỉ</span>
-              <span className="text-xs leading-relaxed">{themeConfig?.contactAddress || "Tổ 10, Phường Nguyễn Trãi, Thành phố Hà Giang, Tỉnh Hà Giang"}</span>
+              <span className="block font-bold text-white mb-0.5 text-xs">Địa chỉ</span>
+              <span className="text-[11px] leading-snug">{themeConfig?.contactAddress || "Tổ 10, Phường Nguyễn Trãi, Thành phố Hà Giang, Tỉnh Hà Giang"}</span>
             </div>
           </div>
           
-          <div className="flex items-start gap-3">
-            <Mail className="text-indigo-400 shrink-0 mt-0.5" size={18} />
+          <div className="flex items-start gap-2.5">
+            <Mail className="text-indigo-400 shrink-0 mt-0.5" size={16} />
             <div>
-              <span className="block font-bold text-white mb-0.5">Email liên hệ</span>
-              <span className="text-xs leading-relaxed">{themeConfig?.contactEmail || "phhagiang@tnu.edu.vn"}</span>
+              <span className="block font-bold text-white mb-0.5 text-xs">Email liên hệ</span>
+              <span className="text-[11px] leading-snug">{themeConfig?.contactEmail || "phhagiang@tnu.edu.vn"}</span>
             </div>
           </div>
 
-          <div className="flex items-start gap-3">
-            <Phone className="text-indigo-400 shrink-0 mt-0.5" size={18} />
+          <div className="flex items-start gap-2.5">
+            <Phone className="text-indigo-400 shrink-0 mt-0.5" size={16} />
             <div>
-              <span className="block font-bold text-white mb-0.5">Điện thoại</span>
-              <span className="text-xs leading-relaxed">{themeConfig?.contactPhone || "0219.386.1234"}</span>
+              <span className="block font-bold text-white mb-0.5 text-xs">Điện thoại</span>
+              <span className="text-[11px] leading-snug">{themeConfig?.contactPhone || "0219.386.1234"}</span>
             </div>
           </div>
         </div>
 
         {/* Footer legal brand line */}
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 text-[11px] text-slate-500 border-t border-white/5 pt-4">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-1 text-[10px] text-slate-500 border-t border-white/5 pt-2">
           <div>
             Hệ thống UniHub Rèn luyện © 2026. Phiên bản 1.0 - Phân hiệu Đại học Thái Nguyên tại Hà Giang.
           </div>
