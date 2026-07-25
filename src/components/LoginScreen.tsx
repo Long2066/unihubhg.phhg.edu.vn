@@ -116,7 +116,7 @@ export const LoginScreen: React.FC = () => {
       {/* 2. Middle Section: Widescreen 16:9 Banner Slider Box (Positioned 1/3 from top) */}
       <main className="relative z-10 w-full max-w-7xl mx-auto my-6 flex-1 flex flex-col justify-center">
         {hasBg ? (
-          <div className="w-full aspect-[16/9] md:max-h-[500px] overflow-hidden rounded-[24px] sm:rounded-[36px] shadow-2xl border border-white/10 relative">
+          <div className="w-full aspect-video overflow-hidden rounded-[24px] sm:rounded-[36px] shadow-2xl border border-white/10 relative bg-slate-900">
             
             {/* Horizontal Filmstrip Carousel Container */}
             <div 
@@ -127,12 +127,13 @@ export const LoginScreen: React.FC = () => {
               }}
             >
               {bgList.map((bgUrl, index) => (
-                <div 
+                <img 
                   key={index}
-                  className="h-full bg-cover bg-center bg-no-repeat flex-shrink-0"
+                  src={bgUrl}
+                  alt={`Slide ${index + 1}`}
+                  className="h-full object-fill flex-shrink-0 select-none"
                   style={{ 
-                    width: `${100 / bgList.length}%`,
-                    backgroundImage: `url("${bgUrl}")` 
+                    width: `${100 / bgList.length}%`
                   }}
                 />
               ))}
