@@ -441,3 +441,12 @@ export interface SystemFeedback {
   content: string;
   createdAt: string;
 }
+
+export interface ThemeConfig {
+  loginBgUrl?: string;
+  logoUrl?: string;
+  loginTitle?: string;
+  loginSubtitle?: string;
+  bgOverlayOpacity?: number;
+}
+

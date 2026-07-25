@@ -29,7 +29,8 @@ import {
   PointCriteria,
   DailyAttendanceReport,
   ScheduleSlot,
-  SystemFeedback
+  SystemFeedback,
+  ThemeConfig
 } from "./types";
 import { 
   SEED_USERS, 
@@ -68,11 +69,13 @@ import {
   TrendingUp,
   Download,
   BookOpen,
-  Mail
+  Mail,
+  Image,
+  Palette
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
-type ActiveTab = "DASHBOARD" | "USERS" | "DATABASE" | "RULES" | "TOOLS" | "FEEDBACK";
+type ActiveTab = "DASHBOARD" | "USERS" | "DATABASE" | "RULES" | "TOOLS" | "FEEDBACK" | "THEME";
 
 export default function App() {
   // Authentication state
@@ -85,6 +88,15 @@ export default function App() {
 
   // Sidebar navigation
   const [activeTab, setActiveTab] = useState<ActiveTab>("DASHBOARD");
+
+  // Interface custom theme state
+  const [themeConfig, setThemeConfig] = useState<ThemeConfig>({
+    loginBgUrl: "",
+    logoUrl: "",
+    loginTitle: "CỔNG THÔNG TIN UNIHUBHG",
+    loginSubtitle: "Chào mừng bạn đến với Phân hiệu ĐHTN tại Hà Giang - Tra cứu ngay thông tin của bạn",
+    bgOverlayOpacity: 0.75
+  });
 
   // Real-time Firestore Collections state
   const [users, setUsers] = useState<UserAccount[]>([]);
@@ -230,6 +242,12 @@ export default function App() {
         snap.forEach(d => list.push(d.data() as SystemFeedback));
         list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setSystemFeedbacks(list);
+      }),
+
+      onSnapshot(doc(db, "systemConfig", "theme"), (docSnap) => {
+        if (docSnap.exists()) {
+          setThemeConfig(prev => ({ ...prev, ...docSnap.data() }));
+        }
       })
     ];
 
@@ -334,6 +352,22 @@ export default function App() {
       }
       
       setLoginError("Tài khoản hoặc mật khẩu quản trị không chính xác!");
+    }
+  };
+
+  const handleSaveThemeConfig = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setLoading(true);
+    setStatusMessage("Đang lưu cấu hình giao diện...");
+    try {
+      await setDoc(doc(db, "systemConfig", "theme"), themeConfig);
+      alert("Đã lưu cấu hình Ảnh & Giao diện thành công!");
+    } catch (err: any) {
+      console.error("Save theme config error", err);
+      alert("Lỗi khi lưu cấu hình giao diện: " + err.message);
+    } finally {
+      setLoading(false);
+      setStatusMessage("");
     }
   };
 
@@ -1076,6 +1110,14 @@ export default function App() {
           >
             <Mail size={18} />
             <span>Hòm thư góp ý</span>
+          </div>
+
+          <div 
+            className={`sidebar-item ${activeTab === "THEME" ? "active" : ""}`}
+            onClick={() => setActiveTab("THEME")}
+          >
+            <Image size={18} />
+            <span>Ảnh giao diện</span>
           </div>
         </div>
 
@@ -1980,6 +2022,197 @@ export default function App() {
             </div>
           );
         })()}
+
+        {/* ================= TAB: THEME CUSTOMIZATION ================= */}
+        {activeTab === "THEME" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+            <div>
+              <h1 style={{ margin: "0 0 4px 0", fontSize: "28px", fontWeight: 800 }}>Cấu hình ảnh & giao diện</h1>
+              <p style={{ margin: "0", color: "var(--text-muted)", fontSize: "14px" }}>
+                Thay đổi logo, hình nền đăng nhập, và tiêu đề hiển thị ở dự án UniHub chính.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveThemeConfig} style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: "24px", alignItems: "start" }}>
+              {/* Left Column: Form settings */}
+              <div className="glass-card" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                <h3 style={{ margin: "0 0 8px 0", borderBottom: "1px solid var(--border-normal)", paddingBottom: "10px", fontSize: "18px", color: "var(--accent-cyan)" }}>
+                  Thông số cấu hình
+                </h3>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "8px", fontWeight: 600 }}>
+                    Tiêu đề Cổng thông tin (Login Title)
+                  </label>
+                  <input 
+                    type="text" 
+                    className="input-dark" 
+                    value={themeConfig.loginTitle || ""} 
+                    onChange={(e) => setThemeConfig({ ...themeConfig, loginTitle: e.target.value })}
+                    placeholder="e.g. CỔNG THÔNG TIN UNIHUBHG"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "8px", fontWeight: 600 }}>
+                    Dòng mô tả (Login Subtitle)
+                  </label>
+                  <textarea 
+                    className="input-dark" 
+                    style={{ minHeight: "60px", resize: "vertical", fontFamily: "inherit" }}
+                    value={themeConfig.loginSubtitle || ""} 
+                    onChange={(e) => setThemeConfig({ ...themeConfig, loginSubtitle: e.target.value })}
+                    placeholder="Nhập dòng chữ chào mừng phía dưới tiêu đề..."
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "8px", fontWeight: 600 }}>
+                    Đường dẫn logo tùy chỉnh (Logo URL)
+                  </label>
+                  <input 
+                    type="text" 
+                    className="input-dark" 
+                    value={themeConfig.logoUrl || ""} 
+                    onChange={(e) => setThemeConfig({ ...themeConfig, logoUrl: e.target.value })}
+                    placeholder="e.g. https://domain.com/logo.png (Để trống để dùng logo mặc định)"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "8px", fontWeight: 600 }}>
+                    Đường dẫn hình nền đăng nhập (Background URL)
+                  </label>
+                  <input 
+                    type="text" 
+                    className="input-dark" 
+                    value={themeConfig.loginBgUrl || ""} 
+                    onChange={(e) => setThemeConfig({ ...themeConfig, loginBgUrl: e.target.value })}
+                    placeholder="Dán link ảnh nền tại đây (Để trống để dùng hình nền mặc định)"
+                  />
+                </div>
+
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <label style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 600 }}>
+                      Độ mờ lớp phủ nền (Background Overlay Opacity)
+                    </label>
+                    <span style={{ fontSize: "12px", color: "var(--accent-cyan)", fontWeight: 700 }}>
+                      {Math.round((themeConfig.bgOverlayOpacity ?? 0.75) * 100)}%
+                    </span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="1" 
+                    step="0.05"
+                    style={{ width: "100%", accentColor: "var(--accent-cyan)" }}
+                    value={themeConfig.bgOverlayOpacity ?? 0.75} 
+                    onChange={(e) => setThemeConfig({ ...themeConfig, bgOverlayOpacity: parseFloat(e.target.value) })}
+                  />
+                </div>
+
+                <div style={{ marginTop: "12px" }}>
+                  <button type="submit" className="btn-neon-cyan" style={{ width: "100%", justifyContent: "center", padding: "12px" }}>
+                    <Check size={18} />
+                    <span>Lưu cấu hình giao diện</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Column: Presets & Live Preview */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                {/* Presets Card */}
+                <div className="glass-card" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <h3 style={{ margin: "0", fontSize: "16px", color: "var(--accent-cyan)", fontWeight: 700 }}>
+                    Hình nền mẫu gợi ý (Presets)
+                  </h3>
+                  <p style={{ margin: "0", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>
+                    Nhấn chọn nhanh một trong các hình nền chất lượng cao dưới đây để áp dụng làm hình nền:
+                  </p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                    {[
+                      { name: "Phân hiệu HG Campus", url: "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=1000&auto=format&fit=crop" },
+                      { name: "Khuôn viên Đại học", url: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1000&auto=format&fit=crop" },
+                      { name: "Thư viện tri thức", url: "https://images.unsplash.com/photo-1507842237319-9871f54972e7?q=80&w=1000&auto=format&fit=crop" },
+                      { name: "Gradient trừu tượng", url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop" },
+                      { name: "Thiên nhiên Hà Giang", url: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1000&auto=format&fit=crop" },
+                      { name: "Reset mặc định", url: "" }
+                    ].map((p, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className="btn-neon-purple"
+                        style={{ padding: "8px", fontSize: "11px", justifyContent: "center" }}
+                        onClick={() => setThemeConfig({ ...themeConfig, loginBgUrl: p.url })}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mini Preview Box */}
+                <div className="glass-card" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <h3 style={{ margin: "0", fontSize: "16px", color: "var(--accent-cyan)", fontWeight: 700 }}>
+                    Xem trước nhanh (Live Preview)
+                  </h3>
+                  <div 
+                    style={{ 
+                      height: "220px", 
+                      borderRadius: "12px", 
+                      border: "1px solid var(--border-normal)", 
+                      position: "relative",
+                      overflow: "hidden",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      backgroundImage: themeConfig.loginBgUrl ? `url(${themeConfig.loginBgUrl})` : "none",
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                      backgroundColor: themeConfig.loginBgUrl ? "transparent" : "#080c14",
+                      transition: "all 0.3s ease"
+                    }}
+                  >
+                    {/* Simulated Overlay */}
+                    {themeConfig.loginBgUrl && (
+                      <div 
+                        style={{ 
+                          position: "absolute", 
+                          inset: 0, 
+                          backgroundColor: "#020617", 
+                          opacity: themeConfig.bgOverlayOpacity ?? 0.75,
+                          zIndex: 1
+                        }} 
+                      />
+                    )}
+
+                    {/* Simulated login card content */}
+                    <div style={{ position: "relative", zIndex: 2, textAlign: "center", padding: "16px", color: "#fff" }}>
+                      <div style={{ display: "flex", justifyContent: "center", gap: "8px", alignItems: "center", marginBottom: "8px" }}>
+                        <div style={{ width: "24px", height: "24px", borderRadius: "6px", backgroundColor: "#fff", display: "flex", alignItems: "center", justifyItems: "center", overflow: "hidden" }}>
+                          {themeConfig.logoUrl ? (
+                            <img src={themeConfig.logoUrl} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                          ) : (
+                            <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: "#0c529c", margin: "auto" }}></div>
+                          )}
+                        </div>
+                        <span style={{ fontSize: "10px", fontWeight: 800, color: "var(--accent-cyan)" }}>TNU HGC</span>
+                      </div>
+                      <h4 style={{ margin: "0 0 4px 0", fontSize: "12px", fontWeight: 900 }}>
+                        {themeConfig.loginTitle || "CỔNG THÔNG TIN UNIHUBHG"}
+                      </h4>
+                      <p style={{ margin: "0", fontSize: "9px", color: "#94a3b8", maxWidth: "260px" }}>
+                        {themeConfig.loginSubtitle || "Chào mừng bạn đến với Phân hiệu ĐHTN tại Hà Giang..."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
 
       {/* ================= MODAL: USER DETAILS (ADD/EDIT) ================= */}

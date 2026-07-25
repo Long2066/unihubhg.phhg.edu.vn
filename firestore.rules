@@ -460,5 +460,10 @@ service cloud.firestore {
       allow delete: if isVerifiedUser() && isValidId(facultyId) && (hasRole('ADMIN') || isSuperAdmin());
     }
 
+    match /systemConfig/{configId} {
+      allow read: if true;
+      allow write: if isVerifiedUser() && (hasRole('ADMIN') || isSuperAdmin());
+    }
+
   }
 }

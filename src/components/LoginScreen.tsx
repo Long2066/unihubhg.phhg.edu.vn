@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 export const LoginScreen: React.FC = () => {
-  const { login, users } = useUniHub();
+  const { login, users, themeConfig } = useUniHub();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -103,26 +103,60 @@ export const LoginScreen: React.FC = () => {
     }
   };
 
+  const hasBg = Boolean(themeConfig?.loginBgUrl);
+
   return (
-    <div className="min-h-screen min-h-dvh bg-slate-50 flex flex-col justify-between py-8 px-4 font-sans selection:bg-indigo-500 selection:text-white" id="unihub-login-screen">
+    <div 
+      className="min-h-screen min-h-dvh flex flex-col justify-between py-8 px-4 font-sans selection:bg-indigo-500 selection:text-white relative overflow-hidden transition-colors duration-500" 
+      id="unihub-login-screen"
+      style={{
+        backgroundColor: hasBg ? "transparent" : "#f8fafc"
+      }}
+    >
+      {/* Background Image Layer */}
+      {hasBg && (
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0 transition-all duration-700 scale-105"
+          style={{ backgroundImage: `url("${themeConfig?.loginBgUrl}")` }}
+        >
+          <div 
+            className="absolute inset-0 bg-slate-950/75 backdrop-blur-md"
+            style={{ opacity: themeConfig?.bgOverlayOpacity ?? 0.75 }}
+          />
+        </div>
+      )}
+
       {/* Header */}
-      <div className="max-w-6xl mx-auto w-full text-center my-4">
+      <div className="relative z-10 max-w-6xl mx-auto w-full text-center my-4">
         <div className="inline-flex items-center gap-4 justify-center mb-2">
           <div className="w-14 h-14 bg-white rounded-2xl shadow-lg border border-indigo-100 flex items-center justify-center overflow-hidden shrink-0">
-            <TnuLogo size={44} />
+            {themeConfig?.logoUrl ? (
+              <img 
+                src={themeConfig.logoUrl} 
+                alt="Logo" 
+                className="w-11 h-11 object-contain"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <TnuLogo size={44} />
+            )}
           </div>
           <div className="text-left">
-            <h4 className="font-mono text-xs font-black text-indigo-600 tracking-wider uppercase">Phân hiệu ĐHTN tại Hà Giang</h4>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">CỔNG THÔNG TIN UNIHUBHG</h1>
+            <h4 className="font-mono text-xs font-black text-indigo-400 tracking-wider uppercase">Phân hiệu ĐHTN tại Hà Giang</h4>
+            <h1 className={`text-2xl font-black tracking-tight ${hasBg ? 'text-white drop-shadow-md' : 'text-slate-900'}`}>
+              {themeConfig?.loginTitle || "CỔNG THÔNG TIN UNIHUBHG"}
+            </h1>
           </div>
         </div>
-        <p className="max-w-xl mx-auto text-sm text-slate-500 mt-2">
-          Chào mừng bạn đến với Phân hiệu ĐHTN tại Hà Giang - Tra cứu ngay thông tin của bạn
+        <p className={`max-w-xl mx-auto text-sm mt-2 ${hasBg ? 'text-slate-200 drop-shadow' : 'text-slate-500'}`}>
+          {themeConfig?.loginSubtitle || "Chào mừng bạn đến với Phân hiệu ĐHTN tại Hà Giang - Tra cứu ngay thông tin của bạn"}
         </p>
       </div>
 
       {/* Main Content Area */}
-      <div className="max-w-md mx-auto w-full my-auto" id="manual-login-card-container">
+      <div className="relative z-10 max-w-md mx-auto w-full my-auto" id="manual-login-card-container">
         
         {/* Manual Login Card */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/50 p-6 flex flex-col justify-between" id="manual-login-card">
@@ -186,14 +220,14 @@ export const LoginScreen: React.FC = () => {
       </div>
 
       {/* Footer Branding info */}
-      <footer className="max-w-6xl mx-auto w-full text-center border-t border-slate-200 pt-6 mt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-400">
+      <footer className={`relative z-10 max-w-6xl mx-auto w-full text-center border-t ${hasBg ? 'border-slate-700/60 text-slate-300' : 'border-slate-200 text-slate-400'} pt-6 mt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs`}>
         <div>
           Hệ thống UniHub Rèn luyện © 2026. Phiên bản 1.0 - Bản kế hoạch thí điểm tại Hà Giang.
         </div>
         <div className="font-mono text-[10px]">
           Dùng chung Cơ sở dữ liệu, API & Thang điểm quy chuẩn liên thông.
         </div>
-      </footer>
+        </footer>
     </div>
   );
 };

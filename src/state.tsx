@@ -40,7 +40,8 @@ import {
   ClubAnnouncement,
   ScheduleSlot,
   GroupAttendanceReport,
-  SystemFeedback
+  SystemFeedback,
+  ThemeConfig
 } from "./types";
 import { 
   SEED_PERIOD, 
@@ -80,6 +81,7 @@ interface UniHubContextType {
   announcements: ClubAnnouncement[];
   schedules: ScheduleSlot[];
   systemFeedbacks: SystemFeedback[];
+  themeConfig?: ThemeConfig;
   
   // Actions
   login: (email: string, password?: string) => Promise<boolean>;
@@ -228,6 +230,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [groupCriteria, setGroupCriteria] = useState<GroupEvaluationCriteria[]>([]);
   const [announcements, setAnnouncements] = useState<ClubAnnouncement[]>([]);
   const [systemFeedbacks, setSystemFeedbacks] = useState<SystemFeedback[]>([]);
+  const [themeConfig, setThemeConfig] = useState<ThemeConfig>(() => {
+    const cached = localStorage.getItem("unihub_theme_config");
+    return cached ? JSON.parse(cached) : {};
+  });
 
   // Keep only lightweight session/UI preferences in localStorage. Business data is
   // loaded from Firestore to avoid stale browser cache overriding the database.
@@ -301,6 +307,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
         },
         (error) => console.warn("Firestore listener failed for settings/period:", error)
+      ),
+      onSnapshot(
+        doc(db, "systemConfig", "theme"),
+        (snap) => {
+          if (snap.exists()) {
+            const value = snap.data() as ThemeConfig;
+            setThemeConfig(value);
+            localStorage.setItem("unihub_theme_config", JSON.stringify(value));
+          }
+        },
+        (error) => console.warn("Firestore listener failed for systemConfig/theme:", error)
       )
     ];
 
@@ -2426,6 +2443,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       schedules,
       groupAttendances,
       systemFeedbacks,
+      themeConfig,
       
       login,
       logout,
