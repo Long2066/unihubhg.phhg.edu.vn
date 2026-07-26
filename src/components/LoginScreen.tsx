@@ -16,16 +16,30 @@ import {
   LogIn,
   MapPin,
   Mail,
-  Phone
+  Phone,
+  Newspaper,
+  Calendar,
+  ExternalLink
 } from "lucide-react";
 
+interface NewsFeedItem {
+  id: string;
+  title: string;
+  content: string;
+  dateStr: string;
+  orgName: string;
+  imageUrl?: string;
+  type: "ANNOUNCEMENT" | "ACTIVITY";
+}
+
 export const LoginScreen: React.FC = () => {
-  const { login, users, themeConfig } = useUniHub();
+  const { login, users, themeConfig, announcements, activities } = useUniHub();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [selectedNews, setSelectedNews] = useState<NewsFeedItem | null>(null);
   const [currentBgIndex, setCurrentBgIndex] = useState(0);
   const [isCarouselTransitioning, setIsCarouselTransitioning] = useState(true);
 
@@ -65,6 +79,90 @@ export const LoginScreen: React.FC = () => {
       window.requestAnimationFrame(() => setIsCarouselTransitioning(true));
     });
   };
+
+  const newsList = useMemo(() => {
+    const items: NewsFeedItem[] = [];
+
+    (announcements || []).forEach((ann) => {
+      let dateStr = "Tháng Bảy 25, 2026";
+      if (ann.createdAt) {
+        try {
+          const d = new Date(ann.createdAt);
+          if (!isNaN(d.getTime())) {
+            const months = ["Một", "Hai", "Ba", "Tư", "Năm", "Sáu", "Bảy", "Tám", "Chín", "Mười", "Mười Một", "Mười Hai"];
+            dateStr = `Tháng ${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+          }
+        } catch {}
+      }
+      items.push({
+        id: ann.id,
+        title: ann.title,
+        content: ann.content || "",
+        dateStr: dateStr,
+        orgName: ann.orgName || "Thông báo Phân hiệu",
+        imageUrl: ann.imageUrl,
+        type: "ANNOUNCEMENT"
+      });
+    });
+
+    (activities || []).forEach((act) => {
+      let dateStr = "Tháng Bảy 25, 2026";
+      if (act.dateTime) {
+        try {
+          const d = new Date(act.dateTime);
+          if (!isNaN(d.getTime())) {
+            const months = ["Một", "Hai", "Ba", "Tư", "Năm", "Sáu", "Bảy", "Tám", "Chín", "Mười", "Mười Một", "Mười Hai"];
+            dateStr = `Tháng ${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+          }
+        } catch {}
+      }
+      items.push({
+        id: act.id,
+        title: act.title,
+        content: act.description || "",
+        dateStr: dateStr,
+        orgName: act.orgName || "Hoạt động Phong trào",
+        imageUrl: undefined,
+        type: "ACTIVITY"
+      });
+    });
+
+    const fallbackNews: NewsFeedItem[] = [
+      {
+        id: "sample-1",
+        title: "CÔNG ĐOÀN PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI TỈNH HÀ GIANG ĐẠT GIẢI CAO TẠI LIÊN HOAN TIẾNG HÁT GIÁO VIÊN TOÀN QUỐC LẦN THỨ VI NĂM 2026",
+        content: "Đoàn nghệ thuật quần chúng Phân hiệu Đại học Thái Nguyên xuất sắc hoàn thành các tiết mục biểu diễn mang đậm bản sắc văn hóa các dân tộc vùng cao Hà Giang, đạt giải cao toàn đoàn.",
+        dateStr: "Tháng Bảy 25, 2026",
+        orgName: "Công đoàn Phân hiệu",
+        imageUrl: "https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=600&q=80",
+        type: "ANNOUNCEMENT"
+      },
+      {
+        id: "sample-2",
+        title: "Công đoàn Phân hiệu thăm hỏi, tặng quà gia đình người có công với cách mạng nhân dịp kỷ niệm 79 năm Ngày Thương binh – Liệt sĩ (27/7/1947 – 27/7/2026)",
+        content: "Nhân kỷ niệm 79 năm Ngày Thương binh - Liệt sĩ (27/7/1947 - 27/7/2026), đại diện Công đoàn và Đoàn Thanh niên Phân hiệu đã đến thăm hỏi và trao các suất quà ý nghĩa tới các gia đình chính sách trên địa bàn.",
+        dateStr: "Tháng Bảy 25, 2026",
+        orgName: "Công đoàn & Đoàn Phân hiệu",
+        imageUrl: "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=600&q=80",
+        type: "ANNOUNCEMENT"
+      },
+      {
+        id: "sample-3",
+        title: "Giám đốc Đại học Thái Nguyên đối thoại với viên chức, người lao động Phân hiệu Đại học Thái Nguyên tại tỉnh Lào Cai và Hà Giang",
+        content: "Buổi đối thoại diễn ra trong không khí cởi mở, lắng nghe ý kiến tâm huyết về định hướng nâng cao chất lượng đào tạo, mở rộng quy mô ngành nghề và chính sách hỗ trợ người học.",
+        dateStr: "Tháng Bảy 23, 2026",
+        orgName: "Ban Giám đốc & Phân hiệu",
+        imageUrl: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=600&q=80",
+        type: "ANNOUNCEMENT"
+      }
+    ];
+
+    if (items.length < 3) {
+      return [...items, ...fallbackNews];
+    }
+
+    return items;
+  }, [announcements, activities]);
 
   const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,57 +233,115 @@ export const LoginScreen: React.FC = () => {
         </div>
       </header>
 
-      {/* 2. Middle Section: Widescreen 16:9 Banner Slider Box (Positioned 1/3 from top) */}
-      <main className="relative z-10 w-full max-w-7xl mx-auto my-3 flex-1 flex flex-col justify-center min-h-0 overflow-hidden max-sm:my-4 max-sm:flex-none">
-        {hasBg ? (
-          <div className="h-full max-h-full aspect-video w-auto max-w-full rounded-[24px] sm:rounded-[36px] shadow-2xl border border-white/10 relative bg-gradient-to-br from-white/10 via-white/5 to-slate-950/60 mx-auto p-2 sm:p-3 max-sm:w-full max-sm:h-auto">
-            <div className="relative h-full w-full overflow-hidden rounded-[18px] sm:rounded-[28px] bg-slate-950/80">
-              {/* Seamless horizontal filmstrip: no zoom, no fade, no image recompression. */}
-              <div 
-                className="flex flex-row h-full will-change-transform"
-                onTransitionEnd={handleCarouselTransitionEnd}
-                style={{ 
-                  width: `${carouselSlides.length * 100}%`,
-                  transform: `translate3d(-${currentBgIndex * carouselSlideWidth}%, 0, 0)`,
-                  transition: isCarouselTransitioning
-                    ? "transform 1400ms cubic-bezier(0.22, 1, 0.36, 1)"
-                    : "none"
-                }}
-              >
-                {carouselSlides.map((bgUrl, index) => (
-                  <img 
-                    key={`${bgUrl}-${index}`}
-                    src={bgUrl}
-                    alt={`Ảnh nền đăng nhập ${index % bgList.length + 1}`}
-                    className="h-full object-cover flex-shrink-0 select-none"
+      {/* 2. Middle Section: Split 2-Column Desktop Layout (Left: 16:9 Banner Slider, Right: News Feed) */}
+      <main className="relative z-10 w-full max-w-7xl mx-auto my-3 flex-1 flex flex-col justify-center min-h-0 overflow-hidden max-lg:my-4 max-lg:flex-none">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-stretch h-full max-h-full min-h-0 w-full">
+          
+          {/* Left Column (lg:col-span-7): Widescreen 16:9 Banner Slider Box */}
+          <div className="lg:col-span-7 flex flex-col justify-center min-h-0 h-full max-h-full">
+            {hasBg ? (
+              <div className="h-full max-h-full aspect-video w-auto max-w-full rounded-[24px] sm:rounded-[32px] shadow-2xl border border-white/10 relative bg-gradient-to-br from-white/10 via-white/5 to-slate-950/60 mx-auto p-2 sm:p-3 max-lg:w-full max-lg:h-auto">
+                <div className="relative h-full w-full overflow-hidden rounded-[18px] sm:rounded-[24px] bg-slate-950/80">
+                  {/* Seamless horizontal filmstrip */}
+                  <div 
+                    className="flex flex-row h-full will-change-transform"
+                    onTransitionEnd={handleCarouselTransitionEnd}
                     style={{ 
-                      width: `${carouselSlideWidth}%`,
-                      objectPosition: "center center",
-                      imageRendering: "auto"
+                      width: `${carouselSlides.length * 100}%`,
+                      transform: `translate3d(-${currentBgIndex * carouselSlideWidth}%, 0, 0)`,
+                      transition: isCarouselTransitioning
+                        ? "transform 1400ms cubic-bezier(0.22, 1, 0.36, 1)"
+                        : "none"
                     }}
-                    draggable={false}
-                    loading={index <= 1 ? "eager" : "lazy"}
-                    decoding="async"
-                  />
-                ))}
-              </div>
+                  >
+                    {carouselSlides.map((bgUrl, index) => (
+                      <img 
+                        key={`${bgUrl}-${index}`}
+                        src={bgUrl}
+                        alt={`Ảnh nền đăng nhập ${index % bgList.length + 1}`}
+                        className="h-full object-cover flex-shrink-0 select-none"
+                        style={{ 
+                          width: `${carouselSlideWidth}%`,
+                          objectPosition: "center center",
+                          imageRendering: "auto"
+                        }}
+                        draggable={false}
+                        loading={index <= 1 ? "eager" : "lazy"}
+                        decoding="async"
+                      />
+                    ))}
+                  </div>
 
-              {/* Dark Tint & Blur Overlay (active only when Modal is open) */}
-              <div 
-                className="absolute inset-0 bg-slate-950 transition-all duration-500 z-20 pointer-events-none"
-                style={{ 
-                  opacity: showLoginModal ? 0.6 : 0,
-                  backdropFilter: showLoginModal ? "blur(6px)" : "none",
-                  WebkitBackdropFilter: showLoginModal ? "blur(6px)" : "none"
-                }}
-              />
+                  {/* Dark Tint & Blur Overlay */}
+                  <div 
+                    className="absolute inset-0 bg-slate-950 transition-all duration-500 z-20 pointer-events-none"
+                    style={{ 
+                      opacity: showLoginModal ? 0.6 : 0,
+                      backdropFilter: showLoginModal ? "blur(6px)" : "none",
+                      WebkitBackdropFilter: showLoginModal ? "blur(6px)" : "none"
+                    }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="w-full aspect-[16/9] bg-slate-900 rounded-[24px] border border-white/5 flex items-center justify-center">
+                <span className="text-slate-400 text-sm">Chưa có ảnh nền nào được tải lên.</span>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column (lg:col-span-5): "Tin tức và các hoạt động phong trào" News Board */}
+          <div className="lg:col-span-5 flex flex-col min-h-0 h-full max-h-full bg-slate-900/70 backdrop-blur-md rounded-[24px] sm:rounded-[32px] border border-white/10 p-4 sm:p-5 shadow-2xl text-left overflow-hidden">
+            {/* Header Title */}
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30">
+                  <Newspaper size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-extrabold text-white tracking-wide leading-tight">
+                    Tin tức và các hoạt động phong trào
+                  </h3>
+                  <span className="text-[10px] text-slate-400">CLB, Đoàn Thanh niên, Hội Sinh viên & Phân hiệu</span>
+                </div>
+              </div>
+            </div>
+
+            {/* News Items Scrollable List */}
+            <div className="flex-1 overflow-y-auto pr-1.5 space-y-3.5 custom-scrollbar min-h-0">
+              {newsList.map((item) => (
+                <div 
+                  key={item.id}
+                  onClick={() => setSelectedNews(item)}
+                  className="flex items-start gap-3 p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group"
+                >
+                  {/* News Thumbnail Image (Left side of card) */}
+                  <div className="w-24 sm:w-28 aspect-[4/3] rounded-xl overflow-hidden shrink-0 border border-white/10 bg-slate-950 relative">
+                    <img 
+                      src={item.imageUrl || (themeConfig?.logoUrl || "https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=600&q=80")}
+                      alt={item.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+
+                  {/* News Details (Right side of card) */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-between h-full py-0.5">
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-100 group-hover:text-indigo-300 transition-colors line-clamp-2 leading-snug">
+                        {item.title}
+                      </h4>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
+                      <span className="truncate max-w-[140px] text-indigo-400 font-medium">{item.orgName}</span>
+                      <span className="shrink-0">{item.dateStr}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        ) : (
-          <div className="w-full aspect-[16/9] md:max-h-[500px] bg-slate-900 rounded-[24px] sm:rounded-[36px] border border-white/5 flex items-center justify-center">
-            <span className="text-slate-400 text-sm">Chưa có ảnh nền nào được tải lên.</span>
-          </div>
-        )}
+
+        </div>
       </main>
 
       {/* 3. Lower Section: Contact Info & Footer (Dynamic parameters from Admin) */}
@@ -314,6 +470,48 @@ export const LoginScreen: React.FC = () => {
                   {!loading && <ArrowRight size={16} />}
                 </button>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* News Detail View Modal */}
+      {selectedNews && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in text-left"
+          onClick={() => setSelectedNews(null)}
+        >
+          <div 
+            className="bg-slate-900 border border-white/15 text-white w-full max-w-2xl rounded-3xl p-6 sm:p-8 relative max-h-[90vh] flex flex-col shadow-2xl animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              onClick={() => setSelectedNews(null)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-white transition-colors p-2 rounded-full hover:bg-white/10 cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="overflow-y-auto pr-2 custom-scrollbar space-y-4">
+              <div className="flex items-center gap-2 text-indigo-400 text-xs font-semibold uppercase tracking-wider">
+                <Newspaper size={14} />
+                <span>{selectedNews.orgName}</span>
+                <span>•</span>
+                <span>{selectedNews.dateStr}</span>
+              </div>
+
+              <h2 className="text-lg sm:text-xl font-extrabold text-white leading-snug">
+                {selectedNews.title}
+              </h2>
+
+              {selectedNews.imageUrl && (
+                <div className="w-full aspect-video rounded-2xl overflow-hidden border border-white/10 bg-black">
+                  <img src={selectedNews.imageUrl} alt={selectedNews.title} className="w-full h-full object-cover" />
+                </div>
+              )}
+
+              <div className="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line border-t border-white/10 pt-4">
+                {selectedNews.content}
+              </div>
             </div>
           </div>
         </div>

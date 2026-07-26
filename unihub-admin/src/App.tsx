@@ -87,7 +87,14 @@ const THEME_BACKGROUND_LIMIT = 8;
 const THEME_MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 
 const isLegacyInlineImage = (url?: string) => {
-  return typeof url === "string" && url.startsWith("data:image/");
+  if (!url || typeof url !== "string") return false;
+  const trimmed = url.trim();
+  if (trimmed.startsWith("data:") || trimmed.startsWith("blob:")) return true;
+  if (trimmed.length > 2048) return true;
+  if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+    if (trimmed.length > 50) return true;
+  }
+  return false;
 };
 
 const formatFileSize = (bytes: number) => {
