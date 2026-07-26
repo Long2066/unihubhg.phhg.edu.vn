@@ -85,21 +85,75 @@ type ActiveTab = "DASHBOARD" | "USERS" | "DATABASE" | "RULES" | "TOOLS" | "FEEDB
 
 const THEME_BACKGROUND_LIMIT = 8;
 const THEME_MAX_IMAGE_BYTES = 25 * 1024 * 1024;
-
-const isLegacyInlineImage = (url?: string) => {
-  if (!url || typeof url !== "string") return false;
-  const trimmed = url.trim();
-  if (trimmed.startsWith("data:") || trimmed.startsWith("blob:")) return true;
-  if (trimmed.length > 2048) return true;
-  if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
-    if (trimmed.length > 50) return true;
-  }
-  return false;
-};
+const THEME_FIRESTORE_SAFE_BYTES = 900 * 1024;
+const THEME_URL_MAX_LENGTH = 2048;
+const LEGACY_BASE64_MIN_LENGTH = 4096;
 
 const formatFileSize = (bytes: number) => {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+};
+
+const getJsonSizeBytes = (value: unknown) => {
+  try {
+    const json = JSON.stringify(value ?? {});
+    if (typeof TextEncoder !== "undefined") {
+      return new TextEncoder().encode(json).length;
+    }
+    return new Blob([json]).size;
+  } catch {
+    return Number.MAX_SAFE_INTEGER;
+  }
+};
+
+const looksLikeInlineImagePayload = (value?: string) => {
+  if (!value || typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+
+  if (/data:|blob:/i.test(trimmed)) return true;
+  if (/;base64,/i.test(trimmed.slice(0, 2048))) return true;
+
+  const isHttpUrl = /^https?:\/\//i.test(trimmed);
+  if (trimmed.length > THEME_URL_MAX_LENGTH && !isHttpUrl) return true;
+
+  const compact = trimmed.length > 64_000
+    ? trimmed.slice(0, 64_000).replace(/\s/g, "")
+    : trimmed.replace(/\s/g, "");
+  if (compact.length >= LEGACY_BASE64_MIN_LENGTH && /^[A-Za-z0-9+/=]+$/.test(compact)) {
+    return compact.startsWith("/9j/")
+      || compact.startsWith("iVBORw0KGgo")
+      || compact.startsWith("R0lGOD")
+      || compact.startsWith("UklGR")
+      || compact.startsWith("PD94bWwg")
+      || trimmed.length > 100_000;
+  }
+
+  return false;
+};
+
+const isLegacyInlineImage = (url?: string) => looksLikeInlineImagePayload(url);
+
+const sanitizeThemeImageUrl = (url?: string): string => {
+  if (!url || typeof url !== "string") return "";
+  const trimmed = url.trim();
+  if (!trimmed || looksLikeInlineImagePayload(trimmed)) return "";
+  if (!/^https?:\/\//i.test(trimmed) || trimmed.length > THEME_URL_MAX_LENGTH) return "";
+
+  try {
+    new URL(trimmed);
+    return trimmed;
+  } catch {
+    return "";
+  }
+};
+
+const sanitizeTextField = (val?: string, maxLength = 1000): string => {
+  if (!val || typeof val !== "string") return "";
+  const trimmed = val.trim();
+  if (!trimmed) return "";
+  if (looksLikeInlineImagePayload(trimmed)) return "";
+  return trimmed.slice(0, maxLength);
 };
 
 const sanitizeStorageFileName = (fileName: string) => {
@@ -139,133 +193,181 @@ const getThemeStoragePathFromDownloadUrl = (url?: string): string | null => {
   }
 };
 
-const sanitizeString = (val?: string, maxLength = 1000): string => {
-  if (!val || typeof val !== "string") return "";
-  const trimmed = val.trim();
-  if (isLegacyInlineImage(trimmed)) return "";
-  if (trimmed.length > maxLength) {
-    if (trimmed.startsWith("data:") || trimmed.startsWith("blob:") || trimmed.length > 2048) {
-      return "";
-    }
-    return trimmed.slice(0, maxLength);
-  }
-  return trimmed;
-};
-
-const getCompactThemeConfig = (config: ThemeConfig): ThemeConfig => {
+const getCompactThemeConfig = (config: Partial<ThemeConfig> = {}): ThemeConfig => {
   const rawBgUrls = [
-    ...(config.loginBgUrls || []),
+    ...(Array.isArray(config.loginBgUrls) ? config.loginBgUrls : []),
     ...(config.loginBgUrl ? [config.loginBgUrl] : [])
   ];
   const compactBgUrls = Array.from(
-    new Set(rawBgUrls.map(url => sanitizeString(url, 1000)).filter(Boolean))
+    new Set(rawBgUrls.map(url => sanitizeThemeImageUrl(url)).filter(Boolean))
   ).slice(0, THEME_BACKGROUND_LIMIT);
 
-  const cleanLogoUrl = sanitizeString(config.logoUrl, 1000);
-
   return {
-    loginTitle: sanitizeString(config.loginTitle, 300),
-    loginSubtitle: sanitizeString(config.loginSubtitle, 500),
-    logoUrl: cleanLogoUrl,
+    loginTitle: sanitizeTextField(config.loginTitle, 300),
+    loginSubtitle: sanitizeTextField(config.loginSubtitle, 500),
+    logoUrl: sanitizeThemeImageUrl(config.logoUrl),
     loginBgUrl: compactBgUrls[0] || "",
     loginBgUrls: compactBgUrls,
     bgTransitionInterval: typeof config.bgTransitionInterval === "number" && !isNaN(config.bgTransitionInterval) ? config.bgTransitionInterval : 5,
     bgOverlayOpacity: typeof config.bgOverlayOpacity === "number" && !isNaN(config.bgOverlayOpacity) ? config.bgOverlayOpacity : 0.4,
-    contactAddress: sanitizeString(config.contactAddress, 500),
-    contactEmail: sanitizeString(config.contactEmail, 200),
-    contactPhone: sanitizeString(config.contactPhone, 200)
+    contactAddress: sanitizeTextField(config.contactAddress, 500),
+    contactEmail: sanitizeTextField(config.contactEmail, 200),
+    contactPhone: sanitizeTextField(config.contactPhone, 200)
   };
 };
 
-const hasLegacyInlineThemeImages = (config: ThemeConfig) => {
+const hasLegacyInlineThemeImages = (config: Partial<ThemeConfig> = {}) => {
   return isLegacyInlineImage(config.logoUrl)
     || isLegacyInlineImage(config.loginBgUrl)
     || Boolean(config.loginBgUrls?.some(isLegacyInlineImage));
 };
 
+const isThemeDocumentDirtyAfterCompaction = (rawConfig: Partial<ThemeConfig>, compactConfig: ThemeConfig) => {
+  if (hasLegacyInlineThemeImages(rawConfig)) return true;
+  if (getJsonSizeBytes(rawConfig) > THEME_FIRESTORE_SAFE_BYTES) return true;
+
+  const comparableRaw = {
+    loginTitle: rawConfig.loginTitle || "",
+    loginSubtitle: rawConfig.loginSubtitle || "",
+    logoUrl: rawConfig.logoUrl || "",
+    loginBgUrl: rawConfig.loginBgUrl || "",
+    loginBgUrls: Array.isArray(rawConfig.loginBgUrls) ? rawConfig.loginBgUrls : [],
+    bgTransitionInterval: rawConfig.bgTransitionInterval ?? 5,
+    bgOverlayOpacity: rawConfig.bgOverlayOpacity ?? 0.4,
+    contactAddress: rawConfig.contactAddress || "",
+    contactEmail: rawConfig.contactEmail || "",
+    contactPhone: rawConfig.contactPhone || ""
+  };
+
+  return JSON.stringify(comparableRaw) !== JSON.stringify(compactConfig);
+};
+
 const compressImageToMaxDimensions = (
-  file: File, 
-  maxWidth = 1440, 
-  maxHeight = 900, 
-  quality = 0.78
+  file: File,
+  maxWidth = 1920,
+  maxHeight = 1080,
+  quality = 0.82,
+  maxBytes = THEME_MAX_IMAGE_BYTES
 ): Promise<File> => {
   return new Promise((resolve) => {
-    if (!file.type.startsWith("image/")) {
+    if (!file.type.startsWith("image/") || file.type === "image/svg+xml" || file.type === "image/gif") {
       resolve(file);
       return;
     }
 
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new window.Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        let width = img.width;
-        let height = img.height;
+    const objectUrl = URL.createObjectURL(file);
+    const img = new window.Image();
 
-        if (width > maxWidth || height > maxHeight) {
-          const aspect = width / height;
-          if (width / maxWidth > height / maxHeight) {
-            width = maxWidth;
-            height = Math.round(maxWidth / aspect);
-          } else {
-            height = maxHeight;
-            width = Math.round(maxHeight * aspect);
-          }
-        }
+    const cleanupObjectUrl = () => URL.revokeObjectURL(objectUrl);
 
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
+    img.onload = () => {
+      cleanupObjectUrl();
 
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          resolve(file);
-          return;
-        }
+      const originalWidth = img.naturalWidth || img.width;
+      const originalHeight = img.naturalHeight || img.height;
+      if (!originalWidth || !originalHeight) {
+        resolve(file);
+        return;
+      }
 
+      let width = originalWidth;
+      let height = originalHeight;
+
+      if (width > maxWidth || height > maxHeight) {
+        const scale = Math.min(maxWidth / width, maxHeight / height);
+        width = Math.max(1, Math.round(width * scale));
+        height = Math.max(1, Math.round(height * scale));
+      }
+
+      const resized = width !== originalWidth || height !== originalHeight;
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const releaseCanvasMemory = () => {
+        canvas.width = 1;
+        canvas.height = 1;
+      };
+
+      const ctx = canvas.getContext("2d", { alpha: false });
+      if (!ctx) {
+        releaseCanvasMemory();
+        resolve(file);
+        return;
+      }
+
+      try {
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
         ctx.drawImage(img, 0, 0, width, height);
+      } catch (drawErr) {
+        console.warn("Canvas draw failed, using original image", drawErr);
+        releaseCanvasMemory();
+        resolve(file);
+        return;
+      }
 
+      const encodeJpeg = (attemptQuality: number) => {
         canvas.toBlob(
           (blob) => {
             if (!blob) {
+              releaseCanvasMemory();
               resolve(file);
               return;
             }
+
+            const nextQuality = Number((attemptQuality - 0.1).toFixed(2));
+            if (blob.size > maxBytes && nextQuality >= 0.55) {
+              encodeJpeg(nextQuality);
+              return;
+            }
+
             const compressedFileName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
-            const compressedFile = new (window as any).File([blob], compressedFileName, {
+            const compressedFile = new File([blob], compressedFileName, {
               type: "image/jpeg",
               lastModified: Date.now()
-            }) as File;
+            });
 
-            if (compressedFile.size < file.size) {
-              resolve(compressedFile);
-            } else {
-              resolve(file);
-            }
+            const shouldUseCompressed = resized || file.size > maxBytes || compressedFile.size < file.size;
+            releaseCanvasMemory();
+            resolve(shouldUseCompressed ? compressedFile : file);
           },
           "image/jpeg",
-          quality
+          Math.min(Math.max(attemptQuality, 0.55), 0.92)
         );
       };
-      img.onerror = () => resolve(file);
+
+      encodeJpeg(quality);
     };
-    reader.onerror = () => resolve(file);
+
+    img.onerror = () => {
+      cleanupObjectUrl();
+      resolve(file);
+    };
+
+    img.src = objectUrl;
   });
 };
 
-const uploadOriginalImageToStorage = async (file: File, folder: "logos" | "backgrounds", index = 0) => {
+const uploadThemeImageToStorage = async (file: File, folder: "logos" | "backgrounds", index = 0) => {
   if (!file.type.startsWith("image/")) {
     throw new Error(`${file.name} không phải là tệp ảnh hợp lệ.`);
   }
 
-  // Auto-compress image to HD widescreen dimensions to preserve quality while lowering footprint
+  // Auto-resize and compress in-memory without Base64 to match safe Storage limits.
   let fileToUpload = file;
   try {
-    fileToUpload = await compressImageToMaxDimensions(file, 1440, 900, 0.78);
+    const compressionProfile = folder === "logos"
+      ? { maxWidth: 768, maxHeight: 768, quality: 0.86 }
+      : { maxWidth: 1920, maxHeight: 1080, quality: 0.82 };
+
+    fileToUpload = await compressImageToMaxDimensions(
+      file,
+      compressionProfile.maxWidth,
+      compressionProfile.maxHeight,
+      compressionProfile.quality,
+      THEME_MAX_IMAGE_BYTES
+    );
   } catch (compressErr) {
     console.warn("Client compression failed, using original file", compressErr);
   }
@@ -322,6 +424,7 @@ export default function App() {
   const [logoUploading, setLogoUploading] = useState(false);
   const [bgUploading, setBgUploading] = useState(false);
   const pendingThemeDeletionUrlsRef = useRef<Set<string>>(new Set());
+  const autoThemeCleanupAttemptedRef = useRef(false);
 
   const queueThemeFileDeletion = (url?: string) => {
     if (!getThemeStoragePathFromDownloadUrl(url)) return;
@@ -350,10 +453,10 @@ export default function App() {
     if (!file) return;
 
     setLogoUploading(true);
-    setStatusMessage("Đang tải ảnh logo gốc lên Firebase Storage...");
+    setStatusMessage("Đang tối ưu ảnh logo và tải lên Firebase Storage...");
     try {
       const previousLogoUrl = themeConfig.logoUrl;
-      const logoUrl = await uploadOriginalImageToStorage(file, "logos");
+      const logoUrl = await uploadThemeImageToStorage(file, "logos");
       setThemeConfig(prev => ({ ...prev, logoUrl }));
       queueThemeFileDeletion(previousLogoUrl);
     } catch (err: any) {
@@ -387,14 +490,14 @@ export default function App() {
 
     const filesToUpload = files.slice(0, availableSlots);
     setBgUploading(true);
-    setStatusMessage(`Đang tải ${filesToUpload.length} ảnh gốc lên Firebase Storage...`);
+    setStatusMessage(`Đang tối ưu và tải ${filesToUpload.length} ảnh lên Firebase Storage...`);
 
     try {
       const newUrls: string[] = [];
       for (let i = 0; i < filesToUpload.length; i++) {
         const file = filesToUpload[i];
-        setStatusMessage(`Đang tải ảnh ${i + 1}/${filesToUpload.length}: ${file.name}...`);
-        const downloadUrl = await uploadOriginalImageToStorage(file, "backgrounds", i);
+        setStatusMessage(`Đang tối ưu ảnh ${i + 1}/${filesToUpload.length}: ${file.name}...`);
+        const downloadUrl = await uploadThemeImageToStorage(file, "backgrounds", i);
         newUrls.push(downloadUrl);
       }
 
@@ -609,7 +712,25 @@ export default function App() {
 
       onSnapshot(doc(db, "systemConfig", "theme"), (docSnap) => {
         if (docSnap.exists()) {
-          setThemeConfig(prev => getCompactThemeConfig({ ...prev, ...docSnap.data() }));
+          const rawConfig = docSnap.data() as Partial<ThemeConfig>;
+          const compactConfig = getCompactThemeConfig(rawConfig);
+          setThemeConfig(compactConfig);
+
+          if (isThemeDocumentDirtyAfterCompaction(rawConfig, compactConfig) && !autoThemeCleanupAttemptedRef.current) {
+            autoThemeCleanupAttemptedRef.current = true;
+            setStatusMessage("Phát hiện dữ liệu ảnh Base64 cũ, đang tự dọn Firestore...");
+
+            setDoc(doc(db, "systemConfig", "theme"), compactConfig, { merge: false })
+              .then(() => {
+                console.info("Legacy theme Base64 payload was automatically cleaned.");
+                setStatusMessage("Đã tự dọn dữ liệu ảnh cũ Base64 khỏi Firestore.");
+                window.setTimeout(() => setStatusMessage(""), 2500);
+              })
+              .catch((err) => {
+                console.error("Auto-clean legacy theme payload failed", err);
+                setStatusMessage("Không thể tự dọn dữ liệu Base64. Vui lòng dùng tài khoản Admin có quyền ghi và bấm nút dọn dẹp.");
+              });
+          }
         }
       })
     ];
@@ -726,7 +847,11 @@ export default function App() {
       const compactThemeConfig = getCompactThemeConfig(themeConfig);
       const removedLegacyImages = hasLegacyInlineThemeImages(themeConfig);
 
-      await setDoc(doc(db, "systemConfig", "theme"), compactThemeConfig);
+      if (getJsonSizeBytes(compactThemeConfig) > THEME_FIRESTORE_SAFE_BYTES) {
+        throw new Error("Payload cấu hình vẫn vượt ngưỡng an toàn Firestore sau khi làm sạch. Vui lòng xóa ảnh cũ và thử lại.");
+      }
+
+      await setDoc(doc(db, "systemConfig", "theme"), compactThemeConfig, { merge: false });
       setThemeConfig(compactThemeConfig);
 
       if (pendingThemeDeletionUrlsRef.current.size > 0) {
@@ -2453,7 +2578,7 @@ export default function App() {
                     1. Logo hệ thống (Logo Image)
                   </label>
                   <p style={{ margin: "0", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>
-                    Tải ảnh gốc lên Firebase Storage, giữ nguyên tệp ảnh và không nén/resize:
+                    Ảnh được tự tối ưu/nén đúng giới hạn trước khi lên Firebase Storage, sau đó Firestore chỉ lưu URL nhỏ:
                   </p>
                   
                   <div style={{ display: "flex", alignItems: "center", gap: "16px", marginTop: "8px" }}>
@@ -2492,7 +2617,7 @@ export default function App() {
                           </button>
                         )}
                       </div>
-                      <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Tải ảnh gốc lên Firebase Storage, không nén/resize. Khuyên dùng PNG nền trong suốt hoặc ảnh vuông chất lượng cao.</span>
+                      <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Logo sẽ được tự tối ưu về kích thước an toàn trước khi tải lên Storage. Khuyên dùng PNG nền trong suốt hoặc ảnh vuông chất lượng cao.</span>
                     </div>
                   </div>
 
@@ -2520,7 +2645,7 @@ export default function App() {
                     </span>
                   </div>
                   <p style={{ margin: "0", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>
-                    Ảnh được tải nguyên tệp gốc lên Firebase Storage; Firestore chỉ lưu URL nhỏ nên không còn lỗi 1MB và không làm giảm độ nét ảnh.
+                    Ảnh được tự nén/căn kích thước tối đa cho phép rồi tải lên Firebase Storage; Firestore chỉ lưu URL nhỏ nên không còn lỗi 1MB.
                     Các thay đổi xóa/thay ảnh cũ chỉ được dọn trên Storage sau khi bạn bấm Lưu cấu hình.
                   </p>
                   {hasLegacyAdminThemeImages && (
@@ -2564,7 +2689,7 @@ export default function App() {
                       style={{ cursor: "pointer", fontSize: "12px", padding: "8px 14px", display: "inline-flex", gap: "6px", alignItems: "center" }}
                     >
                       <Image size={14} />
-                      <span>Tải ảnh gốc lên Storage (chọn 1 hoặc nhiều)...</span>
+                      <span>Tối ưu & tải ảnh lên Storage (chọn 1 hoặc nhiều)...</span>
                     </label>
                     
                     {hasConfiguredAdminBg && (
@@ -2685,7 +2810,7 @@ export default function App() {
                       setStatusMessage("Đang dọn dẹp triệt để dữ liệu Base64 cũ...");
                       try {
                         const cleanConfig = getCompactThemeConfig(themeConfig);
-                        await setDoc(doc(db, "systemConfig", "theme"), cleanConfig);
+                        await setDoc(doc(db, "systemConfig", "theme"), cleanConfig, { merge: false });
                         setThemeConfig(cleanConfig);
                         alert("Đã làm sạch dữ liệu Base64 thành công! Dung lượng cấu hình hiện tại chỉ còn dưới 2KB.");
                       } catch (err: any) {

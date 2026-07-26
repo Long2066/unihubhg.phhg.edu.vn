@@ -30,7 +30,14 @@ service cloud.firestore {
     }
 
     function isSuperAdmin() {
-      return isSignedIn() && request.auth.token.email.toLowerCase() == "superadmin@unihub.edu.vn";
+      return isSignedIn() && request.auth.token.email == "superadmin@unihub.edu.vn";
+    }
+
+    function isThemeConfigAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "superadmin@unihub.edu.vn" ||
+        request.auth.token.email == "pcthssv@hg.edu.vn"
+      );
     }
 
     function getUserData() {
@@ -462,7 +469,11 @@ service cloud.firestore {
 
     match /systemConfig/{configId} {
       allow read: if true;
-      allow write: if isVerifiedUser() && (hasRole('ADMIN') || isSuperAdmin());
+      allow write: if isVerifiedUser() && (
+        hasRole('ADMIN') ||
+        isSuperAdmin() ||
+        (configId == 'theme' && isThemeConfigAdmin())
+      );
     }
 
   }
