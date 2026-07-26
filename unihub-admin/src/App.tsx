@@ -148,11 +148,19 @@ const getCompactThemeConfig = (config: ThemeConfig): ThemeConfig => {
     new Set(rawBgUrls.filter(url => url && !isLegacyInlineImage(url)))
   ).slice(0, THEME_BACKGROUND_LIMIT);
 
+  const cleanLogoUrl = isLegacyInlineImage(config.logoUrl) ? "" : (config.logoUrl || "");
+
   return {
-    ...config,
-    loginBgUrls: compactBgUrls,
+    loginTitle: config.loginTitle || "",
+    loginSubtitle: config.loginSubtitle || "",
+    logoUrl: cleanLogoUrl,
     loginBgUrl: compactBgUrls[0] || "",
-    logoUrl: isLegacyInlineImage(config.logoUrl) ? "" : (config.logoUrl || "")
+    loginBgUrls: compactBgUrls,
+    bgTransitionInterval: typeof config.bgTransitionInterval === "number" ? config.bgTransitionInterval : 5,
+    bgOverlayOpacity: typeof config.bgOverlayOpacity === "number" ? config.bgOverlayOpacity : 0.4,
+    contactAddress: config.contactAddress || "",
+    contactEmail: config.contactEmail || "",
+    contactPhone: config.contactPhone || ""
   };
 };
 
@@ -506,7 +514,7 @@ export default function App() {
 
       onSnapshot(doc(db, "systemConfig", "theme"), (docSnap) => {
         if (docSnap.exists()) {
-          setThemeConfig(prev => ({ ...prev, ...docSnap.data() }));
+          setThemeConfig(prev => getCompactThemeConfig({ ...prev, ...docSnap.data() }));
         }
       })
     ];
