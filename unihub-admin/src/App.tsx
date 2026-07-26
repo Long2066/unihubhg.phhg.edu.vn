@@ -423,20 +423,8 @@ const uploadThemeImageToStorage = async (file: File, folder: "logos" | "backgrou
     console.warn("Firebase Storage failed (likely not configured or Spark plan limit), trying ImgBB Cloud...", storageErr);
   }
 
-  // 2. Fallback to ImgBB Free Cloud Hosting
-  try {
-    return await uploadImageToImgBB(fileToUpload);
-  } catch (imgbbErr: any) {
-    console.warn("ImgBB upload failed, falling back to Base64 in Firestore...", imgbbErr);
-  }
-
-  // 3. Fallback to inline Base64 data URL
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error("Không thể chuyển đổi ảnh thành chuỗi Base64."));
-    reader.readAsDataURL(fileToUpload);
-  });
+  // 2. Fallback to ImgBB Free Cloud Hosting (NO Base64 fallback - that causes Firestore 1MB crashes)
+  return await uploadImageToImgBB(fileToUpload);
 };
 
 const deleteThemeStorageFileFromUrl = async (url?: string) => {
@@ -917,16 +905,27 @@ export default function App() {
       const compactThemeConfig = getCompactThemeConfig(themeConfig);
       const removedLegacyImages = hasLegacyInlineThemeImages(themeConfig);
 
-      if (getJsonSizeBytes(compactThemeConfig) > THEME_FIRESTORE_SAFE_BYTES) {
-        throw new Error("Payload cấu hình vẫn vượt ngưỡng an toàn Firestore sau khi làm sạch. Vui lòng xóa ảnh cũ và thử lại.");
+      // CRITICAL: Final safety net - strip ANY data:/blob: URLs that may have leaked into state
+      const isInlineData = (u?: string) => !!u && (u.startsWith("data:") || u.startsWith("blob:") || u.length > 5000);
+      const safeConfig = {
+        ...compactThemeConfig,
+        logoUrl: isInlineData(compactThemeConfig.logoUrl) ? "" : compactThemeConfig.logoUrl,
+        loginBgUrl: isInlineData(compactThemeConfig.loginBgUrl) ? "" : compactThemeConfig.loginBgUrl,
+        loginBgUrls: (compactThemeConfig.loginBgUrls || []).filter(u => !isInlineData(u))
+      };
+      safeConfig.loginBgUrl = safeConfig.loginBgUrls[0] || "";
+
+      const payloadSize = getJsonSizeBytes(safeConfig);
+      if (payloadSize > THEME_FIRESTORE_SAFE_BYTES) {
+        throw new Error(`Payload cấu hình (${formatFileSize(payloadSize)}) vẫn vượt ngưỡng an toàn Firestore. Vui lòng xóa ảnh cũ và thử lại.`);
       }
 
-      await setDoc(doc(db, "systemConfig", "theme"), compactThemeConfig, { merge: false });
-      setThemeConfig(compactThemeConfig);
+      await setDoc(doc(db, "systemConfig", "theme"), safeConfig, { merge: false });
+      setThemeConfig(safeConfig);
 
       if (pendingThemeDeletionUrlsRef.current.size > 0) {
         setStatusMessage("Đang dọn dẹp ảnh cũ trên Firebase Storage...");
-        await flushPendingThemeFileDeletions(compactThemeConfig);
+        await flushPendingThemeFileDeletions(safeConfig);
       }
 
       alert(removedLegacyImages
