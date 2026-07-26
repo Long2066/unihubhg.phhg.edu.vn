@@ -183,19 +183,101 @@ const hasLegacyInlineThemeImages = (config: ThemeConfig) => {
     || Boolean(config.loginBgUrls?.some(isLegacyInlineImage));
 };
 
+const compressImageToMaxDimensions = (
+  file: File, 
+  maxWidth = 1440, 
+  maxHeight = 900, 
+  quality = 0.78
+): Promise<File> => {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith("image/")) {
+      resolve(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new window.Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          const aspect = width / height;
+          if (width / maxWidth > height / maxHeight) {
+            width = maxWidth;
+            height = Math.round(maxWidth / aspect);
+          } else {
+            height = maxHeight;
+            width = Math.round(maxHeight * aspect);
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve(file);
+              return;
+            }
+            const compressedFileName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+            const compressedFile = new (window as any).File([blob], compressedFileName, {
+              type: "image/jpeg",
+              lastModified: Date.now()
+            }) as File;
+
+            if (compressedFile.size < file.size) {
+              resolve(compressedFile);
+            } else {
+              resolve(file);
+            }
+          },
+          "image/jpeg",
+          quality
+        );
+      };
+      img.onerror = () => resolve(file);
+    };
+    reader.onerror = () => resolve(file);
+  });
+};
+
 const uploadOriginalImageToStorage = async (file: File, folder: "logos" | "backgrounds", index = 0) => {
   if (!file.type.startsWith("image/")) {
     throw new Error(`${file.name} không phải là tệp ảnh hợp lệ.`);
   }
 
-  if (file.size > THEME_MAX_IMAGE_BYTES) {
-    throw new Error(`${file.name} quá lớn (${formatFileSize(file.size)}). Vui lòng chọn ảnh tối đa 25MB.`);
+  // Auto-compress image to HD widescreen dimensions to preserve quality while lowering footprint
+  let fileToUpload = file;
+  try {
+    fileToUpload = await compressImageToMaxDimensions(file, 1440, 900, 0.78);
+  } catch (compressErr) {
+    console.warn("Client compression failed, using original file", compressErr);
   }
 
-  const path = buildThemeStoragePath(folder, file, index);
+  if (fileToUpload.size > THEME_MAX_IMAGE_BYTES) {
+    throw new Error(`${fileToUpload.name} quá lớn (${formatFileSize(fileToUpload.size)}). Vui lòng chọn ảnh tối đa 25MB.`);
+  }
+
+  const path = buildThemeStoragePath(folder, fileToUpload, index);
   const imageRef = storageRef(storage, path);
-  const snapshot = await uploadBytes(imageRef, file, {
-    contentType: file.type || "image/jpeg",
+  const snapshot = await uploadBytes(imageRef, fileToUpload, {
+    contentType: fileToUpload.type || "image/jpeg",
     customMetadata: {
       originalName: file.name,
       uploadedFor: folder === "logos" ? "login-logo" : "login-background"
