@@ -134,9 +134,23 @@ const looksLikeInlineImagePayload = (value?: string) => {
 
 const isLegacyInlineImage = (url?: string) => looksLikeInlineImagePayload(url);
 
-const sanitizeThemeImageUrl = (url?: string): string => {
+const convertGoogleDriveUrlToDirectUrl = (url?: string): string => {
   if (!url || typeof url !== "string") return "";
   const trimmed = url.trim();
+  if (!trimmed) return "";
+
+  const driveRegex = /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?export=view&id=|uc\?id=)|lh3\.googleusercontent\.com\/d\/)([a-zA-Z0-9_-]{25,})/;
+  const match = trimmed.match(driveRegex);
+  if (match && match[1]) {
+    return `https://lh3.googleusercontent.com/d/${match[1]}`;
+  }
+  return trimmed;
+};
+
+const sanitizeThemeImageUrl = (url?: string): string => {
+  if (!url || typeof url !== "string") return "";
+  const converted = convertGoogleDriveUrlToDirectUrl(url);
+  const trimmed = converted.trim();
   if (!trimmed || looksLikeInlineImagePayload(trimmed)) return "";
   if (!/^https?:\/\//i.test(trimmed) || trimmed.length > THEME_URL_MAX_LENGTH) return "";
 
@@ -349,12 +363,33 @@ const compressImageToMaxDimensions = (
   });
 };
 
+const uploadImageToImgBB = async (file: File): Promise<string> => {
+  const formData = new FormData();
+  formData.append("image", file);
+  // ImgBB free API key
+  const apiKey = "6d70444736614f9693d038d3f8f6e468";
+  const res = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+    method: "POST",
+    body: formData
+  });
+
+  if (!res.ok) {
+    throw new Error(`ImgBB HTTP error ${res.status}`);
+  }
+
+  const data = await res.json();
+  if (data && data.success && data.data && (data.data.display_url || data.data.url)) {
+    return data.data.display_url || data.data.url;
+  }
+  throw new Error("ImgBB upload failed: " + (data?.error?.message || "Invalid response"));
+};
+
 const uploadThemeImageToStorage = async (file: File, folder: "logos" | "backgrounds", index = 0) => {
   if (!file.type.startsWith("image/")) {
     throw new Error(`${file.name} không phải là tệp ảnh hợp lệ.`);
   }
 
-  // Auto-resize and compress in-memory without Base64 to match safe Storage limits.
+  // Auto-resize and compress in-memory to fit standard dimensions.
   let fileToUpload = file;
   try {
     const compressionProfile = folder === "logos"
@@ -372,21 +407,36 @@ const uploadThemeImageToStorage = async (file: File, folder: "logos" | "backgrou
     console.warn("Client compression failed, using original file", compressErr);
   }
 
-  if (fileToUpload.size > THEME_MAX_IMAGE_BYTES) {
-    throw new Error(`${fileToUpload.name} quá lớn (${formatFileSize(fileToUpload.size)}). Vui lòng chọn ảnh tối đa 25MB.`);
+  // 1. Try Firebase Storage first (if enabled and accessible)
+  try {
+    const path = buildThemeStoragePath(folder, fileToUpload, index);
+    const imageRef = storageRef(storage, path);
+    const snapshot = await uploadBytes(imageRef, fileToUpload, {
+      contentType: fileToUpload.type || "image/jpeg",
+      customMetadata: {
+        originalName: file.name,
+        uploadedFor: folder === "logos" ? "login-logo" : "login-background"
+      }
+    });
+    return await getDownloadURL(snapshot.ref);
+  } catch (storageErr: any) {
+    console.warn("Firebase Storage failed (likely not configured or Spark plan limit), trying ImgBB Cloud...", storageErr);
   }
 
-  const path = buildThemeStoragePath(folder, fileToUpload, index);
-  const imageRef = storageRef(storage, path);
-  const snapshot = await uploadBytes(imageRef, fileToUpload, {
-    contentType: fileToUpload.type || "image/jpeg",
-    customMetadata: {
-      originalName: file.name,
-      uploadedFor: folder === "logos" ? "login-logo" : "login-background"
-    }
-  });
+  // 2. Fallback to ImgBB Free Cloud Hosting
+  try {
+    return await uploadImageToImgBB(fileToUpload);
+  } catch (imgbbErr: any) {
+    console.warn("ImgBB upload failed, falling back to Base64 in Firestore...", imgbbErr);
+  }
 
-  return getDownloadURL(snapshot.ref);
+  // 3. Fallback to inline Base64 data URL
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Không thể chuyển đổi ảnh thành chuỗi Base64."));
+    reader.readAsDataURL(fileToUpload);
+  });
 };
 
 const deleteThemeStorageFileFromUrl = async (url?: string) => {
@@ -423,6 +473,7 @@ export default function App() {
 
   const [logoUploading, setLogoUploading] = useState(false);
   const [bgUploading, setBgUploading] = useState(false);
+  const [newBgUrlInput, setNewBgUrlInput] = useState("");
   const pendingThemeDeletionUrlsRef = useRef<Set<string>>(new Set());
   const autoThemeCleanupAttemptedRef = useRef(false);
 
@@ -529,17 +580,36 @@ export default function App() {
 
   const addBgUrlToList = (newUrl: string) => {
     if (!newUrl || isLegacyInlineImage(newUrl)) return;
+    const directUrl = convertGoogleDriveUrlToDirectUrl(newUrl);
     setThemeConfig(prev => {
       const compactPrev = getCompactThemeConfig(prev);
       const currentList = compactPrev.loginBgUrls || [];
-      if (currentList.includes(newUrl)) return compactPrev;
-      const updatedList = [...currentList, newUrl].slice(0, THEME_BACKGROUND_LIMIT);
+      if (currentList.includes(directUrl)) return compactPrev;
+      const updatedList = [...currentList, directUrl].slice(0, THEME_BACKGROUND_LIMIT);
       return {
         ...compactPrev,
         loginBgUrls: updatedList,
         loginBgUrl: updatedList[0] || ""
       };
     });
+  };
+
+  const handleBgUrlInputSubmit = () => {
+    if (!newBgUrlInput || !newBgUrlInput.trim()) return;
+    const directUrl = convertGoogleDriveUrlToDirectUrl(newBgUrlInput.trim());
+    if (!/^https?:\/\//i.test(directUrl)) {
+      alert("Đường dẫn không hợp lệ. Vui lòng nhập URL bắt đầu bằng http:// hoặc https://");
+      return;
+    }
+
+    const currentList = getCompactThemeConfig(themeConfig).loginBgUrls || [];
+    if (currentList.length >= THEME_BACKGROUND_LIMIT) {
+      alert(`Danh sách đã đủ ${THEME_BACKGROUND_LIMIT} ảnh nền. Vui lòng xóa bớt ảnh cũ trước khi thêm.`);
+      return;
+    }
+
+    addBgUrlToList(directUrl);
+    setNewBgUrlInput("");
   };
 
   const removeBgImage = (indexToRemove: number) => {
@@ -2702,6 +2772,28 @@ export default function App() {
                         Xóa tất cả ảnh nền
                       </button>
                     )}
+                  </div>
+
+                  <div style={{ marginTop: "8px" }}>
+                    <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Hoặc dán Link URL ảnh nền mới (Google Drive / Imgur / Web):</label>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <input 
+                        type="text" 
+                        className="input-dark" 
+                        style={{ fontSize: "12px", padding: "8px", flex: 1 }}
+                        value={newBgUrlInput} 
+                        onChange={(e) => setNewBgUrlInput(e.target.value)}
+                        placeholder="Dán link chia sẻ Google Drive hoặc bất kỳ link ảnh nào..."
+                      />
+                      <button
+                        type="button"
+                        className="btn-solid-primary"
+                        style={{ padding: "8px 16px", fontSize: "12px" }}
+                        onClick={handleBgUrlInputSubmit}
+                      >
+                        Thêm ảnh
+                      </button>
+                    </div>
                   </div>
                 </div>
 

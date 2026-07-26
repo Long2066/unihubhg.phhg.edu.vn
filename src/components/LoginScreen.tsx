@@ -32,6 +32,19 @@ interface NewsFeedItem {
   type: "ANNOUNCEMENT" | "ACTIVITY";
 }
 
+const convertGoogleDriveUrlToDirectUrl = (url?: string): string => {
+  if (!url || typeof url !== "string") return "";
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+
+  const driveRegex = /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?export=view&id=|uc\?id=)|lh3\.googleusercontent\.com\/d\/)([a-zA-Z0-9_-]{25,})/;
+  const match = trimmed.match(driveRegex);
+  if (match && match[1]) {
+    return `https://lh3.googleusercontent.com/d/${match[1]}`;
+  }
+  return trimmed;
+};
+
 export const LoginScreen: React.FC = () => {
   const { login, users, themeConfig, announcements, activities } = useUniHub();
   const [email, setEmail] = useState("");
@@ -48,7 +61,9 @@ export const LoginScreen: React.FC = () => {
       ? themeConfig.loginBgUrls
       : (themeConfig?.loginBgUrl ? [themeConfig.loginBgUrl] : []);
 
-    return configuredImages.filter((url): url is string => typeof url === "string" && url.trim().length > 0);
+    return configuredImages
+      .filter((url): url is string => typeof url === "string" && url.trim().length > 0)
+      .map(url => convertGoogleDriveUrlToDirectUrl(url));
   }, [themeConfig?.loginBgUrl, themeConfig?.loginBgUrls]);
 
   const carouselSlides = bgList.length > 1 ? [...bgList, bgList[0]] : bgList;
@@ -200,7 +215,7 @@ export const LoginScreen: React.FC = () => {
           <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white rounded-full shadow-2xl border border-white/20 flex items-center justify-center overflow-hidden shrink-0 transition-transform transform hover:scale-105">
             {themeConfig?.logoUrl ? (
               <img 
-                src={themeConfig.logoUrl} 
+                src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
                 alt="Logo" 
                 className="w-full h-full object-contain rounded-full p-1"
               />
@@ -410,7 +425,7 @@ export const LoginScreen: React.FC = () => {
                 <div className="inline-flex items-center gap-2 text-indigo-600 mb-1">
                   {themeConfig?.logoUrl ? (
                     <div className="w-7 h-7 bg-white rounded-full border border-slate-100 flex items-center justify-center overflow-hidden shrink-0">
-                        <img src={themeConfig.logoUrl} alt="Logo" className="w-full h-full object-contain rounded-full p-0.5" />
+                        <img src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} alt="Logo" className="w-full h-full object-contain rounded-full p-0.5" />
                     </div>
                   ) : (
                     <TnuLogo size={24} />
