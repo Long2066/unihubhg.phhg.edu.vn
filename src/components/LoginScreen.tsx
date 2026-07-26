@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useUniHub } from "../state";
 import { UserRole } from "../types";
 import { TnuLogo } from "./TnuLogo";
@@ -27,19 +27,44 @@ export const LoginScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [currentBgIndex, setCurrentBgIndex] = useState(0);
+  const [isCarouselTransitioning, setIsCarouselTransitioning] = useState(true);
 
-  const bgList = themeConfig?.loginBgUrls && themeConfig.loginBgUrls.length > 0
-    ? themeConfig.loginBgUrls
-    : (themeConfig?.loginBgUrl ? [themeConfig.loginBgUrl] : []);
+  const bgList = useMemo(() => {
+    const configuredImages = themeConfig?.loginBgUrls && themeConfig.loginBgUrls.length > 0
+      ? themeConfig.loginBgUrls
+      : (themeConfig?.loginBgUrl ? [themeConfig.loginBgUrl] : []);
+
+    return configuredImages.filter((url): url is string => typeof url === "string" && url.trim().length > 0);
+  }, [themeConfig?.loginBgUrl, themeConfig?.loginBgUrls]);
+
+  const carouselSlides = bgList.length > 1 ? [...bgList, bgList[0]] : bgList;
+  const carouselSlideWidth = carouselSlides.length > 0 ? 100 / carouselSlides.length : 100;
+
+  useEffect(() => {
+    setCurrentBgIndex(0);
+    setIsCarouselTransitioning(false);
+    const frame = window.requestAnimationFrame(() => setIsCarouselTransitioning(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [bgList.length]);
 
   useEffect(() => {
     if (bgList.length <= 1) return;
     const intervalTime = (themeConfig?.bgTransitionInterval || 5) * 1000;
     const timer = setInterval(() => {
-      setCurrentBgIndex((prev) => (prev + 1) % bgList.length);
+      setCurrentBgIndex((prev) => prev + 1);
     }, intervalTime);
     return () => clearInterval(timer);
   }, [bgList.length, themeConfig?.bgTransitionInterval]);
+
+  const handleCarouselTransitionEnd = () => {
+    if (bgList.length <= 1 || currentBgIndex !== bgList.length) return;
+
+    setIsCarouselTransitioning(false);
+    setCurrentBgIndex(0);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => setIsCarouselTransitioning(true));
+    });
+  };
 
   const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,10 +104,7 @@ export const LoginScreen: React.FC = () => {
               <img 
                 src={themeConfig.logoUrl} 
                 alt="Logo" 
-                className="w-full h-full object-cover rounded-full"
-                onError={(e) => {
-                  (e.currentTarget as HTMLElement).style.display = 'none';
-                }}
+                className="w-full h-full object-contain rounded-full p-1"
               />
             ) : (
               <TnuLogo size={80} />
@@ -116,38 +138,48 @@ export const LoginScreen: React.FC = () => {
       {/* 2. Middle Section: Widescreen 16:9 Banner Slider Box (Positioned 1/3 from top) */}
       <main className="relative z-10 w-full max-w-7xl mx-auto my-3 flex-1 flex flex-col justify-center min-h-0 overflow-hidden max-sm:my-4 max-sm:flex-none">
         {hasBg ? (
-          <div className="h-full max-h-full aspect-video w-auto max-w-full overflow-hidden rounded-[24px] sm:rounded-[36px] shadow-2xl border border-white/10 relative bg-slate-900 mx-auto max-sm:w-full max-sm:h-auto">
-            
-            {/* Horizontal Filmstrip Carousel Container */}
-            <div 
-              className="flex flex-row h-full transition-transform duration-[1200ms] ease-[cubic-bezier(0.25,1,0.5,1)]"
-              style={{ 
-                width: `${bgList.length * 100}%`,
-                transform: `translateX(-${currentBgIndex * (100 / bgList.length)}%)`
-              }}
-            >
-              {bgList.map((bgUrl, index) => (
-                <img 
-                  key={index}
-                  src={bgUrl}
-                  alt={`Slide ${index + 1}`}
-                  className="h-full object-fill flex-shrink-0 select-none"
-                  style={{ 
-                    width: `${100 / bgList.length}%`
-                  }}
-                />
-              ))}
-            </div>
+          <div className="h-full max-h-full aspect-video w-auto max-w-full rounded-[24px] sm:rounded-[36px] shadow-2xl border border-white/10 relative bg-gradient-to-br from-white/10 via-white/5 to-slate-950/60 mx-auto p-2 sm:p-3 max-sm:w-full max-sm:h-auto">
+            <div className="relative h-full w-full overflow-hidden rounded-[18px] sm:rounded-[28px] bg-slate-950/80">
+              {/* Seamless horizontal filmstrip: no zoom, no fade, no image recompression. */}
+              <div 
+                className="flex flex-row h-full will-change-transform"
+                onTransitionEnd={handleCarouselTransitionEnd}
+                style={{ 
+                  width: `${carouselSlides.length * 100}%`,
+                  transform: `translate3d(-${currentBgIndex * carouselSlideWidth}%, 0, 0)`,
+                  transition: isCarouselTransitioning
+                    ? "transform 1400ms cubic-bezier(0.22, 1, 0.36, 1)"
+                    : "none"
+                }}
+              >
+                {carouselSlides.map((bgUrl, index) => (
+                  <img 
+                    key={`${bgUrl}-${index}`}
+                    src={bgUrl}
+                    alt={`Ảnh nền đăng nhập ${index % bgList.length + 1}`}
+                    className="h-full object-cover flex-shrink-0 select-none"
+                    style={{ 
+                      width: `${carouselSlideWidth}%`,
+                      objectPosition: "center center",
+                      imageRendering: "auto"
+                    }}
+                    draggable={false}
+                    loading={index <= 1 ? "eager" : "lazy"}
+                    decoding="async"
+                  />
+                ))}
+              </div>
 
-            {/* Dark Tint & Blur Overlay (active only when Modal is open) */}
-            <div 
-              className="absolute inset-0 bg-slate-950 transition-all duration-500 z-20 pointer-events-none"
-              style={{ 
-                opacity: showLoginModal ? 0.6 : 0,
-                backdropFilter: showLoginModal ? "blur(6px)" : "none",
-                WebkitBackdropFilter: showLoginModal ? "blur(6px)" : "none"
-              }}
-            />
+              {/* Dark Tint & Blur Overlay (active only when Modal is open) */}
+              <div 
+                className="absolute inset-0 bg-slate-950 transition-all duration-500 z-20 pointer-events-none"
+                style={{ 
+                  opacity: showLoginModal ? 0.6 : 0,
+                  backdropFilter: showLoginModal ? "blur(6px)" : "none",
+                  WebkitBackdropFilter: showLoginModal ? "blur(6px)" : "none"
+                }}
+              />
+            </div>
           </div>
         ) : (
           <div className="w-full aspect-[16/9] md:max-h-[500px] bg-slate-900 rounded-[24px] sm:rounded-[36px] border border-white/5 flex items-center justify-center">
@@ -222,7 +254,7 @@ export const LoginScreen: React.FC = () => {
                 <div className="inline-flex items-center gap-2 text-indigo-600 mb-1">
                   {themeConfig?.logoUrl ? (
                     <div className="w-7 h-7 bg-white rounded-full border border-slate-100 flex items-center justify-center overflow-hidden shrink-0">
-                      <img src={themeConfig.logoUrl} alt="Logo" className="w-full h-full object-cover rounded-full" />
+                        <img src={themeConfig.logoUrl} alt="Logo" className="w-full h-full object-contain rounded-full p-0.5" />
                     </div>
                   ) : (
                     <TnuLogo size={24} />

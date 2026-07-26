@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { 
   collection, 
   onSnapshot, 
@@ -7,7 +7,7 @@ import {
   deleteDoc, 
   getDocs 
 } from "firebase/firestore";
-import { db, auth, firebaseConfig } from "./firebase";
+import { db, auth, firebaseConfig, storage } from "./firebase";
 import { 
   getAuth,
   signInWithEmailAndPassword, 
@@ -16,6 +16,12 @@ import {
   onAuthStateChanged 
 } from "firebase/auth";
 import { initializeApp, deleteApp } from "firebase/app";
+import {
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject
+} from "firebase/storage";
 import { 
   UserAccount, 
   UserRole, 
@@ -77,70 +83,109 @@ import * as XLSX from "xlsx";
 
 type ActiveTab = "DASHBOARD" | "USERS" | "DATABASE" | "RULES" | "TOOLS" | "FEEDBACK" | "THEME";
 
-const compressAndReadFile = (file: File, maxWidth: number, maxHeight: number, quality: number = 0.8, isCircularClip: boolean = false, forceJpeg: boolean = false): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new window.Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        let width = img.width;
-        let height = img.height;
+const THEME_BACKGROUND_LIMIT = 8;
+const THEME_MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 
-        if (isCircularClip) {
-          // Force square for circular clip
-          const size = Math.min(width, height, maxWidth);
-          width = size;
-          height = size;
-        } else {
-          if (width > maxWidth) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
-          }
-          if (height > maxHeight) {
-            width = Math.round((width * maxHeight) / height);
-            height = maxHeight;
-          }
-        }
+const isLegacyInlineImage = (url?: string) => {
+  return typeof url === "string" && url.startsWith("data:image/");
+};
 
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          if (isCircularClip) {
-            // Apply circular clip path
-            ctx.beginPath();
-            ctx.arc(width / 2, height / 2, width / 2, 0, Math.PI * 2);
-            ctx.closePath();
-            ctx.clip();
-            
-            // Draw image covering the square canvas area
-            const imgSize = Math.min(img.width, img.height);
-            const sx = (img.width - imgSize) / 2;
-            const sy = (img.height - imgSize) / 2;
-            ctx.drawImage(img, sx, sy, imgSize, imgSize, 0, 0, width, height);
-          } else {
-            ctx.drawImage(img, 0, 0, width, height);
-          }
-          // Force PNG for circular clip to preserve transparency, force JPEG for background
-          let mimeType = "image/jpeg";
-          if (isCircularClip) {
-            mimeType = "image/png";
-          } else if (!forceJpeg && file.type === "image/png") {
-            mimeType = "image/png";
-          }
-          const dataUrl = canvas.toDataURL(mimeType, quality);
-          resolve(dataUrl);
-        } else {
-          resolve(e.target?.result as string);
-        }
-      };
-      img.onerror = () => reject(new Error("Không thể đọc tệp ảnh."));
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = (err) => reject(err);
-    reader.readAsDataURL(file);
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+};
+
+const sanitizeStorageFileName = (fileName: string) => {
+  return fileName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase() || "image";
+};
+
+const buildThemeStoragePath = (folder: "logos" | "backgrounds", file: File, index = 0) => {
+  const safeName = sanitizeStorageFileName(file.name || "image");
+  const extensionMatch = safeName.match(/\.[a-z0-9]+$/i);
+  const extension = extensionMatch ? extensionMatch[0] : "";
+  const baseName = safeName.replace(/\.[^.]+$/, "") || "image";
+  const randomId = typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+
+  return `theme/${folder}/${Date.now()}-${index}-${randomId}-${baseName}${extension}`;
+};
+
+const getThemeStoragePathFromDownloadUrl = (url?: string): string | null => {
+  if (!url || !url.includes("firebasestorage.googleapis.com")) return null;
+
+  try {
+    const match = url.match(/\/o\/([^?]+)/);
+    if (!match?.[1]) return null;
+
+    const decodedPath = decodeURIComponent(match[1]);
+    return decodedPath.startsWith("theme/") ? decodedPath : null;
+  } catch (err) {
+    console.warn("Unable to parse Firebase Storage URL", err);
+    return null;
+  }
+};
+
+const getCompactThemeConfig = (config: ThemeConfig): ThemeConfig => {
+  const rawBgUrls = [
+    ...(config.loginBgUrls || []),
+    ...(config.loginBgUrl ? [config.loginBgUrl] : [])
+  ];
+  const compactBgUrls = Array.from(
+    new Set(rawBgUrls.filter(url => url && !isLegacyInlineImage(url)))
+  ).slice(0, THEME_BACKGROUND_LIMIT);
+
+  return {
+    ...config,
+    loginBgUrls: compactBgUrls,
+    loginBgUrl: compactBgUrls[0] || "",
+    logoUrl: isLegacyInlineImage(config.logoUrl) ? "" : (config.logoUrl || "")
+  };
+};
+
+const hasLegacyInlineThemeImages = (config: ThemeConfig) => {
+  return isLegacyInlineImage(config.logoUrl)
+    || isLegacyInlineImage(config.loginBgUrl)
+    || Boolean(config.loginBgUrls?.some(isLegacyInlineImage));
+};
+
+const uploadOriginalImageToStorage = async (file: File, folder: "logos" | "backgrounds", index = 0) => {
+  if (!file.type.startsWith("image/")) {
+    throw new Error(`${file.name} không phải là tệp ảnh hợp lệ.`);
+  }
+
+  if (file.size > THEME_MAX_IMAGE_BYTES) {
+    throw new Error(`${file.name} quá lớn (${formatFileSize(file.size)}). Vui lòng chọn ảnh tối đa 25MB.`);
+  }
+
+  const path = buildThemeStoragePath(folder, file, index);
+  const imageRef = storageRef(storage, path);
+  const snapshot = await uploadBytes(imageRef, file, {
+    contentType: file.type || "image/jpeg",
+    customMetadata: {
+      originalName: file.name,
+      uploadedFor: folder === "logos" ? "login-logo" : "login-background"
+    }
   });
+
+  return getDownloadURL(snapshot.ref);
+};
+
+const deleteThemeStorageFileFromUrl = async (url?: string) => {
+  const path = getThemeStoragePathFromDownloadUrl(url);
+  if (!path) return;
+
+  try {
+    await deleteObject(storageRef(storage, path));
+  } catch (err) {
+    console.warn("Không thể xóa tệp ảnh cũ trên Firebase Storage:", err);
+  }
 };
 
 export default function App() {
@@ -166,18 +211,43 @@ export default function App() {
 
   const [logoUploading, setLogoUploading] = useState(false);
   const [bgUploading, setBgUploading] = useState(false);
+  const pendingThemeDeletionUrlsRef = useRef<Set<string>>(new Set());
+
+  const queueThemeFileDeletion = (url?: string) => {
+    if (!getThemeStoragePathFromDownloadUrl(url)) return;
+    pendingThemeDeletionUrlsRef.current.add(url as string);
+  };
+
+  const flushPendingThemeFileDeletions = async (savedConfig: ThemeConfig) => {
+    const savedUrls = new Set([
+      savedConfig.logoUrl,
+      ...(savedConfig.loginBgUrls || []),
+      savedConfig.loginBgUrl
+    ].filter(Boolean) as string[]);
+    const urlsToDelete = Array.from(pendingThemeDeletionUrlsRef.current)
+      .filter(url => !savedUrls.has(url));
+
+    pendingThemeDeletionUrlsRef.current = new Set(
+      Array.from(pendingThemeDeletionUrlsRef.current).filter(url => savedUrls.has(url))
+    );
+
+    if (urlsToDelete.length === 0) return;
+    await Promise.allSettled(urlsToDelete.map(deleteThemeStorageFileFromUrl));
+  };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setLogoUploading(true);
-    setStatusMessage("Đang nén và xử lý ảnh logo...");
+    setStatusMessage("Đang tải ảnh logo gốc lên Firebase Storage...");
     try {
-      const base64 = await compressAndReadFile(file, 256, 256, 0.85, true);
-      setThemeConfig(prev => ({ ...prev, logoUrl: base64 }));
+      const previousLogoUrl = themeConfig.logoUrl;
+      const logoUrl = await uploadOriginalImageToStorage(file, "logos");
+      setThemeConfig(prev => ({ ...prev, logoUrl }));
+      queueThemeFileDeletion(previousLogoUrl);
     } catch (err: any) {
-      alert("Lỗi khi xử lý ảnh logo: " + err.message);
+      alert("Lỗi khi tải ảnh logo lên Firebase Storage: " + err.message);
     } finally {
       setLogoUploading(false);
       setStatusMessage("");
@@ -185,47 +255,58 @@ export default function App() {
     }
   };
 
-  const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const handleRemoveLogo = () => {
+    const previousLogoUrl = themeConfig.logoUrl;
+    setThemeConfig(prev => ({ ...prev, logoUrl: "" }));
+    queueThemeFileDeletion(previousLogoUrl);
+  };
 
+  const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const compactCurrentConfig = getCompactThemeConfig(themeConfig);
+    const currentList = compactCurrentConfig.loginBgUrls || [];
+    const availableSlots = Math.max(THEME_BACKGROUND_LIMIT - currentList.length, 0);
+
+    if (availableSlots === 0) {
+      alert(`Danh sách đã đủ ${THEME_BACKGROUND_LIMIT} ảnh. Vui lòng xóa bớt ảnh cũ trước khi tải thêm.`);
+      if (e.target) e.target.value = "";
+      return;
+    }
+
+    const filesToUpload = files.slice(0, availableSlots);
     setBgUploading(true);
-    setStatusMessage("Đang xử lý danh sách ảnh nền...");
+    setStatusMessage(`Đang tải ${filesToUpload.length} ảnh gốc lên Firebase Storage...`);
+
     try {
       const newUrls: string[] = [];
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (file.size > 10 * 1024 * 1024) continue;
-        
-        let base64 = "";
-        // If image file is already under 600KB, read it directly as raw Base64 without any resizing or quality loss.
-        // This guarantees 100% identical sharpness to the original file.
-        if (file.size <= 600 * 1024) {
-          base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (ev) => resolve(ev.target?.result as string);
-            reader.onerror = (err) => reject(err);
-            reader.readAsDataURL(file);
-          });
-        } else {
-          // If larger than 600KB, compress to Full HD 1920x1080 JPEG at 85% quality to fit within Firestore limit.
-          base64 = await compressAndReadFile(file, 1920, 1080, 0.85, false, true);
-        }
-        newUrls.push(base64);
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const file = filesToUpload[i];
+        setStatusMessage(`Đang tải ảnh ${i + 1}/${filesToUpload.length}: ${file.name}...`);
+        const downloadUrl = await uploadOriginalImageToStorage(file, "backgrounds", i);
+        newUrls.push(downloadUrl);
       }
+
       setThemeConfig(prev => {
-        const currentList = prev.loginBgUrls && prev.loginBgUrls.length > 0 
-          ? prev.loginBgUrls 
-          : (prev.loginBgUrl ? [prev.loginBgUrl] : []);
-        const updatedList = [...currentList, ...newUrls].slice(0, 8); // Max 8 images to prevent large documents
+        const compactPrev = getCompactThemeConfig(prev);
+        const updatedList = [
+          ...(compactPrev.loginBgUrls || []),
+          ...newUrls
+        ].slice(0, THEME_BACKGROUND_LIMIT);
+
         return { 
-          ...prev, 
+          ...compactPrev, 
           loginBgUrls: updatedList,
           loginBgUrl: updatedList[0] || ""
         };
       });
+
+      if (files.length > filesToUpload.length) {
+        alert(`Đã tải ${filesToUpload.length} ảnh đầu tiên. ${files.length - filesToUpload.length} ảnh còn lại chưa tải vì giới hạn ${THEME_BACKGROUND_LIMIT} ảnh nền.`);
+      }
     } catch (err: any) {
-      alert("Lỗi khi xử lý ảnh nền: " + err.message);
+      alert("Lỗi khi tải ảnh nền lên Firebase Storage: " + err.message);
     } finally {
       setBgUploading(false);
       setStatusMessage("");
@@ -234,15 +315,14 @@ export default function App() {
   };
 
   const addBgUrlToList = (newUrl: string) => {
-    if (!newUrl) return;
+    if (!newUrl || isLegacyInlineImage(newUrl)) return;
     setThemeConfig(prev => {
-      const currentList = prev.loginBgUrls && prev.loginBgUrls.length > 0 
-        ? prev.loginBgUrls 
-        : (prev.loginBgUrl ? [prev.loginBgUrl] : []);
-      if (currentList.includes(newUrl)) return prev;
-      const updatedList = [...currentList, newUrl].slice(0, 8);
+      const compactPrev = getCompactThemeConfig(prev);
+      const currentList = compactPrev.loginBgUrls || [];
+      if (currentList.includes(newUrl)) return compactPrev;
+      const updatedList = [...currentList, newUrl].slice(0, THEME_BACKGROUND_LIMIT);
       return {
-        ...prev,
+        ...compactPrev,
         loginBgUrls: updatedList,
         loginBgUrl: updatedList[0] || ""
       };
@@ -250,15 +330,25 @@ export default function App() {
   };
 
   const removeBgImage = (indexToRemove: number) => {
-    setThemeConfig(prev => {
-      const currentList = prev.loginBgUrls || [];
-      const updated = currentList.filter((_, idx) => idx !== indexToRemove);
-      return {
-        ...prev,
-        loginBgUrls: updated,
-        loginBgUrl: updated[0] || ""
-      };
-    });
+    const currentList = getCompactThemeConfig(themeConfig).loginBgUrls || [];
+    const removedUrl = currentList[indexToRemove];
+    const updated = currentList.filter((_, idx) => idx !== indexToRemove);
+
+    setThemeConfig(prev => ({
+      ...getCompactThemeConfig(prev),
+      loginBgUrls: updated,
+      loginBgUrl: updated[0] || ""
+    }));
+
+    queueThemeFileDeletion(removedUrl);
+  };
+
+  const handleClearAllBgImages = () => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa tất cả ảnh nền hiện tại không? Các ảnh đã tải qua Storage sẽ được dọn dẹp sau khi bạn bấm Lưu cấu hình.")) return;
+
+    const currentList = getCompactThemeConfig(themeConfig).loginBgUrls || [];
+    currentList.forEach(queueThemeFileDeletion);
+    setThemeConfig(prev => ({ ...getCompactThemeConfig(prev), loginBgUrl: "", loginBgUrls: [] }));
   };
 
   // Real-time Firestore Collections state
@@ -523,8 +613,20 @@ export default function App() {
     setLoading(true);
     setStatusMessage("Đang lưu cấu hình giao diện...");
     try {
-      await setDoc(doc(db, "systemConfig", "theme"), themeConfig);
-      alert("Đã lưu cấu hình Ảnh & Giao diện thành công!");
+      const compactThemeConfig = getCompactThemeConfig(themeConfig);
+      const removedLegacyImages = hasLegacyInlineThemeImages(themeConfig);
+
+      await setDoc(doc(db, "systemConfig", "theme"), compactThemeConfig);
+      setThemeConfig(compactThemeConfig);
+
+      if (pendingThemeDeletionUrlsRef.current.size > 0) {
+        setStatusMessage("Đang dọn dẹp ảnh cũ trên Firebase Storage...");
+        await flushPendingThemeFileDeletions(compactThemeConfig);
+      }
+
+      alert(removedLegacyImages
+        ? "Đã lưu cấu hình thành công. Ảnh cũ dạng Base64 đã được loại bỏ khỏi Firestore; vui lòng tải lại ảnh gốc qua Firebase Storage nếu cần."
+        : "Đã lưu cấu hình Ảnh & Giao diện thành công!");
     } catch (err: any) {
       console.error("Save theme config error", err);
       alert("Lỗi khi lưu cấu hình giao diện: " + err.message);
@@ -1144,6 +1246,12 @@ export default function App() {
       }
     };
   }, [students, organizations, activities, evidence, results]);
+
+  const compactAdminThemeConfig = getCompactThemeConfig(themeConfig);
+  const adminBgUrls = compactAdminThemeConfig.loginBgUrls || [];
+  const adminPreviewBgUrl = adminBgUrls[0] || "";
+  const hasConfiguredAdminBg = Boolean(themeConfig.loginBgUrl || (themeConfig.loginBgUrls && themeConfig.loginBgUrls.length > 0));
+  const hasLegacyAdminThemeImages = hasLegacyInlineThemeImages(themeConfig);
 
   // If not authenticated, render beautiful Glassmorphic Login page
   if (!isAuthenticated) {
@@ -2235,7 +2343,7 @@ export default function App() {
                     1. Logo hệ thống (Logo Image)
                   </label>
                   <p style={{ margin: "0", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>
-                    Tải ảnh lên trực tiếp từ máy tính của bạn (tự động nén và tối ưu hóa):
+                    Tải ảnh gốc lên Firebase Storage, giữ nguyên tệp ảnh và không nén/resize:
                   </p>
                   
                   <div style={{ display: "flex", alignItems: "center", gap: "16px", marginTop: "8px" }}>
@@ -2268,13 +2376,13 @@ export default function App() {
                             type="button" 
                             className="btn-solid-danger" 
                             style={{ padding: "8px 12px", fontSize: "12px" }}
-                            onClick={() => setThemeConfig({ ...themeConfig, logoUrl: "" })}
+                            onClick={handleRemoveLogo}
                           >
                             Xóa ảnh
                           </button>
                         )}
                       </div>
-                      <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Hỗ trợ JPG, PNG. Khuyên dùng ảnh vuông nền trong suốt.</span>
+                      <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Tải ảnh gốc lên Firebase Storage, không nén/resize. Khuyên dùng PNG nền trong suốt hoặc ảnh vuông chất lượng cao.</span>
                     </div>
                   </div>
 
@@ -2298,19 +2406,22 @@ export default function App() {
                       2. Danh sách ảnh nền (Slider / Carousel)
                     </label>
                     <span style={{ fontSize: "11px", color: "var(--accent-cyan)", fontWeight: 600 }}>
-                      {(themeConfig.loginBgUrls?.length || (themeConfig.loginBgUrl ? 1 : 0))} / 8 ảnh
+                      {adminBgUrls.length} / {THEME_BACKGROUND_LIMIT} ảnh
                     </span>
                   </div>
                   <p style={{ margin: "0", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>
-                    Tải lên nhiều ảnh từ máy tính để tự động chạy slide chuyển ảnh. Hỗ trợ tự động căn chỉnh (fit) hoàn hảo trên Android, iOS, Windows, macOS.
+                    Ảnh được tải nguyên tệp gốc lên Firebase Storage; Firestore chỉ lưu URL nhỏ nên không còn lỗi 1MB và không làm giảm độ nét ảnh.
+                    Các thay đổi xóa/thay ảnh cũ chỉ được dọn trên Storage sau khi bạn bấm Lưu cấu hình.
                   </p>
+                  {hasLegacyAdminThemeImages && (
+                    <div style={{ padding: "10px 12px", borderRadius: "12px", border: "1px solid rgba(251, 191, 36, 0.35)", background: "rgba(251, 191, 36, 0.08)", color: "#FDE68A", fontSize: "11px", lineHeight: 1.5 }}>
+                      Hệ thống đang phát hiện ảnh cũ dạng Base64 trong Firestore. Bấm Lưu cấu hình để loại bỏ dữ liệu ảnh nặng này, sau đó tải lại ảnh gốc qua Storage nếu cần.
+                    </div>
+                  )}
 
                   {/* Image Grid / Gallery */}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: "10px", marginTop: "6px" }}>
-                    {(themeConfig.loginBgUrls && themeConfig.loginBgUrls.length > 0 
-                      ? themeConfig.loginBgUrls 
-                      : (themeConfig.loginBgUrl ? [themeConfig.loginBgUrl] : [])
-                    ).map((url, idx) => (
+                    {adminBgUrls.map((url, idx) => (
                       <div key={idx} style={{ position: "relative", width: "100%", height: "60px", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--border-normal)", background: "#000" }}>
                         <img src={url} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                         <button
@@ -2343,19 +2454,15 @@ export default function App() {
                       style={{ cursor: "pointer", fontSize: "12px", padding: "8px 14px", display: "inline-flex", gap: "6px", alignItems: "center" }}
                     >
                       <Image size={14} />
-                      <span>Tải thêm ảnh từ máy tính (chọn 1 hoặc nhiều)...</span>
+                      <span>Tải ảnh gốc lên Storage (chọn 1 hoặc nhiều)...</span>
                     </label>
                     
-                    {((themeConfig.loginBgUrls && themeConfig.loginBgUrls.length > 0) || themeConfig.loginBgUrl) && (
+                    {hasConfiguredAdminBg && (
                       <button
                         type="button"
                         className="btn-solid-danger"
                         style={{ padding: "8px 14px", fontSize: "12px" }}
-                        onClick={() => {
-                          if (window.confirm("Bạn có chắc chắn muốn xóa tất cả ảnh nền hiện tại để tải ảnh mới nhẹ hơn không?")) {
-                            setThemeConfig({ ...themeConfig, loginBgUrl: "", loginBgUrls: [] });
-                          }
-                        }}
+                        onClick={handleClearAllBgImages}
                       >
                         Xóa tất cả ảnh nền
                       </button>
@@ -2515,15 +2622,15 @@ export default function App() {
                       flexDirection: "column",
                       justifyContent: "center",
                       alignItems: "center",
-                      backgroundImage: themeConfig.loginBgUrl ? `url(${themeConfig.loginBgUrl})` : "none",
+                      backgroundImage: adminPreviewBgUrl ? `url(${adminPreviewBgUrl})` : "none",
                       backgroundSize: "cover",
                       backgroundPosition: "center",
-                      backgroundColor: themeConfig.loginBgUrl ? "transparent" : "#080c14",
+                      backgroundColor: adminPreviewBgUrl ? "transparent" : "#080c14",
                       transition: "all 0.3s ease"
                     }}
                   >
                     {/* Simulated Overlay */}
-                    {themeConfig.loginBgUrl && (
+                    {adminPreviewBgUrl && (
                       <div 
                         style={{ 
                           position: "absolute", 

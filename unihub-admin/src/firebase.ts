@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import { getStorage } from "firebase/storage";
 
 export const firebaseConfig = {
   apiKey: "AIzaSyCmWinkQcP82-juuFRPmXB0wXeDUPxkxdA",
@@ -23,3 +24,6 @@ export const db = firebaseConfig.firestoreDatabaseId
 
 // Initialize Auth
 export const auth = getAuth(app);
+
+// Initialize Storage for original theme images; Firestore only stores download URLs.
+export const storage = getStorage(app);

@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 import firebaseConfig from "../firebase-applet-config.json";
 
 // Initialize standard Firebase App instance
@@ -13,6 +14,9 @@ export const db = firebaseConfig.firestoreDatabaseId
 
 // Initialize system Firebase Auth instance
 export const auth = getAuth();
+
+// Initialize Storage for original media assets served from Firebase Storage.
+export const storage = getStorage(app);
 
 // Structured Error details for diagnostics
 export enum OperationType {
