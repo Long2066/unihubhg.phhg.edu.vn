@@ -139,28 +139,41 @@ const getThemeStoragePathFromDownloadUrl = (url?: string): string | null => {
   }
 };
 
+const sanitizeString = (val?: string, maxLength = 1000): string => {
+  if (!val || typeof val !== "string") return "";
+  const trimmed = val.trim();
+  if (isLegacyInlineImage(trimmed)) return "";
+  if (trimmed.length > maxLength) {
+    if (trimmed.startsWith("data:") || trimmed.startsWith("blob:") || trimmed.length > 2048) {
+      return "";
+    }
+    return trimmed.slice(0, maxLength);
+  }
+  return trimmed;
+};
+
 const getCompactThemeConfig = (config: ThemeConfig): ThemeConfig => {
   const rawBgUrls = [
     ...(config.loginBgUrls || []),
     ...(config.loginBgUrl ? [config.loginBgUrl] : [])
   ];
   const compactBgUrls = Array.from(
-    new Set(rawBgUrls.filter(url => url && !isLegacyInlineImage(url)))
+    new Set(rawBgUrls.map(url => sanitizeString(url, 1000)).filter(Boolean))
   ).slice(0, THEME_BACKGROUND_LIMIT);
 
-  const cleanLogoUrl = isLegacyInlineImage(config.logoUrl) ? "" : (config.logoUrl || "");
+  const cleanLogoUrl = sanitizeString(config.logoUrl, 1000);
 
   return {
-    loginTitle: config.loginTitle || "",
-    loginSubtitle: config.loginSubtitle || "",
+    loginTitle: sanitizeString(config.loginTitle, 300),
+    loginSubtitle: sanitizeString(config.loginSubtitle, 500),
     logoUrl: cleanLogoUrl,
     loginBgUrl: compactBgUrls[0] || "",
     loginBgUrls: compactBgUrls,
-    bgTransitionInterval: typeof config.bgTransitionInterval === "number" ? config.bgTransitionInterval : 5,
-    bgOverlayOpacity: typeof config.bgOverlayOpacity === "number" ? config.bgOverlayOpacity : 0.4,
-    contactAddress: config.contactAddress || "",
-    contactEmail: config.contactEmail || "",
-    contactPhone: config.contactPhone || ""
+    bgTransitionInterval: typeof config.bgTransitionInterval === "number" && !isNaN(config.bgTransitionInterval) ? config.bgTransitionInterval : 5,
+    bgOverlayOpacity: typeof config.bgOverlayOpacity === "number" && !isNaN(config.bgOverlayOpacity) ? config.bgOverlayOpacity : 0.4,
+    contactAddress: sanitizeString(config.contactAddress, 500),
+    contactEmail: sanitizeString(config.contactEmail, 200),
+    contactPhone: sanitizeString(config.contactPhone, 200)
   };
 };
 
@@ -2575,10 +2588,33 @@ export default function App() {
                   </div>
                 </div>
 
-                <div style={{ marginTop: "12px" }}>
+                <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
                   <button type="submit" className="btn-neon-cyan" style={{ width: "100%", justifyContent: "center", padding: "12px" }}>
                     <Check size={18} />
                     <span>Lưu cấu hình giao diện</span>
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn-solid-danger" 
+                    style={{ width: "100%", justifyContent: "center", padding: "10px", fontSize: "12px" }}
+                    onClick={async () => {
+                      if (!window.confirm("Thao tác này sẽ xóa sạch mọi dữ liệu Base64 bị kẹt và đưa tài liệu cấu hình về kích thước siêu nhẹ (<2KB). Bạn có chắc chắn muốn tiếp tục?")) return;
+                      setLoading(true);
+                      setStatusMessage("Đang dọn dẹp triệt để dữ liệu Base64 cũ...");
+                      try {
+                        const cleanConfig = getCompactThemeConfig(themeConfig);
+                        await setDoc(doc(db, "systemConfig", "theme"), cleanConfig);
+                        setThemeConfig(cleanConfig);
+                        alert("Đã làm sạch dữ liệu Base64 thành công! Dung lượng cấu hình hiện tại chỉ còn dưới 2KB.");
+                      } catch (err: any) {
+                        alert("Lỗi khi dọn dẹp Base64: " + err.message);
+                      } finally {
+                        setLoading(false);
+                        setStatusMessage("");
+                      }
+                    }}
+                  >
+                    <span>🧹 Dọn dẹp dữ liệu ảnh cũ Base64 (Fix lỗi 1MB)</span>
                   </button>
                 </div>
               </div>
