@@ -2781,7 +2781,9 @@ export default function App() {
                   </div>
 
                   <div style={{ marginTop: "8px" }}>
-                    <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Hoặc sử dụng Link URL:</label>
+                    <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>
+                      Hoặc dán Link Google Drive / URL ảnh logo (tự động chuyển thành link ảnh trực tiếp):
+                    </label>
                     <input 
                       type="text" 
                       className="input-dark" 
@@ -2790,13 +2792,14 @@ export default function App() {
                       onChange={(e) => {
                         const val = e.target.value;
                         if (looksLikeInlineImagePayload(val) || (val.length > 500 && !/^https?:\/\//i.test(val))) {
-                          alert("Không được dán chuỗi ảnh Base64 vào đây (gây vượt giới hạn 1MB Firestore). Vui lòng chọn nút 'Tải ảnh lên...' hoặc dán link URL HTTP/HTTPS.");
+                          alert("Không được dán chuỗi ảnh Base64 vào đây (gây vượt giới hạn 1MB Firestore). Vui lòng chọn nút 'Tải ảnh lên...' hoặc dán link URL Google Drive / HTTP / HTTPS.");
                           setThemeConfig(prev => ({ ...prev, logoUrl: "" }));
                         } else {
-                          setThemeConfig(prev => ({ ...prev, logoUrl: val }));
+                          const direct = convertGoogleDriveUrlToDirectUrl(val);
+                          setThemeConfig(prev => ({ ...prev, logoUrl: direct }));
                         }
                       }}
-                      placeholder="e.g. https://domain.com/logo.png (Để trống để dùng logo mặc định)"
+                      placeholder="Dán link chia sẻ Google Drive hoặc URL ảnh (e.g. https://drive.google.com/file/d/1ABC...)..."
                     />
                   </div>
                 </div>
