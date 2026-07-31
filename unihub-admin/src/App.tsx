@@ -146,6 +146,21 @@ const convertGoogleDriveUrlToDirectUrl = (url?: string): string => {
   return trimmed;
 };
 
+const extractGoogleDriveImageUrls = (inputText: string): string[] => {
+  if (!inputText || typeof inputText !== "string") return [];
+  const driveRegex = /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?export=view&id=|uc\?id=)|lh3\.googleusercontent\.com\/d\/)([a-zA-Z0-9_-]{25,})/g;
+
+  const results: string[] = [];
+  let match;
+  while ((match = driveRegex.exec(inputText)) !== null) {
+    if (match[1]) {
+      const url = `https://lh3.googleusercontent.com/d/${match[1]}`;
+      if (!results.includes(url)) results.push(url);
+    }
+  }
+  return results;
+};
+
 const sanitizeThemeImageUrl = (url?: string): string => {
   if (!url || typeof url !== "string") return "";
   const converted = convertGoogleDriveUrlToDirectUrl(url);
@@ -610,11 +625,55 @@ export default function App() {
   const handleBgUrlInputSubmit = () => {
     if (!newBgUrlInput || !newBgUrlInput.trim()) return;
     const raw = newBgUrlInput.trim();
+
     if (looksLikeInlineImagePayload(raw) || (raw.length > 500 && !/^https?:\/\//i.test(raw))) {
       alert("Không được dán chuỗi ảnh Base64 vào đây (gây quá giới hạn 1MB Firestore). Vui lòng chọn nút 'Tối ưu & tải ảnh lên Storage' hoặc dán link URL HTTP/HTTPS.");
       setNewBgUrlInput("");
       return;
     }
+
+    // Check if user pasted a Google Drive FOLDER link
+    if (/\/(?:drive|u\/\d+)\/folders\/([a-zA-Z0-9_-]+)/i.test(raw)) {
+      alert(
+        "⚠️ Bạn vừa dán link Thư mục Google Drive (Folder Link).\n\n" +
+        "Do chính sách bảo mật CORS của Google, trình duyệt không thể tự động chui vào folder để lấy danh sách ảnh.\n\n" +
+        "💡 MẸO LẤY TẤT CẢ LINK ẢNH TRONG FOLDER CỰC NHANH (3 GIÂY):\n" +
+        "1. Vào thư mục Google Drive của bạn ➔ Chọn (bôi đen/Ctrl+A) tất cả các ảnh.\n" +
+        "2. Chuột phải ➔ Chọn 'Sao chép liên kết' (Copy links).\n" +
+        "3. Dán tất cả vào ô này và bấm 'Thêm ảnh' ➔ Hệ thống sẽ tự bóc tách và tạo Slide chạy tự động!"
+      );
+      return;
+    }
+
+    // Extract multiple Google Drive URLs if present
+    const extractedDriveUrls = extractGoogleDriveImageUrls(raw);
+    if (extractedDriveUrls.length > 0) {
+      const currentList = getCompactThemeConfig(themeConfig).loginBgUrls || [];
+      const availableSlots = Math.max(THEME_BACKGROUND_LIMIT - currentList.length, 0);
+
+      if (availableSlots === 0) {
+        alert(`Danh sách đã đủ ${THEME_BACKGROUND_LIMIT} ảnh nền. Vui lòng xóa bớt ảnh cũ trước khi thêm.`);
+        return;
+      }
+
+      const urlsToAdd = extractedDriveUrls.slice(0, availableSlots);
+      setThemeConfig(prev => {
+        const compactPrev = getCompactThemeConfig(prev);
+        const list = compactPrev.loginBgUrls || [];
+        const newUnique = urlsToAdd.filter(u => !list.includes(u));
+        const updatedList = [...list, ...newUnique].slice(0, THEME_BACKGROUND_LIMIT);
+        return {
+          ...compactPrev,
+          loginBgUrls: updatedList,
+          loginBgUrl: updatedList[0] || ""
+        };
+      });
+
+      setNewBgUrlInput("");
+      alert(`Đã nhận diện và thêm thành công ${urlsToAdd.length} ảnh từ Google Drive vào danh sách Slide!`);
+      return;
+    }
+
     const directUrl = convertGoogleDriveUrlToDirectUrl(raw);
     if (!/^https?:\/\//i.test(directUrl)) {
       alert("Đường dẫn không hợp lệ. Vui lòng nhập URL bắt đầu bằng http:// hoặc https://");
@@ -2813,7 +2872,9 @@ export default function App() {
                   </div>
 
                   <div style={{ marginTop: "8px" }}>
-                    <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Hoặc dán Link URL ảnh nền mới (Google Drive / Imgur / Web):</label>
+                    <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>
+                      Hoặc dán Link Google Drive (hỗ trợ dán 1 hoặc chọn/copy NHIỀU link ảnh dán cùng lúc):
+                    </label>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <input 
                         type="text" 
@@ -2821,7 +2882,7 @@ export default function App() {
                         style={{ fontSize: "12px", padding: "8px", flex: 1 }}
                         value={newBgUrlInput} 
                         onChange={(e) => setNewBgUrlInput(e.target.value)}
-                        placeholder="Dán link chia sẻ Google Drive hoặc bất kỳ link ảnh nào..."
+                        placeholder="Dán link chia sẻ Google Drive (bôi đen nhiều ảnh trong Drive ➔ Copy link ➔ Dán vào đây)..."
                       />
                       <button
                         type="button"
