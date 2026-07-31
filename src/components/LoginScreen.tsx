@@ -99,7 +99,7 @@ export const LoginScreen: React.FC = () => {
     const items: NewsFeedItem[] = [];
 
     (announcements || []).forEach((ann) => {
-      let dateStr = "Tháng Bảy 25, 2026";
+      let dateStr = "";
       if (ann.createdAt) {
         try {
           const d = new Date(ann.createdAt);
@@ -121,7 +121,7 @@ export const LoginScreen: React.FC = () => {
     });
 
     (activities || []).forEach((act) => {
-      let dateStr = "Tháng Bảy 25, 2026";
+      let dateStr = "";
       if (act.dateTime) {
         try {
           const d = new Date(act.dateTime);
@@ -141,40 +141,6 @@ export const LoginScreen: React.FC = () => {
         type: "ACTIVITY"
       });
     });
-
-    const fallbackNews: NewsFeedItem[] = [
-      {
-        id: "sample-1",
-        title: "CÔNG ĐOÀN PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI TỈNH HÀ GIANG ĐẠT GIẢI CAO TẠI LIÊN HOAN TIẾNG HÁT GIÁO VIÊN TOÀN QUỐC LẦN THỨ VI NĂM 2026",
-        content: "Đoàn nghệ thuật quần chúng Phân hiệu Đại học Thái Nguyên xuất sắc hoàn thành các tiết mục biểu diễn mang đậm bản sắc văn hóa các dân tộc vùng cao Hà Giang, đạt giải cao toàn đoàn.",
-        dateStr: "Tháng Bảy 25, 2026",
-        orgName: "Công đoàn Phân hiệu",
-        imageUrl: "https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=600&q=80",
-        type: "ANNOUNCEMENT"
-      },
-      {
-        id: "sample-2",
-        title: "Công đoàn Phân hiệu thăm hỏi, tặng quà gia đình người có công với cách mạng nhân dịp kỷ niệm 79 năm Ngày Thương binh – Liệt sĩ (27/7/1947 – 27/7/2026)",
-        content: "Nhân kỷ niệm 79 năm Ngày Thương binh - Liệt sĩ (27/7/1947 - 27/7/2026), đại diện Công đoàn và Đoàn Thanh niên Phân hiệu đã đến thăm hỏi và trao các suất quà ý nghĩa tới các gia đình chính sách trên địa bàn.",
-        dateStr: "Tháng Bảy 25, 2026",
-        orgName: "Công đoàn & Đoàn Phân hiệu",
-        imageUrl: "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=600&q=80",
-        type: "ANNOUNCEMENT"
-      },
-      {
-        id: "sample-3",
-        title: "Giám đốc Đại học Thái Nguyên đối thoại với viên chức, người lao động Phân hiệu Đại học Thái Nguyên tại tỉnh Lào Cai và Hà Giang",
-        content: "Buổi đối thoại diễn ra trong không khí cởi mở, lắng nghe ý kiến tâm huyết về định hướng nâng cao chất lượng đào tạo, mở rộng quy mô ngành nghề và chính sách hỗ trợ người học.",
-        dateStr: "Tháng Bảy 23, 2026",
-        orgName: "Ban Giám đốc & Phân hiệu",
-        imageUrl: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=600&q=80",
-        type: "ANNOUNCEMENT"
-      }
-    ];
-
-    if (items.length < 3) {
-      return [...items, ...fallbackNews];
-    }
 
     return items;
   }, [announcements, activities]);
@@ -205,14 +171,14 @@ export const LoginScreen: React.FC = () => {
 
   return (
     <div 
-      className="h-screen h-dvh max-h-screen flex flex-col justify-between py-4 px-4 sm:px-8 selection:bg-indigo-500 selection:text-white relative bg-[#0e1626] font-sans text-white overflow-hidden max-sm:h-auto max-sm:min-h-screen max-sm:overflow-y-auto" 
+      className="h-screen h-dvh max-h-screen flex flex-col justify-between py-4 px-4 sm:px-8 selection:bg-indigo-500 selection:text-white relative bg-white font-sans text-slate-800 overflow-hidden max-sm:h-auto max-sm:min-h-screen max-sm:overflow-y-auto" 
       id="unihub-login-screen"
     >
       {/* 1. Top Header Navigation Bar (Transparent, Aligned Left Logo/Title & Right Login) */}
       <header className="relative z-10 w-full max-w-7xl mx-auto flex items-center justify-between py-2 shrink-0">
         {/* Left Side: Brand Logo (doubled size!) & Title */}
         <div className="flex items-center gap-4 sm:gap-6 text-left">
-          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white rounded-full shadow-2xl border border-white/20 flex items-center justify-center overflow-hidden shrink-0 transition-transform transform hover:scale-105">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white rounded-full shadow-lg border border-slate-200 flex items-center justify-center overflow-hidden shrink-0 transition-transform transform hover:scale-105">
             {themeConfig?.logoUrl ? (
               <img 
                 src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
@@ -224,13 +190,13 @@ export const LoginScreen: React.FC = () => {
             )}
           </div>
           <div className="flex flex-col justify-center">
-            <h4 className="font-mono text-xs sm:text-sm font-bold text-indigo-400 tracking-widest uppercase leading-none mb-1.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+            <h4 className="font-mono text-xs sm:text-sm font-bold text-indigo-600 tracking-widest uppercase leading-none mb-1.5">
               Phân hiệu ĐHTN tại Hà Giang
             </h4>
-            <h1 className="text-lg sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+            <h1 className="text-lg sm:text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight leading-none">
               {themeConfig?.loginTitle || "CỔNG THÔNG TIN UNIHUBHG"}
             </h1>
-            <p className="hidden sm:block text-xs sm:text-sm text-slate-200 mt-2 leading-relaxed max-w-2xl drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+            <p className="hidden sm:block text-xs sm:text-sm text-slate-500 mt-2 leading-relaxed max-w-2xl">
               {themeConfig?.loginSubtitle || "Chào mừng bạn đến với Phân hiệu ĐHTN tại Hà Giang - Tra cứu ngay thông tin của bạn"}
             </p>
           </div>
@@ -255,8 +221,8 @@ export const LoginScreen: React.FC = () => {
           {/* Left Column (lg:col-span-7): Widescreen 16:9 Banner Slider Box */}
           <div className="lg:col-span-7 flex flex-col justify-center min-h-0 h-full max-h-full">
             {hasBg ? (
-              <div className="h-full max-h-full aspect-video w-auto max-w-full rounded-[24px] sm:rounded-[32px] shadow-2xl border border-white/10 relative bg-gradient-to-br from-white/10 via-white/5 to-slate-950/60 mx-auto p-2 sm:p-3 max-lg:w-full max-lg:h-auto">
-                <div className="relative h-full w-full overflow-hidden rounded-[18px] sm:rounded-[24px] bg-slate-950/80">
+              <div className="h-full max-h-full aspect-video w-auto max-w-full rounded-[24px] sm:rounded-[32px] shadow-lg border border-slate-200 relative bg-white mx-auto p-1.5 sm:p-2 max-lg:w-full max-lg:h-auto">
+                <div className="relative h-full w-full overflow-hidden rounded-[18px] sm:rounded-[24px] bg-slate-50">
                   {/* Seamless horizontal filmstrip */}
                   <div 
                     className="flex flex-row h-full will-change-transform"
@@ -299,22 +265,22 @@ export const LoginScreen: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="w-full aspect-[16/9] bg-slate-900 rounded-[24px] border border-white/5 flex items-center justify-center">
+              <div className="w-full aspect-[16/9] bg-slate-100 rounded-[24px] border border-slate-200 flex items-center justify-center">
                 <span className="text-slate-400 text-sm">Chưa có ảnh nền nào được tải lên.</span>
               </div>
             )}
           </div>
 
           {/* Right Column (lg:col-span-5): "Tin tức và các hoạt động phong trào" News Board */}
-          <div className="lg:col-span-5 flex flex-col min-h-0 h-full max-h-full bg-slate-900/70 backdrop-blur-md rounded-[24px] sm:rounded-[32px] border border-white/10 p-4 sm:p-5 shadow-2xl text-left overflow-hidden">
+          <div className="lg:col-span-5 flex flex-col min-h-0 h-full max-h-full bg-white backdrop-blur-md rounded-[24px] sm:rounded-[32px] border border-slate-200 p-4 sm:p-5 shadow-lg text-left overflow-hidden">
             {/* Header Title */}
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10 shrink-0">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100">
                   <Newspaper size={18} />
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-extrabold text-white tracking-wide leading-tight">
+                  <h3 className="text-sm sm:text-base font-extrabold text-slate-800 tracking-wide leading-tight">
                     Tin tức và các hoạt động phong trào
                   </h3>
                   <span className="text-[10px] text-slate-400">CLB, Đoàn Thanh niên, Hội Sinh viên & Phân hiệu</span>
@@ -324,35 +290,47 @@ export const LoginScreen: React.FC = () => {
 
             {/* News Items Scrollable List */}
             <div className="flex-1 overflow-y-auto pr-1.5 space-y-3.5 custom-scrollbar min-h-0">
-              {newsList.map((item) => (
-                <div 
-                  key={item.id}
-                  onClick={() => setSelectedNews(item)}
-                  className="flex items-start gap-3 p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group"
-                >
-                  {/* News Thumbnail Image (Left side of card) */}
-                  <div className="w-24 sm:w-28 aspect-[4/3] rounded-xl overflow-hidden shrink-0 border border-white/10 bg-slate-950 relative">
-                    <img 
-                      src={item.imageUrl || (themeConfig?.logoUrl || "https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=600&q=80")}
-                      alt={item.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
+              {newsList.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full py-12 text-center">
+                  <div className="p-4 bg-slate-100 rounded-2xl mb-4">
+                    <Calendar size={32} className="text-slate-400" />
                   </div>
-
-                  {/* News Details (Right side of card) */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-between h-full py-0.5">
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-bold text-slate-100 group-hover:text-indigo-300 transition-colors line-clamp-2 leading-snug">
-                        {item.title}
-                      </h4>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
-                      <span className="truncate max-w-[140px] text-indigo-400 font-medium">{item.orgName}</span>
-                      <span className="shrink-0">{item.dateStr}</span>
-                    </div>
-                  </div>
+                  <p className="text-sm font-semibold text-slate-500">Chưa có hoạt động, sự kiện diễn ra</p>
+                  <p className="text-xs text-slate-400 mt-1">Các hoạt động và sự kiện sẽ hiển thị tại đây khi được tạo mới.</p>
                 </div>
-              ))}
+              ) : (
+                newsList.map((item) => (
+                  <div 
+                    key={item.id}
+                    onClick={() => setSelectedNews(item)}
+                    className="flex items-start gap-3 p-2.5 rounded-2xl bg-slate-50 hover:bg-indigo-50 border border-slate-100 hover:border-indigo-200 transition-all cursor-pointer group"
+                  >
+                    {/* News Thumbnail Image (Left side of card) */}
+                    {item.imageUrl && (
+                      <div className="w-24 sm:w-28 aspect-[4/3] rounded-xl overflow-hidden shrink-0 border border-slate-200 bg-slate-100 relative">
+                        <img 
+                          src={item.imageUrl}
+                          alt={item.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                    )}
+
+                    {/* News Details (Right side of card) */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-between h-full py-0.5">
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-bold text-slate-700 group-hover:text-indigo-600 transition-colors line-clamp-2 leading-snug">
+                          {item.title}
+                        </h4>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
+                        <span className="truncate max-w-[140px] text-indigo-500 font-medium">{item.orgName}</span>
+                        <span className="shrink-0">{item.dateStr}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -360,36 +338,36 @@ export const LoginScreen: React.FC = () => {
       </main>
 
       {/* 3. Lower Section: Contact Info & Footer (Dynamic parameters from Admin) */}
-      <footer className="relative z-10 w-full max-w-7xl mx-auto pt-3 border-t border-white/10 flex flex-col gap-3 shrink-0">
+      <footer className="relative z-10 w-full max-w-7xl mx-auto pt-3 border-t border-slate-200 flex flex-col gap-3 shrink-0">
         {/* Contact details row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-left text-sm text-slate-300">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-left text-sm text-slate-500">
           <div className="flex items-start gap-2.5">
-            <MapPin className="text-indigo-400 shrink-0 mt-0.5" size={16} />
+            <MapPin className="text-indigo-500 shrink-0 mt-0.5" size={16} />
             <div>
-              <span className="block font-bold text-white mb-0.5 text-xs">Địa chỉ</span>
+              <span className="block font-bold text-slate-700 mb-0.5 text-xs">Địa chỉ</span>
               <span className="text-[11px] leading-snug">{themeConfig?.contactAddress || "Tổ 10, Phường Nguyễn Trãi, Thành phố Hà Giang, Tỉnh Hà Giang"}</span>
             </div>
           </div>
           
           <div className="flex items-start gap-2.5">
-            <Mail className="text-indigo-400 shrink-0 mt-0.5" size={16} />
+            <Mail className="text-indigo-500 shrink-0 mt-0.5" size={16} />
             <div>
-              <span className="block font-bold text-white mb-0.5 text-xs">Email liên hệ</span>
+              <span className="block font-bold text-slate-700 mb-0.5 text-xs">Email liên hệ</span>
               <span className="text-[11px] leading-snug">{themeConfig?.contactEmail || "phhagiang@tnu.edu.vn"}</span>
             </div>
           </div>
 
           <div className="flex items-start gap-2.5">
-            <Phone className="text-indigo-400 shrink-0 mt-0.5" size={16} />
+            <Phone className="text-indigo-500 shrink-0 mt-0.5" size={16} />
             <div>
-              <span className="block font-bold text-white mb-0.5 text-xs">Điện thoại</span>
+              <span className="block font-bold text-slate-700 mb-0.5 text-xs">Điện thoại</span>
               <span className="text-[11px] leading-snug">{themeConfig?.contactPhone || "0219.386.1234"}</span>
             </div>
           </div>
         </div>
 
         {/* Footer legal brand line */}
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-1 text-[10px] text-slate-500 border-t border-white/5 pt-2">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-1 text-[10px] text-slate-400 border-t border-slate-100 pt-2">
           <div>
             Hệ thống UniHub Rèn luyện © 2026. Phiên bản 1.0 - Phân hiệu Đại học Thái Nguyên tại Hà Giang.
           </div>

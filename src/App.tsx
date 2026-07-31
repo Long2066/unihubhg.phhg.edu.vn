@@ -1033,7 +1033,7 @@ const AppContent: React.FC = () => {
   const sidebarTabs = getSidebarTabs();
 
   return (
-    <div className="h-screen h-dvh w-screen bg-[#f1f5f9] flex flex-row selection:bg-indigo-500 selection:text-white font-sans overflow-hidden" id="unihub-app-layout">
+    <div className="h-screen h-dvh w-screen bg-white flex flex-row selection:bg-indigo-500 selection:text-white font-sans overflow-hidden" id="unihub-app-layout">
       
       {/* 1. DYNAMIC EXPANDABLE/COLLAPSIBLE LEFT MENU SIDEBAR */}
       <aside 
@@ -1143,7 +1143,7 @@ const AppContent: React.FC = () => {
       </aside>
 
       {/* 2. RIGHT HAND CONTENT SIDEBAR (Header sits right here, so it does NOT cut across the sidebar!) */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#f1f5f9] h-screen h-dvh overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#f8fafc] h-screen h-dvh overflow-hidden">
         
         {/* Horizontal Header (Bounded beside the menu sidebar!) */}
         <header className="bg-white border-b border-slate-200/80 sticky top-0 z-40 backdrop-blur-md bg-white/90 shadow-2xs shrink-0 h-18 flex items-center justify-between px-6 lg:px-8">
