@@ -113,20 +113,19 @@ const looksLikeInlineImagePayload = (value?: string) => {
 
   if (/data:|blob:/i.test(trimmed)) return true;
   if (/;base64,/i.test(trimmed.slice(0, 2048))) return true;
-
-  const isHttpUrl = /^https?:\/\//i.test(trimmed);
-  if (trimmed.length > THEME_URL_MAX_LENGTH && !isHttpUrl) return true;
+  if (trimmed.length > THEME_URL_MAX_LENGTH && !/^https?:\/\//i.test(trimmed)) return true;
+  if (!/^https?:\/\//i.test(trimmed) && trimmed.length > 500) return true;
 
   const compact = trimmed.length > 64_000
     ? trimmed.slice(0, 64_000).replace(/\s/g, "")
     : trimmed.replace(/\s/g, "");
-  if (compact.length >= LEGACY_BASE64_MIN_LENGTH && /^[A-Za-z0-9+/=]+$/.test(compact)) {
+  if (compact.length >= LEGACY_BASE64_MIN_LENGTH) {
     return compact.startsWith("/9j/")
       || compact.startsWith("iVBORw0KGgo")
       || compact.startsWith("R0lGOD")
       || compact.startsWith("UklGR")
       || compact.startsWith("PD94bWwg")
-      || trimmed.length > 100_000;
+      || trimmed.length > 50_000;
   }
 
   return false;
@@ -223,7 +222,7 @@ const getCompactThemeConfig = (config: Partial<ThemeConfig> = {}): ThemeConfig =
     loginBgUrl: compactBgUrls[0] || "",
     loginBgUrls: compactBgUrls,
     bgTransitionInterval: typeof config.bgTransitionInterval === "number" && !isNaN(config.bgTransitionInterval) ? config.bgTransitionInterval : 5,
-    bgOverlayOpacity: typeof config.bgOverlayOpacity === "number" && !isNaN(config.bgOverlayOpacity) ? config.bgOverlayOpacity : 0.4,
+    bgOverlayOpacity: typeof config.bgOverlayOpacity === "number" && !isNaN(config.bgOverlayOpacity) ? config.bgOverlayOpacity : 0.75,
     contactAddress: sanitizeTextField(config.contactAddress, 500),
     contactEmail: sanitizeTextField(config.contactEmail, 200),
     contactPhone: sanitizeTextField(config.contactPhone, 200)
@@ -247,7 +246,7 @@ const isThemeDocumentDirtyAfterCompaction = (rawConfig: Partial<ThemeConfig>, co
     loginBgUrl: rawConfig.loginBgUrl || "",
     loginBgUrls: Array.isArray(rawConfig.loginBgUrls) ? rawConfig.loginBgUrls : [],
     bgTransitionInterval: rawConfig.bgTransitionInterval ?? 5,
-    bgOverlayOpacity: rawConfig.bgOverlayOpacity ?? 0.4,
+    bgOverlayOpacity: rawConfig.bgOverlayOpacity ?? 0.75,
     contactAddress: rawConfig.contactAddress || "",
     contactEmail: rawConfig.contactEmail || "",
     contactPhone: rawConfig.contactPhone || ""
@@ -366,7 +365,6 @@ const compressImageToMaxDimensions = (
 const uploadImageToImgBB = async (file: File): Promise<string> => {
   const formData = new FormData();
   formData.append("image", file);
-  // ImgBB free API key
   const apiKey = "6d70444736614f9693d038d3f8f6e468";
   const res = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
     method: "POST",
@@ -384,12 +382,32 @@ const uploadImageToImgBB = async (file: File): Promise<string> => {
   throw new Error("ImgBB upload failed: " + (data?.error?.message || "Invalid response"));
 };
 
+const uploadImageToFreeImageHost = async (file: File): Promise<string> => {
+  const formData = new FormData();
+  formData.append("source", file);
+  formData.append("action", "upload");
+  const apiKey = "6d04526721921a97d91d092c24479e0a";
+  const res = await fetch(`https://freeimage.host/api/1/upload?key=${apiKey}`, {
+    method: "POST",
+    body: formData
+  });
+
+  if (!res.ok) {
+    throw new Error(`FreeImageHost HTTP error ${res.status}`);
+  }
+
+  const data = await res.json();
+  if (data && data.status_code === 200 && data.image && (data.image.url || data.image.display_url)) {
+    return data.image.url || data.image.display_url;
+  }
+  throw new Error("FreeImageHost upload failed: " + (data?.error?.message || "Invalid response"));
+};
+
 const uploadThemeImageToStorage = async (file: File, folder: "logos" | "backgrounds", index = 0) => {
   if (!file.type.startsWith("image/")) {
     throw new Error(`${file.name} không phải là tệp ảnh hợp lệ.`);
   }
 
-  // Auto-resize and compress in-memory to fit standard dimensions.
   let fileToUpload = file;
   try {
     const compressionProfile = folder === "logos"
@@ -407,7 +425,7 @@ const uploadThemeImageToStorage = async (file: File, folder: "logos" | "backgrou
     console.warn("Client compression failed, using original file", compressErr);
   }
 
-  // 1. Try Firebase Storage first (if enabled and accessible)
+  // 1. Try Firebase Storage
   try {
     const path = buildThemeStoragePath(folder, fileToUpload, index);
     const imageRef = storageRef(storage, path);
@@ -420,11 +438,18 @@ const uploadThemeImageToStorage = async (file: File, folder: "logos" | "backgrou
     });
     return await getDownloadURL(snapshot.ref);
   } catch (storageErr: any) {
-    console.warn("Firebase Storage failed (likely not configured or Spark plan limit), trying ImgBB Cloud...", storageErr);
+    console.warn("Firebase Storage failed (likely CORS or Spark plan limit), trying ImgBB Cloud...", storageErr);
   }
 
-  // 2. Fallback to ImgBB Free Cloud Hosting (NO Base64 fallback - that causes Firestore 1MB crashes)
-  return await uploadImageToImgBB(fileToUpload);
+  // 2. Try ImgBB Cloud
+  try {
+    return await uploadImageToImgBB(fileToUpload);
+  } catch (imgbbErr) {
+    console.warn("ImgBB failed, trying FreeImageHost...", imgbbErr);
+  }
+
+  // 3. Try FreeImageHost Cloud
+  return await uploadImageToFreeImageHost(fileToUpload);
 };
 
 const deleteThemeStorageFileFromUrl = async (url?: string) => {
@@ -584,7 +609,13 @@ export default function App() {
 
   const handleBgUrlInputSubmit = () => {
     if (!newBgUrlInput || !newBgUrlInput.trim()) return;
-    const directUrl = convertGoogleDriveUrlToDirectUrl(newBgUrlInput.trim());
+    const raw = newBgUrlInput.trim();
+    if (looksLikeInlineImagePayload(raw) || (raw.length > 500 && !/^https?:\/\//i.test(raw))) {
+      alert("Không được dán chuỗi ảnh Base64 vào đây (gây quá giới hạn 1MB Firestore). Vui lòng chọn nút 'Tối ưu & tải ảnh lên Storage' hoặc dán link URL HTTP/HTTPS.");
+      setNewBgUrlInput("");
+      return;
+    }
+    const directUrl = convertGoogleDriveUrlToDirectUrl(raw);
     if (!/^https?:\/\//i.test(directUrl)) {
       alert("Đường dẫn không hợp lệ. Vui lòng nhập URL bắt đầu bằng http:// hoặc https://");
       return;
@@ -2697,7 +2728,15 @@ export default function App() {
                       className="input-dark" 
                       style={{ fontSize: "12px", padding: "8px" }}
                       value={themeConfig.logoUrl || ""} 
-                      onChange={(e) => setThemeConfig({ ...themeConfig, logoUrl: e.target.value })}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (looksLikeInlineImagePayload(val) || (val.length > 500 && !/^https?:\/\//i.test(val))) {
+                          alert("Không được dán chuỗi ảnh Base64 vào đây (gây vượt giới hạn 1MB Firestore). Vui lòng chọn nút 'Tải ảnh lên...' hoặc dán link URL HTTP/HTTPS.");
+                          setThemeConfig(prev => ({ ...prev, logoUrl: "" }));
+                        } else {
+                          setThemeConfig(prev => ({ ...prev, logoUrl: val }));
+                        }
+                      }}
                       placeholder="e.g. https://domain.com/logo.png (Để trống để dùng logo mặc định)"
                     />
                   </div>
