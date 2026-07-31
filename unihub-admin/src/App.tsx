@@ -1070,9 +1070,7 @@ export default function App() {
   const saveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const id = selectedUser ? selectedUser.id : `U_GEN_${Date.now()}`;
-      
-      // Setup fallback email and password safely
+      // Setup email and password
       let targetEmail = (userForm.email || "").trim();
       if (!targetEmail) {
         const username = (userForm.username || "").trim();
@@ -1080,48 +1078,57 @@ export default function App() {
       }
       const targetPassword = userForm.password || "password123";
 
-      let targetDocId = id;
-      const userData: UserAccount = {
-        id: selectedUser ? selectedUser.id : id,
+      // Build clean user data object (only allowed Firestore fields)
+      const userData: Record<string, any> = {
         name: userForm.name,
         username: userForm.username,
         email: targetEmail,
         role: userForm.role,
         password: targetPassword
       };
-
       if (userForm.targetId && userForm.targetId.trim()) {
         userData.targetId = userForm.targetId.trim();
       }
-      if (userForm.role === UserRole.CLASS_MONITOR) {
+      if (userForm.role === UserRole.CLASS_MONITOR && userForm.monitorTitle) {
         userData.monitorTitle = userForm.monitorTitle;
       }
 
-      // If creating a new user, create their Firebase Auth credentials using temporary app
-      if (!selectedUser) {
+      if (selectedUser) {
+        // === EDITING existing user ===
+        userData.id = selectedUser.id;
+        await setDoc(doc(db, "users", selectedUser.id), userData);
+      } else {
+        // === CREATING new user ===
+        // Always create Firebase Auth account so user can actually login
+        let authUid: string | null = null;
         try {
           const tempAppName = `TempApp_${Date.now()}`;
           const tempApp = initializeApp(firebaseConfig, tempAppName);
           const tempAuth = getAuth(tempApp);
-          
           const userCred = await createUserWithEmailAndPassword(tempAuth, targetEmail, targetPassword);
-          if (userCred.user) {
-            targetDocId = userCred.user.uid;
-            userData.id = targetDocId; // update ID inside doc
-          }
+          authUid = userCred.user.uid;
           await deleteApp(tempApp);
         } catch (authErr: any) {
-          console.warn("Firebase Auth user creation warning (might already exist):", authErr);
+          if (authErr.code === "auth/email-already-in-use") {
+            // Account already exists on Firebase Auth — find existing UID or use generated ID
+            console.warn("Firebase Auth account already exists for:", targetEmail);
+          } else {
+            console.warn("Firebase Auth user creation warning:", authErr.code, authErr.message);
+          }
         }
+
+        const targetDocId = authUid || `U_GEN_${Date.now()}`;
+        userData.id = targetDocId;
+        await setDoc(doc(db, "users", targetDocId), userData);
       }
 
-      await setDoc(doc(db, "users", targetDocId), userData);
       setShowUserModal(false);
       setTimeout(() => {
         alert("Đã lưu thông tin tài khoản thành công!");
       }, 50);
-    } catch (err) {
-      alert("Lỗi khi lưu tài khoản: " + err);
+    } catch (err: any) {
+      console.error("Save user error:", err);
+      alert("Lỗi khi lưu tài khoản: " + (err?.message || err));
     }
   };
 

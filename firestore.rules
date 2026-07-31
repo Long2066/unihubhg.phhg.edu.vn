@@ -232,22 +232,22 @@ service cloud.firestore {
         hasRole('ADVISER') ||
         hasRole('CLASS_MONITOR')
       );
-      allow create: if isVerifiedUser() && isValidId(userId) && (
-        (userId == request.auth.uid && (incoming().role == 'STUDENT' || isSuperAdmin() || (incoming().role == 'CLASS_MONITOR' && incoming().isGroupLeader == true))) || 
-        (hasRole('CLASS_MONITOR') && incoming().role == 'CLASS_MONITOR' && incoming().isGroupLeader == true) ||
+      allow create: if isVerifiedUser() && (
+        isSuperAdmin() ||
         hasRole('ADMIN') ||
-        isSuperAdmin()
-      ) && isValidUser(incoming());
-      allow update: if isVerifiedUser() && isValidId(userId) && (
-        hasRole('ADMIN') || 
-        isSuperAdmin() || (
+        (userId == request.auth.uid && incoming().role == 'STUDENT') ||
+        (hasRole('CLASS_MONITOR') && incoming().role == 'CLASS_MONITOR' && incoming().isGroupLeader == true)
+      );
+      allow update: if isVerifiedUser() && (
+        isSuperAdmin() ||
+        hasRole('ADMIN') || (
           userId == request.auth.uid && 
           incoming().role == existing().role && 
           incoming().targetId == existing().targetId &&
           incoming().id == existing().id
         )
-      ) && isValidUser(incoming());
-      allow delete: if hasRole('ADMIN') || isSuperAdmin() || (hasRole('CLASS_MONITOR') && existing().role == 'CLASS_MONITOR' && existing().isGroupLeader == true);
+      );
+      allow delete: if isSuperAdmin() || hasRole('ADMIN') || (hasRole('CLASS_MONITOR') && existing().role == 'CLASS_MONITOR' && existing().isGroupLeader == true);
     }
 
     match /students/{studentId} {

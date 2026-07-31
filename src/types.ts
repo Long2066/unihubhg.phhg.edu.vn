@@ -4,6 +4,7 @@
 
 export enum UserRole {
   STUDENT = "STUDENT",                 // Sinh viên
+  GROUP_LEADER = "GROUP_LEADER",       // Tổ trưởng
   ORGANIZER = "ORGANIZER",             // CLB / Đoàn / Hội
   TRAINING_DEPT = "TRAINING_DEPT",     // Phòng Đào tạo
   CLASS_MONITOR = "CLASS_MONITOR",     // Ban cán sự Lớp (BCS)
