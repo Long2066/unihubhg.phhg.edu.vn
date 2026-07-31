@@ -274,7 +274,7 @@ export const LoginScreen: React.FC = () => {
                         key={`${bgUrl}-${index}`}
                         src={bgUrl}
                         alt={`Ảnh nền đăng nhập ${index % bgList.length + 1}`}
-                        className="h-full object-cover flex-shrink-0 select-none"
+                        className="h-full w-full object-contain flex-shrink-0 select-none p-0.5"
                         style={{ 
                           width: `${carouselSlideWidth}%`,
                           objectPosition: "center center",

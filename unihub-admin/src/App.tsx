@@ -3075,9 +3075,10 @@ export default function App() {
                       justifyContent: "center",
                       alignItems: "center",
                       backgroundImage: adminPreviewBgUrl ? `url(${adminPreviewBgUrl})` : "none",
-                      backgroundSize: "cover",
+                      backgroundSize: "contain",
+                      backgroundRepeat: "no-repeat",
                       backgroundPosition: "center",
-                      backgroundColor: adminPreviewBgUrl ? "transparent" : "#080c14",
+                      backgroundColor: adminPreviewBgUrl ? "#0e1626" : "#080c14",
                       transition: "all 0.3s ease"
                     }}
                   >
