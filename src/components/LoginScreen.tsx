@@ -205,7 +205,7 @@ export const LoginScreen: React.FC = () => {
 
   return (
     <div 
-      className="h-screen h-dvh max-h-screen flex flex-col justify-between py-4 px-4 sm:px-8 selection:bg-indigo-500 selection:text-white relative bg-slate-950 font-sans text-white overflow-hidden max-sm:h-auto max-sm:min-h-screen max-sm:overflow-y-auto" 
+      className="h-screen h-dvh max-h-screen flex flex-col justify-between py-4 px-4 sm:px-8 selection:bg-indigo-500 selection:text-white relative bg-[#0e1626] font-sans text-white overflow-hidden max-sm:h-auto max-sm:min-h-screen max-sm:overflow-y-auto" 
       id="unihub-login-screen"
     >
       {/* 1. Top Header Navigation Bar (Transparent, Aligned Left Logo/Title & Right Login) */}

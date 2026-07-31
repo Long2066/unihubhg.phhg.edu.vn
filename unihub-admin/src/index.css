@@ -1,13 +1,13 @@
 /* CSS Design System for UniHub Super Admin (Executive Dark Theme) */
 :root {
-  --bg-primary: #080C14;
-  --bg-secondary: #0F1626;
-  --bg-tertiary: #172237;
+  --bg-primary: #0e1626;
+  --bg-secondary: #162035;
+  --bg-tertiary: #1f2c46;
   --accent-cyan: #00F0FF;
   --accent-purple: #9D4EDD;
   --accent-orange: #FF9F1C;
   --text-main: #F0F4F8;
-  --text-muted: #8F9CAE;
+  --text-muted: #94A3B8;
   --border-glow: rgba(0, 240, 255, 0.15);
   --border-normal: rgba(255, 255, 255, 0.08);
   --success: #10B981;
@@ -25,6 +25,8 @@ body {
   margin: 0;
   padding: 0;
   background-color: var(--bg-primary);
+  background-image: radial-gradient(circle at 50% 0%, rgba(30, 41, 75, 0.45) 0%, rgba(14, 22, 38, 1) 100%);
+  background-attachment: fixed;
   color: var(--text-main);
   font-family: 'Plus Jakarta Sans', sans-serif;
   overflow-x: hidden;
@@ -344,7 +346,7 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: radial-gradient(circle at center, #0F1626 0%, #080C14 100%);
+  background: radial-gradient(circle at center, #1b263b 0%, #0e1626 100%);
   padding: 20px;
 }
 .login-card {
