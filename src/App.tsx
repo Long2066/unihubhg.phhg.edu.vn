@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { Suspense, lazy, useState } from "react";
+import React, { Component, Suspense, lazy, useState } from "react";
 import { UniHubProvider, useUniHub } from "./state";
 import { UserRole, isOrgRole, STUDENT_FIELDS_META, Student, SEMESTER_LIST } from "./types";
 import { TnuLogo } from "./components/TnuLogo";

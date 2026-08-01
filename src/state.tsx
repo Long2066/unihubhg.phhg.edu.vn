@@ -264,7 +264,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const params = new URLSearchParams(window.location.search);
     const impersonateUsername = params.get("impersonate");
     if (impersonateUsername && users.length > 0) {
-      const found = users.find(u => u.username.toLowerCase() === impersonateUsername.toLowerCase() || u.email.toLowerCase() === impersonateUsername.toLowerCase());
+      const found = users.find(u => 
+        (u.username && u.username.toLowerCase() === impersonateUsername.toLowerCase()) || 
+        (u.email && u.email.toLowerCase() === impersonateUsername.toLowerCase())
+      );
       if (found) {
         setCurrentUser(found);
         localStorage.setItem("unihub_current_user", JSON.stringify(found));
@@ -342,7 +345,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (authUser) => {
       if (authUser) {
-        const found = users.find(u => u.email.toLowerCase() === authUser.email?.toLowerCase());
+        const found = users.find(u => u.email && authUser.email && u.email.toLowerCase() === authUser.email.toLowerCase());
         if (found) {
           setCurrentUser(found);
           localStorage.setItem("unihub_current_user", JSON.stringify(found));
@@ -2385,7 +2388,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const combinedUsers = [...users];
     usersToImport.forEach(newUser => {
-      const existingIdx = combinedUsers.findIndex(u => u.username.toLowerCase() === newUser.username.toLowerCase() || u.email.toLowerCase() === newUser.email.toLowerCase());
+      const existingIdx = combinedUsers.findIndex(u => 
+        (u.username && newUser.username && u.username.toLowerCase() === newUser.username.toLowerCase()) || 
+        (u.email && newUser.email && u.email.toLowerCase() === newUser.email.toLowerCase())
+      );
       if (existingIdx !== -1) {
         combinedUsers[existingIdx] = { ...combinedUsers[existingIdx], ...newUser };
       } else {
