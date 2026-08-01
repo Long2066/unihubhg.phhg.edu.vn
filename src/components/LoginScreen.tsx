@@ -198,7 +198,7 @@ export const LoginScreen: React.FC = () => {
           <div className="flex flex-col justify-center min-w-0 flex-1">
             {/* Top Institutional Identity Tagline (100% full text, no ellipsis) */}
             <span className="text-[10px] sm:text-xs font-bold text-blue-950 uppercase font-sans leading-tight block">
-              PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI HÀ GIANG
+              PHÂN HIỆU ĐHTN TẠI HÀ GIANG
             </span>
 
             {/* Main Portal Title (100% full text, no ellipsis) */}
