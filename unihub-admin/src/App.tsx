@@ -1731,7 +1731,15 @@ export default function App() {
       {/* 1. Sidebar Navigation */}
       <div className="sidebar">
         <div className="sidebar-logo">
-          <Shield size={24} style={{ color: "var(--accent-cyan)" }} />
+          {themeConfig.logoUrl ? (
+            <img 
+              src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
+              alt="Logo" 
+              style={{ width: "26px", height: "26px", objectFit: "contain", borderRadius: "50%", background: "#fff", padding: "2px", border: "1px solid var(--border-normal)" }} 
+            />
+          ) : (
+            <Shield size={24} style={{ color: "var(--accent-cyan)" }} />
+          )}
           <span>UNIHUB CORE</span>
         </div>
 
