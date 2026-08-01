@@ -19,7 +19,9 @@ import {
   Phone,
   Newspaper,
   Calendar,
-  ExternalLink
+  ExternalLink,
+  Eye,
+  EyeOff
 } from "lucide-react";
 
 interface NewsFeedItem {
@@ -49,6 +51,7 @@ export const LoginScreen: React.FC = () => {
   const { login, users, themeConfig, announcements, activities } = useUniHub();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -452,16 +455,26 @@ export const LoginScreen: React.FC = () => {
                     <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide">Mật khẩu</label>
                     <span className="text-xs text-slate-400 cursor-pointer hover:text-indigo-600 transition-colors">Quên mật khẩu?</span>
                   </div>
-                  <input 
-                    type="password" 
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      setErrorMsg("");
-                    }}
-                    placeholder="••••••••" 
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-sm transition-all text-slate-800"
-                  />
+                  <div className="relative">
+                    <input 
+                      type={showPassword ? "text" : "password"} 
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setErrorMsg("");
+                      }}
+                      placeholder="••••••••" 
+                      className="w-full px-4 py-3 pr-11 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-sm transition-all text-slate-800"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer"
+                      title={showPassword ? "Ẩn mật khẩu" : "Xem mật khẩu"}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
                 </div>
 
                 {errorMsg && (

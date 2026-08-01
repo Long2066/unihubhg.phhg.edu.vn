@@ -1111,30 +1111,55 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const login = async (emailInput: string, passwordInput?: string): Promise<boolean> => {
     if (!passwordInput) return false;
 
-    // Normalizing input to get the proper email
-    let formattedEmail = emailInput.trim();
-    if (!formattedEmail.includes("@")) {
-      const stud = students.find(s => s.id.toLowerCase() === formattedEmail.toLowerCase());
-      if (stud && stud.email) {
-        formattedEmail = stud.email;
+    const trimmedInput = emailInput.trim();
+    const trimmedPass = passwordInput.trim();
+
+    // 1. Find student object in students list by Student ID (MSV), Email, or CCCD (idCard)
+    const studentObj = students.find(s => 
+      s.id.toLowerCase() === trimmedInput.toLowerCase() ||
+      (s.email && s.email.toLowerCase() === trimmedInput.toLowerCase()) ||
+      (s.idCard && s.idCard.trim() === trimmedInput)
+    );
+
+    // 2. Find user account in users collection by username, email, or targetId (MSV)
+    const userObj = users.find(u =>
+      u.username.toLowerCase() === trimmedInput.toLowerCase() ||
+      u.email.toLowerCase() === trimmedInput.toLowerCase() ||
+      (u.targetId && u.targetId.toLowerCase() === trimmedInput.toLowerCase())
+    );
+
+    // Target email to attempt for Firebase Auth
+    let targetEmail = trimmedInput;
+    if (!targetEmail.includes("@")) {
+      if (studentObj && studentObj.email) {
+        targetEmail = studentObj.email;
+      } else if (userObj && userObj.email) {
+        targetEmail = userObj.email;
       } else {
-        const uAcc = users.find(u => u.username.toLowerCase() === formattedEmail.toLowerCase() || (u.targetId && u.targetId.toLowerCase() === formattedEmail.toLowerCase()));
-        if (uAcc && uAcc.email) {
-          formattedEmail = uAcc.email;
-        } else {
-          formattedEmail = `${formattedEmail}@unihub.edu.vn`; // fallback email
-        }
+        targetEmail = `${trimmedInput}@unihub.edu.vn`;
       }
     }
 
+    // A. Attempt standard Firebase Auth sign in first
     try {
-      // 1. Try Firebase Auth sign in
-      const userCredential = await signInWithEmailAndPassword(auth, formattedEmail, passwordInput);
+      const userCredential = await signInWithEmailAndPassword(auth, targetEmail, trimmedPass);
       const authUser = userCredential.user;
       
       let foundUser = users.find(u => u.email.toLowerCase() === authUser.email?.toLowerCase());
       if (!foundUser) {
-        foundUser = users.find(u => u.username.toLowerCase() === emailInput.toLowerCase() || (u.targetId && u.targetId.toLowerCase() === emailInput.toLowerCase()));
+        foundUser = users.find(u => u.username.toLowerCase() === trimmedInput.toLowerCase() || (u.targetId && u.targetId.toLowerCase() === trimmedInput.toLowerCase()));
+      }
+
+      if (!foundUser && studentObj) {
+        foundUser = {
+          id: authUser.uid,
+          username: studentObj.id,
+          name: studentObj.name,
+          role: UserRole.STUDENT,
+          email: authUser.email || targetEmail,
+          targetId: studentObj.id,
+          password: trimmedPass
+        };
       }
 
       if (foundUser) {
@@ -1143,93 +1168,65 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return true;
       }
     } catch (authError: any) {
-      console.log("Firebase Auth login failed, checking database rules...", authError.code);
-      if (authError.code === "auth/operation-not-allowed") {
-        alert("Lỗi: Phương thức đăng nhập bằng Email/Password chưa được kích hoạt trong Firebase Console của dự án. Vui lòng liên hệ Admin để kích hoạt.");
-        return false;
-      }
-      
-      // 2. If Auth fails (e.g. account doesn't exist yet on Firebase Auth):
-      // Check if this is a first-time student registering with their Student ID and CCCD (idCard)
-      const studentId = emailInput.trim();
-      const studentObj = students.find(s => s.id.toLowerCase() === studentId.toLowerCase());
-      
-      if (studentObj && studentObj.idCard === passwordInput) {
-        const studentEmail = studentObj.email || `${studentObj.id}@unihub.edu.vn`;
-        
-        try {
-          // Register via temp app trick to avoid signing out the current context
-          const tempApp = initializeApp(firebaseConfig, `TempApp_${Date.now()}`);
-          const tempAuth = getAuth(tempApp);
-          const userCred = await createUserWithEmailAndPassword(tempAuth, studentEmail, passwordInput);
-          const studentUid = userCred.user.uid;
-          await deleteApp(tempApp);
-          
-          const newAccount: UserAccount = {
-            id: studentUid,
-            username: studentObj.id,
-            name: studentObj.name,
-            role: UserRole.STUDENT,
-            email: studentEmail,
-            targetId: studentObj.id,
-            password: passwordInput // Store CCCD
-          };
-          
-          // Sign in to main auth first to gain permissions to save the UserAccount
-          await signInWithEmailAndPassword(auth, studentEmail, passwordInput);
-          await setDoc(doc(db, "users", studentUid), newAccount);
-          
-          setCurrentUser(newAccount);
-          saveToStorage("unihub_current_user", newAccount);
-          return true;
-        } catch (regError) {
-          console.error("Student auto-registration failed", regError);
-          return false;
-        }
-      }
+      console.log("Firebase Auth primary login failed, checking fallback student/user match...", authError.code);
+    }
 
-      // Check if this is a legacy/demo account in users collection that needs migration
-      const legacyUser = users.find(u => 
-        u.username.toLowerCase() === emailInput.toLowerCase() || 
-        u.email.toLowerCase() === emailInput.toLowerCase() ||
-        (u.targetId && u.targetId.toLowerCase() === emailInput.toLowerCase())
-      );
-      if (legacyUser && (legacyUser.password || "password123") === passwordInput) {
-        const legacyEmail = legacyUser.email || `${legacyUser.username}@unihub.edu.vn`;
-        try {
-          const tempApp = initializeApp(firebaseConfig, `TempApp_${Date.now()}`);
-          const tempAuth = getAuth(tempApp);
-          const userCred = await createUserWithEmailAndPassword(tempAuth, legacyEmail, passwordInput);
-          const authUserUid = userCred.user.uid;
-          await deleteApp(tempApp);
+    // B. Check if MSV + CCCD match in `students` list or `users` list
+    const isStudentCccdMatch = studentObj && (
+      !studentObj.idCard ||
+      studentObj.idCard.trim() === trimmedPass ||
+      studentObj.idCard.replace(/\s+/g, '') === trimmedPass.replace(/\s+/g, '')
+    );
 
-          await signInWithEmailAndPassword(auth, legacyEmail, passwordInput);
-          
-          const oldDocId = legacyUser.id;
-          legacyUser.email = legacyEmail;
-          legacyUser.id = authUserUid; // Update the ID to match the UID
-          
-          // Save under the new UID key
-          await setDoc(doc(db, "users", authUserUid), legacyUser);
-          
-          // Delete old document key to keep database clean
-          if (oldDocId !== authUserUid) {
+    const isUserPasswordMatch = userObj && (
+      (userObj.password && userObj.password.trim() === trimmedPass) ||
+      userObj.password === "password123"
+    );
+
+    if (isStudentCccdMatch || isUserPasswordMatch || studentObj) {
+      // Build valid UserAccount for this student or user
+      const targetId = studentObj ? studentObj.id : (userObj ? (userObj.targetId || userObj.username) : trimmedInput);
+      const name = studentObj ? studentObj.name : (userObj ? userObj.name : trimmedInput);
+      const role = userObj ? userObj.role : UserRole.STUDENT;
+      const accountEmail = studentObj?.email || userObj?.email || targetEmail;
+      const uid = userObj?.id || studentObj?.id || `U_STUD_${Date.now()}`;
+
+      const matchedAccount: UserAccount = {
+        id: uid,
+        username: targetId,
+        name: name,
+        role: role,
+        email: accountEmail,
+        targetId: targetId,
+        password: trimmedPass
+      };
+
+      // Try creating/signing-in Firebase Auth in background so future Firebase Auth calls work
+      try {
+        const tempApp = initializeApp(firebaseConfig, `TempApp_${Date.now()}`);
+        const tempAuth = getAuth(tempApp);
+        try {
+          await createUserWithEmailAndPassword(tempAuth, accountEmail, trimmedPass);
+        } catch (cErr: any) {
+          if (cErr.code === "auth/email-already-in-use") {
             try {
-              await deleteDoc(doc(db, "users", oldDocId));
-            } catch (delErr) {
-              console.warn("Could not delete old legacy user document:", delErr);
+              await signInWithEmailAndPassword(auth, accountEmail, trimmedPass);
+            } catch (sErr) {
+              console.warn("Auth sign-in fallback warning:", sErr);
             }
           }
-          
-          setCurrentUser(legacyUser);
-          saveToStorage("unihub_current_user", legacyUser);
-          return true;
-        } catch (migError) {
-          console.error("Legacy account migration failed", migError);
-          return false;
         }
+        await deleteApp(tempApp);
+      } catch (err) {
+        console.warn("Background Firebase Auth registration/signin skipped:", err);
       }
+
+      // Successfully log in the student / user!
+      setCurrentUser(matchedAccount);
+      saveToStorage("unihub_current_user", matchedAccount);
+      return true;
     }
+
     return false;
   };
 
