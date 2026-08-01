@@ -716,7 +716,7 @@ export default function App() {
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [activities, setActivities] = useState<ExtracurricularActivity[]>([]);
+  const [activities, setActivities] = useState<ExtracurricularActivity[]>(SEED_ACTIVITIES);
   const [attendance, setAttendance] = useState<ActivityAttendance[]>([]);
   const [evidence, setEvidence] = useState<EvidenceSubmission[]>([]);
   const [results, setResults] = useState<EvaluationResult[]>([]);
@@ -806,7 +806,9 @@ export default function App() {
       onSnapshot(collection(db, "activities"), (snap) => {
         const list: ExtracurricularActivity[] = [];
         snap.forEach(d => list.push(d.data() as ExtracurricularActivity));
-        setActivities(list);
+        if (list.length > 0) {
+          setActivities(list);
+        }
       }),
 
       onSnapshot(collection(db, "attendance"), (snap) => {
