@@ -1450,21 +1450,6 @@ const AppContent: React.FC = () => {
               )}
             </div>
 
-            <div className={`p-1 pl-1.5 pr-2.5 rounded-full border text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 ${roleMeta.color}`}>
-              <div className="p-0.5 bg-white/40 rounded-full">
-                <IconComp size={10} />
-              </div>
-              <span>{roleMeta.label}</span>
-            </div>
-
-            {/* Logout button (Fallback for mobile screens) */}
-            <button 
-              onClick={logout}
-              className="p-2 md:hidden bg-slate-150 hover:bg-slate-200 border text-slate-600 hover:text-slate-800 hover:cursor-pointer rounded-xl transition-all"
-              title="Thoát hệ thống"
-            >
-              <LogOut size={14} />
-            </button>
           </div>
 
         </header>
