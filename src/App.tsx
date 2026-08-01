@@ -168,67 +168,27 @@ const AppContent: React.FC = () => {
     }
   }, [currentUser, studentObj, showProfileModal]);
 
+  const safeParseArray = (key: string): string[] => {
+    const cached = localStorage.getItem(key);
+    if (!cached) return [];
+    try {
+      const parsed = JSON.parse(cached);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
   // Local state to track read and deleted notification IDs
-  const [readNotifIds, setReadNotifIds] = useState<string[]>(() => {
-    if (!currentUser) return [];
-    const cached = localStorage.getItem(`unihub_read_notifs_${currentUser.id}`);
-    return cached ? JSON.parse(cached) : [];
-  });
-
-  const [deletedNotifIds, setDeletedNotifIds] = useState<string[]>(() => {
-    if (!currentUser) return [];
-    const cached = localStorage.getItem(`unihub_deleted_notifs_${currentUser.id}`);
-    return cached ? JSON.parse(cached) : [];
-  });
-
-  // Local state to track seen activity IDs for STUDENT role
-  const [seenActivityIds, setSeenActivityIds] = useState<string[]>(() => {
-    if (!currentUser) return [];
-    const cached = localStorage.getItem(`unihub_seen_activities_${currentUser.id}`);
-    return cached ? JSON.parse(cached) : [];
-  });
-
-  // Local state to track seen rejected evidence IDs for STUDENT role
-  const [seenRejectedEvidenceIds, setSeenRejectedEvidenceIds] = useState<string[]>(() => {
-    if (!currentUser) return [];
-    const cached = localStorage.getItem(`unihub_seen_rejected_ev_${currentUser.id}`);
-    return cached ? JSON.parse(cached) : [];
-  });
-
-  // Local state to track seen locked faculty reviews for TRAINING_DEPT
-  const [seenFacultyReviewIds, setSeenFacultyReviewIds] = useState<string[]>(() => {
-    if (!currentUser) return [];
-    const cached = localStorage.getItem(`unihub_seen_faculty_reviews_${currentUser.id}`);
-    return cached ? JSON.parse(cached) : [];
-  });
-
-  // Local state to track seen pending members for ORGANIZER
-  const [seenPendingMemberIds, setSeenPendingMemberIds] = useState<string[]>(() => {
-    if (!currentUser) return [];
-    const cached = localStorage.getItem(`unihub_seen_pending_members_${currentUser.id}`);
-    return cached ? JSON.parse(cached) : [];
-  });
-
-  // Local state to track seen pending evidence for CLASS_MONITOR & ADVISER
-  const [seenPendingEvidenceIds, setSeenPendingEvidenceIds] = useState<string[]>(() => {
-    if (!currentUser) return [];
-    const cached = localStorage.getItem(`unihub_seen_pending_evidence_${currentUser.id}`);
-    return cached ? JSON.parse(cached) : [];
-  });
-
-  // Local state to track seen class reviews for FACULTY
-  const [seenClassReviewIds, setSeenClassReviewIds] = useState<string[]>(() => {
-    if (!currentUser) return [];
-    const cached = localStorage.getItem(`unihub_seen_class_reviews_${currentUser.id}`);
-    return cached ? JSON.parse(cached) : [];
-  });
-
-  // Local state to track seen pending adviser reviews for ADVISER
-  const [seenAdviserReviews, setSeenAdviserReviews] = useState<string[]>(() => {
-    if (!currentUser) return [];
-    const cached = localStorage.getItem(`unihub_seen_adviser_reviews_${currentUser.id}`);
-    return cached ? JSON.parse(cached) : [];
-  });
+  const [readNotifIds, setReadNotifIds] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_read_notifs_${currentUser.id}`) : []);
+  const [deletedNotifIds, setDeletedNotifIds] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_deleted_notifs_${currentUser.id}`) : []);
+  const [seenActivityIds, setSeenActivityIds] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_seen_activities_${currentUser.id}`) : []);
+  const [seenRejectedEvidenceIds, setSeenRejectedEvidenceIds] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_seen_rejected_ev_${currentUser.id}`) : []);
+  const [seenFacultyReviewIds, setSeenFacultyReviewIds] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_seen_faculty_reviews_${currentUser.id}`) : []);
+  const [seenPendingMemberIds, setSeenPendingMemberIds] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_seen_pending_members_${currentUser.id}`) : []);
+  const [seenPendingEvidenceIds, setSeenPendingEvidenceIds] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_seen_pending_evidence_${currentUser.id}`) : []);
+  const [seenClassReviewIds, setSeenClassReviewIds] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_seen_class_reviews_${currentUser.id}`) : []);
+  const [seenAdviserReviews, setSeenAdviserReviews] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_seen_adviser_reviews_${currentUser.id}`) : []);
 
   // Synchronize local states when currentUser changes (e.g. login/logout/switch user)
   React.useEffect(() => {
@@ -245,20 +205,15 @@ const AppContent: React.FC = () => {
       return;
     }
 
-    const loadCache = (key: string) => {
-      const cached = localStorage.getItem(key);
-      return cached ? JSON.parse(cached) : [];
-    };
-
-    setReadNotifIds(loadCache(`unihub_read_notifs_${currentUser.id}`));
-    setDeletedNotifIds(loadCache(`unihub_deleted_notifs_${currentUser.id}`));
-    setSeenActivityIds(loadCache(`unihub_seen_activities_${currentUser.id}`));
-    setSeenRejectedEvidenceIds(loadCache(`unihub_seen_rejected_ev_${currentUser.id}`));
-    setSeenFacultyReviewIds(loadCache(`unihub_seen_faculty_reviews_${currentUser.id}`));
-    setSeenPendingMemberIds(loadCache(`unihub_seen_pending_members_${currentUser.id}`));
-    setSeenPendingEvidenceIds(loadCache(`unihub_seen_pending_evidence_${currentUser.id}`));
-    setSeenClassReviewIds(loadCache(`unihub_seen_class_reviews_${currentUser.id}`));
-    setSeenAdviserReviews(loadCache(`unihub_seen_adviser_reviews_${currentUser.id}`));
+    setReadNotifIds(safeParseArray(`unihub_read_notifs_${currentUser.id}`));
+    setDeletedNotifIds(safeParseArray(`unihub_deleted_notifs_${currentUser.id}`));
+    setSeenActivityIds(safeParseArray(`unihub_seen_activities_${currentUser.id}`));
+    setSeenRejectedEvidenceIds(safeParseArray(`unihub_seen_rejected_ev_${currentUser.id}`));
+    setSeenFacultyReviewIds(safeParseArray(`unihub_seen_faculty_reviews_${currentUser.id}`));
+    setSeenPendingMemberIds(safeParseArray(`unihub_seen_pending_members_${currentUser.id}`));
+    setSeenPendingEvidenceIds(safeParseArray(`unihub_seen_pending_evidence_${currentUser.id}`));
+    setSeenClassReviewIds(safeParseArray(`unihub_seen_class_reviews_${currentUser.id}`));
+    setSeenAdviserReviews(safeParseArray(`unihub_seen_adviser_reviews_${currentUser.id}`));
   }, [currentUser?.id]);
 
   const [selectedAnnForModal, setSelectedAnnForModal] = useState<any | null>(null);

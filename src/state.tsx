@@ -246,7 +246,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [systemFeedbacks, setSystemFeedbacks] = useState<SystemFeedback[]>([]);
   const [themeConfig, setThemeConfig] = useState<ThemeConfig>(() => {
     const cached = localStorage.getItem("unihub_theme_config");
-    return cached ? JSON.parse(cached) : {};
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed && typeof parsed === "object") return parsed;
+      } catch {}
+    }
+    return {};
   });
 
   // Keep only lightweight session/UI preferences in localStorage. Business data is
@@ -255,8 +261,20 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const cachedCurrentUser = localStorage.getItem("unihub_current_user");
     const cachedCustomClasses = localStorage.getItem("unihub_custom_classes");
 
-    if (cachedCurrentUser) setCurrentUser(JSON.parse(cachedCurrentUser));
-    if (cachedCustomClasses) setCustomClasses(JSON.parse(cachedCustomClasses));
+    if (cachedCurrentUser) {
+      try {
+        const parsed = JSON.parse(cachedCurrentUser);
+        if (parsed && typeof parsed === "object") setCurrentUser(parsed);
+      } catch {
+        localStorage.removeItem("unihub_current_user");
+      }
+    }
+    if (cachedCustomClasses) {
+      try {
+        const parsed = JSON.parse(cachedCustomClasses);
+        if (Array.isArray(parsed)) setCustomClasses(parsed);
+      } catch {}
+    }
   }, []);
 
   // Handle impersonation/masquerade from standalone admin page (Cổng 3001)
