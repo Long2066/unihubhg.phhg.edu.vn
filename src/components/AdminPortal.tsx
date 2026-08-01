@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useUniHub } from "../state";
-import { UserRole, UserAccount } from "../types";
+import { UserRole, isOrgRole, UserAccount } from "../types";
 import { 
   Settings, 
   Trash2, 
@@ -116,7 +116,12 @@ export const AdminPortal: React.FC = () => {
       case UserRole.STUDENT:
         return { label: "Sinh viên", className: "bg-slate-100 text-slate-700 border-slate-200" };
       case UserRole.ORGANIZER:
-        return { label: "Ban chủ nhiệm CLB", className: "bg-purple-50 text-purple-700 border-purple-150" };
+      case UserRole.CLUB_MANAGER:
+        return { label: "Câu lạc bộ", className: "bg-purple-50 text-purple-700 border-purple-150" };
+      case UserRole.YOUTH_UNION:
+        return { label: "Đoàn Thanh niên", className: "bg-orange-50 text-orange-700 border-orange-150" };
+      case UserRole.STUDENT_UNION:
+        return { label: "Hội Sinh viên", className: "bg-pink-50 text-pink-700 border-pink-150" };
       default:
         return { label: role, className: "bg-slate-50 text-slate-600 border-slate-150" };
     }
@@ -134,7 +139,7 @@ export const AdminPortal: React.FC = () => {
     setClubFormField(org.field);
     setClubFormLevel(org.level);
 
-    const assocUser = users.find(u => u.role === UserRole.ORGANIZER && u.targetId === orgId);
+    const assocUser = users.find(u => isOrgRole(u.role) && u.targetId === orgId);
     if (assocUser) {
       setClubFormUsername(assocUser.username);
       setClubFormPassword(assocUser.password || "password123");
@@ -259,7 +264,7 @@ export const AdminPortal: React.FC = () => {
       id: `U_ORG_GEN_${cleanId}`,
       username: clubFormUsername.trim(),
       name: clubFormName.trim(),
-      role: UserRole.ORGANIZER,
+      role: clubFormType === "DOAN" ? UserRole.YOUTH_UNION : clubFormType === "HOI" ? UserRole.STUDENT_UNION : UserRole.CLUB_MANAGER,
       email: clubFormUsername.trim(),
       targetId: cleanId,
       password: clubFormPassword.trim()
@@ -1185,7 +1190,7 @@ export const AdminPortal: React.FC = () => {
               {activeAccountTab === "CLUBS" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {organizations.map(org => {
-                    const assocUser = users.find(u => u.role === UserRole.ORGANIZER && u.targetId === org.id);
+                    const assocUser = users.find(u => isOrgRole(u.role) && u.targetId === org.id);
                     return (
                       <div 
                         key={org.id} 

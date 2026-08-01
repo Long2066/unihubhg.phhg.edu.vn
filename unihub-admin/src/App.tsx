@@ -1112,8 +1112,17 @@ export default function App() {
           await deleteApp(tempApp);
         } catch (authErr: any) {
           if (authErr.code === "auth/email-already-in-use") {
-            // Account already exists on Firebase Auth — find existing UID or use generated ID
+            // Account already exists on Firebase Auth — try sign-in to get real UID
             console.warn("Firebase Auth account already exists for:", targetEmail);
+            try {
+              const tempApp2 = initializeApp(firebaseConfig, `TempSignIn_${Date.now()}`);
+              const tempAuth2 = getAuth(tempApp2);
+              const signInCred = await signInWithEmailAndPassword(tempAuth2, targetEmail, targetPassword);
+              authUid = signInCred.user.uid;
+              await deleteApp(tempApp2);
+            } catch (signInErr) {
+              console.warn("Could not sign in to get existing UID:", signInErr);
+            }
           } else {
             console.warn("Firebase Auth user creation warning:", authErr.code, authErr.message);
           }
@@ -1193,6 +1202,9 @@ export default function App() {
         return user?.monitorTitle || "Lớp trưởng (BCS)";
       case UserRole.ADVISER: return "Giảng viên Cố vấn (GVCN)";
       case UserRole.ORGANIZER: return "CLB / Đoàn / Hội";
+      case UserRole.CLUB_MANAGER: return "Câu lạc bộ";
+      case UserRole.YOUTH_UNION: return "Đoàn Thanh niên";
+      case UserRole.STUDENT_UNION: return "Hội Sinh viên";
       case UserRole.FACULTY: return "Văn phòng Khoa";
       case UserRole.TRAINING_DEPT: return "Phòng Đào tạo";
       case UserRole.ADMIN: return "Phòng CTHSSV (Admin)";
@@ -1965,7 +1977,9 @@ export default function App() {
                   <option value={UserRole.STUDENT}>Sinh viên</option>
                   <option value={UserRole.CLASS_MONITOR}>Lớp trưởng (BCS)</option>
                   <option value={UserRole.ADVISER}>Giáo viên chủ nhiệm (GVCN)</option>
-                  <option value={UserRole.ORGANIZER}>CLB / Đoàn Hội</option>
+                  <option value={UserRole.CLUB_MANAGER}>Câu lạc bộ</option>
+                  <option value={UserRole.YOUTH_UNION}>Đoàn Thanh niên</option>
+                  <option value={UserRole.STUDENT_UNION}>Hội Sinh viên</option>
                   <option value={UserRole.FACULTY}>Khoa đào tạo</option>
                   <option value={UserRole.TRAINING_DEPT}>Phòng Đào tạo</option>
                   <option value={UserRole.ADMIN}>Phòng CTHSSV (Admin)</option>
@@ -2607,7 +2621,9 @@ export default function App() {
                       <option value={UserRole.ADVISER}>Cố vấn (GVCN)</option>
                       <option value={UserRole.FACULTY}>Văn phòng Khoa</option>
                       <option value={UserRole.TRAINING_DEPT}>Phòng Đào tạo</option>
-                      <option value={UserRole.ORGANIZER}>CLB / Đoàn Hội</option>
+                      <option value={UserRole.CLUB_MANAGER}>Câu lạc bộ</option>
+                      <option value={UserRole.YOUTH_UNION}>Đoàn Thanh niên</option>
+                      <option value={UserRole.STUDENT_UNION}>Hội Sinh viên</option>
                     </select>
                   </div>
                 </div>
@@ -2633,7 +2649,10 @@ export default function App() {
                                      fb.userRole === UserRole.ADVISER ? "Cố vấn (GVCN)" :
                                      fb.userRole === UserRole.FACULTY ? "Khoa" :
                                      fb.userRole === UserRole.TRAINING_DEPT ? "Phòng Đào tạo" :
-                                     fb.userRole === UserRole.ORGANIZER ? "CLB / Đoàn Hội" : "Admin";
+                                     fb.userRole === UserRole.ORGANIZER ? "CLB / Đoàn Hội" :
+                                     fb.userRole === UserRole.CLUB_MANAGER ? "Câu lạc bộ" :
+                                     fb.userRole === UserRole.YOUTH_UNION ? "Đoàn Thanh niên" :
+                                     fb.userRole === UserRole.STUDENT_UNION ? "Hội Sinh viên" : "Admin";
 
                     return (
                       <div key={fb.id} className="glass-card animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "20px", position: "relative" }}>
@@ -3185,7 +3204,9 @@ export default function App() {
                     <option value={UserRole.GROUP_LEADER}>Tổ trưởng</option>
                     <option value={UserRole.CLASS_MONITOR}>Lớp trưởng (BCS)</option>
                     <option value={UserRole.ADVISER}>Giảng viên Cố vấn (GVCN)</option>
-                    <option value={UserRole.ORGANIZER}>CLB / Đoàn / Hội</option>
+                    <option value={UserRole.CLUB_MANAGER}>Câu lạc bộ</option>
+                    <option value={UserRole.YOUTH_UNION}>Đoàn Thanh niên</option>
+                    <option value={UserRole.STUDENT_UNION}>Hội Sinh viên</option>
                     <option value={UserRole.FACULTY}>Văn phòng Khoa</option>
                     <option value={UserRole.TRAINING_DEPT}>Phòng Đào tạo</option>
                     <option value={UserRole.ADMIN}>Phòng CTHSSV (Admin)</option>

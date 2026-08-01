@@ -5,7 +5,7 @@
 
 import React, { Suspense, lazy, useState } from "react";
 import { UniHubProvider, useUniHub } from "./state";
-import { UserRole, STUDENT_FIELDS_META, Student, SEMESTER_LIST } from "./types";
+import { UserRole, isOrgRole, STUDENT_FIELDS_META, Student, SEMESTER_LIST } from "./types";
 import { TnuLogo } from "./components/TnuLogo";
 
 const convertGoogleDriveUrlToDirectUrl = (url?: string): string => {
@@ -521,7 +521,7 @@ const AppContent: React.FC = () => {
       });
     }
 
-    else if (currentUser.role === UserRole.ORGANIZER) {
+    else if (isOrgRole(currentUser.role)) {
       // 1. Pending membership applications
       members.forEach(m => {
         if (m.orgId === targetId && m.status === "PENDING") {
@@ -640,7 +640,7 @@ const AppContent: React.FC = () => {
           saveSeenRejectedEvidenceIds(newSeenRejectedIds);
         }
       }
-    } else if (currentUser.role === UserRole.ORGANIZER) {
+    } else if (isOrgRole(currentUser.role)) {
       if (activePortletTab === "DS_THANHVIEN") {
         const orgId = currentUser.targetId || "UNITECH";
         const pendingMemberIds = members.filter(m => m.orgId === orgId && m.status === "PENDING").map(m => m.id);
@@ -803,7 +803,7 @@ const AppContent: React.FC = () => {
   const renderPortal = () => {
     let portal: React.ReactNode;
 
-    if (activePortletTab === "GIAM_SAT_SI_SO" && currentUser.role !== UserRole.ORGANIZER) {
+    if (activePortletTab === "GIAM_SAT_SI_SO" && !isOrgRole(currentUser.role)) {
       portal = <ClassStatisticsBottom />;
     } else {
       switch (currentUser.role) {
@@ -811,6 +811,9 @@ const AppContent: React.FC = () => {
           portal = <StudentPortal />;
           break;
         case UserRole.ORGANIZER:
+        case UserRole.CLUB_MANAGER:
+        case UserRole.YOUTH_UNION:
+        case UserRole.STUDENT_UNION:
           portal = <OrganizerPortal />;
           break;
         case UserRole.TRAINING_DEPT:
@@ -839,7 +842,10 @@ const AppContent: React.FC = () => {
   const getRoleLabel = (role: UserRole) => {
     switch (role) {
       case UserRole.STUDENT: return { label: "Sinh viên", color: "bg-blue-100 text-blue-800 border-blue-200", icon: GraduationCap };
-      case UserRole.ORGANIZER: {
+      case UserRole.ORGANIZER:
+      case UserRole.CLUB_MANAGER:
+      case UserRole.YOUTH_UNION:
+      case UserRole.STUDENT_UNION: {
         const orgId = currentUser?.targetId || "";
         const org = organizations.find(o => o.id === orgId);
         let label = "CLB / Đoàn / Hội";
@@ -875,6 +881,9 @@ const AppContent: React.FC = () => {
           { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
         ];
       case UserRole.ORGANIZER:
+      case UserRole.CLUB_MANAGER:
+      case UserRole.YOUTH_UNION:
+      case UserRole.STUDENT_UNION:
         return [
           { id: "DS_THANHVIEN", label: "Danh sách thành viên", icon: Users },
           { id: "TAO_HOATDONG", label: "Khai báo hoạt động", icon: PlusCircle },
@@ -969,7 +978,7 @@ const AppContent: React.FC = () => {
       }
     }
     
-    if (currentUser.role === UserRole.ORGANIZER) {
+    if (isOrgRole(currentUser.role)) {
       const orgId = currentUser.targetId || "UNITECH";
       switch (tabId) {
         case "DS_THANHVIEN":
@@ -2033,7 +2042,7 @@ const AppContent: React.FC = () => {
                      currentUser.role === UserRole.ADVISER ? "Cố vấn lớp" : 
                      currentUser.role === UserRole.FACULTY ? "Khoa" : 
                      currentUser.role === UserRole.TRAINING_DEPT ? "Phòng Đào tạo" : 
-                     currentUser.role === UserRole.ORGANIZER ? "CLB / Đoàn Hội" : "Admin"}
+                     isOrgRole(currentUser.role) ? (currentUser.role === UserRole.CLUB_MANAGER ? "Câu lạc bộ" : currentUser.role === UserRole.YOUTH_UNION ? "Đoàn TN" : currentUser.role === UserRole.STUDENT_UNION ? "Hội SV" : "CLB / Đoàn Hội") : "Admin"}
                   </span>
                 </div>
               </div>

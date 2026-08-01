@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { 
   doc, 
+  getDoc,
   getDocFromServer, 
   setDoc, 
   collection, 
@@ -23,6 +24,7 @@ import firebaseConfig from "../firebase-applet-config.json";
 import { 
   UserAccount, 
   UserRole, 
+  isOrgRole,
   Student, 
   Organization, 
   OrganizationMember, 
@@ -185,6 +187,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setActivePortletTab("TRANG_CHU");
           break;
         case UserRole.ORGANIZER:
+        case UserRole.CLUB_MANAGER:
+        case UserRole.YOUTH_UNION:
+        case UserRole.STUDENT_UNION:
           setActivePortletTab("DS_THANHVIEN");
           break;
         case UserRole.ADMIN:
@@ -1123,117 +1128,136 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const trimmedInput = emailInput.trim();
     const trimmedPass = passwordInput.trim();
 
-    // Helper: Try Firebase Auth sign-in or registration in background
-    const backgroundAuthSync = async (email: string, pass: string) => {
+    // --- Helper: register + sign-in Firebase Auth in background ---
+    const ensureFirebaseAuth = async (email: string, pass: string): Promise<string | null> => {
+      // Try sign-in first
       try {
-        await signInWithEmailAndPassword(auth, email, pass);
-      } catch {
+        const cred = await signInWithEmailAndPassword(auth, email, pass);
+        return cred.user.uid;
+      } catch {}
+      // If sign-in fails, try creating then sign-in
+      try {
+        const tempApp = initializeApp(firebaseConfig, `TempApp_${Date.now()}`);
+        const tempAuth = getAuth(tempApp);
         try {
-          const tempApp = initializeApp(firebaseConfig, `TempApp_${Date.now()}`);
-          const tempAuth = getAuth(tempApp);
-          try {
-            await createUserWithEmailAndPassword(tempAuth, email, pass);
-            await signInWithEmailAndPassword(auth, email, pass);
-          } catch (cErr: any) {
-            if (cErr.code === "auth/email-already-in-use") {
-              console.warn("Firebase Auth account exists but password may differ.");
-            }
-          }
+          const cred = await createUserWithEmailAndPassword(tempAuth, email, pass);
           await deleteApp(tempApp);
-        } catch (err) {
-          console.warn("Background Firebase Auth sync skipped:", err);
+          // Now sign-in on main auth
+          await signInWithEmailAndPassword(auth, email, pass);
+          return cred.user.uid;
+        } catch (cErr: any) {
+          await deleteApp(tempApp);
+          if (cErr.code === "auth/email-already-in-use") {
+            console.warn("Firebase Auth account exists but password may differ for:", email);
+          }
         }
+      } catch (err) {
+        console.warn("Firebase Auth sync skipped:", err);
       }
+      return null;
     };
 
-    // Build effective users list. If in-memory `users` is empty (Firestore security rules
-    // block unauthenticated snapshot reads), fetch directly from Firestore via getDocs.
-    let effectiveUsers = users;
+    // --- Helper: read user document from Firestore by UID ---
+    const fetchUserDocByUid = async (uid: string): Promise<UserAccount | null> => {
+      try {
+        const userDocSnap = await getDoc(doc(db, "users", uid));
+        if (userDocSnap.exists()) {
+          return userDocSnap.data() as UserAccount;
+        }
+      } catch (e) {
+        console.warn("Failed to read user doc by UID:", e);
+      }
+      return null;
+    };
+
+    // --- Helper: find user from in-memory list or fetch from Firestore ---
+    const findUserInList = (input: string, list: UserAccount[]): UserAccount | undefined => {
+      return list.find(u =>
+        (u.username && u.username.toLowerCase() === input.toLowerCase()) ||
+        (u.email && u.email.toLowerCase() === input.toLowerCase()) ||
+        (u.targetId && u.targetId.toLowerCase() === input.toLowerCase()) ||
+        (u.name && u.name.toLowerCase() === input.toLowerCase())
+      );
+    };
+
+    // 1. Build effective users list (may be empty pre-auth)
+    let effectiveUsers = users.length > 0 ? users : [];
     if (effectiveUsers.length === 0) {
       try {
         const usersSnap = await getDocs(collection(db, "users"));
         effectiveUsers = usersSnap.docs.map(d => d.data() as UserAccount);
-      } catch (fetchErr) {
-        console.warn("Direct Firestore users fetch failed (expected if not authenticated):", fetchErr);
+      } catch {
+        // Expected: security rules block list before auth
       }
     }
 
-    // 1. Find user account in users collection by username, email, or targetId
-    const userObj = effectiveUsers.find(u =>
-      (u.username && u.username.toLowerCase() === trimmedInput.toLowerCase()) ||
-      (u.email && u.email.toLowerCase() === trimmedInput.toLowerCase()) ||
-      (u.targetId && u.targetId.toLowerCase() === trimmedInput.toLowerCase()) ||
-      (u.name && u.name.toLowerCase() === trimmedInput.toLowerCase())
-    );
-
-    // 2. Find student object in students list by Student ID (MSV), Email, or CCCD
+    // 2. Find user account and student object
+    const userObj = findUserInList(trimmedInput, effectiveUsers);
     const studentObj = students.find(s => 
       s.id.toLowerCase() === trimmedInput.toLowerCase() ||
       (s.email && s.email.toLowerCase() === trimmedInput.toLowerCase()) ||
       (s.idCard && s.idCard.trim() === trimmedInput)
     );
 
-    // Determine target email for Firebase Auth
+    // 3. Determine email for Firebase Auth
     let targetEmail = trimmedInput;
     if (!targetEmail.includes("@")) {
-      if (userObj && userObj.email) {
-        targetEmail = userObj.email;
-      } else if (studentObj && studentObj.email) {
-        targetEmail = studentObj.email;
-      } else {
-        targetEmail = `${trimmedInput}@unihub.edu.vn`;
-      }
+      if (userObj && userObj.email) targetEmail = userObj.email;
+      else if (studentObj && studentObj.email) targetEmail = studentObj.email;
+      else targetEmail = `${trimmedInput}@unihub.edu.vn`;
     }
 
-    // === STEP A: Try Firebase Auth sign-in first ===
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, targetEmail, trimmedPass);
-      const authUser = userCredential.user;
-      
-      // Re-fetch users if still empty (now authenticated, Firestore rules allow it)
-      if (effectiveUsers.length === 0) {
+    // === STEP A: Firebase Auth sign-in + read user doc by UID ===
+    const authUid = await ensureFirebaseAuth(targetEmail, trimmedPass);
+    if (authUid) {
+      // Successfully authenticated! Now read user doc by UID
+      let foundUser = await fetchUserDocByUid(authUid);
+
+      // If no user doc found by UID, try re-fetching users list (now authenticated)
+      if (!foundUser) {
         try {
           const usersSnap = await getDocs(collection(db, "users"));
           effectiveUsers = usersSnap.docs.map(d => d.data() as UserAccount);
           if (effectiveUsers.length > 0) setUsers(effectiveUsers);
+          // Search by email or username in the full list
+          foundUser = effectiveUsers.find(u =>
+            (u.email && u.email.toLowerCase() === targetEmail.toLowerCase()) ||
+            (u.username && u.username.toLowerCase() === trimmedInput.toLowerCase()) ||
+            (u.targetId && u.targetId.toLowerCase() === trimmedInput.toLowerCase())
+          ) || null;
         } catch {}
       }
 
-      let foundUser = effectiveUsers.find(u => u.email && u.email.toLowerCase() === (authUser.email || "").toLowerCase());
-      if (!foundUser) {
-        foundUser = effectiveUsers.find(u => 
-          (u.username && u.username.toLowerCase() === trimmedInput.toLowerCase()) || 
-          (u.targetId && u.targetId.toLowerCase() === trimmedInput.toLowerCase())
-        );
-      }
+      // If still no user doc but we have a student match, create a student account
       if (!foundUser && studentObj) {
         foundUser = {
-          id: authUser.uid,
+          id: authUid,
           username: studentObj.id,
           name: studentObj.name,
           role: UserRole.STUDENT,
-          email: authUser.email || targetEmail,
+          email: targetEmail,
           targetId: studentObj.id,
           password: trimmedPass
         };
       }
+
       if (foundUser) {
         setCurrentUser(foundUser);
         saveToStorage("unihub_current_user", foundUser);
         return true;
       }
-    } catch (authError: any) {
-      console.log("Firebase Auth sign-in failed:", authError.code, "— checking local credentials...");
     }
 
-    // === STEP B: Direct credential match for ALL account types in `users` collection ===
+    // === STEP B: Direct credential match from stored password ===
+    // For accounts where Firebase Auth failed (password mismatch, account not created yet)
     if (userObj) {
       const storedPassword = userObj.password || "";
       if (storedPassword.trim() === trimmedPass || storedPassword === "password123") {
         setCurrentUser(userObj);
         saveToStorage("unihub_current_user", userObj);
+        // Background: sync Firebase Auth so subsequent operations work
         const userEmail = userObj.email || `${userObj.username}@unihub.edu.vn`;
-        backgroundAuthSync(userEmail, trimmedPass);
+        ensureFirebaseAuth(userEmail, trimmedPass);
         return true;
       }
     }
@@ -1255,7 +1279,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           targetId: studentObj.id,
           password: trimmedPass
         };
-        backgroundAuthSync(accountEmail, trimmedPass);
+        ensureFirebaseAuth(accountEmail, trimmedPass);
         setCurrentUser(matchedAccount);
         saveToStorage("unihub_current_user", matchedAccount);
         return true;
@@ -1264,6 +1288,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     return false;
   };
+
 
 
   const logout = async () => {
@@ -2281,7 +2306,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setOrganizations(updatedOrgs);
     saveToStorage("unihub_organizations", updatedOrgs);
 
-    const updatedUsers = [...users, { ...account, role: UserRole.ORGANIZER }];
+    const updatedUsers = [...users, account];
     setUsers(updatedUsers);
     saveToStorage("unihub_users", updatedUsers);
   };
@@ -2297,7 +2322,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveToStorage("unihub_organizations", updatedOrgs);
 
     const updatedUsers = users.map(u => {
-      if (u.role === UserRole.ORGANIZER && (u.targetId === clubId || u.username === updatedAccount.username)) {
+      if (isOrgRole(u.role) && (u.targetId === clubId || u.username === updatedAccount.username)) {
         return { ...u, ...updatedAccount, targetId: clubId };
       }
       return u;
@@ -2305,7 +2330,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setUsers(updatedUsers);
     saveToStorage("unihub_users", updatedUsers);
 
-    if (currentUser && currentUser.role === UserRole.ORGANIZER && currentUser.targetId === clubId) {
+    if (currentUser && isOrgRole(currentUser.role) && currentUser.targetId === clubId) {
       const matchNewUser = updatedUsers.find(u => u.targetId === clubId);
       if (matchNewUser) {
         setCurrentUser(matchNewUser);
@@ -2319,7 +2344,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setOrganizations(updatedOrgs);
     saveToStorage("unihub_organizations", updatedOrgs);
 
-    const updatedUsers = users.filter(u => !(u.role === UserRole.ORGANIZER && u.targetId === clubId));
+    const updatedUsers = users.filter(u => !(isOrgRole(u.role) && u.targetId === clubId));
     setUsers(updatedUsers);
     saveToStorage("unihub_users", updatedUsers);
   };

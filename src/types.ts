@@ -5,13 +5,23 @@
 export enum UserRole {
   STUDENT = "STUDENT",                 // Sinh viên
   GROUP_LEADER = "GROUP_LEADER",       // Tổ trưởng
-  ORGANIZER = "ORGANIZER",             // CLB / Đoàn / Hội
+  ORGANIZER = "ORGANIZER",             // CLB / Đoàn / Hội (legacy – tương thích dữ liệu cũ)
+  CLUB_MANAGER = "CLUB_MANAGER",       // Câu lạc bộ
+  YOUTH_UNION = "YOUTH_UNION",         // Đoàn Thanh niên
+  STUDENT_UNION = "STUDENT_UNION",     // Hội Sinh viên
   TRAINING_DEPT = "TRAINING_DEPT",     // Phòng Đào tạo
   CLASS_MONITOR = "CLASS_MONITOR",     // Ban cán sự Lớp (BCS)
   ADVISER = "ADVISER",                 // Giáo viên chủ nhiệm (GVCN)
   FACULTY = "FACULTY",                 // Văn phòng Khoa
   ADMIN = "ADMIN"                      // CTHSSV / Admin Hệ thống
 }
+
+/** Helper: kiểm tra role có thuộc nhóm hoạt động phong trào (CLB/Đoàn/Hội) */
+export const isOrgRole = (role: UserRole | string): boolean =>
+  role === UserRole.ORGANIZER ||
+  role === UserRole.CLUB_MANAGER ||
+  role === UserRole.YOUTH_UNION ||
+  role === UserRole.STUDENT_UNION;
 
 export interface UserAccount {
   id: string;

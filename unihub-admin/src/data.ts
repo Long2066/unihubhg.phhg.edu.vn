@@ -39,7 +39,7 @@ export const SEED_USERS: UserAccount[] = [
     id: "U_ORG01",
     username: "clbnckh@hg.edu.vn",
     name: "CLB Sáng tạo Công nghệ UniTech",
-    role: UserRole.ORGANIZER,
+    role: UserRole.CLUB_MANAGER,
     email: "clbnckh@hg.edu.vn",
     targetId: "UNITECH"
   },
@@ -47,7 +47,7 @@ export const SEED_USERS: UserAccount[] = [
     id: "U_ORG02",
     username: "doantnphhg@hg.edu.vn",
     name: "BCH Đoàn TNCS Phân hiệu Hà Giang",
-    role: UserRole.ORGANIZER,
+    role: UserRole.YOUTH_UNION,
     email: "doantnphhg@hg.edu.vn",
     targetId: "DOANTN"
   },
@@ -55,7 +55,7 @@ export const SEED_USERS: UserAccount[] = [
     id: "U_ORG03",
     username: "hsvphhg@hg.edu.vn",
     name: "BCH Hội Sinh viên Phân hiệu Hà Giang",
-    role: UserRole.ORGANIZER,
+    role: UserRole.STUDENT_UNION,
     email: "hsvphhg@hg.edu.vn",
     targetId: "HOISV"
   },
