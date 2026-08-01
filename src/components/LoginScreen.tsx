@@ -190,13 +190,13 @@ export const LoginScreen: React.FC = () => {
             )}
           </div>
           <div className="flex flex-col justify-center">
-            <h4 className="font-mono text-xs sm:text-sm font-bold text-indigo-600 tracking-widest uppercase leading-none mb-1.5">
+            <h4 className="font-mono text-xs sm:text-sm font-extrabold text-blue-900 tracking-widest uppercase leading-none mb-1.5">
               Phân hiệu ĐHTN tại Hà Giang
             </h4>
-            <h1 className="text-lg sm:text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight leading-none">
+            <h1 className="text-lg sm:text-2xl md:text-3xl font-extrabold text-[#0f172a] tracking-tight leading-none">
               {themeConfig?.loginTitle || "CỔNG THÔNG TIN UNIHUBHG"}
             </h1>
-            <p className="hidden sm:block text-xs sm:text-sm text-slate-500 mt-2 leading-relaxed max-w-2xl">
+            <p className="hidden sm:block text-xs sm:text-sm text-slate-700 font-medium mt-2 leading-relaxed max-w-2xl">
               {themeConfig?.loginSubtitle || "Chào mừng bạn đến với Phân hiệu ĐHTN tại Hà Giang - Tra cứu ngay thông tin của bạn"}
             </p>
           </div>
@@ -280,10 +280,10 @@ export const LoginScreen: React.FC = () => {
                   <Newspaper size={18} />
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-extrabold text-slate-800 tracking-wide leading-tight">
+                  <h3 className="text-sm sm:text-base font-extrabold text-[#0f172a] tracking-wide leading-tight">
                     Tin tức và các hoạt động phong trào
                   </h3>
-                  <span className="text-[10px] text-slate-400">CLB, Đoàn Thanh niên, Hội Sinh viên & Phân hiệu</span>
+                  <span className="text-[11px] text-slate-600 font-medium">CLB, Đoàn Thanh niên, Hội Sinh viên & Phân hiệu</span>
                 </div>
               </div>
             </div>
@@ -292,11 +292,11 @@ export const LoginScreen: React.FC = () => {
             <div className="flex-1 overflow-y-auto pr-1.5 space-y-3.5 custom-scrollbar min-h-0">
               {newsList.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full py-12 text-center">
-                  <div className="p-4 bg-slate-100 rounded-2xl mb-4">
-                    <Calendar size={32} className="text-slate-400" />
+                  <div className="p-4 bg-blue-50 rounded-2xl mb-4 text-blue-900 border border-blue-100">
+                    <Calendar size={36} className="text-blue-900" />
                   </div>
-                  <p className="text-sm font-semibold text-slate-500">Chưa có hoạt động, sự kiện diễn ra</p>
-                  <p className="text-xs text-slate-400 mt-1">Các hoạt động và sự kiện sẽ hiển thị tại đây khi được tạo mới.</p>
+                  <p className="text-base font-bold text-[#0f172a]">Chưa có hoạt động, sự kiện diễn ra</p>
+                  <p className="text-xs text-slate-600 font-medium mt-1">Các hoạt động và sự kiện sẽ hiển thị tại đây khi được tạo mới.</p>
                 </div>
               ) : (
                 newsList.map((item) => (
@@ -340,38 +340,38 @@ export const LoginScreen: React.FC = () => {
       {/* 3. Lower Section: Contact Info & Footer (Dynamic parameters from Admin) */}
       <footer className="relative z-10 w-full max-w-7xl mx-auto pt-3 border-t border-slate-200 flex flex-col gap-3 shrink-0">
         {/* Contact details row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-left text-sm text-slate-500">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-left text-sm text-slate-700">
           <div className="flex items-start gap-2.5">
-            <MapPin className="text-indigo-500 shrink-0 mt-0.5" size={16} />
+            <MapPin className="text-blue-700 shrink-0 mt-0.5" size={16} />
             <div>
-              <span className="block font-bold text-slate-700 mb-0.5 text-xs">Địa chỉ</span>
-              <span className="text-[11px] leading-snug">{themeConfig?.contactAddress || "Tổ 10, Phường Nguyễn Trãi, Thành phố Hà Giang, Tỉnh Hà Giang"}</span>
+              <span className="block font-bold text-[#0f172a] mb-0.5 text-xs">Địa chỉ</span>
+              <span className="text-[11px] leading-snug text-slate-800 font-semibold">{themeConfig?.contactAddress || "Tổ 10, Phường Nguyễn Trãi, Thành phố Hà Giang, Tỉnh Hà Giang"}</span>
             </div>
           </div>
           
           <div className="flex items-start gap-2.5">
-            <Mail className="text-indigo-500 shrink-0 mt-0.5" size={16} />
+            <Mail className="text-blue-700 shrink-0 mt-0.5" size={16} />
             <div>
-              <span className="block font-bold text-slate-700 mb-0.5 text-xs">Email liên hệ</span>
-              <span className="text-[11px] leading-snug">{themeConfig?.contactEmail || "phhagiang@tnu.edu.vn"}</span>
+              <span className="block font-bold text-[#0f172a] mb-0.5 text-xs">Email liên hệ</span>
+              <span className="text-[11px] leading-snug text-slate-800 font-semibold">{themeConfig?.contactEmail || "phhagiang@tnu.edu.vn"}</span>
             </div>
           </div>
 
           <div className="flex items-start gap-2.5">
-            <Phone className="text-indigo-500 shrink-0 mt-0.5" size={16} />
+            <Phone className="text-blue-700 shrink-0 mt-0.5" size={16} />
             <div>
-              <span className="block font-bold text-slate-700 mb-0.5 text-xs">Điện thoại</span>
-              <span className="text-[11px] leading-snug">{themeConfig?.contactPhone || "0219.386.1234"}</span>
+              <span className="block font-bold text-[#0f172a] mb-0.5 text-xs">Điện thoại</span>
+              <span className="text-[11px] leading-snug text-slate-800 font-semibold">{themeConfig?.contactPhone || "0219.386.1234"}</span>
             </div>
           </div>
         </div>
 
         {/* Footer legal brand line */}
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-1 text-[10px] text-slate-400 border-t border-slate-100 pt-2">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-1 text-[11px] text-slate-700 font-medium border-t border-slate-200 pt-2">
           <div>
             Hệ thống UniHub Rèn luyện © 2026. Phiên bản 1.0 - Phân hiệu Đại học Thái Nguyên tại Hà Giang.
           </div>
-          <div className="font-mono">
+          <div className="font-mono text-slate-800 font-semibold">
             Dùng chung Cơ sở dữ liệu, API & Thang điểm quy chuẩn liên thông.
           </div>
         </div>

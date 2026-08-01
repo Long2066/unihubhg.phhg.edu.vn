@@ -1674,7 +1674,7 @@ export default function App() {
             }}>
               <Shield size={32} />
             </div>
-            <h2 style={{ margin: "0 0 8px 0", fontSize: "22px", fontWeight: 800, color: "#fff" }}>UniHub Admin Console</h2>
+            <h2 style={{ margin: "0 0 8px 0", fontSize: "22px", fontWeight: 800, color: "#0f172a" }}>UniHub Admin Console</h2>
             <p style={{ margin: "0", fontSize: "13px", color: "var(--text-muted)" }}>Nhập thông tin xác thực tối cao để tiếp quản hệ thống.</p>
           </div>
 
@@ -1695,7 +1695,7 @@ export default function App() {
           )}
 
           <div style={{ marginBottom: "20px" }}>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#9CA3AF", marginBottom: "8px", textTransform: "uppercase" }}>Tài khoản Email</label>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#334155", marginBottom: "8px", textTransform: "uppercase" }}>Tài khoản Email</label>
             <input 
               type="email" 
               className="input-dark" 
@@ -1707,7 +1707,7 @@ export default function App() {
           </div>
 
           <div style={{ marginBottom: "28px" }}>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#9CA3AF", marginBottom: "8px", textTransform: "uppercase" }}>Mật khẩu tối cao</label>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#334155", marginBottom: "8px", textTransform: "uppercase" }}>Mật khẩu tối cao</label>
             <input 
               type="password" 
               className="input-dark" 
@@ -1828,26 +1828,26 @@ export default function App() {
         {activeTab === "DASHBOARD" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
             <div>
-              <h1 style={{ margin: "0 0 8px 0", fontSize: "28px", fontWeight: 800 }}>Bảng điều khiển tối cao</h1>
-              <p style={{ margin: "0", color: "var(--text-muted)", fontSize: "14px" }}>Thống kê sức khỏe dữ liệu, tổng số sinh viên, và tiến độ xét duyệt điểm rèn luyện toàn phân hiệu Hà Giang.</p>
+              <h1 style={{ margin: "0 0 8px 0", fontSize: "28px", fontWeight: 800, color: "#0f172a" }}>Bảng điều khiển tối cao</h1>
+              <p style={{ margin: "0", color: "#334155", fontSize: "14px", fontWeight: 500 }}>Thống kê sức khỏe dữ liệu, tổng số sinh viên, và tiến độ xét duyệt điểm rèn luyện toàn phân hiệu Hà Giang.</p>
             </div>
 
             {/* KPI Cards Grid */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px" }}>
               <div className="glass-card" style={{ borderLeft: "4px solid var(--accent-cyan)" }}>
-                <span style={{ fontSize: "11px", textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 700 }}>Tổng số Sinh viên</span>
-                <h3 style={{ margin: "12px 0 0 0", fontSize: "32px", fontWeight: 800, color: "#fff" }}>{statsSummary.totalStudents}</h3>
+                <span style={{ fontSize: "11px", textTransform: "uppercase", color: "#475569", fontWeight: 700 }}>Tổng số Sinh viên</span>
+                <h3 style={{ margin: "12px 0 0 0", fontSize: "32px", fontWeight: 800, color: "#0f172a" }}>{statsSummary.totalStudents}</h3>
               </div>
               <div className="glass-card" style={{ borderLeft: "4px solid var(--accent-purple)" }}>
-                <span style={{ fontSize: "11px", textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 700 }}>Tổng số Câu lạc bộ</span>
-                <h3 style={{ margin: "12px 0 0 0", fontSize: "32px", fontWeight: 800, color: "#fff" }}>{statsSummary.totalClubs}</h3>
+                <span style={{ fontSize: "11px", textTransform: "uppercase", color: "#475569", fontWeight: 700 }}>Tổng số Câu lạc bộ</span>
+                <h3 style={{ margin: "12px 0 0 0", fontSize: "32px", fontWeight: 800, color: "#0f172a" }}>{statsSummary.totalClubs}</h3>
               </div>
               <div className="glass-card" style={{ borderLeft: "4px solid var(--accent-orange)" }}>
-                <span style={{ fontSize: "11px", textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 700 }}>Hoạt động phong trào</span>
-                <h3 style={{ margin: "12px 0 0 0", fontSize: "32px", fontWeight: 800, color: "#fff" }}>{statsSummary.totalActivities}</h3>
+                <span style={{ fontSize: "11px", textTransform: "uppercase", color: "#475569", fontWeight: 700 }}>Hoạt động phong trào</span>
+                <h3 style={{ margin: "12px 0 0 0", fontSize: "32px", fontWeight: 800, color: "#0f172a" }}>{statsSummary.totalActivities}</h3>
               </div>
               <div className="glass-card" style={{ borderLeft: "4px solid var(--success)" }}>
-                <span style={{ fontSize: "11px", textTransform: "uppercase", color: "var(--text-muted)", fontWeight: 700 }}>Minh chứng chờ duyệt</span>
+                <span style={{ fontSize: "11px", textTransform: "uppercase", color: "#475569", fontWeight: 700 }}>Minh chứng chờ duyệt</span>
                 <h3 style={{ margin: "12px 0 0 0", fontSize: "32px", fontWeight: 800, color: "var(--success)" }}>{statsSummary.pendingEvidence}</h3>
               </div>
             </div>
@@ -1856,8 +1856,8 @@ export default function App() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "24px" }}>
               {/* Chart: Grade Distribution */}
               <div className="glass-card">
-                <h3 style={{ margin: "0 0 20px 0", fontSize: "16px", fontWeight: 700, display: "flex", alignItems: "center", gap: "8px" }}>
-                  <TrendingUp size={18} className="text-cyan-400" />
+                <h3 style={{ margin: "0 0 20px 0", fontSize: "16px", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <TrendingUp size={18} className="text-cyan-600" />
                   Phân bố xếp loại Điểm rèn luyện
                 </h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -1870,10 +1870,10 @@ export default function App() {
                   ].map((item, idx) => (
                     <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
-                        <span style={{ color: "#E5E7EB" }}>{item.label}</span>
-                        <strong style={{ color: "#fff" }}>{item.count} SV ({item.percent.toFixed(1)}%)</strong>
+                        <span style={{ color: "#1e293b", fontWeight: 600 }}>{item.label}</span>
+                        <strong style={{ color: "#0f172a", fontWeight: 700 }}>{item.count} SV ({item.percent.toFixed(1)}%)</strong>
                       </div>
-                      <div style={{ width: "100%", height: "8px", background: "rgba(255,255,255,0.05)", borderRadius: "4px", overflow: "hidden" }}>
+                      <div style={{ width: "100%", height: "8px", background: "#e2e8f0", borderRadius: "4px", overflow: "hidden" }}>
                         <div style={{ width: `${item.percent}%`, height: "100%", background: item.color, borderRadius: "4px" }}></div>
                       </div>
                     </div>
@@ -1883,32 +1883,32 @@ export default function App() {
 
               {/* Progress: Class approvals progress */}
               <div className="glass-card">
-                <h3 style={{ margin: "0 0 20px 0", fontSize: "16px", fontWeight: 700, display: "flex", alignItems: "center", gap: "8px" }}>
-                  <FileCheck size={18} className="text-cyan-400" />
+                <h3 style={{ margin: "0 0 20px 0", fontSize: "16px", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <FileCheck size={18} className="text-cyan-600" />
                   Tiến độ chốt duyệt của các Lớp học
                 </h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
                   <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-                    <div style={{ fontSize: "36px", fontWeight: 800, color: "var(--accent-cyan)", fontFamily: 'monospace' }}>
+                    <div style={{ fontSize: "36px", fontWeight: 800, color: "var(--accent-cyan)", fontFamily: "'JetBrains Mono', monospace" }}>
                       {statsSummary.approvalProgress.locked} / {statsSummary.approvalProgress.total}
                     </div>
-                    <div style={{ fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>
-                      Lớp đã hoàn thành **Khóa sổ/Ký số** hoàn toàn và đã đồng bộ về Cổng Đào Tạo.
+                    <div style={{ fontSize: "12px", color: "#334155", lineHeight: 1.4, fontWeight: 500 }}>
+                      Lớp đã hoàn thành <strong>Khóa sổ/Ký số</strong> hoàn toàn và đã đồng bộ về Cổng Đào Tạo.
                     </div>
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: "12px", borderTop: "1px solid var(--border-normal)", paddingTop: "16px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
-                      <span>Chờ Khoa ký duyệt & khóa sổ:</span>
-                      <strong className="text-amber-400">{statsSummary.approvalProgress.adviser} lớp</strong>
+                      <span style={{ color: "#334155", fontWeight: 600 }}>Chờ Khoa ký duyệt & khóa sổ:</span>
+                      <strong style={{ color: "#d97706", fontWeight: 700 }}>{statsSummary.approvalProgress.adviser} lớp</strong>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
-                      <span>Đang chờ Cố vấn duyệt (Monitor đã chốt):</span>
-                      <strong className="text-purple-400">{statsSummary.approvalProgress.monitor} lớp</strong>
+                      <span style={{ color: "#334155", fontWeight: 600 }}>Đang chờ Cố vấn duyệt (Monitor đã chốt):</span>
+                      <strong style={{ color: "#7c3aed", fontWeight: 700 }}>{statsSummary.approvalProgress.monitor} lớp</strong>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
-                      <span>Chưa chốt tự đánh giá (Đang mở):</span>
-                      <strong className="text-cyan-400">{statsSummary.approvalProgress.auto} lớp</strong>
+                      <span style={{ color: "#334155", fontWeight: 600 }}>Chưa chốt tự đánh giá (Đang mở):</span>
+                      <strong style={{ color: "#0284c7", fontWeight: 700 }}>{statsSummary.approvalProgress.auto} lớp</strong>
                     </div>
                   </div>
                 </div>
@@ -1979,7 +1979,7 @@ export default function App() {
                 <tbody>
                   {filteredUsers.map((u) => (
                     <tr key={u.id}>
-                      <td style={{ fontWeight: 700, color: "#fff" }}>{u.name}</td>
+                      <td style={{ fontWeight: 700, color: "#0f172a" }}>{u.name}</td>
                       <td style={{ fontFamily: 'monospace' }}>{u.username}</td>
                       <td>
                         <span className={`badge ${
@@ -2105,7 +2105,7 @@ export default function App() {
                       {(filteredDbRows as Student[]).map(row => (
                         <tr key={row.id}>
                           <td style={{ fontWeight: 700, fontFamily: 'monospace', color: "var(--accent-cyan)" }}>{row.id}</td>
-                          <td style={{ color: "#fff", fontWeight: 700 }}>{row.name}</td>
+                          <td style={{ color: "#0f172a", fontWeight: 700 }}>{row.name}</td>
                           <td>{row.classId}</td>
                           <td>{row.facultyId}</td>
                           <td>{row.gender || "—"}</td>
@@ -2159,7 +2159,7 @@ export default function App() {
                       {(filteredDbRows as EvaluationResult[]).map((row, idx) => (
                         <tr key={idx}>
                           <td style={{ fontWeight: 700, fontFamily: 'monospace' }}>{row.studentId}</td>
-                          <td style={{ color: "#fff" }}>{row.studentName}</td>
+                          <td style={{ color: "#0f172a", fontWeight: 600 }}>{row.studentName}</td>
                           <td>{row.classId}</td>
                           <td style={{ fontFamily: 'monospace' }}>{row.studyPoints}đ</td>
                           <td style={{ fontFamily: 'monospace' }}>{row.violationPoints}đ</td>
@@ -2213,7 +2213,7 @@ export default function App() {
                       {(filteredDbRows as ExtracurricularActivity[]).map(row => (
                         <tr key={row.id}>
                           <td style={{ fontFamily: 'monospace' }}>{row.id}</td>
-                          <td style={{ color: "#fff", fontWeight: 700 }}>{row.title}</td>
+                          <td style={{ color: "#0f172a", fontWeight: 700 }}>{row.title}</td>
                           <td>{row.orgName || row.orgId}</td>
                           <td style={{ fontFamily: 'monospace' }}>{row.criteriaId}</td>
                           <td style={{ fontFamily: 'monospace', color: "var(--success)", fontWeight: 700 }}>+{row.points}đ</td>
@@ -2263,7 +2263,7 @@ export default function App() {
                     <tbody>
                       {(filteredDbRows as EvidenceSubmission[]).map(row => (
                         <tr key={row.id}>
-                          <td style={{ color: "#fff", fontWeight: 700 }}>{row.studentName}</td>
+                          <td style={{ color: "#0f172a", fontWeight: 700 }}>{row.studentName}</td>
                           <td>{row.classId}</td>
                           <td style={{ fontFamily: 'monospace' }}>{row.criteriaId}</td>
                           <td style={{ fontWeight: 600 }}>{row.activityName}</td>
@@ -2372,7 +2372,7 @@ export default function App() {
                       {(filteredDbRows as ScheduleSlot[]).map(row => (
                         <tr key={row.id}>
                           <td style={{ fontWeight: 700 }}>{row.classId}</td>
-                          <td style={{ color: "#fff", fontWeight: 700 }}>{row.subjectName}</td>
+                          <td style={{ color: "#0f172a", fontWeight: 700 }}>{row.subjectName}</td>
                           <td>{row.teacherName}</td>
                           <td style={{ fontFamily: 'monospace' }}>Thứ {row.dayOfWeek}</td>
                           <td style={{ fontFamily: 'monospace' }}>Tiết {row.periodStart}</td>
@@ -2740,7 +2740,7 @@ export default function App() {
 
                 {/* Logo Customization section */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px", borderBottom: "1px solid var(--border-normal)", paddingBottom: "20px" }}>
-                  <label style={{ display: "block", fontSize: "14px", color: "#fff", fontWeight: 700 }}>
+                  <label style={{ display: "block", fontSize: "14px", color: "#0f172a", fontWeight: 700 }}>
                     1. Logo hệ thống (Logo Image)
                   </label>
                   <p style={{ margin: "0", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>
@@ -2814,7 +2814,7 @@ export default function App() {
                 {/* Background images gallery section */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px", borderBottom: "1px solid var(--border-normal)", paddingBottom: "20px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <label style={{ display: "block", fontSize: "14px", color: "#fff", fontWeight: 700 }}>
+                    <label style={{ display: "block", fontSize: "14px", color: "#0f172a", fontWeight: 700 }}>
                       2. Danh sách ảnh nền (Slider / Carousel)
                     </label>
                     <span style={{ fontSize: "11px", color: "var(--accent-cyan)", fontWeight: 600 }}>
@@ -2952,7 +2952,7 @@ export default function App() {
 
                 {/* Contact information section */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "14px", borderTop: "1px solid var(--border-normal)", paddingTop: "20px" }}>
-                  <label style={{ display: "block", fontSize: "14px", color: "#fff", fontWeight: 700 }}>
+                  <label style={{ display: "block", fontSize: "14px", color: "#0f172a", fontWeight: 700 }}>
                     3. Thông tin liên hệ ở chân trang (Footer Contact Info)
                   </label>
                   <p style={{ margin: "0", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>

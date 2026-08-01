@@ -1,24 +1,24 @@
-/* CSS Design System for UniHub Super Admin (Clean White Theme) */
+/* CSS Design System for UniHub Super Admin (Clean White & Deep Navy Theme) */
 :root {
   --bg-primary: #ffffff;
   --bg-secondary: #f8fafc;
   --bg-tertiary: #f1f5f9;
-  --accent-cyan: #0ea5e9;
-  --accent-purple: #8b5cf6;
-  --accent-orange: #f97316;
-  --text-main: #1e293b;
-  --text-muted: #64748b;
-  --border-glow: rgba(14, 165, 233, 0.15);
-  --border-normal: rgba(0, 0, 0, 0.08);
-  --success: #10B981;
-  --warning: #F59E0B;
-  --danger: #EF4444;
+  --accent-cyan: #0284c7;
+  --accent-purple: #7c3aed;
+  --accent-orange: #ea580c;
+  --text-main: #0f172a; /* Deep Slate Navy Black - Rõ nét tuyệt đối */
+  --text-muted: #334155; /* Slate Charcoal - Rõ ràng không bị mờ */
+  --border-glow: rgba(2, 132, 199, 0.15);
+  --border-normal: #e2e8f0;
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #dc2626;
 }
 
 * {
   box-sizing: border-box;
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
 }
 
 body {
@@ -26,7 +26,9 @@ body {
   padding: 0;
   background-color: var(--bg-primary);
   color: var(--text-main);
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: 'Be Vietnam Pro', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
 }
 
