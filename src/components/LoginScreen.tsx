@@ -38,7 +38,7 @@ interface NewsFeedItem {
 
 
 export const LoginScreen: React.FC = () => {
-  const { login, users, themeConfig, announcements, activities } = useUniHub();
+  const { login, users, themeConfig, announcements, activities, organizations } = useUniHub();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -129,19 +129,29 @@ export const LoginScreen: React.FC = () => {
           dateStr = act.dateTime;
         }
       }
+      // Dynamic orgName lookup based on act.orgId
+      const matchedOrg = (organizations || []).find(o => o.id === act.orgId);
+      let resolvedOrgName = matchedOrg?.name;
+      if (!resolvedOrgName) {
+        if (act.orgId === "DOANTN") resolvedOrgName = "BCH Đoàn TNCS Phân hiệu Hà Giang";
+        else if (act.orgId === "HOISV") resolvedOrgName = "BCH Hội Sinh viên Phân hiệu Hà Giang";
+        else if (act.orgId === "DOAN_HOI") resolvedOrgName = "Đoàn - Hội Sinh viên Phân hiệu";
+        else resolvedOrgName = act.orgName || "Hoạt động Phong trào";
+      }
+
       items.push({
         id: act.id,
         title: act.title,
         content: act.description || "",
         dateStr: dateStr,
-        orgName: act.orgName || "Hoạt động Phong trào",
+        orgName: resolvedOrgName,
         imageUrl: convertGoogleDriveUrlToDirectUrl(act.imageUrl),
         type: "ACTIVITY"
       });
     });
 
     return items;
-  }, [announcements, activities]);
+  }, [announcements, activities, organizations]);
 
   const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();

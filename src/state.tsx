@@ -1467,10 +1467,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Organizer Actions
   const createActivity = (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName"> & { expiryDate?: string }): string => {
     const org = organizations.find(o => o.id === activity.orgId);
+    let resolvedOrgName = org?.name;
+    if (!resolvedOrgName) {
+      if (activity.orgId === "DOANTN") resolvedOrgName = "BCH Đoàn TNCS Phân hiệu Hà Giang";
+      else if (activity.orgId === "HOISV") resolvedOrgName = "BCH Hội Sinh viên Phân hiệu Hà Giang";
+      else if (activity.orgId === "DOAN_HOI") resolvedOrgName = "Đoàn - Hội Sinh viên Phân hiệu";
+      else resolvedOrgName = "Ban Tổ chức";
+    }
+
     const newAct: ExtracurricularActivity & { expiryDate?: string } = {
       ...activity,
       id: `ACT_NEW_${Date.now()}`,
-      orgName: org?.name || "Chi hội",
+      orgName: resolvedOrgName,
       status: "UPCOMING"
     };
 

@@ -164,7 +164,7 @@ export const OrganizerPortal: React.FC = () => {
   const [actDesc, setActDesc] = useState("");
   const [actExpiryDate, setActExpiryDate] = useState(""); // Expiry display duration date
   const [actImageUrl, setActImageUrl] = useState(""); // Banner image marketing/background URL
-  const [actDeployUnit, setActDeployUnit] = useState(org.id);
+  const [actDeployUnit, setActDeployUnit] = useState(org?.id || orgId);
   const [actMaxParticipants, setActMaxParticipants] = useState<string>(""); // Max registrations
 
   // Form State for CLB Announcement
@@ -172,7 +172,15 @@ export const OrganizerPortal: React.FC = () => {
   const [annContent, setAnnContent] = useState("");
   const [annExpiryDate, setAnnExpiryDate] = useState(""); // Expiry display duration date for announcement
   const [annImageUrl, setAnnImageUrl] = useState(""); // Background/Marketing image URL for announcement
-  const [annDeployUnit, setAnnDeployUnit] = useState(org.id);
+  const [annDeployUnit, setAnnDeployUnit] = useState(org?.id || orgId);
+
+  // Sync deploy units whenever current organization updates
+  useEffect(() => {
+    if (org?.id) {
+      setActDeployUnit(org.id);
+      setAnnDeployUnit(org.id);
+    }
+  }, [org?.id]);
   const [createLinkedActivity, setCreateLinkedActivity] = useState(true);
   const [linkedCriteriaId, setLinkedCriteriaId] = useState("TC3.1");
   const [linkedPoints, setLinkedPoints] = useState(5);
