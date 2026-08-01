@@ -177,26 +177,45 @@ export const LoginScreen: React.FC = () => {
       {/* 1. Top Header Navigation Bar (Transparent, Aligned Left Logo/Title & Right Login) */}
       <header className="relative z-10 w-full max-w-7xl mx-auto flex items-center justify-between py-2 shrink-0">
         {/* Left Side: Brand Logo (doubled size!) & Title */}
-        <div className="flex items-center gap-4 sm:gap-6 text-left">
-          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white rounded-full shadow-lg border border-slate-200 flex items-center justify-center overflow-hidden shrink-0 transition-transform transform hover:scale-105">
+        <div className="flex items-center gap-4 sm:gap-5 text-left">
+          {/* Institution Logo Badge */}
+          <div className="w-18 h-18 sm:w-22 sm:h-22 bg-white rounded-full shadow-md border border-slate-200/90 flex items-center justify-center overflow-hidden shrink-0 transition-transform transform hover:scale-105 p-1">
             {themeConfig?.logoUrl ? (
               <img 
                 src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
                 alt="Logo" 
-                className="w-full h-full object-contain rounded-full p-1"
+                className="w-full h-full object-contain rounded-full"
               />
             ) : (
-              <TnuLogo size={80} />
+              <TnuLogo size={76} />
             )}
           </div>
-          <div className="flex flex-col justify-center">
-            <h4 className="font-mono text-xs sm:text-sm font-extrabold text-blue-900 tracking-widest uppercase leading-none mb-1.5">
-              Phân hiệu ĐHTN tại Hà Giang
-            </h4>
-            <h1 className="text-lg sm:text-2xl md:text-3xl font-extrabold text-[#0f172a] tracking-tight leading-none">
-              {themeConfig?.loginTitle || "CỔNG THÔNG TIN UNIHUBHG"}
+
+          {/* Institutional Divider line */}
+          <div className="hidden sm:block w-px h-14 bg-slate-200/80 shrink-0 mx-1"></div>
+
+          {/* Typography Header Block */}
+          <div className="flex flex-col justify-center min-w-0">
+            {/* Top Institutional Identity Tagline */}
+            <div className="inline-flex items-center gap-2 mb-1">
+              <span className="text-xs sm:text-xs font-bold text-blue-950 tracking-wide uppercase font-sans">
+                PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI HÀ GIANG
+              </span>
+            </div>
+
+            {/* Main Portal Title */}
+            <h1 className="text-lg sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-tight font-sans">
+              {themeConfig?.loginTitle ? (
+                themeConfig.loginTitle
+              ) : (
+                <>
+                  CỔNG THÔNG TIN <span className="text-blue-900">UNIHUBHG</span>
+                </>
+              )}
             </h1>
-            <p className="hidden sm:block text-xs sm:text-sm text-slate-700 font-medium mt-2 leading-relaxed max-w-2xl">
+
+            {/* Subtitle */}
+            <p className="hidden sm:block text-xs sm:text-sm text-slate-600 font-medium mt-1 leading-normal max-w-2xl font-sans">
               {themeConfig?.loginSubtitle || "Chào mừng bạn đến với Phân hiệu ĐHTN tại Hà Giang - Tra cứu ngay thông tin của bạn"}
             </p>
           </div>
