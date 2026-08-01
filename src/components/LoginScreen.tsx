@@ -175,11 +175,11 @@ export const LoginScreen: React.FC = () => {
       id="unihub-login-screen"
     >
       {/* 1. Top Header Navigation Bar (Transparent, Aligned Left Logo/Title & Right Login) */}
-      <header className="relative z-10 w-full max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4 py-2 shrink-0">
+      <header className="relative z-10 w-full max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-4 py-2 shrink-0">
         {/* Left Side: Brand Logo Badge & Title */}
-        <div className="flex items-center gap-2.5 sm:gap-4 text-left min-w-0 flex-1">
+        <div className="flex items-center gap-2 sm:gap-4 text-left min-w-0 flex-1">
           {/* Institution Logo Badge */}
-          <div className="w-12 h-12 sm:w-18 md:w-22 sm:h-18 md:h-22 bg-white rounded-full shadow-md border border-slate-200/90 flex items-center justify-center overflow-hidden shrink-0 transition-transform transform hover:scale-105 p-0.5 sm:p-1">
+          <div className="w-10 h-10 sm:w-18 md:w-22 sm:h-18 md:h-22 bg-white rounded-full shadow-md border border-slate-200/90 flex items-center justify-center overflow-hidden shrink-0 p-0.5">
             {themeConfig?.logoUrl ? (
               <img 
                 src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
@@ -187,7 +187,7 @@ export const LoginScreen: React.FC = () => {
                 className="w-full h-full object-contain rounded-full"
               />
             ) : (
-              <TnuLogo size={56} />
+              <TnuLogo size={48} />
             )}
           </div>
 
@@ -196,13 +196,13 @@ export const LoginScreen: React.FC = () => {
 
           {/* Typography Header Block */}
           <div className="flex flex-col justify-center min-w-0 flex-1">
-            {/* Top Institutional Identity Tagline */}
-            <span className="text-[10px] sm:text-xs font-bold text-blue-950 tracking-tight sm:tracking-wide uppercase font-sans leading-tight block truncate">
+            {/* Top Institutional Identity Tagline (100% full text, no ellipsis) */}
+            <span className="text-[10px] sm:text-xs font-bold text-blue-950 uppercase font-sans leading-tight block">
               PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI HÀ GIANG
             </span>
 
-            {/* Main Portal Title */}
-            <h1 className="text-sm sm:text-xl md:text-3xl font-black text-slate-900 tracking-tight leading-snug sm:leading-tight font-sans truncate">
+            {/* Main Portal Title (100% full text, no ellipsis) */}
+            <h1 className="text-xs sm:text-xl md:text-3xl font-black text-slate-900 leading-tight font-sans mt-0.5">
               {themeConfig?.loginTitle ? (
                 themeConfig.loginTitle
               ) : (
@@ -213,7 +213,7 @@ export const LoginScreen: React.FC = () => {
             </h1>
 
             {/* Subtitle */}
-            <p className="hidden md:block text-xs sm:text-sm text-slate-600 font-medium mt-0.5 leading-normal max-w-2xl font-sans truncate">
+            <p className="hidden md:block text-xs sm:text-sm text-slate-600 font-medium mt-0.5 leading-normal max-w-2xl font-sans">
               {themeConfig?.loginSubtitle || "Chào mừng bạn đến với Phân hiệu ĐHTN tại Hà Giang - Tra cứu ngay thông tin của bạn"}
             </p>
           </div>
@@ -223,9 +223,9 @@ export const LoginScreen: React.FC = () => {
         <div className="shrink-0">
           <button 
             onClick={() => setShowLoginModal(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs sm:text-sm py-2 px-3.5 sm:py-3 sm:px-7 rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all flex items-center gap-1.5 cursor-pointer transform hover:scale-105 active:scale-95 whitespace-nowrap"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[11px] sm:text-sm py-1.5 px-2.5 sm:py-3 sm:px-7 rounded-lg sm:rounded-xl shadow-md hover:shadow-indigo-500/30 transition-all flex items-center gap-1 cursor-pointer transform hover:scale-105 active:scale-95 whitespace-nowrap"
           >
-            <LogIn size={15} />
+            <LogIn size={14} />
             <span>Đăng nhập</span>
           </button>
         </div>
