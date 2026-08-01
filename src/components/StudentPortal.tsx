@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useUniHub } from "../state";
-import { STUDENT_FIELDS_META, Student } from "../types";
+import { STUDENT_FIELDS_META, Student, convertGoogleDriveUrlToDirectUrl } from "../types";
 import { 
   Award, 
   Calendar, 
@@ -1042,7 +1042,7 @@ export const StudentPortal: React.FC = () => {
                       {act.imageUrl && (
                         <div className="w-full h-32 rounded-xl overflow-hidden shrink-0 border border-slate-100/80 relative">
                           <img 
-                            src={act.imageUrl} 
+                            src={convertGoogleDriveUrlToDirectUrl(act.imageUrl)} 
                             alt={act.title} 
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                           />
@@ -1134,7 +1134,7 @@ export const StudentPortal: React.FC = () => {
                       {ann.imageUrl && (
                         <div className="w-full h-32 rounded-xl overflow-hidden shrink-0 border border-amber-100 relative">
                           <img 
-                            src={ann.imageUrl} 
+                            src={convertGoogleDriveUrlToDirectUrl(ann.imageUrl)} 
                             alt={ann.title} 
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                           />
@@ -1654,7 +1654,7 @@ export const StudentPortal: React.FC = () => {
                         {act.imageUrl && (
                           <div className="w-full h-40 rounded-xl overflow-hidden mb-3 border border-slate-100 relative shrink-0">
                             <img 
-                              src={act.imageUrl} 
+                              src={convertGoogleDriveUrlToDirectUrl(act.imageUrl)} 
                               alt={act.title} 
                               className="w-full h-full object-cover" 
                             />
@@ -1888,7 +1888,7 @@ export const StudentPortal: React.FC = () => {
                                 <div key={ann.id} className="p-3.5 bg-yellow-50/30 border border-amber-100 rounded-xl text-xs space-y-1">
                                   {ann.imageUrl && (
                                     <div className="w-full h-32 rounded-lg overflow-hidden border border-amber-150/50 mb-2 relative shrink-0">
-                                      <img src={ann.imageUrl} alt={ann.title} className="w-full h-full object-cover" />
+                                      <img src={convertGoogleDriveUrlToDirectUrl(ann.imageUrl)} alt={ann.title} className="w-full h-full object-cover" />
                                     </div>
                                   )}
                                   <div className="flex justify-between items-center">

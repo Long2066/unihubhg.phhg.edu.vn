@@ -23,6 +23,20 @@ export const isOrgRole = (role: UserRole | string): boolean =>
   role === UserRole.YOUTH_UNION ||
   role === UserRole.STUDENT_UNION;
 
+/** Helper: Tự động chuyển link Google Drive sang link xem ảnh trực tiếp (lh3.googleusercontent.com) */
+export const convertGoogleDriveUrlToDirectUrl = (url?: string): string => {
+  if (!url || typeof url !== "string") return "";
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+
+  const driveRegex = /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?export=view&id=|uc\?id=)|lh3\.googleusercontent\.com\/d\/)([a-zA-Z0-9_-]{25,})/;
+  const match = trimmed.match(driveRegex);
+  if (match && match[1]) {
+    return `https://lh3.googleusercontent.com/d/${match[1]}`;
+  }
+  return trimmed;
+};
+
 export interface UserAccount {
   id: string;
   username: string;

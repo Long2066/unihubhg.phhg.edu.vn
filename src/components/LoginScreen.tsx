@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useUniHub } from "../state";
-import { UserRole } from "../types";
+import { UserRole, convertGoogleDriveUrlToDirectUrl } from "../types";
 import { SEED_ACTIVITIES } from "../data";
 import { TnuLogo } from "./TnuLogo";
 import { 
@@ -35,18 +35,7 @@ interface NewsFeedItem {
   type: "ANNOUNCEMENT" | "ACTIVITY";
 }
 
-const convertGoogleDriveUrlToDirectUrl = (url?: string): string => {
-  if (!url || typeof url !== "string") return "";
-  const trimmed = url.trim();
-  if (!trimmed) return "";
 
-  const driveRegex = /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?export=view&id=|uc\?id=)|lh3\.googleusercontent\.com\/d\/)([a-zA-Z0-9_-]{25,})/;
-  const match = trimmed.match(driveRegex);
-  if (match && match[1]) {
-    return `https://lh3.googleusercontent.com/d/${match[1]}`;
-  }
-  return trimmed;
-};
 
 export const LoginScreen: React.FC = () => {
   const { login, users, themeConfig, announcements, activities } = useUniHub();
@@ -118,7 +107,7 @@ export const LoginScreen: React.FC = () => {
         content: ann.content || "",
         dateStr: dateStr,
         orgName: ann.orgName || "Thông báo Phân hiệu",
-        imageUrl: ann.imageUrl,
+        imageUrl: convertGoogleDriveUrlToDirectUrl(ann.imageUrl),
         type: "ANNOUNCEMENT"
       });
     });
@@ -146,7 +135,7 @@ export const LoginScreen: React.FC = () => {
         content: act.description || "",
         dateStr: dateStr,
         orgName: act.orgName || "Hoạt động Phong trào",
-        imageUrl: undefined,
+        imageUrl: convertGoogleDriveUrlToDirectUrl(act.imageUrl),
         type: "ACTIVITY"
       });
     });
