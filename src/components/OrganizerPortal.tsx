@@ -110,10 +110,7 @@ export const OrganizerPortal: React.FC = () => {
     }
   }, [activePortletTab, setActivePortletTab]);
 
-  useEffect(() => {
-    setActDeployUnit(org.id);
-    setAnnDeployUnit(org.id);
-  }, [org.id]);
+
 
   // Bulk check-in states (Requirement 1: điểm danh hàng loạt bằng cách check chọn nhiều sinh viên)
   const [selectedBulkMemberIds, setSelectedBulkMemberIds] = useState<string[]>([]);
@@ -292,7 +289,7 @@ export const OrganizerPortal: React.FC = () => {
       studentId: manualStudentId,
       studentName: manualName,
       classId: manualClass,
-      orgId: org.id,
+      orgId: org?.id || orgId,
       role: manualRole,
       gender: manualGender,
       dob: manualDob,
@@ -423,7 +420,7 @@ export const OrganizerPortal: React.FC = () => {
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Danh sách thành viên");
-    XLSX.writeFile(wb, `DANH_SACH_THANH_VIEN_${org.id.toUpperCase()}.xlsx`);
+    XLSX.writeFile(wb, `DANH_SACH_THANH_VIEN_${(org?.id || orgId).toUpperCase()}.xlsx`);
   };
 
   // Import standard Excel (Dual compatibility: both formatted HTML .xls and standard CSV/semicolon/comma files)
@@ -568,7 +565,7 @@ export const OrganizerPortal: React.FC = () => {
               studentId: cleanStudentId,
               studentName: csvStudentName || "Học sinh nhập",
               classId: csvClassId,
-              orgId: org.id,
+              orgId: org?.id || orgId,
               role: (cleanText(getColValRaw(row, roleIdx, 10)) as any) || "THÀNH VIÊN",
               joinedDate: formatDate(getColValRaw(row, joinedDateIdx, 11)) || new Date().toISOString().split("T")[0],
               term: "2025-2026",
@@ -1362,7 +1359,7 @@ export const OrganizerPortal: React.FC = () => {
                     />
                   </div>
 
-                  {(org.id === "DOANTN" || org.id === "HOISV") && (
+                  {(isDoanOrHoi || effectiveOrgId === "DOANTN" || effectiveOrgId === "HOISV") && (
                     <div>
                       <label className="block text-[11px] font-bold text-slate-600 mb-1 font-sans">Đơn vị triển khai hoạt động</label>
                       <select 
@@ -1545,7 +1542,7 @@ export const OrganizerPortal: React.FC = () => {
                     />
                   </div>
 
-                  {(org.id === "DOANTN" || org.id === "HOISV") && (
+                  {(isDoanOrHoi || effectiveOrgId === "DOANTN" || effectiveOrgId === "HOISV") && (
                     <div>
                       <label className="block text-[11px] font-bold text-slate-600 mb-1 font-sans">Đơn vị triển khai thông báo</label>
                       <select 
