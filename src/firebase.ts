@@ -13,7 +13,7 @@ export const db = firebaseConfig.firestoreDatabaseId
   : getFirestore(app);
 
 // Initialize system Firebase Auth instance
-export const auth = getAuth();
+export const auth = getAuth(app);
 
 // Initialize Storage for original media assets served from Firebase Storage.
 export const storage = getStorage(app);
