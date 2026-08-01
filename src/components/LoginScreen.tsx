@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useUniHub } from "../state";
 import { UserRole } from "../types";
+import { SEED_ACTIVITIES } from "../data";
 import { TnuLogo } from "./TnuLogo";
 import { 
   GraduationCap, 
@@ -107,8 +108,7 @@ export const LoginScreen: React.FC = () => {
         try {
           const d = new Date(ann.createdAt);
           if (!isNaN(d.getTime())) {
-            const months = ["Một", "Hai", "Ba", "Tư", "Năm", "Sáu", "Bảy", "Tám", "Chín", "Mười", "Mười Một", "Mười Hai"];
-            dateStr = `Tháng ${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+            dateStr = `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`;
           }
         } catch {}
       }
@@ -123,16 +123,22 @@ export const LoginScreen: React.FC = () => {
       });
     });
 
-    (activities || []).forEach((act) => {
+    const sourceActivities = (activities && activities.length > 0) ? activities : SEED_ACTIVITIES;
+
+    sourceActivities.forEach((act) => {
       let dateStr = "";
       if (act.dateTime) {
         try {
-          const d = new Date(act.dateTime);
+          const cleanStr = act.dateTime.replace(/-/g, "/");
+          const d = new Date(cleanStr);
           if (!isNaN(d.getTime())) {
-            const months = ["Một", "Hai", "Ba", "Tư", "Năm", "Sáu", "Bảy", "Tám", "Chín", "Mười", "Mười Một", "Mười Hai"];
-            dateStr = `Tháng ${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+            dateStr = `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`;
+          } else {
+            dateStr = act.dateTime.split(" ")[0] || act.dateTime;
           }
-        } catch {}
+        } catch {
+          dateStr = act.dateTime;
+        }
       }
       items.push({
         id: act.id,
@@ -325,14 +331,18 @@ export const LoginScreen: React.FC = () => {
                     onClick={() => setSelectedNews(item)}
                     className="flex items-start gap-3 p-2.5 rounded-2xl bg-slate-50 hover:bg-indigo-50 border border-slate-100 hover:border-indigo-200 transition-all cursor-pointer group"
                   >
-                    {/* News Thumbnail Image (Left side of card) */}
-                    {item.imageUrl && (
-                      <div className="w-24 sm:w-28 aspect-[4/3] rounded-xl overflow-hidden shrink-0 border border-slate-200 bg-slate-100 relative">
+                    {/* News Thumbnail Image or Icon Badge (Left side of card) */}
+                    {item.imageUrl ? (
+                      <div className="w-20 sm:w-24 aspect-[4/3] rounded-xl overflow-hidden shrink-0 border border-slate-200 bg-slate-100 relative">
                         <img 
                           src={item.imageUrl}
                           alt={item.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
+                      </div>
+                    ) : (
+                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-blue-50 text-blue-900 border border-blue-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform mt-0.5">
+                        {item.type === "ANNOUNCEMENT" ? <Newspaper size={20} /> : <Calendar size={20} />}
                       </div>
                     )}
 

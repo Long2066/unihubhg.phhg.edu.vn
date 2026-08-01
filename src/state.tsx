@@ -214,7 +214,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [students, setStudents] = useState<Student[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
-  const [activities, setActivities] = useState<ExtracurricularActivity[]>([]);
+  const [activities, setActivities] = useState<ExtracurricularActivity[]>(() => {
+    const cached = localStorage.getItem("unihub_activities");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return SEED_ACTIVITIES;
+  });
   const [attendance, setAttendance] = useState<ActivityAttendance[]>([]);
   const [evidence, setEvidence] = useState<EvidenceSubmission[]>([]);
   const [classReviews, setClassReviews] = useState<ClassReviewState[]>([]);
