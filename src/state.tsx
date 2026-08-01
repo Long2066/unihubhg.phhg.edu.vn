@@ -1180,25 +1180,54 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.log("Firebase Auth primary login failed, checking fallback student/user match...", authError.code);
     }
 
-    // B. Check if MSV + CCCD match in `students` list or `users` list
+    // B. Direct credential match for ALL account types in the `users` collection
+    // This covers: ORGANIZER, ADVISER, SUPER_ADMIN, MONITOR, GROUP_LEADER, STUDENT, etc.
+    if (userObj) {
+      const storedPassword = userObj.password || "";
+      if (storedPassword.trim() === trimmedPass || storedPassword === "password123") {
+        // Password matches — log in directly
+        setCurrentUser(userObj);
+        saveToStorage("unihub_current_user", userObj);
+
+        // Background: register or sign-in Firebase Auth so Firestore rules work
+        try {
+          const userEmail = userObj.email || `${userObj.username}@unihub.edu.vn`;
+          const tempApp = initializeApp(firebaseConfig, `TempApp_${Date.now()}`);
+          const tempAuth = getAuth(tempApp);
+          try {
+            await createUserWithEmailAndPassword(tempAuth, userEmail, trimmedPass);
+          } catch (cErr: any) {
+            if (cErr.code === "auth/email-already-in-use") {
+              try {
+                await signInWithEmailAndPassword(auth, userEmail, trimmedPass);
+              } catch (sErr) {
+                console.warn("Auth sign-in fallback warning:", sErr);
+              }
+            }
+          }
+          await deleteApp(tempApp);
+        } catch (err) {
+          console.warn("Background Firebase Auth registration/signin skipped:", err);
+        }
+
+        return true;
+      }
+    }
+
+    // C. Check if MSV + CCCD match in `students` list
     const isStudentCccdMatch = studentObj && (
       !studentObj.idCard ||
       studentObj.idCard.trim() === trimmedPass ||
       studentObj.idCard.replace(/\s+/g, '') === trimmedPass.replace(/\s+/g, '')
     );
 
-    const isUserPasswordMatch = userObj && (
-      (userObj.password && userObj.password.trim() === trimmedPass) ||
-      userObj.password === "password123"
-    );
-
-    if (isStudentCccdMatch || isUserPasswordMatch || studentObj) {
-      // Build valid UserAccount for this student or user
-      const targetId = studentObj ? studentObj.id : (userObj ? (userObj.targetId || userObj.username) : trimmedInput);
-      const name = studentObj ? studentObj.name : (userObj ? userObj.name : trimmedInput);
-      const role = userObj ? userObj.role : UserRole.STUDENT;
-      const accountEmail = studentObj?.email || userObj?.email || targetEmail;
-      const uid = userObj?.id || studentObj?.id || `U_STUD_${Date.now()}`;
+    if (isStudentCccdMatch || studentObj) {
+      // Build valid UserAccount for this student
+      const targetId = studentObj!.id;
+      const name = studentObj!.name;
+      const role = UserRole.STUDENT;
+      const accountEmail = studentObj!.email || targetEmail;
+      const uid = studentObj!.id || `U_STUD_${Date.now()}`;
 
       const matchedAccount: UserAccount = {
         id: uid,
@@ -1230,7 +1259,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.warn("Background Firebase Auth registration/signin skipped:", err);
       }
 
-      // Successfully log in the student / user!
+      // Successfully log in the student!
       setCurrentUser(matchedAccount);
       saveToStorage("unihub_current_user", matchedAccount);
       return true;
