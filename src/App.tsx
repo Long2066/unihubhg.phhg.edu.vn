@@ -7,6 +7,19 @@ import React, { Suspense, lazy, useState } from "react";
 import { UniHubProvider, useUniHub } from "./state";
 import { UserRole, STUDENT_FIELDS_META, Student, SEMESTER_LIST } from "./types";
 import { TnuLogo } from "./components/TnuLogo";
+
+const convertGoogleDriveUrlToDirectUrl = (url?: string): string => {
+  if (!url || typeof url !== "string") return "";
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+
+  const driveRegex = /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?export=view&id=|uc\?id=)|lh3\.googleusercontent\.com\/d\/)([a-zA-Z0-9_-]{25,})/;
+  const match = trimmed.match(driveRegex);
+  if (match && match[1]) {
+    return `https://lh3.googleusercontent.com/d/${match[1]}`;
+  }
+  return trimmed;
+};
 import { 
   LogOut, 
   School, 
@@ -1146,15 +1159,36 @@ const AppContent: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 bg-[#f8fafc] h-screen h-dvh overflow-hidden">
         
         {/* Horizontal Header (Bounded beside the menu sidebar!) */}
-        <header className="bg-white border-b border-slate-200/80 sticky top-0 z-40 backdrop-blur-md bg-white/90 shadow-2xs shrink-0 h-18 flex items-center justify-between px-6 lg:px-8">
+        <header className="bg-white border-b border-slate-200/80 sticky top-0 z-40 backdrop-blur-md bg-white/90 shadow-2xs shrink-0 h-18 flex items-center justify-between px-3.5 sm:px-6 lg:px-8">
           
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white rounded-xl shadow-md border border-slate-100 flex items-center justify-center overflow-hidden shrink-0 md:hidden">
-              <TnuLogo size={32} />
+          <div className="flex items-center gap-2.5 sm:gap-3.5 text-left min-w-0 flex-1 pr-2">
+            {/* Institution Logo Badge (Dynamic from Admin Page) */}
+            <div className="w-9 h-9 sm:w-11 sm:h-11 bg-white rounded-full shadow-sm border border-slate-200/90 flex items-center justify-center overflow-hidden shrink-0 p-0.5">
+              {themeConfig?.logoUrl ? (
+                <img 
+                  src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
+                  alt="Logo" 
+                  className="w-full h-full object-contain rounded-full"
+                />
+              ) : (
+                <TnuLogo size={36} />
+              )}
             </div>
-            <div>
-              <div className="text-[10px] font-bold text-slate-405 font-mono tracking-wider uppercase leading-none">Phân hiệu ĐHTN tại Hà Giang</div>
-              <h1 className="text-sm sm:text-base font-black text-slate-900 mt-1.5 leading-none tracking-tight">Cổng Hệ thống UniHubHG</h1>
+
+            {/* Typography Header Block (Identical to Landing Page) */}
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <span className="text-[10px] sm:text-xs font-bold text-blue-950 uppercase font-sans leading-tight block truncate">
+                PHÂN HIỆU ĐHTN TẠI HÀ GIANG
+              </span>
+              <h1 className="text-xs sm:text-base font-black text-slate-900 leading-tight font-sans mt-0.5 block truncate">
+                {themeConfig?.loginTitle ? (
+                  themeConfig.loginTitle
+                ) : (
+                  <>
+                    CỔNG THÔNG TIN <span className="text-blue-900">UNIHUBHG</span>
+                  </>
+                )}
+              </h1>
             </div>
           </div>
 
