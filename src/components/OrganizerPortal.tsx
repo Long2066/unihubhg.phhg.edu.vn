@@ -68,11 +68,12 @@ export const OrganizerPortal: React.FC = () => {
   const orgId = currentUser?.targetId || "UNITECH";
   
   // Find current organization
-  const org = organizations.find(o => o.id === orgId) || organizations[0];
-  const orgMembers = members.filter(m => m.orgId === org.id);
-  const isDoanOrHoi = org.id === "DOANTN" || org.id === "HOISV";
-  const orgActivities = activities.filter(a => a.orgId === org.id || (a.orgId === "DOAN_HOI" && isDoanOrHoi));
-  const orgAnnouncements = announcements.filter(a => a.orgId === org.id || (a.orgId === "DOAN_HOI" && isDoanOrHoi));
+  const org = organizations.find(o => o.id === orgId) || (organizations.length > 0 ? organizations[0] : undefined);
+  const effectiveOrgId = org?.id || orgId;
+  const orgMembers = org ? members.filter(m => m.orgId === org.id) : [];
+  const isDoanOrHoi = effectiveOrgId === "DOANTN" || effectiveOrgId === "HOISV";
+  const orgActivities = org ? activities.filter(a => a.orgId === org.id || (a.orgId === "DOAN_HOI" && isDoanOrHoi)) : [];
+  const orgAnnouncements = org ? announcements.filter(a => a.orgId === org.id || (a.orgId === "DOAN_HOI" && isDoanOrHoi)) : [];
 
   // Dynamic criteria mapping
   const activityCriteriaRules = criteria.flatMap(c => 
