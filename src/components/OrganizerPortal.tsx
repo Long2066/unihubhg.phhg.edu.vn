@@ -31,7 +31,7 @@ import {
   CheckCircle2,
   Edit3
 } from "lucide-react";
-import { OrganizationMember, ExtracurricularActivity } from "../types";
+import { OrganizationMember, ExtracurricularActivity, UserRole } from "../types";
 
 export const OrganizerPortal: React.FC = () => {
   const { 
@@ -65,15 +65,27 @@ export const OrganizerPortal: React.FC = () => {
     setActivePortletTab(tab);
   };
 
-  const orgId = currentUser?.targetId || "UNITECH";
+  let defaultTargetId = "UNITECH";
+  if (currentUser?.role === UserRole.YOUTH_UNION) defaultTargetId = "DOANTN";
+  else if (currentUser?.role === UserRole.STUDENT_UNION) defaultTargetId = "HOISV";
+
+  const orgId = currentUser?.targetId || defaultTargetId;
   
   // Find current organization
-  const org = organizations.find(o => o.id === orgId) || (organizations.length > 0 ? organizations[0] : undefined);
+  const org = organizations.find(o => o.id === orgId) || organizations.find(o => o.id === defaultTargetId) || (organizations.length > 0 ? organizations[0] : undefined);
   const effectiveOrgId = org?.id || orgId;
   const orgMembers = org ? members.filter(m => m.orgId === org.id) : [];
-  const isDoanOrHoi = effectiveOrgId === "DOANTN" || effectiveOrgId === "HOISV";
-  const orgActivities = org ? activities.filter(a => a.orgId === org.id || (a.orgId === "DOAN_HOI" && isDoanOrHoi)) : [];
-  const orgAnnouncements = org ? announcements.filter(a => a.orgId === org.id || (a.orgId === "DOAN_HOI" && isDoanOrHoi)) : [];
+  const isDoanOrHoi = currentUser?.role === UserRole.YOUTH_UNION || currentUser?.role === UserRole.STUDENT_UNION || effectiveOrgId === "DOANTN" || effectiveOrgId === "HOISV" || effectiveOrgId === "DOAN_HOI";
+  
+  const orgActivities = activities.filter(a => 
+    (org && a.orgId === org.id) || 
+    (isDoanOrHoi && (a.orgId === "DOANTN" || a.orgId === "HOISV" || a.orgId === "DOAN_HOI"))
+  );
+
+  const orgAnnouncements = announcements.filter(a => 
+    (org && a.orgId === org.id) || 
+    (isDoanOrHoi && (a.orgId === "DOANTN" || a.orgId === "HOISV" || a.orgId === "DOAN_HOI"))
+  );
 
   // Dynamic criteria mapping
   const activityCriteriaRules = criteria.flatMap(c => 

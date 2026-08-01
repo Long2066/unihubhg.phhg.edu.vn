@@ -898,8 +898,9 @@ export const StudentPortal: React.FC = () => {
 
     // Get active / upcoming / completed club and youth union activities
     const activeClubActs = activities.filter(act => {
+      const isDoanHoiSpecial = act.orgId === "DOANTN" || act.orgId === "HOISV" || act.orgId === "DOAN_HOI";
       const club = organizations.find(o => o.id === act.orgId);
-      if (!club || (club.type !== "CLB" && club.type !== "DOAN" && club.type !== "HOI")) return false;
+      if (!isDoanHoiSpecial && (!club || (club.type !== "CLB" && club.type !== "DOAN" && club.type !== "HOI"))) return false;
       if (onlyMyClubsFilter) {
         const isJoined = joinedClubIds.includes(act.orgId) || 
           (act.orgId === "DOAN_HOI" && (joinedClubIds.includes("DOANTN") || joinedClubIds.includes("HOISV")));
@@ -917,8 +918,9 @@ export const StudentPortal: React.FC = () => {
 
     // Get active club and youth union announcements
     const activeClubAnns = announcements.filter(ann => {
+      const isDoanHoiSpecial = ann.orgId === "DOANTN" || ann.orgId === "HOISV" || ann.orgId === "DOAN_HOI";
       const club = organizations.find(o => o.id === ann.orgId);
-      if (!club || (club.type !== "CLB" && club.type !== "DOAN" && club.type !== "HOI")) return false;
+      if (!isDoanHoiSpecial && (!club || (club.type !== "CLB" && club.type !== "DOAN" && club.type !== "HOI"))) return false;
       if (onlyMyClubsFilter) {
         const isJoined = joinedClubIds.includes(ann.orgId) || 
           (ann.orgId === "DOAN_HOI" && (joinedClubIds.includes("DOANTN") || joinedClubIds.includes("HOISV")));
