@@ -175,11 +175,11 @@ export const LoginScreen: React.FC = () => {
       id="unihub-login-screen"
     >
       {/* 1. Top Header Navigation Bar (Transparent, Aligned Left Logo/Title & Right Login) */}
-      <header className="relative z-10 w-full max-w-7xl mx-auto flex items-center justify-between py-2 shrink-0">
-        {/* Left Side: Brand Logo (doubled size!) & Title */}
-        <div className="flex items-center gap-4 sm:gap-5 text-left">
+      <header className="relative z-10 w-full max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4 py-2 shrink-0">
+        {/* Left Side: Brand Logo Badge & Title */}
+        <div className="flex items-center gap-2.5 sm:gap-4 text-left min-w-0 flex-1">
           {/* Institution Logo Badge */}
-          <div className="w-18 h-18 sm:w-22 sm:h-22 bg-white rounded-full shadow-md border border-slate-200/90 flex items-center justify-center overflow-hidden shrink-0 transition-transform transform hover:scale-105 p-1">
+          <div className="w-12 h-12 sm:w-18 md:w-22 sm:h-18 md:h-22 bg-white rounded-full shadow-md border border-slate-200/90 flex items-center justify-center overflow-hidden shrink-0 transition-transform transform hover:scale-105 p-0.5 sm:p-1">
             {themeConfig?.logoUrl ? (
               <img 
                 src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
@@ -187,24 +187,22 @@ export const LoginScreen: React.FC = () => {
                 className="w-full h-full object-contain rounded-full"
               />
             ) : (
-              <TnuLogo size={76} />
+              <TnuLogo size={56} />
             )}
           </div>
 
           {/* Institutional Divider line */}
-          <div className="hidden sm:block w-px h-14 bg-slate-200/80 shrink-0 mx-1"></div>
+          <div className="hidden md:block w-px h-12 bg-slate-200/80 shrink-0 mx-0.5"></div>
 
           {/* Typography Header Block */}
-          <div className="flex flex-col justify-center min-w-0">
+          <div className="flex flex-col justify-center min-w-0 flex-1">
             {/* Top Institutional Identity Tagline */}
-            <div className="inline-flex items-center gap-2 mb-1">
-              <span className="text-xs sm:text-xs font-bold text-blue-950 tracking-wide uppercase font-sans">
-                PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI HÀ GIANG
-              </span>
-            </div>
+            <span className="text-[10px] sm:text-xs font-bold text-blue-950 tracking-tight sm:tracking-wide uppercase font-sans leading-tight block truncate">
+              PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI HÀ GIANG
+            </span>
 
             {/* Main Portal Title */}
-            <h1 className="text-lg sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-tight font-sans">
+            <h1 className="text-sm sm:text-xl md:text-3xl font-black text-slate-900 tracking-tight leading-snug sm:leading-tight font-sans truncate">
               {themeConfig?.loginTitle ? (
                 themeConfig.loginTitle
               ) : (
@@ -215,7 +213,7 @@ export const LoginScreen: React.FC = () => {
             </h1>
 
             {/* Subtitle */}
-            <p className="hidden sm:block text-xs sm:text-sm text-slate-600 font-medium mt-1 leading-normal max-w-2xl font-sans">
+            <p className="hidden md:block text-xs sm:text-sm text-slate-600 font-medium mt-0.5 leading-normal max-w-2xl font-sans truncate">
               {themeConfig?.loginSubtitle || "Chào mừng bạn đến với Phân hiệu ĐHTN tại Hà Giang - Tra cứu ngay thông tin của bạn"}
             </p>
           </div>
@@ -225,9 +223,9 @@ export const LoginScreen: React.FC = () => {
         <div className="shrink-0">
           <button 
             onClick={() => setShowLoginModal(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs sm:text-sm py-3 px-5 sm:px-8 rounded-xl shadow-xl hover:shadow-indigo-500/30 transition-all flex items-center gap-2 cursor-pointer transform hover:scale-105 active:scale-95"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs sm:text-sm py-2 px-3.5 sm:py-3 sm:px-7 rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all flex items-center gap-1.5 cursor-pointer transform hover:scale-105 active:scale-95 whitespace-nowrap"
           >
-            <LogIn size={16} />
+            <LogIn size={15} />
             <span>Đăng nhập</span>
           </button>
         </div>
