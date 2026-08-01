@@ -66,7 +66,7 @@ import {
 
 const AdviserIcon = ShieldAlert;
 
-const LoginScreen = lazy(() => import("./components/LoginScreen").then(module => ({ default: module.LoginScreen })));
+import { LoginScreen } from "./components/LoginScreen";
 const StudentPortal = lazy(() => import("./components/StudentPortal").then(module => ({ default: module.StudentPortal })));
 const OrganizerPortal = lazy(() => import("./components/OrganizerPortal").then(module => ({ default: module.OrganizerPortal })));
 const TrainingPortal = lazy(() => import("./components/TrainingPortal").then(module => ({ default: module.TrainingPortal })));
