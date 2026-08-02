@@ -2147,51 +2147,76 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const createClubWithAccount = (club: Organization, account: UserAccount) => {
-    const updatedOrgs = [...organizations, club];
-    setOrganizations(updatedOrgs);
-    saveToStorage("unihub_organizations", updatedOrgs);
+    const cleanClub = sanitizeForFirestore(club);
+    const cleanAccount = sanitizeForFirestore({ ...account, targetId: club.id });
 
-    const updatedUsers = [...users, account];
-    setUsers(updatedUsers);
-    saveToStorage("unihub_users", updatedUsers);
+    setOrganizations(prev => {
+      const exists = prev.some(o => o.id === cleanClub.id);
+      const updated = exists ? prev.map(o => o.id === cleanClub.id ? { ...o, ...cleanClub } : o) : [...prev, cleanClub];
+      localStorage.setItem("unihub_organizations", JSON.stringify(updated));
+      return updated;
+    });
+
+    setUsers(prev => {
+      const exists = prev.some(u => u.id === cleanAccount.id || (u.targetId && u.targetId.toLowerCase() === cleanClub.id.toLowerCase()));
+      const updated = exists 
+        ? prev.map(u => (u.id === cleanAccount.id || (u.targetId && u.targetId.toLowerCase() === cleanClub.id.toLowerCase())) ? { ...u, ...cleanAccount } : u) 
+        : [...prev, cleanAccount];
+      localStorage.setItem("unihub_users", JSON.stringify(updated));
+      return updated;
+    });
+
+    setDoc(doc(db, "organizations", cleanClub.id), cleanClub, { merge: true }).catch(e => console.warn("Lỗi lưu club Firestore:", e));
+    setDoc(doc(db, "users", cleanAccount.id), cleanAccount, { merge: true }).catch(e => console.warn("Lỗi lưu user liên kết Firestore:", e));
   };
 
   const updateClubAndAccount = (clubId: string, updatedClub: Partial<Organization>, updatedAccount: Partial<UserAccount>) => {
-    const updatedOrgs = organizations.map(o => {
-      if (o.id === clubId) {
-        return { ...o, ...updatedClub };
-      }
-      return o;
-    });
-    setOrganizations(updatedOrgs);
-    saveToStorage("unihub_organizations", updatedOrgs);
+    const cleanClub = sanitizeForFirestore(updatedClub);
+    const cleanAccount = sanitizeForFirestore({ ...updatedAccount, targetId: clubId });
 
-    const updatedUsers = users.map(u => {
-      if (isOrgRole(u.role) && (u.targetId === clubId || u.username === updatedAccount.username)) {
-        return { ...u, ...updatedAccount, targetId: clubId };
-      }
-      return u;
+    setOrganizations(prev => {
+      const updated = prev.map(o => o.id === clubId ? { ...o, ...cleanClub } : o);
+      localStorage.setItem("unihub_organizations", JSON.stringify(updated));
+      return updated;
     });
-    setUsers(updatedUsers);
-    saveToStorage("unihub_users", updatedUsers);
 
-    if (currentUser && isOrgRole(currentUser.role) && currentUser.targetId === clubId) {
-      const matchNewUser = updatedUsers.find(u => u.targetId === clubId);
-      if (matchNewUser) {
-        setCurrentUser(matchNewUser);
-        saveToStorage("unihub_current_user", matchNewUser);
-      }
-    }
+    const existingUser = users.find(u => isOrgRole(u.role) && (u.targetId === clubId || u.targetId?.toLowerCase() === clubId.toLowerCase() || u.username === cleanAccount.username));
+    const userDocId = existingUser ? existingUser.id : (cleanAccount.id || `U_ORG_GEN_${clubId}`);
+
+    setUsers(prev => {
+      const updated = prev.map(u => {
+        if (isOrgRole(u.role) && (u.targetId === clubId || u.targetId?.toLowerCase() === clubId.toLowerCase() || u.username === cleanAccount.username || u.id === userDocId)) {
+          return { ...u, ...cleanAccount, targetId: clubId, id: userDocId };
+        }
+        return u;
+      });
+      localStorage.setItem("unihub_users", JSON.stringify(updated));
+      return updated;
+    });
+
+    setDoc(doc(db, "organizations", clubId), cleanClub, { merge: true }).catch(e => console.warn("Lỗi cập nhật club Firestore:", e));
+    setDoc(doc(db, "users", userDocId), { ...cleanAccount, targetId: clubId, id: userDocId }, { merge: true }).catch(e => console.warn("Lỗi cập nhật user Firestore:", e));
   };
 
   const deleteClubAndAccount = (clubId: string) => {
-    const updatedOrgs = organizations.filter(o => o.id !== clubId);
-    setOrganizations(updatedOrgs);
-    saveToStorage("unihub_organizations", updatedOrgs);
+    setOrganizations(prev => {
+      const updated = prev.filter(o => o.id !== clubId);
+      localStorage.setItem("unihub_organizations", JSON.stringify(updated));
+      return updated;
+    });
 
-    const updatedUsers = users.filter(u => !(isOrgRole(u.role) && u.targetId === clubId));
-    setUsers(updatedUsers);
-    saveToStorage("unihub_users", updatedUsers);
+    const assocUser = users.find(u => isOrgRole(u.role) && (u.targetId === clubId || u.targetId?.toLowerCase() === clubId.toLowerCase()));
+
+    setUsers(prev => {
+      const updated = prev.filter(u => !(isOrgRole(u.role) && (u.targetId === clubId || u.targetId?.toLowerCase() === clubId.toLowerCase())));
+      localStorage.setItem("unihub_users", JSON.stringify(updated));
+      return updated;
+    });
+
+    deleteDoc(doc(db, "organizations", clubId)).catch(e => console.warn("Lỗi xóa club Firestore:", e));
+    if (assocUser) {
+      deleteDoc(doc(db, "users", assocUser.id)).catch(e => console.warn("Lỗi xóa user liên kết Firestore:", e));
+    }
   };
 
   const createUserAccount = (account: UserAccount) => {
