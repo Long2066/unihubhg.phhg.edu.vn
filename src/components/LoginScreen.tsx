@@ -536,8 +536,9 @@ export const LoginScreen: React.FC = () => {
               </h2>
 
               {selectedNews.imageUrl && (
-                <div className="w-full aspect-video rounded-2xl overflow-hidden border border-white/10 bg-black">
-                  <img src={selectedNews.imageUrl} alt={selectedNews.title} className="w-full h-full object-cover" />
+                <div className="w-full aspect-[16/9] max-h-64 rounded-2xl overflow-hidden border border-white/10 bg-slate-950/60 relative flex items-center justify-center">
+                  <img src={selectedNews.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-30 pointer-events-none" />
+                  <img src={selectedNews.imageUrl} alt={selectedNews.title} className="w-full h-full object-contain relative z-10" />
                 </div>
               )}
 

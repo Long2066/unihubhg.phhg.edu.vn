@@ -1042,11 +1042,16 @@ export const StudentPortal: React.FC = () => {
                       className="p-4 bg-white hover:bg-slate-50/50 border border-slate-155 rounded-2xl relative transition-all flex flex-col justify-between group h-full space-y-3 shadow-xs hover:shadow-xs text-left"
                     >
                       {act.imageUrl && (
-                        <div className="w-full h-32 rounded-xl overflow-hidden shrink-0 border border-slate-100/80 relative">
+                        <div className="w-full aspect-[16/9] max-h-48 rounded-xl overflow-hidden shrink-0 border border-slate-100/80 relative bg-slate-950/5 flex items-center justify-center shadow-xs group/img">
+                          <img 
+                            src={convertGoogleDriveUrlToDirectUrl(act.imageUrl)} 
+                            alt="" 
+                            className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-25 pointer-events-none" 
+                          />
                           <img 
                             src={convertGoogleDriveUrlToDirectUrl(act.imageUrl)} 
                             alt={act.title} 
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                            className="w-full h-full object-contain relative z-10 transition-transform duration-300 group-hover/img:scale-[1.01]" 
                           />
                         </div>
                       )}
@@ -1134,11 +1139,16 @@ export const StudentPortal: React.FC = () => {
                       className="p-4 bg-amber-50/20 hover:bg-amber-50/30 border border-amber-100 rounded-2xl relative transition-all flex flex-col justify-between group h-full space-y-3 shadow-xs hover:shadow-xs text-left"
                     >
                       {ann.imageUrl && (
-                        <div className="w-full h-32 rounded-xl overflow-hidden shrink-0 border border-amber-100 relative">
+                        <div className="w-full aspect-[16/9] max-h-48 rounded-xl overflow-hidden shrink-0 border border-amber-100 relative bg-slate-950/5 flex items-center justify-center shadow-xs group/img">
+                          <img 
+                            src={convertGoogleDriveUrlToDirectUrl(ann.imageUrl)} 
+                            alt="" 
+                            className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-25 pointer-events-none" 
+                          />
                           <img 
                             src={convertGoogleDriveUrlToDirectUrl(ann.imageUrl)} 
                             alt={ann.title} 
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                            className="w-full h-full object-contain relative z-10 transition-transform duration-300 group-hover/img:scale-[1.01]" 
                           />
                         </div>
                       )}
@@ -1654,11 +1664,16 @@ export const StudentPortal: React.FC = () => {
                     return (
                       <div key={act.id} className="p-4 border border-slate-100 rounded-xl hover:shadow-xs hover:border-slate-200 transition-all bg-white shadow-xs">
                         {act.imageUrl && (
-                          <div className="w-full h-40 rounded-xl overflow-hidden mb-3 border border-slate-100 relative shrink-0">
+                          <div className="w-full aspect-[16/9] max-h-56 sm:max-h-64 rounded-2xl overflow-hidden mb-3.5 border border-slate-200/80 relative shrink-0 bg-slate-950/5 flex items-center justify-center shadow-xs group/img">
+                            <img 
+                              src={convertGoogleDriveUrlToDirectUrl(act.imageUrl)} 
+                              alt="" 
+                              className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-25 pointer-events-none" 
+                            />
                             <img 
                               src={convertGoogleDriveUrlToDirectUrl(act.imageUrl)} 
                               alt={act.title} 
-                              className="w-full h-full object-cover" 
+                              className="w-full h-full object-contain relative z-10 transition-transform duration-300 group-hover/img:scale-[1.01]" 
                             />
                           </div>
                         )}
@@ -1889,8 +1904,9 @@ export const StudentPortal: React.FC = () => {
                               {activeClubAnns.map(ann => (
                                 <div key={ann.id} className="p-3.5 bg-yellow-50/30 border border-amber-100 rounded-xl text-xs space-y-1">
                                   {ann.imageUrl && (
-                                    <div className="w-full h-32 rounded-lg overflow-hidden border border-amber-150/50 mb-2 relative shrink-0">
-                                      <img src={convertGoogleDriveUrlToDirectUrl(ann.imageUrl)} alt={ann.title} className="w-full h-full object-cover" />
+                                    <div className="w-full aspect-[16/9] max-h-52 rounded-xl overflow-hidden border border-amber-150/50 mb-2.5 relative shrink-0 bg-slate-950/5 flex items-center justify-center shadow-xs">
+                                      <img src={convertGoogleDriveUrlToDirectUrl(ann.imageUrl)} alt="" className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-25 pointer-events-none" />
+                                      <img src={convertGoogleDriveUrlToDirectUrl(ann.imageUrl)} alt={ann.title} className="w-full h-full object-contain relative z-10" />
                                     </div>
                                   )}
                                   <div className="flex justify-between items-center">
