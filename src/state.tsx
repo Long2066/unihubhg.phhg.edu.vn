@@ -529,231 +529,87 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
 
-  // Save changes to Firebase Firestore
+  // Save changes to Firebase Firestore (Safe upsert with merge: true, never delete unlisted docs automatically)
   const saveToFirestore = async (key: string, data: any) => {
     try {
       if (key === "unihub_users" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "users"));
-        const newIds = new Set(data.map(item => item.id));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) {
-            await deleteDoc(doc(db, "users", docObj.id));
-          }
-        }
         for (const item of data) {
-          if (item?.id) {
-            await setDoc(doc(db, "users", item.id), item);
-          }
+          if (item?.id) await setDoc(doc(db, "users", item.id), item, { merge: true });
         }
       } else if (key === "unihub_students" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "students"));
-        const newIds = new Set(data.map(item => item.id));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) {
-            await deleteDoc(doc(db, "students", docObj.id));
-          }
-        }
         for (const item of data) {
-          if (item?.id) {
-            await setDoc(doc(db, "students", item.id), item);
-          }
+          if (item?.id) await setDoc(doc(db, "students", item.id), item, { merge: true });
         }
       } else if (key === "unihub_organizations" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "organizations"));
-        const newIds = new Set(data.map(item => item.id));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) {
-            await deleteDoc(doc(db, "organizations", docObj.id));
-          }
-        }
         for (const item of data) {
-          if (item?.id) {
-            await setDoc(doc(db, "organizations", item.id), item);
-          }
+          if (item?.id) await setDoc(doc(db, "organizations", item.id), item, { merge: true });
         }
       } else if (key === "unihub_activities" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "activities"));
-        const newIds = new Set(data.map(item => item.id));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) {
-            await deleteDoc(doc(db, "activities", docObj.id));
-          }
-        }
         for (const item of data) {
-          if (item?.id) {
-            await setDoc(doc(db, "activities", item.id), item);
-          }
+          if (item?.id) await setDoc(doc(db, "activities", item.id), item, { merge: true });
         }
       } else if (key === "unihub_attendance" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "attendance"));
-        const newIds = new Set(data.map(item => item.id));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) {
-            await deleteDoc(doc(db, "attendance", docObj.id));
-          }
-        }
         for (const item of data) {
-          if (item?.id) {
-            await setDoc(doc(db, "attendance", item.id), item);
-          }
+          if (item?.id) await setDoc(doc(db, "attendance", item.id), item, { merge: true });
         }
       } else if (key === "unihub_evidence" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "evidence"));
-        const newIds = new Set(data.map(item => item.id));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) {
-            await deleteDoc(doc(db, "evidence", docObj.id));
-          }
-        }
         for (const item of data) {
-          if (item?.id) {
-            await setDoc(doc(db, "evidence", item.id), item);
-          }
+          if (item?.id) await setDoc(doc(db, "evidence", item.id), item, { merge: true });
         }
       } else if (key === "unihub_results" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "results"));
-        const newIds = new Set(data.map(item => `${item.studentId}_${item.periodId}`));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) {
-            await deleteDoc(doc(db, "results", docObj.id));
-          }
-        }
         for (const item of data) {
           const docId = `${item.studentId}_${item.periodId}`;
-          await setDoc(doc(db, "results", docId), item);
+          await setDoc(doc(db, "results", docId), item, { merge: true });
         }
       } else if (key === "unihub_daily_attendance" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "dailyAttendance"));
-        const newIds = new Set(data.map(item => item.id));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) {
-            await deleteDoc(doc(db, "dailyAttendance", docObj.id));
-          }
-        }
         for (const item of data) {
-          if (item?.id) {
-            await setDoc(doc(db, "dailyAttendance", item.id), item);
-          }
+          if (item?.id) await setDoc(doc(db, "dailyAttendance", item.id), item, { merge: true });
         }
       } else if (key === "unihub_members" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "members"));
-        const newIds = new Set(data.map(item => item.id));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) {
-            await deleteDoc(doc(db, "members", docObj.id));
-          }
-        }
         for (const item of data) {
-          if (item?.id) {
-            await setDoc(doc(db, "members", item.id), item);
-          }
+          if (item?.id) await setDoc(doc(db, "members", item.id), item, { merge: true });
         }
       } else if (key === "unihub_announcements" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "announcements"));
-        const newIds = new Set(data.map(item => item.id));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) {
-            await deleteDoc(doc(db, "announcements", docObj.id));
-          }
-        }
         for (const item of data) {
-          if (item?.id) {
-            await setDoc(doc(db, "announcements", item.id), item);
-          }
+          if (item?.id) await setDoc(doc(db, "announcements", item.id), item, { merge: true });
         }
       } else if (key === "unihub_schedules" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "schedules"));
-        const newIds = new Set(data.map(item => item.id));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) {
-            await deleteDoc(doc(db, "schedules", docObj.id));
-          }
-        }
         for (const item of data) {
-          if (item?.id) {
-            await setDoc(doc(db, "schedules", item.id), item);
-          }
+          if (item?.id) await setDoc(doc(db, "schedules", item.id), item, { merge: true });
         }
       } else if (key === "unihub_criteria" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "criteria"));
-        const newIds = new Set(data.map(item => item.id));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) {
-            await deleteDoc(doc(db, "criteria", docObj.id));
-          }
-        }
         for (const item of data) {
-          if (item?.id) {
-            await setDoc(doc(db, "criteria", item.id), item);
-          }
+          if (item?.id) await setDoc(doc(db, "criteria", item.id), item, { merge: true });
         }
       } else if (key === "unihub_class_reviews" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "classReviews"));
-        const newIds = new Set(data.map(item => item.classId));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) {
-            await deleteDoc(doc(db, "classReviews", docObj.id));
-          }
-        }
         for (const item of data) {
-          if (item?.classId) {
-            await setDoc(doc(db, "classReviews", item.classId), item);
-          }
+          if (item?.classId) await setDoc(doc(db, "classReviews", item.classId), item, { merge: true });
         }
       } else if (key === "unihub_faculty_reviews" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "facultyReviews"));
-        const newIds = new Set(data.map(item => item.facultyId));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) {
-            await deleteDoc(doc(db, "facultyReviews", docObj.id));
-          }
-        }
         for (const item of data) {
-          if (item?.facultyId) {
-            await setDoc(doc(db, "facultyReviews", item.facultyId), item);
-          }
+          if (item?.facultyId) await setDoc(doc(db, "facultyReviews", item.facultyId), item, { merge: true });
         }
       } else if (key === "unihub_feedbacks" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "feedbacks"));
-        const newIds = new Set(data.map(item => item.id));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) await deleteDoc(doc(db, "feedbacks", docObj.id));
-        }
         for (const item of data) {
-          if (item?.id) await setDoc(doc(db, "feedbacks", item.id), item);
+          if (item?.id) await setDoc(doc(db, "feedbacks", item.id), item, { merge: true });
         }
       } else if (key === "unihub_group_criteria" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "groupCriteria"));
-        const newIds = new Set(data.map(item => item.id));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) await deleteDoc(doc(db, "groupCriteria", docObj.id));
-        }
         for (const item of data) {
-          if (item?.id) await setDoc(doc(db, "groupCriteria", item.id), item);
+          if (item?.id) await setDoc(doc(db, "groupCriteria", item.id), item, { merge: true });
         }
       } else if (key === "unihub_group_attendances" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "groupAttendances"));
-        const newIds = new Set(data.map(item => item.id));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) await deleteDoc(doc(db, "groupAttendances", docObj.id));
-        }
         for (const item of data) {
-          if (item?.id) await setDoc(doc(db, "groupAttendances", item.id), item);
+          if (item?.id) await setDoc(doc(db, "groupAttendances", item.id), item, { merge: true });
         }
       } else if (key === "unihub_system_feedbacks" && Array.isArray(data)) {
-        const snap = await getDocs(collection(db, "systemFeedbacks"));
-        const newIds = new Set(data.map(item => item.id));
-        for (const docObj of snap.docs) {
-          if (!newIds.has(docObj.id)) await deleteDoc(doc(db, "systemFeedbacks", docObj.id));
-        }
         for (const item of data) {
-          if (item?.id) await setDoc(doc(db, "systemFeedbacks", item.id), item);
+          if (item?.id) await setDoc(doc(db, "systemFeedbacks", item.id), item, { merge: true });
         }
       } else if (key === "unihub_period" && data) {
         await setDoc(doc(db, "settings", "period"), {
           ...data,
           updatedAt: serverTimestamp()
-        });
+        }, { merge: true });
       }
     } catch (error) {
       console.warn(`Firestore upload failed for key ${key}:`, error);
@@ -1485,7 +1341,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updated = [...activities, newAct];
     setActivities(updated);
     saveToStorage("unihub_activities", updated);
+
+    // Instant permanent write to Firestore
+    setDoc(doc(db, "activities", newAct.id), newAct).catch(e => console.warn("Lỗi lưu hoạt động Firestore:", e));
+
     return newAct.id;
+  };
+
+  const deleteActivity = (activityId: string) => {
+    const updated = activities.filter(a => a.id !== activityId);
+    setActivities(updated);
+    saveToStorage("unihub_activities", updated);
+    deleteDoc(doc(db, "activities", activityId)).catch(e => console.warn("Lỗi xóa hoạt động Firestore:", e));
   };
 
   const updateActivityStatus = (activityId: string, status: "UPCOMING" | "ONGOING" | "COMPLETED") => {
@@ -1524,6 +1391,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updated = [newAnn, ...announcements];
     setAnnouncements(updated);
     saveToStorage("unihub_announcements", updated);
+
+    // Instant permanent write to Firestore
+    setDoc(doc(db, "announcements", newAnn.id), newAnn).catch(e => console.warn("Lỗi lưu thông báo Firestore:", e));
+
     return newAnn.id;
   };
 
@@ -1531,6 +1402,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updated = announcements.filter(a => a.id !== id);
     setAnnouncements(updated);
     saveToStorage("unihub_announcements", updated);
+    deleteDoc(doc(db, "announcements", id)).catch(e => console.warn("Lỗi xóa thông báo Firestore:", e));
   };
 
   const addMemberManual = (member: Omit<OrganizationMember, "id" | "joinedDate" | "term" | "status">) => {
