@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useUniHub } from "../state";
 import { STUDENT_FIELDS_META, Student, convertGoogleDriveUrlToDirectUrl } from "../types";
 import { 
@@ -507,9 +507,62 @@ export const StudentPortal: React.FC = () => {
         </div>
       </div>
     );
-  };
+  const newsTickerItems = useMemo(() => {
+    const list: string[] = [];
+    (announcements || []).forEach(ann => {
+      list.push(`📢 THÔNG BÁO: ${ann.title} — ${ann.orgName || "Hệ thống Phân hiệu"}`);
+    });
+    (activities || []).forEach(act => {
+      const matchedOrg = (organizations || []).find(o => o.id === act.orgId);
+      const orgName = matchedOrg?.name || act.orgName || "Tổ chức phong trào";
+      list.push(`🔥 SỰ KIỆN: ${act.title} (+${act.points} điểm rèn luyện) — ${orgName}`);
+    });
+    if (list.length === 0) {
+      list.push("📌 Hiện chưa có thông báo hoặc sự kiện phong trào mới nào trong tuần.");
+    }
+    return list;
+  }, [announcements, activities, organizations]);
+
+  const featuredEventSlides = useMemo(() => {
+    if (!activities || activities.length === 0) return [];
+    const colors = [
+      "from-purple-600 via-pink-700 to-indigo-800",
+      "from-blue-600 via-indigo-700 to-slate-900",
+      "from-emerald-600 via-teal-700 to-indigo-800",
+      "from-amber-600 via-orange-700 to-indigo-900"
+    ];
+    return activities.slice(0, 5).map((act, sIdx) => {
+      const matchedOrg = (organizations || []).find(o => o.id === act.orgId);
+      const resolvedOrgName = matchedOrg?.name || act.orgName || (
+        act.orgId === "DOANTN" ? "BCH Đoàn TNCS Phân hiệu Hà Giang" :
+        act.orgId === "HOISV" ? "BCH Hội Sinh viên Phân hiệu Hà Giang" : "Tổ chức phong trào"
+      );
+      return {
+        id: act.id,
+        title: act.title,
+        orgName: resolvedOrgName,
+        points: act.points,
+        dateTime: act.dateTime || "Đang mở đăng ký",
+        location: act.location || "Phân hiệu Hà Giang",
+        description: act.description || "Hoạt động rèn luyện sinh viên chính thức được công bố trên hệ thống UniHub.",
+        badge: act.points >= 10 ? "ƯU TIÊN LỚN" : act.points >= 5 ? "KỸ NĂNG" : "HOẠT ĐỘNG",
+        color: colors[sIdx % colors.length],
+        tc: act.criteriaId ? `TC${act.criteriaId}` : "TC3.1",
+        maxParticipants: act.maxParticipants
+      };
+    });
+  }, [activities, organizations]);
+
+  const unregisteredActivities = useMemo(() => {
+    if (!activities) return [];
+    return activities.filter(act => !myAttendance.some(a => a.activityId === act.id));
+  }, [activities, myAttendance]);
 
   const renderNewsBoard = () => {
+    const activeTickerIndex = newsTickerItems.length > 0 ? currentTicker % newsTickerItems.length : 0;
+    const totalSlides = featuredEventSlides.length;
+    const activeSlideIndex = totalSlides > 0 ? currentSlide % totalSlides : 0;
+
     return (
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md" id="student-news-board">
         
@@ -521,18 +574,12 @@ export const StudentPortal: React.FC = () => {
           </div>
           
           <div className="flex-1 overflow-hidden h-5 relative flex items-center">
-            {[
-              "📌 HỌC KỲ II 2025-2026: Đang trong giai đoạn rà soát và tự chốt đánh giá điểm rèn luyện cấp Chi đoàn trước ngày 15/06/2026!",
-              "🔥 SỰ KIỆN HOT: Đăng ký ngay 'Mùa hè xanh - Sức trẻ Biên cương' nhận ngay 10 điểm rèn luyện thuộc nhóm TC4.1!",
-              "💡 Mẹo hay rèn luyện: Bạn có thể tự chụp minh chứng hoạt động ngoại lệ để xin cộng điểm trực tiếp lên hệ thông trực tuyến.",
-              "Club News: CLB Sáng tạo Công nghệ UniTech thông báo cập nhật kết quả chuyên cần định kỳ tháng 05/2026.",
-              "📢 HÀNH CHÍNH: Văn phòng Khoa đã bắt đầu đồng bộ Kết quả GPA từ Phòng Đào tạo về cơ sở dữ liệu rèn luyện tự động học kỳ II."
-            ].map((text, idx) => (
+            {newsTickerItems.map((text, idx) => (
               <div 
                 key={idx} 
-                className={`absolute w-full truncate transition-all duration-700 ease-out flex items-center gap-1.5 font-bold text-slate-205 text-[11px] ${
-                  idx === currentTicker 
-                    ? "opacity-100 translate-y-0 text-amber-305" 
+                className={`absolute w-full truncate transition-all duration-700 ease-out flex items-center gap-1.5 font-bold text-slate-200 text-[11px] ${
+                  idx === activeTickerIndex 
+                    ? "opacity-100 translate-y-0 text-amber-300" 
                     : "opacity-0 -translate-y-4 pointer-events-none"
                 }`}
               >
@@ -544,7 +591,7 @@ export const StudentPortal: React.FC = () => {
           <div className="flex gap-1 shrink-0">
             <button 
               type="button"
-              onClick={() => setCurrentTicker((prev) => (prev - 1 + 5) % 5)}
+              onClick={() => setCurrentTicker((prev) => (prev - 1 + newsTickerItems.length) % newsTickerItems.length)}
               className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded transition-colors cursor-pointer"
               title="Quay lại"
             >
@@ -552,7 +599,7 @@ export const StudentPortal: React.FC = () => {
             </button>
             <button 
               type="button"
-              onClick={() => setCurrentTicker((prev) => (prev + 1) % 5)}
+              onClick={() => setCurrentTicker((prev) => (prev + 1) % newsTickerItems.length)}
               className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded transition-colors cursor-pointer"
               title="Tiếp theo"
             >
@@ -570,156 +617,133 @@ export const StudentPortal: React.FC = () => {
                 <span className="text-[10px] font-black uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">
                   🔥 Sự kiện học đường nổi bật
                 </span>
-                <span className="text-[10px] text-slate-400 font-medium">Slide {currentSlide + 1} / 3</span>
+                {totalSlides > 0 && (
+                  <span className="text-[10px] text-slate-400 font-medium">Slide {activeSlideIndex + 1} / {totalSlides}</span>
+                )}
               </div>
 
-              {[
-                {
-                  id: "ACT_04",
-                  title: "Hội nghị Học tập Nghị quyết & Diễn đàn Sinh viên 5 Tốt",
-                  orgName: "BCH Đoàn TNCS Phân hiệu Hà Giang",
-                  points: 5,
-                  dateTime: "2026-06-05 08:30",
-                  location: "Hội trường Hoa Ban",
-                  description: "Triển khai học tập chính trị chuyên đề bắt buộc của sinh viên và Vinh danh các gương mặt tiêu biểu phong trào Sinh viên 5 Tốt.",
-                  badge: "BẮT BUỘC",
-                  color: "from-blue-600 via-indigo-700 to-indigo-800",
-                  tc: "TC3.1"
-                },
-                {
-                  id: "ACT_05",
-                  title: "Chiến dịch tình nguyện Mùa hè xanh - Sức trẻ Biên cương",
-                  orgName: "BCH Đoàn TNCS Phân hiệu Hà Giang",
-                  points: 10,
-                  dateTime: "2026-07-01 07:00",
-                  location: "Huyện Hoàng Su Phì, Hà Giang",
-                  description: "Chuyến đi thực tế đem công nghệ và tri thức lên vùng biên giới Hà Giang, hỗ trợ xây dựng nếp sống văn hóa, dạy học và từ thiện.",
-                  badge: "ƯU TIÊN LỚN",
-                  color: "from-emerald-600 via-teal-700 to-indigo-800",
-                  tc: "TC4.1"
-                },
-                {
-                  id: "ACT_03",
-                  title: "Hội thảo 'AI & Tương lai nghề nghiệp ngành Công nghệ'",
-                  orgName: "CLB Sáng tạo Công nghệ UniTech",
-                  points: 5,
-                  dateTime: "2026-05-25 14:00",
-                  location: "Phòng Seminar nhà B",
-                  description: "Đón đầu làn sóng công nghệ, hướng dẫn ứng dụng Generative AI, Gemini API vào hỗ trợ học tập, nghiên cứu và nghề nghiệp.",
-                  badge: "KỸ NĂNG",
-                  color: "from-purple-600 via-pink-700 to-indigo-800",
-                  tc: "TC3.1"
-                }
-              ].map((slide, sIdx) => {
-                const studentReg = myAttendance.find(a => a.activityId === slide.id);
-                const isRegistered = !!studentReg;
-                
-                return (
-                  <div 
-                    key={slide.id}
-                    className={`transition-all duration-500 ease-in-out ${
-                      sIdx === currentSlide ? "block opacity-100 scale-100" : "hidden opacity-0 scale-95"
-                    }`}
-                  >
-                    <div className={`p-4 rounded-xl bg-gradient-to-r ${slide.color} text-white mb-4 shadow-sm relative overflow-hidden group`}>
-                      <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-5 translate-y-5 select-none pointer-events-none transition-transform group-hover:scale-110 duration-700">
-                        <Award size={150} />
-                      </div>
-                      
-                      <div className="relative z-10 text-left">
-                        <div className="flex gap-2 items-center mb-2">
-                          <span className="text-[9px] font-black tracking-wider bg-white/25 px-2 py-0.5 rounded uppercase">
-                            {slide.badge}
-                          </span>
-                          <span className="text-[9px] bg-emerald-500 text-white font-mono px-2 py-0.5 rounded font-bold">
-                            +{slide.points} ĐIỂM RÈN LUYỆN
-                          </span>
+              {totalSlides === 0 ? (
+                <div className="p-8 flex flex-col items-center justify-center text-center text-slate-500 my-auto bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                  <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl mb-3 border border-indigo-100">
+                    <Calendar size={32} />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-800 mb-1">Chưa có sự kiện phong trào mới</h4>
+                  <p className="text-xs text-slate-500 max-w-sm">Các sự kiện và hoạt động phong trào do Đoàn, Hội và các CLB tạo mới sẽ tự động hiển thị tại đây.</p>
+                </div>
+              ) : (
+                featuredEventSlides.map((slide, sIdx) => {
+                  const studentReg = myAttendance.find(a => a.activityId === slide.id);
+                  const isRegistered = !!studentReg;
+                  
+                  return (
+                    <div 
+                      key={slide.id}
+                      className={`transition-all duration-500 ease-in-out ${
+                        sIdx === activeSlideIndex ? "block opacity-100 scale-100" : "hidden opacity-0 scale-95"
+                      }`}
+                    >
+                      <div className={`p-4 rounded-xl bg-gradient-to-r ${slide.color} text-white mb-4 shadow-sm relative overflow-hidden group`}>
+                        <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-5 translate-y-5 select-none pointer-events-none transition-transform group-hover:scale-110 duration-700">
+                          <Award size={150} />
                         </div>
                         
-                        <h4 className="text-sm font-black tracking-tight leading-snug">{slide.title}</h4>
-                        <p className="text-[10px] text-white/80 mt-1 line-clamp-2 leading-relaxed shrink-0 font-light">{slide.description}</p>
-                        
-                        <div className="flex items-center gap-3 text-[10px] text-white/90 font-mono mt-3 border-t border-white/10 pt-2 flex-wrap">
-                          <span className="flex items-center gap-1"><Clock size={11} /> {slide.dateTime}</span>
-                          <span className="flex items-center gap-1">• Địa điểm: {slide.location}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center text-left">
-                      <div className="text-left">
-                        <span className="text-[10px] text-slate-400 block font-bold">Đơn vị chủ trì</span>
-                        <span className="text-xs font-black text-slate-705">{slide.orgName}</span>
-                        {(() => {
-                          const dbAct = activities.find(act => act.id === slide.id);
-                          if (dbAct && dbAct.maxParticipants !== undefined && dbAct.maxParticipants > 0) {
-                            const count = attendance.filter(a => a.activityId === slide.id).length;
-                            return (
-                              <span className="block text-[9.5px] text-indigo-650 font-bold mt-0.5">
-                                Đã đăng ký: {count}/{dbAct.maxParticipants} suất
-                              </span>
-                            );
-                          }
-                          return null;
-                        })()}
-                      </div>
-                      
-                      <div>
-                        {isRegistered ? (
-                          <div className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-extrabold rounded-lg border border-emerald-200">
-                            <CheckCircle size={12} className="text-emerald-600" />
-                            <span>Đã đăng ký</span>
+                        <div className="relative z-10 text-left">
+                          <div className="flex gap-2 items-center mb-2">
+                            <span className="text-[9px] font-black tracking-wider bg-white/25 px-2 py-0.5 rounded uppercase">
+                              {slide.badge}
+                            </span>
+                            <span className="text-[9px] bg-emerald-500 text-white font-mono px-2 py-0.5 rounded font-bold">
+                              +{slide.points} ĐIỂM RÈN LUYỆN
+                            </span>
                           </div>
-                        ) : (() => {
-                          const dbAct = activities.find(act => act.id === slide.id);
-                          const count = attendance.filter(a => a.activityId === slide.id).length;
-                          const isFull = dbAct && dbAct.maxParticipants !== undefined && dbAct.maxParticipants > 0 && count >= dbAct.maxParticipants;
                           
-                          if (isFull) {
+                          <h4 className="text-sm font-black tracking-tight leading-snug">{slide.title}</h4>
+                          <p className="text-[10px] text-white/80 mt-1 line-clamp-2 leading-relaxed shrink-0 font-light">{slide.description}</p>
+                          
+                          <div className="flex items-center gap-3 text-[10px] text-white/90 font-mono mt-3 border-t border-white/10 pt-2 flex-wrap">
+                            <span className="flex items-center gap-1"><Clock size={11} /> {slide.dateTime}</span>
+                            <span className="flex items-center gap-1">• Địa điểm: {slide.location}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center text-left">
+                        <div className="text-left">
+                          <span className="text-[10px] text-slate-400 block font-bold">Đơn vị chủ trì</span>
+                          <span className="text-xs font-black text-slate-700">{slide.orgName}</span>
+                          {(() => {
+                            const dbAct = (activities || []).find(act => act.id === slide.id);
+                            if (dbAct && dbAct.maxParticipants !== undefined && dbAct.maxParticipants > 0) {
+                              const count = attendance.filter(a => a.activityId === slide.id).length;
+                              return (
+                                <span className="block text-[9.5px] text-indigo-650 font-bold mt-0.5">
+                                  Đã đăng ký: {count}/{dbAct.maxParticipants} suất
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
+                        
+                        <div>
+                          {isRegistered ? (
+                            <div className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-extrabold rounded-lg border border-emerald-200">
+                              <CheckCircle size={12} className="text-emerald-600" />
+                              <span>Đã đăng ký</span>
+                            </div>
+                          ) : (() => {
+                            const dbAct = (activities || []).find(act => act.id === slide.id);
+                            const count = attendance.filter(a => a.activityId === slide.id).length;
+                            const isFull = dbAct && dbAct.maxParticipants !== undefined && dbAct.maxParticipants > 0 && count >= dbAct.maxParticipants;
+                            
+                            if (isFull) {
+                              return (
+                                <button 
+                                  type="button"
+                                  disabled
+                                  className="px-4 py-2 bg-slate-300 text-slate-500 text-xs font-extrabold rounded-lg flex items-center gap-1.5 border border-slate-200 select-none cursor-not-allowed"
+                                >
+                                  <X size={13} />
+                                  <span>Hết suất đăng ký</span>
+                                </button>
+                              );
+                            }
+
                             return (
                               <button 
                                 type="button"
-                                disabled
-                                className="px-4 py-2 bg-slate-300 text-slate-500 text-xs font-extrabold rounded-lg flex items-center gap-1.5 border border-slate-200 select-none cursor-not-allowed"
+                                onClick={() => {
+                                  registerForActivity(slide.id, studentId);
+                                }}
+                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white hover:cursor-pointer text-xs font-extrabold rounded-lg flex items-center gap-1.5 shadow-sm shadow-indigo-100 transition-all cursor-pointer"
                               >
-                                <X size={13} />
-                                <span>Hết suất đăng ký</span>
+                                <PlusCircle size={13} />
+                                <span>Đăng ký tham gia</span>
                               </button>
                             );
-                          }
-
-                          return (
-                            <button 
-                              type="button"
-                              onClick={() => {
-                                registerForActivity(slide.id, studentId);
-                              }}
-                              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white hover:cursor-pointer text-xs font-extrabold rounded-lg flex items-center gap-1.5 shadow-sm shadow-indigo-100 transition-all cursor-pointer"
-                            >
-                              <PlusCircle size={13} />
-                              <span>Đăng ký tham gia</span>
-                            </button>
-                          );
-                        })()}
+                          })()}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
 
-              <div className="flex justify-center gap-1.5 mt-4">
-                {[0, 1, 2].map((idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setCurrentSlide(idx)}
-                    className={`w-2.5 h-1 md:w-4 h-1 px-0 rounded-full transition-all cursor-pointer ${
-                      idx === currentSlide ? "bg-indigo-600" : "bg-slate-200"
-                    }`}
-                    title={`Slide ${idx + 1}`}
-                  />
-                ))}
-              </div>
+              {totalSlides > 1 && (
+                <div className="flex justify-center gap-1.5 mt-4">
+                  {featuredEventSlides.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setCurrentSlide(idx)}
+                      className={`w-2.5 h-1 md:w-4 h-1 px-0 rounded-full transition-all cursor-pointer ${
+                        idx === activeSlideIndex ? "bg-indigo-600" : "bg-slate-200"
+                      }`}
+                      title={`Slide ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           
@@ -748,14 +772,12 @@ export const StudentPortal: React.FC = () => {
                       Bạn chỉ cần tích lũy thêm <strong className="text-emerald-650">{Math.max(1, 90 - currentConductPoints)} điểm</strong> nữa để thăng hạng xếp loại rèn luyện kỳ này:
                     </p>
                     <ul className="text-[11px] text-slate-600 space-y-1.5 font-medium">
-                      <li className="flex items-start gap-1.5">
-                        <span className="text-emerald-500 mt-0.5">✓</span>
-                        <span>Đăng ký Chiến dịch <strong>Mùa hè xanh</strong> (+10 điểm nhóm TC4.1)</span>
-                      </li>
-                      <li className="flex items-start gap-1.5">
-                        <span className="text-emerald-500 mt-0.5">✓</span>
-                        <span>Tham gia <strong>Hội nghị học tập chính trị</strong> ngày 05/06 (+5 điểm nhóm TC3.1)</span>
-                      </li>
+                      {unregisteredActivities.slice(0, 2).map((act) => (
+                        <li key={act.id} className="flex items-start gap-1.5">
+                          <span className="text-emerald-500 mt-0.5">✓</span>
+                          <span>Đăng ký <strong>{act.title}</strong> (+{act.points} điểm nhóm TC{act.criteriaId || "3.1"})</span>
+                        </li>
+                      ))}
                       <li className="flex items-start gap-1.5">
                         <span className="text-indigo-500 mt-0.5">→</span>
                         <button 
@@ -3041,4 +3063,5 @@ export const StudentPortal: React.FC = () => {
 
     </div>
   );
+};
 };
