@@ -224,10 +224,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch {}
     }
-    return SEED_ACTIVITIES;
+    return [];
   });
   const [attendance, setAttendance] = useState<ActivityAttendance[]>([]);
   const [evidence, setEvidence] = useState<EvidenceSubmission[]>([]);

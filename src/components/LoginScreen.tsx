@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useUniHub } from "../state";
 import { UserRole, convertGoogleDriveUrlToDirectUrl } from "../types";
-import { SEED_ACTIVITIES } from "../data";
 import { TnuLogo } from "./TnuLogo";
 import { 
   GraduationCap, 
@@ -112,7 +111,7 @@ export const LoginScreen: React.FC = () => {
       });
     });
 
-    const sourceActivities = (activities && activities.length > 0) ? activities : SEED_ACTIVITIES;
+    const sourceActivities = activities || [];
 
     sourceActivities.forEach((act) => {
       let dateStr = "";
