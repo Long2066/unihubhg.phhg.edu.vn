@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useUniHub } from "../state";
-import { UserRole, isOrgRole, UserAccount } from "../types";
+import { UserRole, isOrgRole, UserAccount, Organization } from "../types";
 import { 
   Settings, 
   Trash2, 
@@ -127,6 +127,36 @@ export const AdminPortal: React.FC = () => {
     }
   };
 
+  const findAssocUser = (org: Organization, usersList: UserAccount[]): UserAccount | undefined => {
+    if (!org) return undefined;
+    const targetIdClean = (org.id || "").trim().toLowerCase();
+
+    // 1. Direct targetId match (case insensitive)
+    let matched = usersList.find(u => isOrgRole(u.role) && u.targetId && u.targetId.trim().toLowerCase() === targetIdClean);
+    if (matched) return matched;
+
+    // 2. Specific role match for Đoàn & Hội
+    if (org.type === "DOAN" || targetIdClean === "doantn") {
+      matched = usersList.find(u => u.role === UserRole.YOUTH_UNION || (u.username && u.username.toLowerCase().includes("doantn")) || (u.email && u.email.toLowerCase().includes("doantn")));
+      if (matched) return matched;
+    }
+    if (org.type === "HOI" || targetIdClean === "hoisv") {
+      matched = usersList.find(u => u.role === UserRole.STUDENT_UNION || (u.username && u.username.toLowerCase().includes("hsv")) || (u.email && u.email.toLowerCase().includes("hsv")));
+      if (matched) return matched;
+    }
+
+    // 3. Username / Email / Name match for CLB
+    matched = usersList.find(u => isOrgRole(u.role) && (
+      (u.username && targetIdClean && u.username.toLowerCase().includes(targetIdClean)) ||
+      (u.email && targetIdClean && u.email.toLowerCase().includes(targetIdClean)) ||
+      (u.name && org.name && u.name.trim().toLowerCase() === org.name.trim().toLowerCase())
+    ));
+    if (matched) return matched;
+
+    // 4. Broad check: any user whose targetId matches org.id regardless of role or username match
+    return usersList.find(u => (u.targetId && u.targetId.trim().toLowerCase() === targetIdClean) || (u.username && targetIdClean && u.username.toLowerCase().includes(targetIdClean)));
+  };
+
   const selectClubForEditing = (orgId: string) => {
     const org = organizations.find(o => o.id === orgId);
     if (!org) return;
@@ -139,7 +169,7 @@ export const AdminPortal: React.FC = () => {
     setClubFormField(org.field);
     setClubFormLevel(org.level);
 
-    const assocUser = users.find(u => isOrgRole(u.role) && u.targetId === orgId);
+    const assocUser = findAssocUser(org, users);
     if (assocUser) {
       setClubFormUsername(assocUser.username);
       setClubFormPassword(assocUser.password || "password123");
@@ -191,13 +221,26 @@ export const AdminPortal: React.FC = () => {
       return;
     }
 
+    let resolvedTargetId = accFormTargetId.trim();
+    if (!resolvedTargetId) {
+      if (accFormRole === UserRole.YOUTH_UNION) resolvedTargetId = "DOANTN";
+      else if (accFormRole === UserRole.STUDENT_UNION) resolvedTargetId = "HOISV";
+      else if (accFormRole === UserRole.CLUB_MANAGER || accFormRole === UserRole.ORGANIZER) {
+        const matchedOrg = organizations.find(o => 
+          (accFormName && o.name.toLowerCase().includes(accFormName.trim().toLowerCase())) ||
+          (accFormUsername && accFormUsername.trim().toLowerCase().includes(o.id.toLowerCase()))
+        );
+        if (matchedOrg) resolvedTargetId = matchedOrg.id;
+      }
+    }
+
     const userData: UserAccount = {
       id: selectedAccId || `U_GEN_${Date.now()}`,
       username: accFormUsername.trim(),
       name: accFormName.trim(),
       role: accFormRole,
       email: accFormUsername.trim(),
-      targetId: accFormTargetId.trim() || undefined,
+      targetId: resolvedTargetId || undefined,
       password: accFormPassword.trim()
     };
 
@@ -1190,7 +1233,7 @@ export const AdminPortal: React.FC = () => {
               {activeAccountTab === "CLUBS" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {organizations.map(org => {
-                    const assocUser = users.find(u => isOrgRole(u.role) && u.targetId === org.id);
+                    const assocUser = findAssocUser(org, users);
                     return (
                       <div 
                         key={org.id} 

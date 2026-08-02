@@ -1080,6 +1080,19 @@ export default function App() {
       }
       const targetPassword = userForm.password || "password123";
 
+      let resolvedTargetId = userForm.targetId ? userForm.targetId.trim() : "";
+      if (!resolvedTargetId) {
+        if (userForm.role === UserRole.YOUTH_UNION) resolvedTargetId = "DOANTN";
+        else if (userForm.role === UserRole.STUDENT_UNION) resolvedTargetId = "HOISV";
+        else if (userForm.role === UserRole.CLUB_MANAGER || userForm.role === UserRole.ORGANIZER) {
+          const matchedOrg = organizations.find(o => 
+            (userForm.name && o.name.toLowerCase().includes(userForm.name.toLowerCase())) ||
+            (userForm.username && userForm.username.toLowerCase().includes(o.id.toLowerCase()))
+          );
+          if (matchedOrg) resolvedTargetId = matchedOrg.id;
+        }
+      }
+
       // Build clean user data object (only allowed Firestore fields)
       const userData: Record<string, any> = {
         name: userForm.name,
@@ -1088,8 +1101,8 @@ export default function App() {
         role: userForm.role,
         password: targetPassword
       };
-      if (userForm.targetId && userForm.targetId.trim()) {
-        userData.targetId = userForm.targetId.trim();
+      if (resolvedTargetId) {
+        userData.targetId = resolvedTargetId;
       }
       if (userForm.role === UserRole.CLASS_MONITOR && userForm.monitorTitle) {
         userData.monitorTitle = userForm.monitorTitle;
