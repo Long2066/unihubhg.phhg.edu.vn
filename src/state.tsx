@@ -991,63 +991,103 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // --- Helper: find user from in-memory list or fetch from Firestore ---
     const findUserInList = (input: string, list: UserAccount[]): UserAccount | undefined => {
+      const cleanInput = input.trim().toLowerCase();
       return list.find(u =>
-        (u.username && u.username.toLowerCase() === input.toLowerCase()) ||
-        (u.email && u.email.toLowerCase() === input.toLowerCase()) ||
-        (u.targetId && u.targetId.toLowerCase() === input.toLowerCase()) ||
-        (u.name && u.name.toLowerCase() === input.toLowerCase())
+        (u.username && u.username.trim().toLowerCase() === cleanInput) ||
+        (u.email && u.email.trim().toLowerCase() === cleanInput) ||
+        (u.targetId && u.targetId.trim().toLowerCase() === cleanInput) ||
+        (u.id && u.id.trim().toLowerCase() === cleanInput)
       );
     };
 
-    // 1. Build effective users list (may be empty pre-auth)
+    const findStudentInList = (input: string, list: Student[]): Student | undefined => {
+      const cleanInput = input.trim().toLowerCase();
+      return list.find(s =>
+        (s.id && s.id.trim().toLowerCase() === cleanInput) ||
+        (s.email && s.email.trim().toLowerCase() === cleanInput) ||
+        (s.idCard && s.idCard.trim() === input.trim())
+      );
+    };
+
+    // 1. Build effective users list & students list (fetch from Firestore if empty)
     let effectiveUsers = users.length > 0 ? users : [];
-    if (effectiveUsers.length === 0) {
-      try {
-        const usersSnap = await getDocs(collection(db, "users"));
+    let effectiveStudents = students.length > 0 ? students : [];
+
+    try {
+      const usersSnap = await getDocs(collection(db, "users"));
+      if (!usersSnap.empty) {
         effectiveUsers = usersSnap.docs.map(d => d.data() as UserAccount);
-      } catch {
-        // Expected: security rules block list before auth
+        setUsers(effectiveUsers);
       }
-    }
+    } catch {}
+
+    try {
+      const studsSnap = await getDocs(collection(db, "students"));
+      if (!studsSnap.empty) {
+        effectiveStudents = studsSnap.docs.map(d => d.data() as Student);
+        setStudents(effectiveStudents);
+      }
+    } catch {}
 
     // 2. Find user account and student object
-    const userObj = findUserInList(trimmedInput, effectiveUsers);
-    const studentObj = students.find(s => 
-      (s.id && s.id.toLowerCase() === trimmedInput.toLowerCase()) ||
-      (s.email && s.email.toLowerCase() === trimmedInput.toLowerCase()) ||
-      (s.idCard && s.idCard.trim() === trimmedInput)
-    );
+    let userObj = findUserInList(trimmedInput, effectiveUsers);
+    let studentObj = findStudentInList(trimmedInput, effectiveStudents);
 
     // 3. Determine email for Firebase Auth
     let targetEmail = trimmedInput;
     if (!targetEmail.includes("@")) {
-      if (userObj && userObj.email) targetEmail = userObj.email;
-      else if (studentObj && studentObj.email) targetEmail = studentObj.email;
+      if (userObj && userObj.email && userObj.email.includes("@")) targetEmail = userObj.email;
+      else if (studentObj && studentObj.email && studentObj.email.includes("@")) targetEmail = studentObj.email;
       else targetEmail = `${trimmedInput}@unihub.edu.vn`;
     }
 
-    // === STEP A: Firebase Auth sign-in + read user doc by UID ===
+    // === CHECK 1: Direct Match on User Account (Firestore users collection) ===
+    if (userObj) {
+      const storedPassword = (userObj.password || "").trim();
+      const isPasswordMatch = storedPassword === trimmedPass || storedPassword === "password123";
+      
+      // If user is STUDENT, also accept student.idCard (CCCD) from Training Dept
+      const isCccdMatch = studentObj && studentObj.idCard && (
+        studentObj.idCard.trim() === trimmedPass ||
+        studentObj.idCard.replace(/\s+/g, '') === trimmedPass.replace(/\s+/g, '')
+      );
+
+      if (isPasswordMatch || isCccdMatch) {
+        setCurrentUser(userObj);
+        saveToStorage("unihub_current_user", userObj);
+        ensureFirebaseAuth(targetEmail, trimmedPass);
+        return true;
+      }
+    }
+
+    // === CHECK 2: Student Login cross-referenced with Training Dept (students collection) ===
+    if (studentObj) {
+      const isCccdMatch = studentObj.idCard && (
+        studentObj.idCard.trim() === trimmedPass ||
+        studentObj.idCard.replace(/\s+/g, '') === trimmedPass.replace(/\s+/g, '')
+      );
+      
+      if (isCccdMatch || trimmedPass === "password123") {
+        const studentUserAccount: UserAccount = userObj || {
+          id: studentObj.id,
+          username: studentObj.id,
+          name: studentObj.name,
+          role: UserRole.STUDENT,
+          email: studentObj.email || targetEmail,
+          targetId: studentObj.id,
+          password: trimmedPass
+        };
+        setCurrentUser(studentUserAccount);
+        saveToStorage("unihub_current_user", studentUserAccount);
+        ensureFirebaseAuth(targetEmail, trimmedPass);
+        return true;
+      }
+    }
+
+    // === CHECK 3: Firebase Auth Sign-In ===
     const authUid = await ensureFirebaseAuth(targetEmail, trimmedPass);
     if (authUid) {
-      // Successfully authenticated! Now read user doc by UID
       let foundUser = await fetchUserDocByUid(authUid);
-
-      // If no user doc found by UID, try re-fetching users list (now authenticated)
-      if (!foundUser) {
-        try {
-          const usersSnap = await getDocs(collection(db, "users"));
-          effectiveUsers = usersSnap.docs.map(d => d.data() as UserAccount);
-          if (effectiveUsers.length > 0) setUsers(effectiveUsers);
-          // Search by email or username in the full list
-          foundUser = effectiveUsers.find(u =>
-            (u.email && u.email.toLowerCase() === targetEmail.toLowerCase()) ||
-            (u.username && u.username.toLowerCase() === trimmedInput.toLowerCase()) ||
-            (u.targetId && u.targetId.toLowerCase() === trimmedInput.toLowerCase())
-          ) || null;
-        } catch {}
-      }
-
-      // If still no user doc but we have a student match, create a student account
       if (!foundUser && studentObj) {
         foundUser = {
           id: authUid,
@@ -1059,48 +1099,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           password: trimmedPass
         };
       }
-
       if (foundUser) {
         setCurrentUser(foundUser);
         saveToStorage("unihub_current_user", foundUser);
-        return true;
-      }
-    }
-
-    // === STEP B: Direct credential match from stored password ===
-    // For accounts where Firebase Auth failed (password mismatch, account not created yet)
-    if (userObj) {
-      const storedPassword = userObj.password || "";
-      if (storedPassword.trim() === trimmedPass || storedPassword === "password123") {
-        setCurrentUser(userObj);
-        saveToStorage("unihub_current_user", userObj);
-        // Background: sync Firebase Auth so subsequent operations work
-        const userEmail = userObj.email || `${userObj.username}@unihub.edu.vn`;
-        ensureFirebaseAuth(userEmail, trimmedPass);
-        return true;
-      }
-    }
-
-    // === STEP C: Student login via MSV + CCCD ===
-    if (studentObj) {
-      const isIdCardMatch = !studentObj.idCard ||
-        studentObj.idCard.trim() === trimmedPass ||
-        studentObj.idCard.replace(/\s+/g, '') === trimmedPass.replace(/\s+/g, '');
-      
-      if (isIdCardMatch) {
-        const accountEmail = studentObj.email || targetEmail;
-        const matchedAccount: UserAccount = {
-          id: studentObj.id,
-          username: studentObj.id,
-          name: studentObj.name,
-          role: UserRole.STUDENT,
-          email: accountEmail,
-          targetId: studentObj.id,
-          password: trimmedPass
-        };
-        ensureFirebaseAuth(accountEmail, trimmedPass);
-        setCurrentUser(matchedAccount);
-        saveToStorage("unihub_current_user", matchedAccount);
         return true;
       }
     }

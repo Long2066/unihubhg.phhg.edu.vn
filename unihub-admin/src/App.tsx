@@ -1082,6 +1082,20 @@ export default function App() {
       const targetPassword = userForm.password || "password123";
 
       let resolvedTargetId = userForm.targetId ? userForm.targetId.trim() : "";
+      if (userForm.role === UserRole.STUDENT) {
+        const studentInTraining = students.find(s => 
+          (s.id && s.id.trim().toLowerCase() === userForm.username.trim().toLowerCase()) ||
+          (s.email && s.email.trim().toLowerCase() === userForm.username.trim().toLowerCase())
+        );
+        if (!studentInTraining) {
+          alert("Lỗi quy chuẩn Sinh viên: Tên đăng nhập phải là Mã sinh viên đã có trong danh sách của Phòng Đào tạo!");
+          return;
+        }
+        resolvedTargetId = studentInTraining.id;
+        if (studentInTraining.idCard && (!userForm.password || userForm.password === "password123")) {
+          userForm.password = studentInTraining.idCard.trim();
+        }
+      }
       if (!resolvedTargetId) {
         if (userForm.role === UserRole.YOUTH_UNION) resolvedTargetId = "DOANTN";
         else if (userForm.role === UserRole.STUDENT_UNION) resolvedTargetId = "HOISV";

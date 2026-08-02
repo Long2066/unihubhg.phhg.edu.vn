@@ -222,6 +222,17 @@ export const AdminPortal: React.FC = () => {
     }
 
     let resolvedTargetId = accFormTargetId.trim();
+    if (accFormRole === UserRole.STUDENT) {
+      const studentInTraining = students.find(s => 
+        (s.id && s.id.trim().toLowerCase() === accFormUsername.trim().toLowerCase()) ||
+        (s.email && s.email.trim().toLowerCase() === accFormUsername.trim().toLowerCase())
+      );
+      if (!studentInTraining) {
+        alert("Lỗi quy chuẩn Sinh viên: Tên đăng nhập phải là Mã sinh viên đã có trong danh sách của Phòng Đào tạo!");
+        return;
+      }
+      resolvedTargetId = studentInTraining.id;
+    }
     if (!resolvedTargetId) {
       if (accFormRole === UserRole.YOUTH_UNION) resolvedTargetId = "DOANTN";
       else if (accFormRole === UserRole.STUDENT_UNION) resolvedTargetId = "HOISV";

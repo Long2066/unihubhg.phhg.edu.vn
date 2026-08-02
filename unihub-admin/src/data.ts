@@ -30,9 +30,10 @@ export const SEED_USERS: UserAccount[] = [
   {
     id: "U_ST01",
     username: "DTG245140202053",
-    name: "Nguyễn Văn An",
+    name: "Ma Văn Long",
     role: UserRole.STUDENT,
     email: "DTG245140202053",
+    password: "004206005165",
     targetId: "DTG245140202053"
   },
   {
@@ -182,7 +183,7 @@ export const SEED_CRITERIA: PointCriteria[] = [
 export const SEED_STUDENTS: Student[] = [
   {
     id: "DTG245140202053",
-    name: "Nguyễn Văn An",
+    name: "Ma Văn Long",
     classId: "K20-CNTT",
     facultyId: "K-CNTT",
     email: "DTG245140202053",
@@ -195,7 +196,7 @@ export const SEED_STUDENTS: Student[] = [
     dob: "2006-05-14",
     pob: "Vị Xuyên, Hà Giang",
     ethnicity: "Kinh",
-    idCard: "001206009876",
+    idCard: "004206005165",
     idCardDate: "2022-04-12",
     idCardPlace: "Cục Cảnh sát QLHC về TTXH",
     subjects: "Lập trình Web, Cơ sở dữ liệu, Thiết kế UI/UX",
