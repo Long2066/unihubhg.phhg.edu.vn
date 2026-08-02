@@ -1382,66 +1382,46 @@ export default function App() {
     }
   };
 
-  // Systems & Dev Core Actions: Reset database to original seed arrays
+  // Systems & Dev Core Actions: Safely merge seed baseline without deleting user-created activities
   const resetDatabaseToSeeds = async () => {
-    if (!confirm("Cảnh báo! Thao tác này sẽ xóa sạch dữ liệu hiện tại trong cơ sở dữ liệu và nạp lại dữ liệu mẫu gốc. Bạn có muốn tiếp tục không?")) {
+    if (!confirm("Cảnh báo! Thao tác này sẽ cập nhật/nạp lại dữ liệu mẫu gốc (bổ sung tài khoản, sinh viên, tiêu chí mẫu). Các hoạt động và tin tức người dùng đã tạo sẽ ĐƯỢC GIỮ NGUYÊN. Bạn có muốn tiếp tục không?")) {
       return;
     }
 
     setLoading(true);
-    setStatusMessage("Đang xóa và nạp lại dữ liệu mẫu...");
+    setStatusMessage("Đang đồng bộ dữ liệu mẫu cơ bản...");
 
     try {
-      // Helper to clear collection
-      const clearCollection = async (colName: string) => {
-        const snap = await getDocs(collection(db, colName));
-        for (const docObj of snap.docs) {
-          await deleteDoc(doc(db, colName, docObj.id));
-        }
-      };
-
-      await clearCollection("users");
-      await clearCollection("students");
-      await clearCollection("organizations");
-      await clearCollection("criteria");
-      await clearCollection("activities");
-      await clearCollection("attendance");
-      await clearCollection("evidence");
-      await clearCollection("results");
-      await clearCollection("dailyAttendance");
-      await clearCollection("schedules");
-      await clearCollection("members");
-
-      // Write Seeds
-      for (const u of SEED_USERS) await setDoc(doc(db, "users", u.id), u);
-      for (const s of SEED_STUDENTS) await setDoc(doc(db, "students", s.id), s);
-      for (const o of SEED_ORGANIZATIONS) await setDoc(doc(db, "organizations", o.id), o);
-      for (const c of SEED_CRITERIA) await setDoc(doc(db, "criteria", c.id), c);
-      for (const a of SEED_ACTIVITIES) await setDoc(doc(db, "activities", a.id), a);
-      for (const att of SEED_ATTENDANCE) await setDoc(doc(db, "attendance", att.id), att);
-      for (const ev of SEED_EVIDENCE) await setDoc(doc(db, "evidence", ev.id), ev);
+      // Upsert baseline Seeds safely with merge: true so user-created records are preserved
+      for (const u of SEED_USERS) await setDoc(doc(db, "users", u.id), u, { merge: true });
+      for (const s of SEED_STUDENTS) await setDoc(doc(db, "students", s.id), s, { merge: true });
+      for (const o of SEED_ORGANIZATIONS) await setDoc(doc(db, "organizations", o.id), o, { merge: true });
+      for (const c of SEED_CRITERIA) await setDoc(doc(db, "criteria", c.id), c, { merge: true });
+      for (const a of SEED_ACTIVITIES) await setDoc(doc(db, "activities", a.id), a, { merge: true });
+      for (const att of SEED_ATTENDANCE) await setDoc(doc(db, "attendance", att.id), att, { merge: true });
+      for (const ev of SEED_EVIDENCE) await setDoc(doc(db, "evidence", ev.id), ev, { merge: true });
       for (const r of SEED_RESULTS) {
         const docId = `${r.studentId}_${r.periodId}`;
-        await setDoc(doc(db, "results", docId), r);
+        await setDoc(doc(db, "results", docId), r, { merge: true });
       }
-      for (const da of SEED_DAILY_ATTENDANCE) await setDoc(doc(db, "dailyAttendance", da.id), da);
-      for (const sc of SEED_SCHEDULES) await setDoc(doc(db, "schedules", sc.id), sc);
-      for (const m of SEED_MEMBERS) await setDoc(doc(db, "members", m.id), m);
+      for (const da of SEED_DAILY_ATTENDANCE) await setDoc(doc(db, "dailyAttendance", da.id), da, { merge: true });
+      for (const sc of SEED_SCHEDULES) await setDoc(doc(db, "schedules", sc.id), sc, { merge: true });
+      for (const m of SEED_MEMBERS) await setDoc(doc(db, "members", m.id), m, { merge: true });
 
-      // Add default super admin to seed list in firestore if not exists
+      // Add default super admin account
       const superadminAccount: UserAccount = {
         id: "U_SUPERADMIN",
         name: "Nhà phát triển (Super Admin)",
         username: "superadmin@unihub.edu.vn",
         email: "superadmin@unihub.edu.vn",
-        role: UserRole.ADMIN, // Or SUPER_ADMIN
+        role: UserRole.ADMIN,
         password: "superadmin"
       };
-      await setDoc(doc(db, "users", "U_SUPERADMIN"), superadminAccount);
+      await setDoc(doc(db, "users", "U_SUPERADMIN"), superadminAccount, { merge: true });
 
-      alert("Khôi phục dữ liệu hệ thống (Reset to Seeds) hoàn tất thành công!");
+      alert("Cập nhật dữ liệu mẫu hệ thống hoàn tất thành công! Các hoạt động đã khai báo vẫn được bảo lưu.");
     } catch (err) {
-      alert("Lỗi trong quá trình khôi phục: " + err);
+      alert("Lỗi trong quá trình cập nhật dữ liệu mẫu: " + err);
     } finally {
       setLoading(false);
       setStatusMessage("");
@@ -1449,7 +1429,9 @@ export default function App() {
   };
 
   const wipeAllDatabase = async () => {
-    if (!confirm("CẢNH BÁO NGUY HIỂM! Thao tác này sẽ xóa sạch toàn bộ cơ sở dữ liệu và không thể hoàn tác. Dữ liệu sẽ trống hoàn toàn. Bạn chắc chắn muốn thực hiện?")) {
+    const userInput = prompt("CẢNH BÁO NGUY HIỂM TỐI CAO! Thao tác này sẽ XÓA VĨNH VIỄN toàn bộ cơ sở dữ liệu bao gồm mọi hoạt động, thông báo, tài khoản sinh viên.\n\nNếu bạn chắc chắn muốn xóa, hãy gõ chính xác cụm từ sau để xác nhận:\nXOA TOAN BO DU LIEU UNIHUB");
+    if (userInput !== "XOA TOAN BO DU LIEU UNIHUB") {
+      alert("Đã hủy thao tác xóa dữ liệu do xác nhận không trùng khớp.");
       return;
     }
 

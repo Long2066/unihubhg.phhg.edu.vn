@@ -304,8 +304,20 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       (snap) => {
         const list = snap.docs.map(d => d.data() as T);
         const normalized = sorter ? sorter(list) : list;
-        setter(normalized);
-        localStorage.setItem(`unihub_${key}`, JSON.stringify(normalized));
+        if (normalized.length > 0) {
+          setter(normalized);
+          localStorage.setItem(`unihub_${key}`, JSON.stringify(normalized));
+        } else {
+          // If snapshot returns empty, preserve existing state for critical business collections
+          setter(prev => {
+            if (prev.length > 0 && (key === "activities" || key === "announcements" || key === "members" || key === "evidence" || key === "attendance")) {
+              console.warn(`Firestore snapshot returned empty for ${key}, preserving ${prev.length} existing items in state.`);
+              return prev;
+            }
+            localStorage.setItem(`unihub_${key}`, JSON.stringify([]));
+            return [];
+          });
+        }
       },
       (error) => console.warn(`Firestore listener failed for ${key}:`, error)
     );
@@ -628,131 +640,46 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Run automatically on boot to check connection and seed state
+  // Run automatically on boot to check connection and verify baseline state
   useEffect(() => {
     testConnection();
     
-    const initAndSeedFirestore = async () => {
+    const ensureFirestoreBaseline = async () => {
       try {
-        const usersSnap = await getDocs(collection(db, "users"));
-        let dbUsers: UserAccount[] = [];
-        usersSnap.forEach(d => dbUsers.push(d.data() as UserAccount));
-        
-        const hasNewHsv = dbUsers.some(u => u.email === "hsvphhg@hg.edu.vn" || u.username === "hsvphhg@hg.edu.vn");
-
-        if (usersSnap.empty) {
-          console.log("Seeding or updating Firestore database with new users and organizations...");
-          for (const u of SEED_USERS) {
-            await setDoc(doc(db, "users", u.id), u);
-          }
-          for (const o of SEED_ORGANIZATIONS) {
-            await setDoc(doc(db, "organizations", o.id), o);
-          }
-          for (const s of SEED_STUDENTS) {
-            await setDoc(doc(db, "students", s.id), s);
-          }
-          for (const a of SEED_ACTIVITIES) {
-            await setDoc(doc(db, "activities", a.id), a);
-          }
-          for (const att of SEED_ATTENDANCE) {
-            await setDoc(doc(db, "attendance", att.id), att);
-          }
-          for (const ev of SEED_EVIDENCE) {
-            await setDoc(doc(db, "evidence", ev.id), ev);
-          }
-          for (const m of SEED_MEMBERS) {
-            await setDoc(doc(db, "members", m.id), m);
-          }
-          const initAnns: ClubAnnouncement[] = [
-            {
-              id: "ANN_01",
-              orgId: "UNITECH",
-              orgName: "CLB Sáng tạo Công nghệ UniTech",
-              title: "Tuyển thành viên Ban chủ nhiệm nhiệm kỳ mới 2026-2027",
-              content: "CLB thông báo tuyển ứng tuyển nhân sự cho các ban: Truyền thông & Sự kiện, Nghiên cứu phát triển. Hạn chốt đăng ký trước ngày 15/06/2026.",
-              createdAt: "2026-05-20",
-              expiryDate: "2026-06-25"
-            },
-            {
-              id: "ANN_02",
-              orgId: "UNITECH",
-              orgName: "CLB Sáng tạo Công nghệ UniTech",
-              title: "Buổi sinh hoạt chuyên đề: Trí tuệ nhân tạo thế hệ mới",
-              content: "Trân trọng kính mời tất cả các thành viên tham dự buổi sinh hoạt chuyên đề thảo luận ứng dụng của AI vào học tập, giải thưởng và nghiên cứu khoa học sinh viên.",
-              createdAt: "2026-06-01",
-              expiryDate: "2026-06-24"
-            }
-          ];
-          for (const ann of initAnns) {
-            await setDoc(doc(db, "announcements", ann.id), ann);
-          }
-          for (const da of SEED_DAILY_ATTENDANCE) {
-            await setDoc(doc(db, "dailyAttendance", da.id), da);
-          }
-          for (const r of SEED_RESULTS) {
-            const docId = `${r.studentId}_${r.periodId}`;
-            await setDoc(doc(db, "results", docId), r);
-          }
+        // Safe baseline check: check if criteria collection is empty
+        const critSnapCheck = await getDocs(collection(db, "criteria"));
+        if (critSnapCheck.empty) {
+          console.log("Seeding criteria baseline collection...");
           for (const c of SEED_CRITERIA) {
-            await setDoc(doc(db, "criteria", c.id), c);
+            await setDoc(doc(db, "criteria", c.id), c, { merge: true });
           }
-          for (const cr of SEED_CLASS_REVIEW) {
-            await setDoc(doc(db, "classReviews", cr.classId), cr);
-          }
-          for (const fr of SEED_FACULTY_REVIEW) {
-            await setDoc(doc(db, "facultyReviews", fr.facultyId), fr);
-          }
-          console.log("Seeding complete!");
-
-          // Clear localStorage so it forces re-fetching the updated data
-          localStorage.clear();
-          window.location.reload();
-          return;
-        } else {
-          // If users exist but the HSV account is missing, add it individually without overwriting other edits.
-          if (!hasNewHsv) {
-            console.log("Adding missing HSV seed user individually...");
-            const hsvUser = SEED_USERS.find(u => u.email === "hsvphhg@hg.edu.vn");
-            if (hsvUser) {
-              await setDoc(doc(db, "users", hsvUser.id), hsvUser);
-            }
-          }
-
-          // Check if criteria collection is empty, and seed if so
-          const critSnapCheck = await getDocs(collection(db, "criteria"));
-          if (critSnapCheck.empty) {
-            console.log("Seeding criteria collection...");
-            for (const c of SEED_CRITERIA) {
-              await setDoc(doc(db, "criteria", c.id), c);
-            }
-          }
-
-          // Check if classReviews collection is empty, and seed if so
-          const crSnapCheck = await getDocs(collection(db, "classReviews"));
-          if (crSnapCheck.empty) {
-            console.log("Seeding classReviews collection...");
-            for (const cr of SEED_CLASS_REVIEW) {
-              await setDoc(doc(db, "classReviews", cr.classId), cr);
-            }
-          }
-
-          // Check if facultyReviews collection is empty, and seed if so
-          const frSnapCheck = await getDocs(collection(db, "facultyReviews"));
-          if (frSnapCheck.empty) {
-            console.log("Seeding facultyReviews collection...");
-            for (const fr of SEED_FACULTY_REVIEW) {
-              await setDoc(doc(db, "facultyReviews", fr.facultyId), fr);
-            }
-          }
-
-          await loadFromFirestore();
         }
+
+        // Check if classReviews collection is empty
+        const crSnapCheck = await getDocs(collection(db, "classReviews"));
+        if (crSnapCheck.empty) {
+          console.log("Seeding classReviews baseline collection...");
+          for (const cr of SEED_CLASS_REVIEW) {
+            await setDoc(doc(db, "classReviews", cr.classId), cr, { merge: true });
+          }
+        }
+
+        // Check if facultyReviews collection is empty
+        const frSnapCheck = await getDocs(collection(db, "facultyReviews"));
+        if (frSnapCheck.empty) {
+          console.log("Seeding facultyReviews baseline collection...");
+          for (const fr of SEED_FACULTY_REVIEW) {
+            await setDoc(doc(db, "facultyReviews", fr.facultyId), fr, { merge: true });
+          }
+        }
+
+        await loadFromFirestore();
       } catch (err) {
-        console.warn("Could not auto-seed Firestore (ignoring during initial startup auth limits):", err);
+        console.warn("Baseline check completed with notice (ignoring auth/network restrictions):", err);
       }
     };
 
-    initAndSeedFirestore();
+    ensureFirestoreBaseline();
   }, []);
 
   // Save changes helper
@@ -2268,26 +2195,33 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const createUserAccount = (account: UserAccount) => {
-    const updated = [...users, account];
-    setUsers(updated);
-    saveToStorage("unihub_users", updated);
+    const clean = sanitizeForFirestore(account);
+    setUsers(prev => {
+      const exists = prev.some(u => u.id === clean.id);
+      const updated = exists ? prev.map(u => u.id === clean.id ? { ...u, ...clean } : u) : [...prev, clean];
+      localStorage.setItem("unihub_users", JSON.stringify(updated));
+      return updated;
+    });
+    setDoc(doc(db, "users", clean.id), clean, { merge: true }).catch(e => console.warn("Lỗi lưu user Firestore:", e));
   };
 
   const updateUserAccount = (userId: string, updatedAccount: Partial<UserAccount>) => {
-    const updated = users.map(u => {
-      if (u.id === userId) {
-        return { ...u, ...updatedAccount };
-      }
-      return u;
+    const clean = sanitizeForFirestore(updatedAccount);
+    setUsers(prev => {
+      const updated = prev.map(u => u.id === userId ? { ...u, ...clean } : u);
+      localStorage.setItem("unihub_users", JSON.stringify(updated));
+      return updated;
     });
-    setUsers(updated);
-    saveToStorage("unihub_users", updated);
+    setDoc(doc(db, "users", userId), clean, { merge: true }).catch(e => console.warn("Lỗi cập nhật user Firestore:", e));
   };
 
   const deleteUserAccount = (userId: string) => {
-    const updated = users.filter(u => u.id !== userId);
-    setUsers(updated);
-    saveToStorage("unihub_users", updated);
+    setUsers(prev => {
+      const updated = prev.filter(u => u.id !== userId);
+      localStorage.setItem("unihub_users", JSON.stringify(updated));
+      return updated;
+    });
+    deleteDoc(doc(db, "users", userId)).catch(e => console.warn("Lỗi xóa user Firestore:", e));
   };
 
   const importNewClassesExcel = (studentsToImport: Student[], usersToImport: UserAccount[]) => {
