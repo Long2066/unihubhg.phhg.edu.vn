@@ -529,6 +529,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
 
+  // Helper to remove undefined properties before writing to Firestore
+  const sanitizeForFirestore = <T extends Record<string, any>>(obj: T): T => {
+    if (!obj || typeof obj !== "object") return obj;
+    const clean: Record<string, any> = {};
+    Object.keys(obj).forEach(key => {
+      if (obj[key] !== undefined && obj[key] !== null) {
+        clean[key] = obj[key];
+      }
+    });
+    return clean as T;
+  };
+
   // Save changes to Firebase Firestore (Safe upsert with merge: true, never delete unlisted docs automatically)
   const saveToFirestore = async (key: string, data: any) => {
     try {
@@ -1338,14 +1350,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       status: "UPCOMING"
     };
 
-    const updated = [...activities, newAct];
+    const cleanAct = sanitizeForFirestore(newAct);
+
+    const updated = [...activities, cleanAct as ExtracurricularActivity];
     setActivities(updated);
     saveToStorage("unihub_activities", updated);
 
     // Instant permanent write to Firestore
-    setDoc(doc(db, "activities", newAct.id), newAct).catch(e => console.warn("Lỗi lưu hoạt động Firestore:", e));
+    setDoc(doc(db, "activities", cleanAct.id), cleanAct).catch(e => console.warn("Lỗi lưu hoạt động Firestore:", e));
 
-    return newAct.id;
+    return cleanAct.id;
   };
 
   const deleteActivity = (activityId: string) => {
@@ -1388,14 +1402,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       orgName: org?.name || "Chi hội",
       createdAt: new Date().toISOString().split("T")[0]
     };
-    const updated = [newAnn, ...announcements];
+
+    const cleanAnn = sanitizeForFirestore(newAnn);
+
+    const updated = [cleanAnn as ClubAnnouncement, ...announcements];
     setAnnouncements(updated);
     saveToStorage("unihub_announcements", updated);
 
     // Instant permanent write to Firestore
-    setDoc(doc(db, "announcements", newAnn.id), newAnn).catch(e => console.warn("Lỗi lưu thông báo Firestore:", e));
+    setDoc(doc(db, "announcements", cleanAnn.id), cleanAnn).catch(e => console.warn("Lỗi lưu thông báo Firestore:", e));
 
-    return newAnn.id;
+    return cleanAnn.id;
   };
 
   const deleteAnnouncement = (id: string) => {

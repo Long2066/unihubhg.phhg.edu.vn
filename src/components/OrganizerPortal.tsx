@@ -608,103 +608,111 @@ export const OrganizerPortal: React.FC = () => {
   // Create Activity handler
   const handleAddNewActivity = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!actTitle || !actDate || !actLoc) {
-      alert("Vui lòng hoàn điền đầy đủ Tên hoạt động, Ngày giờ và Địa điểm!");
-      return;
-    }
-
-    const maxPart = actMaxParticipants.trim() ? Number(actMaxParticipants) : undefined;
-    if (maxPart !== undefined && (isNaN(maxPart) || maxPart <= 0)) {
-      alert("Giới hạn số lượng đăng ký phải là số nguyên dương lớn hơn 0!");
-      return;
-    }
-
-    const newActId = createActivity({
-      title: actTitle,
-      orgId: actDeployUnit,
-      criteriaId: actCriteria,
-      points: Number(actPoints),
-      dateTime: actDate,
-      location: actLoc,
-      description: actDesc,
-      registrationOpen: true,
-      expiryDate: actExpiryDate || undefined,
-      imageUrl: actImageUrl || undefined,
-      maxParticipants: maxPart
-    } as any);
-
-    setActTitle("");
-    setActDate("");
-    setActLoc("");
-    setActDesc("");
-    setActExpiryDate("");
-    setActImageUrl("");
-    setActMaxParticipants("");
-    alert("Tạo hoạt động mới thành công! Đăng ký sẵn sàng tích hợp trong mục điểm danh.");
-    setActivityTimeFilter("ALL");
-    setSelectedActId(newActId);
-    setActiveSubTab("QUANLY_DIEMDANH");
-  };
-
-  // Create Club Announcement handler
-  const handleCreateAnnouncement = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!annTitle || !annContent) {
-      alert("Vui lòng điền đủ Tiêu đề và Nội dung thông báo!");
-      return;
-    }
-
-    let linkedActId = "";
-    if (createLinkedActivity) {
-      if (!linkedDate || !linkedLocation) {
-        alert("Vui lòng nhập đầy đủ Thời gian tổ chức và Địa điểm cho hoạt động điểm danh rèn luyện đi kèm!");
+    try {
+      if (!actTitle || !actDate || !actLoc) {
+        alert("Vui lòng điền đầy đủ Tên hoạt động, Ngày giờ và Địa điểm!");
         return;
       }
-      const maxPart = linkedMaxParticipants.trim() ? Number(linkedMaxParticipants) : undefined;
+
+      const maxPart = actMaxParticipants.trim() ? Number(actMaxParticipants) : undefined;
       if (maxPart !== undefined && (isNaN(maxPart) || maxPart <= 0)) {
         alert("Giới hạn số lượng đăng ký phải là số nguyên dương lớn hơn 0!");
         return;
       }
 
-      linkedActId = createActivity({
-        title: annTitle,
-        orgId: annDeployUnit,
-        criteriaId: linkedCriteriaId,
-        points: Number(linkedPoints),
-        dateTime: linkedDate,
-        location: linkedLocation,
-        description: annContent,
+      const newActId = createActivity({
+        title: actTitle,
+        orgId: actDeployUnit,
+        criteriaId: actCriteria || "TC3.1",
+        points: Number(actPoints) || 5,
+        dateTime: actDate,
+        location: actLoc,
+        description: actDesc || "",
         registrationOpen: true,
-        expiryDate: annExpiryDate || undefined,
-        imageUrl: annImageUrl || undefined,
+        expiryDate: actExpiryDate || undefined,
+        imageUrl: actImageUrl || undefined,
         maxParticipants: maxPart
       } as any);
-    }
 
-    createAnnouncement({
-      orgId: annDeployUnit,
-      title: annTitle,
-      content: annContent,
-      expiryDate: annExpiryDate || new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split("T")[0], // default 1 week
-      activityId: linkedActId || undefined,
-      imageUrl: annImageUrl || undefined
-    });
-
-    setAnnTitle("");
-    setAnnContent("");
-    setAnnExpiryDate("");
-    setAnnImageUrl("");
-    setLinkedDate("");
-    setLinkedLocation("");
-    setLinkedMaxParticipants("");
-    
-    alert(createLinkedActivity ? "Đăng tải thông báo & khởi tạo hoạt động điểm danh thành công!" : "Đăng tải thông báo CLB thành công!");
-    
-    setActivityTimeFilter("ALL");
-    if (linkedActId) {
-      setSelectedActId(linkedActId);
+      setActTitle("");
+      setActDate("");
+      setActLoc("");
+      setActDesc("");
+      setActExpiryDate("");
+      setActImageUrl("");
+      setActMaxParticipants("");
+      alert("Tạo hoạt động mới thành công! Đăng ký sẵn sàng tích hợp trong mục điểm danh.");
+      setActivityTimeFilter("ALL");
+      setSelectedActId(newActId);
+      setActiveSubTab("QUANLY_DIEMDANH");
+    } catch (err) {
+      console.error("Lỗi khi khai báo hoạt động:", err);
+      alert("Có lỗi xảy ra khi tạo hoạt động. Vui lòng kiểm tra lại thông tin!");
     }
-    setActiveSubTab("QUANLY_DIEMDANH");
+  };
+
+  // Create Club Announcement handler
+  const handleCreateAnnouncement = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (!annTitle || !annContent) {
+        alert("Vui lòng điền đủ Tiêu đề và Nội dung thông báo!");
+        return;
+      }
+
+      let linkedActId = "";
+      if (createLinkedActivity) {
+        if (!linkedDate || !linkedLocation) {
+          alert("Vui lòng nhập đầy đủ Thời gian tổ chức và Địa điểm cho hoạt động điểm danh rèn luyện đi kèm!");
+          return;
+        }
+        const maxPart = linkedMaxParticipants.trim() ? Number(linkedMaxParticipants) : undefined;
+        if (maxPart !== undefined && (isNaN(maxPart) || maxPart <= 0)) {
+          alert("Giới hạn số lượng đăng ký phải là số nguyên dương lớn hơn 0!");
+          return;
+        }
+
+        linkedActId = createActivity({
+          title: annTitle,
+          orgId: annDeployUnit,
+          criteriaId: linkedCriteriaId || "TC3.1",
+          points: Number(linkedPoints) || 5,
+          dateTime: linkedDate,
+          location: linkedLocation,
+          description: annContent,
+          registrationOpen: true,
+          expiryDate: annExpiryDate || undefined,
+          imageUrl: annImageUrl || undefined,
+          maxParticipants: maxPart
+        } as any);
+      }
+
+      createAnnouncement({
+        orgId: annDeployUnit,
+        title: annTitle,
+        content: annContent,
+        expiryDate: annExpiryDate || new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split("T")[0], // default 1 week
+        activityId: linkedActId || undefined,
+        imageUrl: annImageUrl || undefined
+      });
+
+      setAnnTitle("");
+      setAnnContent("");
+      setAnnExpiryDate("");
+      setAnnImageUrl("");
+      setLinkedDate("");
+      setLinkedLocation("");
+      setLinkedMaxParticipants("");
+      alert("Đăng tải bản tin thông báo thành công!");
+      setActivityTimeFilter("ALL");
+      if (linkedActId) {
+        setSelectedActId(linkedActId);
+      }
+      setActiveSubTab("QUANLY_DIEMDANH");
+    } catch (err) {
+      console.error("Lỗi khi đăng thông báo:", err);
+      alert("Có lỗi xảy ra khi đăng thông báo. Vui lòng kiểm tra lại thông tin!");
+    }
   };
 
   const handleBulkAttendanceAdd = () => {
