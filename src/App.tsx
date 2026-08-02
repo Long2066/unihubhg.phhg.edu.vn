@@ -778,7 +778,11 @@ const AppContent: React.FC = () => {
       }
     }
 
-    return <Suspense fallback={<PortalLoader />}>{portal}</Suspense>;
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={<PortalLoader />}>{portal}</Suspense>
+      </ErrorBoundary>
+    );
   };
 
   const getRoleLabel = (role: UserRole) => {
@@ -2063,10 +2067,91 @@ const AppContent: React.FC = () => {
   );
 };
 
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  declare props: ErrorBoundaryProps;
+  state: ErrorBoundaryState = {
+    hasError: false,
+    error: null
+  };
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("ErrorBoundary caught error:", error, errorInfo);
+  }
+
+  handleResetCache = () => {
+    try {
+      localStorage.removeItem("unihub_current_user");
+      localStorage.removeItem("unihub_theme_config");
+      localStorage.removeItem("unihub_custom_classes");
+    } catch {}
+    window.location.href = window.location.origin;
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-6 font-sans">
+          <div className="max-w-md w-full bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-2xl space-y-4 text-center">
+            <div className="w-14 h-14 bg-rose-500/20 text-rose-400 rounded-2xl flex items-center justify-center mx-auto border border-rose-500/30">
+              <ShieldAlert size={32} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white">Khôi phục Giao diện Hệ thống</h3>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                Phát hiện dữ liệu đệm phiên cũ không tương thích. Vui lòng bấm nút bên dưới để tự động khôi phục giao diện.
+              </p>
+            </div>
+
+            {this.state.error && (
+              <div className="p-3 bg-slate-900/80 rounded-xl text-left border border-slate-700/60 overflow-x-auto text-[11px] font-mono text-rose-300">
+                {this.state.error.toString()}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                onClick={this.handleResetCache}
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer"
+              >
+                🧹 Xóa bộ nhớ đệm & Đăng nhập lại
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium text-xs rounded-xl transition-all cursor-pointer"
+              >
+                🔄 Tải lại trang
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <UniHubProvider>
-      <AppContent />
-    </UniHubProvider>
+    <ErrorBoundary>
+      <UniHubProvider>
+        <ErrorBoundary>
+          <AppContent />
+        </ErrorBoundary>
+      </UniHubProvider>
+    </ErrorBoundary>
   );
 }

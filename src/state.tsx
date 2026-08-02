@@ -1215,7 +1215,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // 2. Find user account and student object
     const userObj = findUserInList(trimmedInput, effectiveUsers);
     const studentObj = students.find(s => 
-      s.id.toLowerCase() === trimmedInput.toLowerCase() ||
+      (s.id && s.id.toLowerCase() === trimmedInput.toLowerCase()) ||
       (s.email && s.email.toLowerCase() === trimmedInput.toLowerCase()) ||
       (s.idCard && s.idCard.trim() === trimmedInput)
     );
