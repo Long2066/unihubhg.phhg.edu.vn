@@ -2089,6 +2089,20 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("ErrorBoundary caught error:", error, errorInfo);
+    // Automatic silent self-healing mechanism:
+    // Clear corrupted local session cache once and auto-reload page seamlessly after 400ms
+    const autoRecoveredKey = "unihub_auto_heal_attempted";
+    if (!sessionStorage.getItem(autoRecoveredKey)) {
+      sessionStorage.setItem(autoRecoveredKey, "true");
+      try {
+        localStorage.removeItem("unihub_current_user");
+        localStorage.removeItem("unihub_theme_config");
+        localStorage.removeItem("unihub_custom_classes");
+      } catch {}
+      setTimeout(() => {
+        window.location.reload();
+      }, 400);
+    }
   }
 
   handleResetCache = () => {

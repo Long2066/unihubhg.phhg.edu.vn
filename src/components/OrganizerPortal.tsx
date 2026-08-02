@@ -205,8 +205,8 @@ export const OrganizerPortal: React.FC = () => {
   const [bulkInput, setBulkInput] = useState("");
 
   // Theme styles based on organization types (CLB, Youth Union DOAN, Student Association HOI)
-  const isDoan = org.type === "DOAN";
-  const isHoi = org.type === "HOI";
+  const isDoan = org?.type === "DOAN" || currentUser?.role === UserRole.YOUTH_UNION;
+  const isHoi = org?.type === "HOI" || currentUser?.role === UserRole.STUDENT_UNION;
 
   const themeBgActive = isDoan 
     ? "bg-rose-600 text-white shadow-md shadow-rose-100/50" 
