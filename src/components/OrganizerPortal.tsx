@@ -31,7 +31,7 @@ import {
   CheckCircle2,
   Edit3
 } from "lucide-react";
-import { OrganizationMember, ExtracurricularActivity, UserRole } from "../types";
+import { OrganizationMember, ExtracurricularActivity, UserRole, Organization } from "../types";
 
 export const OrganizerPortal: React.FC = () => {
   const { 
@@ -71,14 +71,29 @@ export const OrganizerPortal: React.FC = () => {
 
   const orgId = currentUser?.targetId || defaultTargetId;
   
-  // Find current organization
-  const org = organizations.find(o => o.id === orgId) || organizations.find(o => o.id === defaultTargetId) || (organizations.length > 0 ? organizations[0] : undefined);
-  const effectiveOrgId = org?.id || orgId;
-  const orgMembers = org ? members.filter(m => m.orgId === org.id) : [];
+  const defaultOrgName = currentUser?.role === UserRole.YOUTH_UNION 
+    ? "BCH Đoàn TNCS Phân hiệu Hà Giang" 
+    : currentUser?.role === UserRole.STUDENT_UNION 
+    ? "BCH Hội Sinh viên Phân hiệu Hà Giang" 
+    : "Tổ chức / Câu lạc bộ";
+
+  // Find current organization with guaranteed non-null fallback
+  const rawOrg = organizations.find(o => o.id === orgId) || organizations.find(o => o.id === defaultTargetId) || (organizations.length > 0 ? organizations[0] : undefined);
+  const org: Organization = rawOrg || {
+    id: orgId,
+    name: currentUser?.name || defaultOrgName,
+    type: currentUser?.role === UserRole.YOUTH_UNION ? "DOAN" : currentUser?.role === UserRole.STUDENT_UNION ? "HOI" : "CLB",
+    leaderName: "Ban điều hành",
+    field: "Hoạt động phong trào",
+    level: "TRUONG"
+  };
+
+  const effectiveOrgId = org.id;
+  const orgMembers = members.filter(m => m.orgId === org.id);
   const isDoanOrHoi = currentUser?.role === UserRole.YOUTH_UNION || currentUser?.role === UserRole.STUDENT_UNION || effectiveOrgId === "DOANTN" || effectiveOrgId === "HOISV" || effectiveOrgId === "DOAN_HOI";
   
   const orgActivities = activities.filter(a => 
-    (org && a.orgId === org.id) || 
+    a.orgId === org.id || 
     (isDoanOrHoi && (a.orgId === "DOANTN" || a.orgId === "HOISV" || a.orgId === "DOAN_HOI"))
   );
 

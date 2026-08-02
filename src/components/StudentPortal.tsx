@@ -428,7 +428,7 @@ export const StudentPortal: React.FC = () => {
             />
           ) : (
             <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-xs uppercase shrink-0">
-              {currentUser?.name.substring(0, 2)}
+              {(currentUser?.name || "SV").substring(0, 2)}
             </div>
           )}
           

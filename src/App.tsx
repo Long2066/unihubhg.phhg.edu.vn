@@ -1170,14 +1170,14 @@ const AppContent: React.FC = () => {
                     />
                   ) : (
                     <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-indigo-600 text-white flex items-center justify-center font-black text-xs group-hover:scale-105 transition-transform">
-                      {currentUser.name.trim().substring(0, 1).toUpperCase()}
+                      {(currentUser.name || currentUser.username || "U").trim().substring(0, 1).toUpperCase()}
                     </div>
                   )}
                   <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 ring-1 ring-white" />
                 </div>
                 
                 <div className="hidden md:flex flex-col text-right font-sans">
-                  <span className="text-xs font-black text-slate-900 leading-none group-hover:text-indigo-600 transition-colors">{currentUser.name}</span>
+                  <span className="text-xs font-black text-slate-900 leading-none group-hover:text-indigo-600 transition-colors">{currentUser.name || currentUser.username}</span>
                   <span className="text-[8.5px] font-mono font-bold text-slate-400 mt-1 leading-none">
                     {currentUser.role === "STUDENT" ? "Sinh viên" : currentUser.role === "ORGANIZER" ? "Ban chủ nhiệm" : "Ban giám sát"}
                   </span>
@@ -1195,13 +1195,13 @@ const AppContent: React.FC = () => {
                         {studentObj?.avatar || isStudentOrMonitor ? (
                           <img 
                             referrerPolicy="no-referrer"
-                            src={studentObj?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name}`} 
-                            alt={currentUser.name} 
+                            src={studentObj?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name || currentUser.username}`} 
+                            alt={currentUser.name || currentUser.username} 
                             className="w-11 h-11 rounded-full object-cover border border-slate-100 shadow-sm"
                           />
                         ) : (
                           <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-indigo-500 to-indigo-600 text-white flex items-center justify-center font-black text-sm">
-                            {currentUser.name.trim().substring(0, 1).toUpperCase()}
+                            {(currentUser.name || currentUser.username || "U").trim().substring(0, 1).toUpperCase()}
                           </div>
                         )}
                       </div>
