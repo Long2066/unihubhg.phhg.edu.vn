@@ -646,30 +646,33 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     const ensureFirestoreBaseline = async () => {
       try {
-        // Safe baseline check: check if criteria collection is empty
-        const critSnapCheck = await getDocs(collection(db, "criteria"));
-        if (critSnapCheck.empty) {
-          console.log("Seeding criteria baseline collection...");
-          for (const c of SEED_CRITERIA) {
-            await setDoc(doc(db, "criteria", c.id), c, { merge: true });
+        // Check if organizations collection is empty
+        const orgsSnapCheck = await getDocs(collection(db, "organizations"));
+        if (orgsSnapCheck.empty) {
+          console.log("Seeding organizations baseline collection...");
+          for (const o of SEED_ORGANIZATIONS) {
+            await setDoc(doc(db, "organizations", o.id), o, { merge: true });
           }
         }
 
-        // Check if classReviews collection is empty
-        const crSnapCheck = await getDocs(collection(db, "classReviews"));
-        if (crSnapCheck.empty) {
-          console.log("Seeding classReviews baseline collection...");
-          for (const cr of SEED_CLASS_REVIEW) {
-            await setDoc(doc(db, "classReviews", cr.classId), cr, { merge: true });
+        // Check if org user accounts are missing, seed individual org users safely
+        const usersSnapCheck = await getDocs(collection(db, "users"));
+        if (usersSnapCheck.empty) {
+          console.log("Seeding baseline users...");
+          for (const u of SEED_USERS) {
+            await setDoc(doc(db, "users", u.id), u, { merge: true });
           }
-        }
-
-        // Check if facultyReviews collection is empty
-        const frSnapCheck = await getDocs(collection(db, "facultyReviews"));
-        if (frSnapCheck.empty) {
-          console.log("Seeding facultyReviews baseline collection...");
-          for (const fr of SEED_FACULTY_REVIEW) {
-            await setDoc(doc(db, "facultyReviews", fr.facultyId), fr, { merge: true });
+        } else {
+          // Ensure default org accounts exist in users collection
+          const currentUsers = usersSnapCheck.docs.map(d => d.data() as UserAccount);
+          for (const orgUser of SEED_USERS.filter(u => isOrgRole(u.role))) {
+            const hasUser = currentUsers.some(u => 
+              (u.targetId && orgUser.targetId && u.targetId.toLowerCase() === orgUser.targetId.toLowerCase()) || 
+              (u.username && u.username.toLowerCase() === orgUser.username.toLowerCase())
+            );
+            if (!hasUser) {
+              await setDoc(doc(db, "users", orgUser.id), orgUser, { merge: true });
+            }
           }
         }
 

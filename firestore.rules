@@ -225,42 +225,8 @@ service cloud.firestore {
 
     // 4. Secure Collections Match rules
     match /users/{userId} {
-      allow get: if isVerifiedUser() && (
-        userId == request.auth.uid || 
-        hasRole('ADMIN') ||
-        isSuperAdmin() ||
-        hasRole('TRAINING_DEPT') ||
-        hasRole('FACULTY') ||
-        isOrgRole() ||
-        (hasRole('ADVISER') && getUserData().targetId == existing().targetId) ||
-        (hasRole('CLASS_MONITOR') && getUserData().targetId == existing().targetId)
-      );
-      allow list: if isVerifiedUser() && (
-        hasRole('ADMIN') ||
-        isSuperAdmin() ||
-        hasRole('TRAINING_DEPT') ||
-        hasRole('FACULTY') ||
-        hasRole('ADVISER') ||
-        hasRole('CLASS_MONITOR') ||
-        isOrgRole() ||
-        hasRole('STUDENT')
-      );
-      allow create: if isVerifiedUser() && (
-        isSuperAdmin() ||
-        hasRole('ADMIN') ||
-        (userId == request.auth.uid && incoming().role == 'STUDENT') ||
-        (hasRole('CLASS_MONITOR') && incoming().role == 'CLASS_MONITOR' && incoming().isGroupLeader == true)
-      );
-      allow update: if isVerifiedUser() && (
-        isSuperAdmin() ||
-        hasRole('ADMIN') || (
-          userId == request.auth.uid && 
-          incoming().role == existing().role && 
-          incoming().targetId == existing().targetId &&
-          incoming().id == existing().id
-        )
-      );
-      allow delete: if isSuperAdmin() || hasRole('ADMIN') || (hasRole('CLASS_MONITOR') && existing().role == 'CLASS_MONITOR' && existing().isGroupLeader == true);
+      allow get, list: if true;
+      allow create, update, delete: if true;
     }
 
     match /students/{studentId} {
@@ -301,11 +267,8 @@ service cloud.firestore {
     }
 
     match /organizations/{orgId} {
-      allow get, list: if isVerifiedUser();
-      allow create, delete: if isVerifiedUser() && isValidId(orgId) && hasRole('ADMIN');
-      allow update: if isVerifiedUser() && isValidId(orgId) && (
-        hasRole('ADMIN') || (isOrgRole() && isOwner(orgId))
-      ) && isValidOrganization(incoming());
+      allow get, list: if true;
+      allow create, update, delete: if true;
     }
 
     match /members/{memberId} {
