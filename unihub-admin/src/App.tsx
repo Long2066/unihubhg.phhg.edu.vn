@@ -25,6 +25,7 @@ import {
 import { 
   UserAccount, 
   UserRole, 
+  isOrgRole,
   Student, 
   Organization, 
   OrganizationMember, 
@@ -1159,7 +1160,11 @@ export default function App() {
   const deleteUser = async (id: string, name: string) => {
     if (confirm(`Bạn có chắc chắn muốn xóa tài khoản "${name}"?`)) {
       try {
+        const userToDelete = users.find(u => u.id === id);
         await deleteDoc(doc(db, "users", id));
+        if (userToDelete && isOrgRole(userToDelete.role) && userToDelete.targetId) {
+          await deleteDoc(doc(db, "organizations", userToDelete.targetId)).catch(() => {});
+        }
         alert("Đã xóa tài khoản thành công.");
       } catch (err) {
         alert("Lỗi khi xóa tài khoản: " + err);

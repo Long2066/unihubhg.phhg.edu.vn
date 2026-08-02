@@ -2202,24 +2202,43 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteClubAndAccount = (clubId: string) => {
+    const clubIdClean = (clubId || "").trim().toLowerCase();
+    const orgToDelete = organizations.find(o => o.id.toLowerCase() === clubIdClean);
+
+    // 1. Remove organization from state, cache, and Firestore
     setOrganizations(prev => {
-      const updated = prev.filter(o => o.id !== clubId);
+      const updated = prev.filter(o => o.id.toLowerCase() !== clubIdClean);
       localStorage.setItem("unihub_organizations", JSON.stringify(updated));
       return updated;
     });
 
-    const assocUser = users.find(u => isOrgRole(u.role) && (u.targetId === clubId || u.targetId?.toLowerCase() === clubId.toLowerCase()));
+    deleteDoc(doc(db, "organizations", clubId)).catch(e => console.warn("Lỗi xóa organization Firestore:", e));
+    if (orgToDelete && orgToDelete.id !== clubId) {
+      deleteDoc(doc(db, "organizations", orgToDelete.id)).catch(e => console.warn("Lỗi xóa organization Firestore:", e));
+    }
 
+    // 2. Find ALL associated user accounts matching targetId, username, email, or name
+    const assocUsers = users.filter(u => {
+      if (!isOrgRole(u.role)) return false;
+      const targetMatch = u.targetId && u.targetId.trim().toLowerCase() === clubIdClean;
+      const userMatch = u.username && u.username.toLowerCase().includes(clubIdClean);
+      const emailMatch = u.email && u.email.toLowerCase().includes(clubIdClean);
+      const nameMatch = orgToDelete && u.name && u.name.trim().toLowerCase() === orgToDelete.name.trim().toLowerCase();
+      return targetMatch || userMatch || emailMatch || nameMatch;
+    });
+
+    const assocUserIds = assocUsers.map(u => u.id);
+
+    // 3. Remove all associated user accounts from state, cache, and Firestore
     setUsers(prev => {
-      const updated = prev.filter(u => !(isOrgRole(u.role) && (u.targetId === clubId || u.targetId?.toLowerCase() === clubId.toLowerCase())));
+      const updated = prev.filter(u => !assocUserIds.includes(u.id));
       localStorage.setItem("unihub_users", JSON.stringify(updated));
       return updated;
     });
 
-    deleteDoc(doc(db, "organizations", clubId)).catch(e => console.warn("Lỗi xóa club Firestore:", e));
-    if (assocUser) {
-      deleteDoc(doc(db, "users", assocUser.id)).catch(e => console.warn("Lỗi xóa user liên kết Firestore:", e));
-    }
+    assocUserIds.forEach(uId => {
+      deleteDoc(doc(db, "users", uId)).catch(e => console.warn("Lỗi xóa user liên kết Firestore:", e));
+    });
   };
 
   const createUserAccount = (account: UserAccount) => {
@@ -2244,12 +2263,23 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteUserAccount = (userId: string) => {
+    const userToDelete = users.find(u => u.id === userId);
     setUsers(prev => {
       const updated = prev.filter(u => u.id !== userId);
       localStorage.setItem("unihub_users", JSON.stringify(updated));
       return updated;
     });
     deleteDoc(doc(db, "users", userId)).catch(e => console.warn("Lỗi xóa user Firestore:", e));
+
+    if (userToDelete && isOrgRole(userToDelete.role) && userToDelete.targetId) {
+      const orgId = userToDelete.targetId;
+      setOrganizations(prev => {
+        const updated = prev.filter(o => o.id.toLowerCase() !== orgId.toLowerCase());
+        localStorage.setItem("unihub_organizations", JSON.stringify(updated));
+        return updated;
+      });
+      deleteDoc(doc(db, "organizations", orgId)).catch(e => console.warn("Lỗi xóa organization liên kết Firestore:", e));
+    }
   };
 
   const importNewClassesExcel = (studentsToImport: Student[], usersToImport: UserAccount[]) => {
