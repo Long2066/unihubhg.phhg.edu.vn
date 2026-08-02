@@ -907,9 +907,6 @@ export const StudentPortal: React.FC = () => {
         if (!isJoined) return false;
       }
       
-      const registered = myAttendance.some(r => r.activityId === act.id);
-      if (act.status === "COMPLETED" && !registered) return false;
-      
       const expiry = (act as any).expiryDate;
       if (expiry && todayStr > expiry) return false;
       
