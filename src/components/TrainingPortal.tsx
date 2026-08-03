@@ -55,7 +55,8 @@ export const TrainingPortal: React.FC = () => {
     gradeAppeals,
     resolveGradeAppeal,
     gradingRules,
-    updateGradingRules
+    updateGradingRules,
+    addGradeAuditLog
   } = useUniHub();
 
   const activeTab = (activePortletTab as "IMPORT" | "TEACHER_ASSIGNMENTS" | "UNLOCK_REQUESTS" | "GRADE_APPEALS" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU") || "IMPORT";
@@ -121,6 +122,136 @@ export const TrainingPortal: React.FC = () => {
   const [selectedAppealForResponse, setSelectedAppealForResponse] = useState<GradeAppeal | null>(null);
   const [appealResponseText, setAppealResponseText] = useState<string>("");
   const [appealNewGrade, setAppealNewGrade] = useState<string>("");
+
+  // Edit Assignment Modal State
+  const [showEditAssignmentModal, setShowEditAssignmentModal] = useState<boolean>(false);
+  const [editingAssignmentId, setEditingAssignmentId] = useState<string>("");
+  const [editAssignForm, setEditAssignForm] = useState({
+    classId: "",
+    subjectCode: "",
+    subjectName: "",
+    credits: 3,
+    teacherId: "",
+    teacherName: ""
+  });
+
+  // Handler: Export Sample Excel for Course Assignments
+  const handleExportAssignmentSampleExcel = () => {
+    const sampleData = [
+      {
+        "STT": 1,
+        "Mã học kỳ": selectedSemesterId || "HOCKY_2_2025_2026",
+        "Mã học phần": "VPS7251",
+        "Tên học phần": "Cơ sở Tự nhiên - xã hội",
+        "Số tín chỉ": 4,
+        "Lớp niên chế": "K2-GDTH-A",
+        "Mã / Email Giảng viên": "gvbm@phhg.edu.vn",
+        "Họ và tên Giảng viên": "ThS. Ngô Văn Bình"
+      },
+      {
+        "STT": 2,
+        "Mã học kỳ": selectedSemesterId || "HOCKY_2_2025_2026",
+        "Mã học phần": "CS01",
+        "Tên học phần": "Tin học Đại cương",
+        "Số tín chỉ": 3,
+        "Lớp niên chế": "K20-CNTT",
+        "Mã / Email Giảng viên": "gvbm@phhg.edu.vn",
+        "Họ và tên Giảng viên": "ThS. Ngô Văn Bình"
+      },
+      {
+        "STT": 3,
+        "Mã học kỳ": selectedSemesterId || "HOCKY_2_2025_2026",
+        "Mã học phần": "MATH01",
+        "Tên học phần": "Toán Cao cấp A1",
+        "Số tín chỉ": 3,
+        "Lớp niên chế": "K20-CNTT",
+        "Mã / Email Giảng viên": "gv_nguyenvana@phhg.edu.vn",
+        "Họ và tên Giảng viên": "ThS. Nguyễn Văn A"
+      }
+    ];
+
+    const currentSemAssignments = teacherAssignments.filter(a => a.semesterId === selectedSemesterId);
+    const exportRows = currentSemAssignments.length > 0
+      ? currentSemAssignments.map((item, idx) => ({
+          "STT": idx + 1,
+          "Mã học kỳ": item.semesterId,
+          "Mã học phần": item.subjectCode,
+          "Tên học phần": item.subjectName,
+          "Số tín chỉ": item.credits,
+          "Lớp niên chế": item.classId,
+          "Mã / Email Giảng viên": item.teacherId,
+          "Họ và tên Giảng viên": item.teacherName
+        }))
+      : sampleData;
+
+    const worksheet = XLSX.utils.json_to_sheet(exportRows);
+
+    worksheet["!cols"] = [
+      { wch: 6 },  // STT
+      { wch: 22 }, // Mã học kỳ
+      { wch: 15 }, // Mã học phần
+      { wch: 32 }, // Tên học phần
+      { wch: 12 }, // Số tín chỉ
+      { wch: 18 }, // Lớp niên chế
+      { wch: 30 }, // Email Giảng viên
+      { wch: 26 }  // Họ tên Giảng viên
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Phan_Cong_Giang_Day");
+    XLSX.writeFile(workbook, `Mau_Phan_Cong_Giang_Day_${selectedSemesterId || "HK2"}.xlsx`);
+  };
+
+  // Handlers for Editing Assignment
+  const handleOpenEditAssignmentModal = (assignment: CourseClassAssignment) => {
+    setEditingAssignmentId(assignment.id);
+    setEditAssignForm({
+      classId: assignment.classId,
+      subjectCode: assignment.subjectCode,
+      subjectName: assignment.subjectName,
+      credits: assignment.credits,
+      teacherId: assignment.teacherId,
+      teacherName: assignment.teacherName
+    });
+    setShowEditAssignmentModal(true);
+  };
+
+  const handleSaveEditAssignment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAssignmentId) return;
+
+    const updatedAssignments = teacherAssignments.map(a => {
+      if (a.id === editingAssignmentId) {
+        return {
+          ...a,
+          classId: editAssignForm.classId.trim(),
+          subjectCode: editAssignForm.subjectCode.trim(),
+          subjectName: editAssignForm.subjectName.trim(),
+          credits: Number(editAssignForm.credits) || 3,
+          teacherId: editAssignForm.teacherId.trim(),
+          teacherName: editAssignForm.teacherName.trim()
+        };
+      }
+      return a;
+    });
+
+    saveTeacherAssignments(updatedAssignments);
+
+    addGradeAuditLog({
+      action: "UPDATE_ASSIGNMENT",
+      userEmail: "dtphhg@hg.edu.vn",
+      userName: "Phòng Đào tạo",
+      userRole: UserRole.TRAINING_DEPT,
+      subjectCode: editAssignForm.subjectCode,
+      classId: editAssignForm.classId,
+      oldValue: "Phân công cũ",
+      newValue: `Đổi sang GV: ${editAssignForm.teacherName} (${editAssignForm.teacherId})`
+    });
+
+    setShowEditAssignmentModal(false);
+    setEditingAssignmentId("");
+    alert(`Đã điều chỉnh phân công giảng dạy môn ${editAssignForm.subjectName} (${editAssignForm.classId}) thành công!`);
+  };
 
   // Schedule Management State
   const [schedulePreviewData, setSchedulePreviewData] = useState<any[]>([]);
@@ -1378,6 +1509,15 @@ export const TrainingPortal: React.FC = () => {
                     ))}
                   </select>
 
+                  <button
+                    onClick={handleExportAssignmentSampleExcel}
+                    className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="Tải tệp Excel phân công giảng dạy chuẩn mẫu"
+                  >
+                    <Download size={13} />
+                    <span>Xuất Excel Mẫu</span>
+                  </button>
+
                   <label className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-2xs">
                     <Upload size={13} />
                     <span>Nạp Excel Phân công</span>
@@ -1462,13 +1602,14 @@ export const TrainingPortal: React.FC = () => {
                       <th className="p-3 w-32">Lớp Niên Chế</th>
                       <th className="p-3">Giảng viên Đảm Nhận</th>
                       <th className="p-3 text-center w-28">Trạng thái Nộp</th>
+                      <th className="p-3 text-right w-24">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {teacherAssignments.filter(a => a.semesterId === selectedSemesterId).length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-slate-400 text-xs">
-                          Chưa có phân công nào trong học kỳ này. Bấm "Nạp Excel Phân công" hoặc "Thêm thủ công" để tạo mới.
+                        <td colSpan={8} className="p-8 text-center text-slate-400 text-xs">
+                          Chưa có phân công nào trong học kỳ này. Bấm "Xuất Excel Mẫu", "Nạp Excel Phân công" hoặc "Thêm thủ công" để tạo mới.
                         </td>
                       </tr>
                     ) : (
@@ -1498,6 +1639,15 @@ export const TrainingPortal: React.FC = () => {
                               }`}>
                                 {isSubmitted ? "Đã nộp điểm" : isDraft ? "Đang lưu nháp" : "Chưa nộp điểm"}
                               </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <button
+                                onClick={() => handleOpenEditAssignmentModal(item)}
+                                className="p-1.5 bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-800 rounded-lg border border-slate-200 transition-colors cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+                                title="Hiệu chỉnh phân công giảng viên thủ công"
+                              >
+                                <Edit size={13} />
+                              </button>
                             </td>
                           </tr>
                         );
@@ -2480,6 +2630,112 @@ export const TrainingPortal: React.FC = () => {
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs"
                 >
                   Thêm Phân Công
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Edit Assignment (Cây bút hiệu chỉnh thủ công) */}
+      {showEditAssignmentModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-scale-up font-sans text-left">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                <Edit className="text-amber-600" size={18} />
+                Hiệu Chỉnh Phân Công Giảng Viên Thủ Công
+              </h3>
+              <button onClick={() => setShowEditAssignmentModal(false)} className="text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer">✕</button>
+            </div>
+
+            <form onSubmit={handleSaveEditAssignment} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Lớp niên chế / hành chính (*)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: K20-CNTT"
+                  value={editAssignForm.classId}
+                  onChange={(e) => setEditAssignForm({ ...editAssignForm, classId: e.target.value })}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-slate-800 font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Mã học phần (*)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: VPS7251"
+                  value={editAssignForm.subjectCode}
+                  onChange={(e) => setEditAssignForm({ ...editAssignForm, subjectCode: e.target.value })}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-slate-800 font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Tên học phần (*)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: Cơ sở Tự nhiên - xã hội"
+                  value={editAssignForm.subjectName}
+                  onChange={(e) => setEditAssignForm({ ...editAssignForm, subjectName: e.target.value })}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-slate-800 font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Số tín chỉ</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={editAssignForm.credits}
+                    onChange={(e) => setEditAssignForm({ ...editAssignForm, credits: parseInt(e.target.value, 10) || 2 })}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 font-mono font-bold text-center"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Mã / Email GV (*)</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="gvbm@phhg.edu.vn"
+                    value={editAssignForm.teacherId}
+                    onChange={(e) => setEditAssignForm({ ...editAssignForm, teacherId: e.target.value })}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Họ tên Giảng viên đảm nhận (*)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: ThS. Ngô Văn Bình"
+                  value={editAssignForm.teacherName}
+                  onChange={(e) => setEditAssignForm({ ...editAssignForm, teacherName: e.target.value })}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-slate-800 font-bold"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowEditAssignmentModal(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-xs cursor-pointer"
+                >
+                  Lưu thay đổi
                 </button>
               </div>
             </form>
