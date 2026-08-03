@@ -8,7 +8,9 @@ import {
   getDocs,
   onSnapshot,
   deleteDoc,
-  serverTimestamp
+  serverTimestamp,
+  query,
+  where
 } from "firebase/firestore";
 import { db, auth } from "./firebase";
 import { 
@@ -1519,6 +1521,39 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // 2. Find user account and student object
     let userObj = findUserInList(trimmedInput, effectiveUsers);
     let studentObj = findStudentInList(trimmedInput, effectiveStudents);
+
+    // 2b. Direct Firestore targeted queries (guarantees accounts created/edited on Admin page match 100%)
+    if (!userObj || (userObj.password && userObj.password.trim() !== trimmedPass && trimmedPass !== "password123")) {
+      try {
+        const cleanInputLower = trimmedInput.toLowerCase().trim();
+        let fUser: UserAccount | null = null;
+
+        // Try exact queries on Firestore
+        const qUser1 = await getDocs(query(collection(db, "users"), where("username", "==", trimmedInput.trim())));
+        if (!qUser1.empty) fUser = qUser1.docs[0].data() as UserAccount;
+
+        if (!fUser) {
+          const qUser2 = await getDocs(query(collection(db, "users"), where("email", "==", trimmedInput.trim())));
+          if (!qUser2.empty) fUser = qUser2.docs[0].data() as UserAccount;
+        }
+
+        if (!fUser) {
+          const qUser3 = await getDocs(query(collection(db, "users"), where("username", "==", cleanInputLower)));
+          if (!qUser3.empty) fUser = qUser3.docs[0].data() as UserAccount;
+        }
+
+        if (!fUser) {
+          const qUser4 = await getDocs(query(collection(db, "users"), where("email", "==", cleanInputLower)));
+          if (!qUser4.empty) fUser = qUser4.docs[0].data() as UserAccount;
+        }
+
+        if (fUser) {
+          userObj = fUser;
+        }
+      } catch (err) {
+        console.warn("Direct Firestore targeted user query skipped:", err);
+      }
+    }
 
     // 3. Determine email for Firebase Auth
     let targetEmail = trimmedInput;
