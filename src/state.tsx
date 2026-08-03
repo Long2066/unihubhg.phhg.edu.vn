@@ -358,9 +358,51 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   });
 
+  const provisionTeacherAccounts = (assignments: CourseClassAssignment[]) => {
+    setUsers(prevUsers => {
+      let updated = false;
+      const nextUsers = [...prevUsers];
+
+      assignments.forEach(assign => {
+        if (!assign.teacherName) return;
+        const teacherEmail = (assign.teacherId || assign.teacherName.toLowerCase().replace(/[^a-z0-9]/g, "") + "@phhg.edu.vn").trim();
+        
+        // Check if account already exists
+        const exists = nextUsers.some(u => 
+          (u.email && u.email.toLowerCase() === teacherEmail.toLowerCase()) ||
+          (u.username && u.username.toLowerCase() === teacherEmail.toLowerCase()) ||
+          (u.name && u.name.trim().toLowerCase() === assign.teacherName.trim().toLowerCase() && u.role === UserRole.TEACHER)
+        );
+
+        if (!exists) {
+          const newAccount: UserAccount = {
+            id: `U_TEACHER_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+            username: teacherEmail,
+            name: assign.teacherName,
+            role: UserRole.TEACHER,
+            email: teacherEmail,
+            password: "password123",
+            targetId: assign.subjectCode
+          };
+          nextUsers.push(newAccount);
+          updated = true;
+        }
+      });
+
+      if (updated) {
+        localStorage.setItem("unihub_users", JSON.stringify(nextUsers));
+        try {
+          nextUsers.forEach(u => setDoc(doc(db, "users", u.id), u, { merge: true }));
+        } catch {}
+      }
+      return nextUsers;
+    });
+  };
+
   const saveTeacherAssignments = (assignments: CourseClassAssignment[]) => {
     setTeacherAssignments(assignments);
     localStorage.setItem("unihub_teacher_assignments", JSON.stringify(assignments));
+    provisionTeacherAccounts(assignments);
   };
 
   const importTeacherAssignmentsExcel = (newAssignments: CourseClassAssignment[]) => {
@@ -377,6 +419,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       localStorage.setItem("unihub_teacher_assignments", JSON.stringify(next));
       return next;
     });
+    provisionTeacherAccounts(newAssignments);
   };
 
   const addGradeAuditLog = (log: Omit<GradeAuditLog, "id" | "timestamp">) => {
@@ -1335,12 +1378,26 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // --- Helper: find user from in-memory list or fetch from Firestore ---
     const findUserInList = (input: string, list: UserAccount[]): UserAccount | undefined => {
       const cleanInput = input.trim().toLowerCase();
-      return list.find(u =>
-        (u.username && u.username.trim().toLowerCase() === cleanInput) ||
-        (u.email && u.email.trim().toLowerCase() === cleanInput) ||
-        (u.targetId && u.targetId.trim().toLowerCase() === cleanInput) ||
-        (u.id && u.id.trim().toLowerCase() === cleanInput)
-      );
+      const prefix = cleanInput.split('@')[0];
+
+      return list.find(u => {
+        const uUsername = (u.username || "").trim().toLowerCase();
+        const uEmail = (u.email || "").trim().toLowerCase();
+        const uTarget = (u.targetId || "").trim().toLowerCase();
+        const uId = (u.id || "").trim().toLowerCase();
+
+        if (uUsername === cleanInput || uEmail === cleanInput || uTarget === cleanInput || uId === cleanInput) {
+          return true;
+        }
+        if (prefix) {
+          const uUsernamePrefix = uUsername.split('@')[0];
+          const uEmailPrefix = uEmail.split('@')[0];
+          if (uUsernamePrefix === prefix || uEmailPrefix === prefix) {
+            return true;
+          }
+        }
+        return false;
+      });
     };
 
     const findStudentInList = (input: string, list: Student[]): Student | undefined => {
@@ -1353,13 +1410,25 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     // 1. Build effective users list & students list (fetch from Firestore if empty)
-    let effectiveUsers = users.length > 0 ? users : [];
-    let effectiveStudents = students.length > 0 ? students : [];
+    let effectiveUsers = users.length > 0 ? [...users] : [];
+    let effectiveStudents = students.length > 0 ? [...students] : [];
+
+    // Ensure all SEED_USERS are present in effectiveUsers as fallback
+    SEED_USERS.forEach(initU => {
+      if (!effectiveUsers.some(u => u.username === initU.username || u.email === initU.email || u.id === initU.id)) {
+        effectiveUsers.push(initU);
+      }
+    });
 
     try {
       const usersSnap = await getDocs(collection(db, "users"));
       if (!usersSnap.empty) {
-        effectiveUsers = usersSnap.docs.map(d => d.data() as UserAccount);
+        const firestoreUsers = usersSnap.docs.map(d => d.data() as UserAccount);
+        firestoreUsers.forEach(fUser => {
+          const idx = effectiveUsers.findIndex(u => u.id === fUser.id);
+          if (idx >= 0) effectiveUsers[idx] = fUser;
+          else effectiveUsers.push(fUser);
+        });
         setUsers(effectiveUsers);
       }
     } catch {}

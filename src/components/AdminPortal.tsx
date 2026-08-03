@@ -85,7 +85,7 @@ export const AdminPortal: React.FC = () => {
   const [clubFormUsername, setClubFormUsername] = useState("");
   const [clubFormPassword, setClubFormPassword] = useState("");
 
-  const [activeAccountTab, setActiveAccountTab] = useState<"CLUBS" | "CLASS_ACCOUNTS" | "UNIT_ACCOUNTS" | "ALL_ACCOUNTS">("CLUBS");
+  const [activeAccountTab, setActiveAccountTab] = useState<"CLUBS" | "CLASS_ACCOUNTS" | "UNIT_ACCOUNTS" | "TEACHER_ACCOUNTS" | "ALL_ACCOUNTS">("CLUBS");
   const [showClubModal, setShowClubModal] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
 
@@ -111,6 +111,8 @@ export const AdminPortal: React.FC = () => {
         return { label: "Vấn phòng Khoa", className: "bg-amber-50 text-amber-700 border-amber-150" };
       case UserRole.ADVISER:
         return { label: "GV Cố vấn (GVCN)", className: "bg-emerald-50 text-emerald-700 border-emerald-150" };
+      case UserRole.TEACHER:
+        return { label: "Giảng viên Bộ môn", className: "bg-blue-50 text-blue-700 border-blue-150" };
       case UserRole.CLASS_MONITOR:
         return { label: "Cán bộ lớp (BCS)", className: "bg-teal-50 text-teal-700 border-teal-150" };
       case UserRole.STUDENT:
@@ -1229,6 +1231,20 @@ export const AdminPortal: React.FC = () => {
                   </button>
                   <button
                     onClick={() => {
+                      setActiveAccountTab("TEACHER_ACCOUNTS");
+                      setAccountSearch("");
+                      setAccountRoleFilter(UserRole.TEACHER);
+                    }}
+                    className={`pb-2 px-1 text-xs font-bold transition-all relative cursor-pointer ${
+                      activeAccountTab === "TEACHER_ACCOUNTS" 
+                        ? "text-indigo-655 font-black border-b-2 border-indigo-600" 
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    Giảng viên Bộ môn ({users.filter(u => u.role === UserRole.TEACHER).length})
+                  </button>
+                  <button
+                    onClick={() => {
                       setActiveAccountTab("ALL_ACCOUNTS");
                       setAccountSearch("");
                       setAccountRoleFilter("ALL");
@@ -1629,6 +1645,84 @@ export const AdminPortal: React.FC = () => {
                 </div>
               )}
 
+              {/* Tab 3.5: TEACHER ACCOUNTS */}
+              {activeAccountTab === "TEACHER_ACCOUNTS" && (
+                <div className="space-y-4 text-left font-sans">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div>
+                      <h4 className="text-xs font-black text-slate-800 uppercase">Quản Lý Tài Khoản Giảng Viên Bộ Môn</h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Tài khoản Giảng viên được cấp cố định và dùng xuyên suốt cho tất cả các học kỳ. Phân công mới không đổi tài khoản/mật khẩu.</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedAccId(null);
+                        setAccFormName("");
+                        setAccFormRole(UserRole.TEACHER);
+                        setAccFormUsername("");
+                        setAccFormPassword("password123");
+                        setAccFormTargetId("");
+                        setShowAccountModal(true);
+                      }}
+                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs cursor-pointer shrink-0"
+                    >
+                      <Plus size={14} />
+                      <span>Cấp tài khoản Giảng viên mới</span>
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto border border-slate-150 rounded-xl bg-white shadow-xs">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-150 text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                          <th className="p-3.5 pl-4">Họ và tên Giảng viên</th>
+                          <th className="p-3.5">Email / Tên đăng nhập</th>
+                          <th className="p-3.5 font-mono">Mật khẩu</th>
+                          <th className="p-3.5">Trạng thái</th>
+                          <th className="p-3.5 pr-4 text-right">Hành động</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {users.filter(u => u.role === UserRole.TEACHER).map((teacher) => (
+                          <tr key={teacher.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="p-3.5 pl-4 font-bold text-slate-900">{teacher.name}</td>
+                            <td className="p-3.5 font-mono text-blue-700 font-bold">{teacher.username || teacher.email}</td>
+                            <td className="p-3.5 font-mono text-slate-600">{teacher.password || "password123"}</td>
+                            <td className="p-3.5">
+                              <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                Cố định xuyên suốt các kỳ
+                              </span>
+                            </td>
+                            <td className="p-3.5 pr-4 text-right space-x-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedAccId(teacher.id);
+                                  setAccFormName(teacher.name);
+                                  setAccFormRole(teacher.role);
+                                  setAccFormUsername(teacher.username || teacher.email || "");
+                                  setAccFormPassword(teacher.password || "password123");
+                                  setAccFormTargetId(teacher.targetId || "");
+                                  setShowAccountModal(true);
+                                }}
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-bold text-[10px] cursor-pointer"
+                              >
+                                Hiệu chỉnh / Reset Mật khẩu
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {users.filter(u => u.role === UserRole.TEACHER).length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="p-8 text-center text-slate-400 italic">
+                              Chưa có tài khoản Giảng viên bộ môn nào. Khi Phòng Đào tạo phân công môn học, tài khoản Giảng viên sẽ được tự động cấp cố định tại đây.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {/* Tab 4: ALL ACCOUNTS */}
               {activeAccountTab === "ALL_ACCOUNTS" && (
                 <div className="space-y-4">
@@ -1654,6 +1748,7 @@ export const AdminPortal: React.FC = () => {
                         <option value={UserRole.CLASS_MONITOR}>CÁN BỘ LỚP</option>
                         <option value={UserRole.GROUP_LEADER}>TỔ TRƯỞNG LỚP</option>
                         <option value={UserRole.ADVISER}>GV CỐ VẤN (GVCN)</option>
+                        <option value={UserRole.TEACHER}>GIẢNG VIÊN BỘ MÔN</option>
                         <option value={UserRole.CLUB_MANAGER}>CÂU LẠC BỘ</option>
                         <option value={UserRole.YOUTH_UNION}>ĐOÀN THANH NIÊN</option>
                         <option value={UserRole.STUDENT_UNION}>HỘI SINH VIÊN</option>
