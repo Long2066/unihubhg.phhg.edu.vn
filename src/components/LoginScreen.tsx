@@ -501,6 +501,43 @@ export const LoginScreen: React.FC = () => {
                   {!loading && <ArrowRight size={16} />}
                 </button>
               </form>
+
+              {/* Demo Accounts Quick Fill */}
+              <div className="mt-4 pt-4 border-t border-slate-100 space-y-2 text-left">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">Tài khoản trải nghiệm nhanh:</span>
+                <div className="grid grid-cols-3 gap-1.5 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail("gvbm@phhg.edu.vn");
+                      setPassword("password123");
+                    }}
+                    className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-lg text-center cursor-pointer transition-colors"
+                  >
+                    Giảng viên
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail("dtphhg@hg.edu.vn");
+                      setPassword("password123");
+                    }}
+                    className="p-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-center cursor-pointer transition-colors"
+                  >
+                    Phòng Đào tạo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail("DTG245140202053");
+                      setPassword("004206005165");
+                    }}
+                    className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-center cursor-pointer transition-colors"
+                  >
+                    Sinh viên
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

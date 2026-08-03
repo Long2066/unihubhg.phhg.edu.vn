@@ -86,7 +86,8 @@ export const SEED_USERS: UserAccount[] = [
     username: "dtphhg@hg.edu.vn",
     name: "Trần Thị Mai",
     role: UserRole.TRAINING_DEPT,
-    email: "dtphhg@hg.edu.vn"
+    email: "dtphhg@hg.edu.vn",
+    password: "password123"
   },
   {
     id: "U_CM01",
@@ -94,6 +95,7 @@ export const SEED_USERS: UserAccount[] = [
     name: "Lâm Minh Triết",
     role: UserRole.CLASS_MONITOR,
     email: "cblk2gdtha@hg.edu.vn",
+    password: "password123",
     targetId: "K20-CNTT"
   },
   {
@@ -102,6 +104,7 @@ export const SEED_USERS: UserAccount[] = [
     name: "Hoàng Minh Đức",
     role: UserRole.ADVISER,
     email: "gvcnk2gdtha@hg.edu.vn",
+    password: "password123",
     targetId: "K20-CNTT"
   },
   {
@@ -110,6 +113,7 @@ export const SEED_USERS: UserAccount[] = [
     name: "Khoa Sư phạm",
     role: UserRole.FACULTY,
     email: "khoasp@hg.edu.vn",
+    password: "password123",
     targetId: "K-CNTT"
   },
   {
@@ -117,7 +121,8 @@ export const SEED_USERS: UserAccount[] = [
     username: "pcthssv@hg.edu.vn",
     name: "Phòng Công tác HSSV (Admin)",
     role: UserRole.ADMIN,
-    email: "pcthssv@hg.edu.vn"
+    email: "pcthssv@hg.edu.vn",
+    password: "password123"
   }
 ];
 

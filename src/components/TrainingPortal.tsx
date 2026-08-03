@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useUniHub } from "../state";
-import { UserRole, Student, UserAccount, ScheduleSlot, STUDENT_FIELDS_META, SEMESTER_LIST } from "../types";
+import { UserRole, Student, UserAccount, ScheduleSlot, STUDENT_FIELDS_META, SEMESTER_LIST, CourseClassAssignment, GradeAppeal, GradingRulesConfig } from "../types";
 import * as XLSX from "xlsx";
 import { 
   FileSpreadsheet, 
@@ -20,7 +20,11 @@ import {
   Trash2,
   UploadCloud,
   Plus,
-  ArrowLeft
+  ArrowLeft,
+  Bell,
+  Sliders,
+  AlertTriangle,
+  Send
 } from "lucide-react";
 
 export const TrainingPortal: React.FC = () => {
@@ -39,11 +43,23 @@ export const TrainingPortal: React.FC = () => {
     customClasses,
     addNewClass,
     selectedSemesterId,
-    setSelectedSemesterId
+    setSelectedSemesterId,
+    teacherAssignments,
+    saveTeacherAssignments,
+    importTeacherAssignmentsExcel,
+    unlockRequests,
+    approveUnlockRequest,
+    rejectUnlockRequest,
+    subjectGradeSheets,
+    aggregateSubjectGradesToSemesterGpa,
+    gradeAppeals,
+    resolveGradeAppeal,
+    gradingRules,
+    updateGradingRules
   } = useUniHub();
 
-  const activeTab = (activePortletTab as "IMPORT" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU") || "IMPORT";
-  const setActiveTab = (tab: "IMPORT" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU") => {
+  const activeTab = (activePortletTab as "IMPORT" | "TEACHER_ASSIGNMENTS" | "UNLOCK_REQUESTS" | "GRADE_APPEALS" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU") || "IMPORT";
+  const setActiveTab = (tab: "IMPORT" | "TEACHER_ASSIGNMENTS" | "UNLOCK_REQUESTS" | "GRADE_APPEALS" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU") => {
     setActivePortletTab(tab);
   };
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -81,10 +97,154 @@ export const TrainingPortal: React.FC = () => {
   const [newClassName, setNewClassName] = useState("");
   const [showAddClassModal, setShowAddClassModal] = useState(false);
 
-  // Timetable State
-  const [schedulePreviewData, setSchedulePreviewData] = useState<ScheduleSlot[]>([]);
-  const [showSchedulePreview, setShowSchedulePreview] = useState(false);
-  const [selectedScheduleClass, setSelectedScheduleClass] = useState("");
+  // Grade Management Mode & Features State
+  const [importMode, setImportMode] = useState<"EXCEL_DIRECT" | "AUTO_AGGREGATE">("EXCEL_DIRECT");
+  const [aggregationResultMsg, setAggregationResultMsg] = useState<string>("");
+  const [reminderSuccessMsg, setReminderSuccessMsg] = useState<string>("");
+  
+  // Assignment Modal
+  const [showAddAssignmentModal, setShowAddAssignmentModal] = useState<boolean>(false);
+  const [assignForm, setAssignForm] = useState({
+    classId: "K20-CNTT",
+    subjectCode: "VPS7251",
+    subjectName: "Cơ sở Tự nhiên - xã hội",
+    credits: 4,
+    teacherId: "gv_nguyenvana@phhg.edu.vn",
+    teacherName: "ThS. Nguyễn Văn A"
+  });
+
+  // Grading Rules Modal
+  const [showRulesModal, setShowRulesModal] = useState<boolean>(false);
+  const [rulesForm, setRulesForm] = useState<GradingRulesConfig>(() => gradingRules);
+
+  // Grade Appeal Resolution Modal
+  const [selectedAppealForResponse, setSelectedAppealForResponse] = useState<GradeAppeal | null>(null);
+  const [appealResponseText, setAppealResponseText] = useState<string>("");
+  const [appealNewGrade, setAppealNewGrade] = useState<string>("");
+
+  // Schedule Management State
+  const [schedulePreviewData, setSchedulePreviewData] = useState<any[]>([]);
+  const [showSchedulePreview, setShowSchedulePreview] = useState<boolean>(false);
+  const [selectedScheduleClass, setSelectedScheduleClass] = useState<string>("");
+
+  // Handler: Import Assignments from Excel
+  const handleImportAssignmentExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        let headerIdx = -1;
+        for (let i = 0; i < Math.min(10, jsonData.length); i++) {
+          if (jsonData[i] && jsonData[i].some(cell => String(cell).includes("Lớp") || String(cell).includes("Mã môn") || String(cell).includes("Giảng viên"))) {
+            headerIdx = i;
+            break;
+          }
+        }
+
+        const newAssignments: CourseClassAssignment[] = [];
+        const startRow = headerIdx >= 0 ? headerIdx + 1 : 1;
+
+        for (let i = startRow; i < jsonData.length; i++) {
+          const row = jsonData[i];
+          if (!row || !row[1] || !row[2]) continue;
+
+          const semId = String(row[0] || selectedSemesterId).trim();
+          const classId = String(row[1] || "").trim();
+          const subjectCode = String(row[2] || "").trim();
+          const subjectName = String(row[3] || "").trim();
+          const credits = parseInt(String(row[4] || "2"), 10) || 2;
+          const teacherId = String(row[5] || "").trim();
+          const teacherName = String(row[6] || "").trim();
+
+          if (classId && subjectCode) {
+            newAssignments.push({
+              id: `HP_${semId}_${classId}_${subjectCode}`,
+              semesterId: semId,
+              classId,
+              subjectCode,
+              subjectName,
+              credits,
+              teacherId: teacherId || "teacher",
+              teacherName: teacherName || "Giảng viên",
+              status: "PENDING"
+            });
+          }
+        }
+
+        if (newAssignments.length > 0) {
+          importTeacherAssignmentsExcel(newAssignments);
+          alert(`Đã nạp thành công ${newAssignments.length} phân công giảng dạy từ file Excel!`);
+        } else {
+          alert("Không tìm thấy dữ liệu phân công hợp lệ trong file!");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Có lỗi khi đọc file Excel phân công!");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  // Handler: Manual Save Assignment
+  const handleSaveManualAssignment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignForm.classId || !assignForm.subjectCode || !assignForm.subjectName) return;
+
+    const newAssignment: CourseClassAssignment = {
+      id: `HP_${selectedSemesterId}_${assignForm.classId}_${assignForm.subjectCode}`,
+      semesterId: selectedSemesterId,
+      classId: assignForm.classId,
+      subjectCode: assignForm.subjectCode,
+      subjectName: assignForm.subjectName,
+      credits: assignForm.credits,
+      teacherId: assignForm.teacherId,
+      teacherName: assignForm.teacherName,
+      status: "PENDING"
+    };
+
+    saveTeacherAssignments([...teacherAssignments, newAssignment]);
+    setShowAddAssignmentModal(false);
+    alert("Đã thêm phân công giảng dạy mới thành công!");
+  };
+
+  // Handler: Deadline Reminders
+  const handleSendDeadlineReminders = () => {
+    const unsubmitted = teacherAssignments.filter(a => a.semesterId === selectedSemesterId && a.status !== "SUBMITTED" && a.status !== "LOCKED");
+    if (unsubmitted.length === 0) {
+      alert("Tất cả các lớp học phần trong kỳ đã hoàn thành nộp điểm!");
+      return;
+    }
+
+    const uniqueTeachers = Array.from(new Set(unsubmitted.map(a => a.teacherName)));
+    setReminderSuccessMsg(`Đã tự động gửi thông báo nhắc nhở nạp điểm tới ${uniqueTeachers.length} Giảng viên (${unsubmitted.length} lớp học phần chưa nộp điểm)!`);
+    setTimeout(() => setReminderSuccessMsg(""), 5000);
+  };
+
+  // Handler: Mode 2 Auto Aggregation
+  const handleAutoAggregateFromSubjectTeachers = () => {
+    const res = aggregateSubjectGradesToSemesterGpa(selectedSemesterId);
+    if (res.updatedCount === 0) {
+      setAggregationResultMsg("Chưa có bảng điểm môn học phần nào được Giảng viên chốt nộp trong học kỳ này để gom tổng hợp.");
+    } else {
+      setAggregationResultMsg(`Hoàn thành tổng hợp tự động! Đã gom điểm & tính GPA cho ${res.updatedCount} sinh viên (${res.warningsCount} sinh viên bị gắn cờ cảnh báo học tập).`);
+    }
+  };
+
+  // Handler: Save Rules
+  const handleSaveRules = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateGradingRules(rulesForm);
+    setShowRulesModal(false);
+    alert("Đã lưu cấu hình Trọng số & Quy tắc làm tròn điểm thành công!");
+  };
 
   const handleMockExcelUpload = () => {
     const updates = [
@@ -905,17 +1065,112 @@ export const TrainingPortal: React.FC = () => {
         </button>
       </div>
 
-      <div className="w-full">
+      <div className="w-full space-y-4">
+        {/* Navigation Tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-200">
+          <button
+            onClick={() => setActiveTab("IMPORT")}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === "IMPORT"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+            }`}
+          >
+            <FileSpreadsheet size={14} />
+            <span>Nạp & Tổng Hợp Điểm HK</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("TEACHER_ASSIGNMENTS")}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === "TEACHER_ASSIGNMENTS"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+            }`}
+          >
+            <Users size={14} />
+            <span>Phân Công Giảng Dạy</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("UNLOCK_REQUESTS")}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === "UNLOCK_REQUESTS"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+            }`}
+          >
+            <Lock size={14} />
+            <span>Duyệt Mở Khóa Điểm ({unlockRequests.filter(r => r.status === "PENDING").length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("GRADE_APPEALS")}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === "GRADE_APPEALS"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+            }`}
+          >
+            <Bell size={14} />
+            <span>Xử lý Phúc khảo ({gradeAppeals.filter(a => a.status === "PENDING" || a.status === "REVIEWING").length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("IMPORT_CLASSES")}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === "IMPORT_CLASSES"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+            }`}
+          >
+            <UploadCloud size={14} />
+            <span>Nạp Danh Sách SV Lớp Mới</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("LIST")}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === "LIST"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+            }`}
+          >
+            <Grid size={14} />
+            <span>Danh Sách Học Vụ SV</span>
+          </button>
+        </div>
         
         {/* Action Panel */}
         <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm min-h-[460px] flex flex-col justify-between">
           
-          {/* TAB 1: CSV / EXCEL MOCK IMPORTER */}
+          {/* TAB 1: CSV / EXCEL MOCK IMPORTER & DUAL MODE */}
           {activeTab === "IMPORT" && (
             <div className="space-y-6 text-left">
-              <div>
-                <h3 className="text-sm font-bold text-slate-800 uppercase mb-1">Đồng quy dữ liệu điểm GPA</h3>
-                <p className="text-[11px] text-slate-400 leading-relaxed">Phòng Đào tạo tải lên mẫu file chứa thông tin GPA học kỳ nhằm tự động cộng hoặc khấu trừ rèn luyện hệ thống.</p>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 uppercase mb-1">Nạp & Tổng hợp Điểm Học thuật Học kỳ</h3>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">Chọn chế độ nạp trực tiếp file Excel Điểm HK hoặc Tự động tổng hợp từ Bảng điểm các Giảng viên bộ môn.</p>
+                </div>
+
+                <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+                  <button
+                    onClick={() => setImportMode("EXCEL_DIRECT")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      importMode === "EXCEL_DIRECT" ? "bg-white text-slate-900 shadow-2xs font-extrabold" : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Chế độ 1: Nạp File Excel
+                  </button>
+                  <button
+                    onClick={() => setImportMode("AUTO_AGGREGATE")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      importMode === "AUTO_AGGREGATE" ? "bg-amber-600 text-white shadow-2xs font-extrabold" : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Chế độ 2: Tự động gom điểm GV
+                  </button>
+                </div>
               </div>
 
               <div className="flex flex-col gap-1.5 max-w-xs">
@@ -933,38 +1188,85 @@ export const TrainingPortal: React.FC = () => {
                 </select>
               </div>
 
-              {/* Action buttons for Real Excel */}
-              <div className="flex gap-2.5 flex-wrap">
-                <button
-                  type="button"
-                  onClick={handleExportExcel}
-                  className="px-4 py-2 border border-amber-300 hover:border-amber-400 bg-amber-50/50 hover:bg-amber-100/50 text-amber-800 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
-                >
-                  <Download size={14} />
-                  <span>Xuất File Excel Mẫu (Chứa danh sách hiện tại)</span>
-                </button>
-                
-                <label className="px-4 py-2 border border-slate-200 hover:border-slate-350 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer">
-                  <Upload size={14} />
-                  <span>Chọn Tệp Excel Đã Nhập Điểm</span>
-                  <input
-                    type="file"
-                    accept=".xlsx, .xls"
-                    onChange={handleImportExcel}
-                    className="hidden"
-                  />
-                </label>
-              </div>
+              {importMode === "EXCEL_DIRECT" ? (
+                <>
+                  {/* Action buttons for Real Excel */}
+                  <div className="flex gap-2.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleExportExcel}
+                      className="px-4 py-2 border border-amber-300 hover:border-amber-400 bg-amber-50/50 hover:bg-amber-100/50 text-amber-800 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Download size={14} />
+                      <span>Xuất File Excel Mẫu (Chứa danh sách hiện tại)</span>
+                    </button>
+                    
+                    <label className="px-4 py-2 border border-slate-200 hover:border-slate-350 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer">
+                      <Upload size={14} />
+                      <span>Chọn Tệp Excel Đã Nhập Điểm</span>
+                      <input
+                        type="file"
+                        accept=".xlsx, .xls"
+                        onChange={handleImportExcel}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
 
-              {/* Upload zone */}
-              <div 
-                className="border-2 border-dashed border-amber-250 bg-amber-50/10 hover:bg-amber-50/20 p-8 rounded-2xl text-center cursor-pointer transition-colors"
-                onClick={handleMockExcelUpload}
-              >
-                <FileText size={40} className="mx-auto text-amber-500 mb-3" />
-                <h4 className="text-xs font-black text-slate-800">Nhấp vào đây để mô phỏng tải lên tệp Excel Điểm học thuật học kỳ</h4>
-                <p className="text-[10px] text-slate-450 mt-1 max-w-sm mx-auto">Click để mô phỏng tự động nạp dữ liệu lý lịch và kết quả GPA đầy đủ của 3 sinh viên mẫu.</p>
-              </div>
+                  {/* Upload zone */}
+                  <div 
+                    className="border-2 border-dashed border-amber-250 bg-amber-50/10 hover:bg-amber-50/20 p-8 rounded-2xl text-center cursor-pointer transition-colors"
+                    onClick={handleMockExcelUpload}
+                  >
+                    <FileText size={40} className="mx-auto text-amber-500 mb-3" />
+                    <h4 className="text-xs font-black text-slate-800">Nhấp vào đây để mô phỏng tải lên tệp Excel Điểm học thuật học kỳ</h4>
+                    <p className="text-[10px] text-slate-450 mt-1 max-w-sm mx-auto">Click để mô phỏng tự động nạp dữ liệu lý lịch và kết quả GPA đầy đủ của 3 sinh viên mẫu.</p>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-4">
+                  <div className="p-6 bg-gradient-to-br from-amber-500 to-indigo-900 text-white rounded-2xl shadow-sm space-y-4">
+                    <div className="flex items-center gap-2 text-amber-200 font-bold text-xs">
+                      <RefreshCw size={18} className="animate-spin-slow" />
+                      <span>TỰ ĐỘNG TỔNG HỢP & QUY ĐỔI ĐIỂM HK TỪ GIẢNG VIÊN BỘ MÔN</span>
+                    </div>
+                    <p className="text-xs text-white/90 leading-relaxed max-w-2xl">
+                      Hệ thống sẽ gom toàn bộ bảng điểm từ các lớp học phần mà các Giảng viên đã chốt nộp trong học kỳ này, tự động tính toán <strong>GPA Thang 10, GPA Thang 4, Xếp loại Học kỳ, Số tín chỉ tích lũy</strong> và gắn cờ <strong>Cảnh báo Học tập</strong> cho sinh viên.
+                    </p>
+
+                    <div className="pt-2">
+                      <button
+                        onClick={handleAutoAggregateFromSubjectTeachers}
+                        className="px-6 py-3 bg-white text-slate-900 hover:bg-amber-100 font-black text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center gap-2"
+                      >
+                        <RefreshCw size={16} className="text-amber-600" />
+                        <span>THỰC HIỆN TỔNG HỢP TỰ ĐỘNG NGAY</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {aggregationResultMsg && (
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 font-bold text-xs rounded-xl flex items-center gap-2">
+                      <CheckCircle size={18} className="text-emerald-600 shrink-0" />
+                      <span>{aggregationResultMsg}</span>
+                    </div>
+                  )}
+
+                  {/* Academic Warning System Card */}
+                  <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl space-y-2">
+                    <h4 className="text-xs font-black text-rose-900 uppercase flex items-center gap-1.5">
+                      <AlertTriangle size={15} className="text-rose-600" />
+                      <span>Hệ Thống Tự Động Gắn Cờ Cảnh Báo Học Tập (Academic Warning System)</span>
+                    </h4>
+                    <p className="text-xs text-rose-800">
+                      Sinh viên có GPA thang 4 &lt; 1.0 hoặc trượt &gt; 50% số tín chỉ đăng ký trong học kỳ sẽ bị hệ thống tự động gắn cờ cảnh báo (Mức 1 / Mức 2) và gửi thông báo tới Cố vấn học tập (GVCN).
+                    </p>
+                    <div className="text-xs font-bold text-rose-950 font-mono pt-1">
+                      Tổng số Sinh viên bị Cảnh báo Học tập trong kỳ: <strong className="text-rose-700 font-black">{students.filter(s => s.learningWarning).length} sinh viên</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Preview table */}
               {showPreview && (
@@ -1053,6 +1355,298 @@ export const TrainingPortal: React.FC = () => {
                     <li>Học lực Cảnh báo học phẩm: Auto phạt trừ 5 điểm rèn luyện (TC1.5).</li>
                   </ul>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: TEACHER ASSIGNMENTS */}
+          {activeTab === "TEACHER_ASSIGNMENTS" && (
+            <div className="space-y-6 text-left font-sans">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 uppercase mb-1">Kế hoạch Phân công Giảng dạy theo Học kỳ</h3>
+                  <p className="text-[11px] text-slate-500">Phòng Đào tạo gán môn học, số tín chỉ và phân công Giảng viên phụ trách cho từng lớp học phần.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={selectedSemesterId}
+                    onChange={(e) => setSelectedSemesterId(e.target.value)}
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
+                  >
+                    {SEMESTER_LIST.map(sem => (
+                      <option key={sem.id} value={sem.id}>{sem.name}</option>
+                    ))}
+                  </select>
+
+                  <label className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-2xs">
+                    <Upload size={13} />
+                    <span>Nạp Excel Phân công</span>
+                    <input type="file" accept=".xlsx, .xls" onChange={handleImportAssignmentExcel} className="hidden" />
+                  </label>
+
+                  <button
+                    onClick={() => setShowAddAssignmentModal(true)}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <Plus size={13} />
+                    <span>Thêm thủ công</span>
+                  </button>
+
+                  <button
+                    onClick={handleSendDeadlineReminders}
+                    className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <Bell size={13} />
+                    <span>Nhắc nhở deadline</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowRulesModal(true)}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <Sliders size={13} />
+                    <span>Quy tắc & Trọng số</span>
+                  </button>
+                </div>
+              </div>
+
+              {reminderSuccessMsg && (
+                <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold rounded-xl flex items-center gap-2 shadow-2xs">
+                  <Bell size={16} className="text-amber-600 shrink-0" />
+                  <span>{reminderSuccessMsg}</span>
+                </div>
+              )}
+
+              {/* Progress Monitor Matrix */}
+              {(() => {
+                const semAssignments = teacherAssignments.filter(a => a.semesterId === selectedSemesterId);
+                const total = semAssignments.length;
+                const submittedCount = semAssignments.filter(a => {
+                  const s = subjectGradeSheets.find(sheet => sheet.semesterId === a.semesterId && sheet.classId === a.classId && sheet.subjectCode === a.subjectCode);
+                  return s?.status === "SUBMITTED" || s?.status === "LOCKED";
+                }).length;
+                const pendingCount = total - submittedCount;
+                const percent = total > 0 ? Math.round((submittedCount / total) * 100) : 0;
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Tổng số lớp môn học</div>
+                      <div className="text-xl font-black text-slate-800 mt-1">{total} <span className="text-xs font-normal text-slate-500">lớp</span></div>
+                    </div>
+                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-200 text-emerald-900 shadow-2xs">
+                      <div className="text-[10px] uppercase font-bold text-emerald-600">Đã chốt nộp điểm</div>
+                      <div className="text-xl font-black mt-1">{submittedCount} <span className="text-xs font-normal text-emerald-700">lớp</span></div>
+                    </div>
+                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 text-amber-900 shadow-2xs">
+                      <div className="text-[10px] uppercase font-bold text-amber-600">Chưa nộp / Đang lưu nháp</div>
+                      <div className="text-xl font-black mt-1">{pendingCount} <span className="text-xs font-normal text-amber-700">lớp</span></div>
+                    </div>
+                    <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-200 text-indigo-900 shadow-2xs">
+                      <div className="text-[10px] uppercase font-bold text-indigo-600">Tiến độ nộp điểm toàn kỳ</div>
+                      <div className="text-xl font-black mt-1">{percent}% <span className="text-xs font-normal text-indigo-700">hoàn thành</span></div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Assignments Table */}
+              <div className="border border-slate-200 bg-white rounded-xl overflow-hidden shadow-2xs">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                      <th className="p-3 w-12 text-center">STT</th>
+                      <th className="p-3 w-32 font-mono">Mã HP</th>
+                      <th className="p-3">Tên Học Phần</th>
+                      <th className="p-3 text-center w-16">Số TC</th>
+                      <th className="p-3 w-32">Lớp Niên Chế</th>
+                      <th className="p-3">Giảng viên Đảm Nhận</th>
+                      <th className="p-3 text-center w-28">Trạng thái Nộp</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {teacherAssignments.filter(a => a.semesterId === selectedSemesterId).length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-slate-400 text-xs">
+                          Chưa có phân công nào trong học kỳ này. Bấm "Nạp Excel Phân công" hoặc "Thêm thủ công" để tạo mới.
+                        </td>
+                      </tr>
+                    ) : (
+                      teacherAssignments.filter(a => a.semesterId === selectedSemesterId).map((item, idx) => {
+                        const sheet = subjectGradeSheets.find(s => s.semesterId === item.semesterId && s.classId === item.classId && s.subjectCode === item.subjectCode);
+                        const isSubmitted = sheet?.status === "SUBMITTED" || sheet?.status === "LOCKED";
+                        const isDraft = sheet?.status === "DRAFT";
+
+                        return (
+                          <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="p-3 text-center font-mono text-slate-400">{idx + 1}</td>
+                            <td className="p-3 font-mono font-bold text-blue-700">{item.subjectCode}</td>
+                            <td className="p-3 font-bold text-slate-900">{item.subjectName}</td>
+                            <td className="p-3 text-center font-mono font-bold text-slate-700">{item.credits}</td>
+                            <td className="p-3 font-mono font-bold text-slate-800">{item.classId}</td>
+                            <td className="p-3 text-slate-800 font-medium">
+                              {item.teacherName}
+                              <span className="block text-[10px] font-mono text-slate-400">{item.teacherId}</span>
+                            </td>
+                            <td className="p-3 text-center">
+                              <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                                isSubmitted
+                                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                  : isDraft
+                                  ? "bg-blue-50 text-blue-800 border-blue-200"
+                                  : "bg-amber-50 text-amber-800 border-amber-200"
+                              }`}>
+                                {isSubmitted ? "Đã nộp điểm" : isDraft ? "Đang lưu nháp" : "Chưa nộp điểm"}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: UNLOCK REQUESTS */}
+          {activeTab === "UNLOCK_REQUESTS" && (
+            <div className="space-y-6 text-left font-sans">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <h3 className="text-sm font-bold text-slate-800 uppercase mb-1">Duyệt Yêu cầu Mở Khóa Sửa Điểm từ Giảng Viên</h3>
+                <p className="text-[11px] text-slate-500">Phê duyệt hoặc từ chối đơn đề nghị điều chỉnh điểm của Giảng viên sau khi bảng điểm đã chốt nộp.</p>
+              </div>
+
+              <div className="space-y-3">
+                {unlockRequests.length === 0 ? (
+                  <div className="p-12 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-2xl">
+                    Hiện chưa có yêu cầu mở khóa sửa điểm nào từ Giảng viên.
+                  </div>
+                ) : (
+                  unlockRequests.map(req => (
+                    <div key={req.id} className="p-4 bg-white border border-slate-200 rounded-2xl shadow-2xs space-y-3">
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 border-b border-slate-100 pb-3">
+                        <div>
+                          <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded mr-2">
+                            {req.subjectCode} - {req.classId}
+                          </span>
+                          <strong className="text-xs font-bold text-slate-900">{req.subjectName}</strong>
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-400">Gửi lúc: {req.requestedAt}</span>
+                      </div>
+
+                      <div className="text-xs space-y-1">
+                        <div>Giảng viên yêu cầu: <strong className="text-slate-800">{req.teacherName}</strong> ({req.teacherId})</div>
+                        <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-slate-700 italic">
+                          "{req.reason}"
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center pt-2">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          req.status === "PENDING" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                          req.status === "APPROVED" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-rose-50 text-rose-700 border-rose-200"
+                        }`}>
+                          Trạng thái: {req.status === "PENDING" ? "Chờ duyệt" : req.status === "APPROVED" ? "Đã duyệt mở khóa" : "Đã từ chối"}
+                        </span>
+
+                        {req.status === "PENDING" && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => rejectUnlockRequest(req.id)}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg cursor-pointer"
+                            >
+                              Từ chối
+                            </button>
+                            <button
+                              onClick={() => approveUnlockRequest(req.id)}
+                              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg cursor-pointer shadow-2xs"
+                            >
+                              Phê duyệt mở khóa
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: GRADE APPEALS */}
+          {activeTab === "GRADE_APPEALS" && (
+            <div className="space-y-6 text-left font-sans">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <h3 className="text-sm font-bold text-slate-800 uppercase mb-1">Xử lý Đơn Phúc Khảo Điểm Học Phần từ Sinh Viên</h3>
+                <p className="text-[11px] text-slate-500">Phòng Đào tạo phối hợp với Giảng viên bộ môn kiểm tra bài thi và cập nhật kết quả phúc khảo.</p>
+              </div>
+
+              <div className="space-y-3">
+                {gradeAppeals.length === 0 ? (
+                  <div className="p-12 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-2xl">
+                    Chưa có đơn xin phúc khảo điểm nào trong hệ thống.
+                  </div>
+                ) : (
+                  gradeAppeals.map(appeal => (
+                    <div key={appeal.id} className="p-4 bg-white border border-slate-200 rounded-2xl shadow-2xs space-y-3">
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 border-b border-slate-100 pb-3">
+                        <div>
+                          <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded mr-2">
+                            {appeal.subjectCode} - Lớp {appeal.classId}
+                          </span>
+                          <strong className="text-xs font-bold text-slate-900">{appeal.subjectName}</strong>
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-400">Gửi lúc: {appeal.requestedAt}</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div>Sinh viên: <strong className="text-slate-800">{appeal.studentName}</strong> ({appeal.studentId})</div>
+                        <div>Điểm ban đầu: <strong className="text-rose-700 font-mono font-bold">{appeal.originalGrade}</strong></div>
+                        <div className="md:col-span-2 p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-slate-700 italic">
+                          Lý do nộp đơn: "{appeal.reason}"
+                        </div>
+                        {appeal.response && (
+                          <div className="md:col-span-2 p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900 text-xs">
+                            Phản hồi: <strong>{appeal.response}</strong> {appeal.newGrade && `(Điểm mới: ${appeal.newGrade})`}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                        <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                          appeal.status === "PENDING" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                          appeal.status === "UPDATED" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-600 border-slate-200"
+                        }`}>
+                          Trạng thái: {appeal.status === "PENDING" ? "Chờ xử lý" : appeal.status === "UPDATED" ? "Đã điều chỉnh điểm" : "Không điều chỉnh"}
+                        </span>
+
+                        {appeal.status === "PENDING" && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                resolveGradeAppeal(appeal.id, "REJECTED", undefined, "Phòng Đào tạo và GV bộ môn đã chấm lại bài thi; giữ nguyên kết quả ban đầu.");
+                              }}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg cursor-pointer"
+                            >
+                              Giữ nguyên điểm
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedAppealForResponse(appeal);
+                                setAppealNewGrade(appeal.originalGrade);
+                                setAppealResponseText("Đã kiểm tra lại bài thi và duyệt điều chỉnh điểm học phần.");
+                              }}
+                              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg cursor-pointer shadow-2xs"
+                            >
+                              Cập nhật điểm phúc khảo
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -1785,7 +2379,271 @@ export const TrainingPortal: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
 
+      {/* Modal Manual Assignment */}
+      {showAddAssignmentModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-scale-up font-sans text-left">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                <Plus className="text-blue-600" size={18} />
+                Thêm Phân Công Giảng Dạy Mới
+              </h3>
+              <button onClick={() => setShowAddAssignmentModal(false)} className="text-slate-400 hover:text-slate-600 text-xs font-bold">✕</button>
+            </div>
+
+            <form onSubmit={handleSaveManualAssignment} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Lớp niên chế / hành chính (*)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: K20-CNTT"
+                  value={assignForm.classId}
+                  onChange={(e) => setAssignForm({ ...assignForm, classId: e.target.value })}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Mã học phần (*)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: VPS7251"
+                  value={assignForm.subjectCode}
+                  onChange={(e) => setAssignForm({ ...assignForm, subjectCode: e.target.value })}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Tên học phần (*)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: Cơ sở Tự nhiên - xã hội"
+                  value={assignForm.subjectName}
+                  onChange={(e) => setAssignForm({ ...assignForm, subjectName: e.target.value })}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Số tín chỉ</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={assignForm.credits}
+                    onChange={(e) => setAssignForm({ ...assignForm, credits: parseInt(e.target.value, 10) || 2 })}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 font-mono font-bold text-center"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Mã GV / Email</label>
+                  <input
+                    type="text"
+                    value={assignForm.teacherId}
+                    onChange={(e) => setAssignForm({ ...assignForm, teacherId: e.target.value })}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Họ tên Giảng viên đảm nhận (*)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: ThS. Nguyễn Văn A"
+                  value={assignForm.teacherName}
+                  onChange={(e) => setAssignForm({ ...assignForm, teacherName: e.target.value })}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 font-bold"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowAddAssignmentModal(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs"
+                >
+                  Thêm Phân Công
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Grading Rules Config */}
+      {showRulesModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-scale-up font-sans text-left">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                <Sliders className="text-slate-800" size={18} />
+                Cấu Hình Trọng Số & Quy Tắc Điểm
+              </h3>
+              <button onClick={() => setShowRulesModal(false)} className="text-slate-400 hover:text-slate-600 text-xs font-bold">✕</button>
+            </div>
+
+            <form onSubmit={handleSaveRules} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Trọng số Chuyên cần (% CC)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={rulesForm.ccWeight}
+                  onChange={(e) => setRulesForm({ ...rulesForm, ccWeight: parseInt(e.target.value, 10) || 10 })}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Trọng số Thường xuyên / Quá trình (% TX/ĐK)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={rulesForm.processWeight}
+                  onChange={(e) => setRulesForm({ ...rulesForm, processWeight: parseInt(e.target.value, 10) || 30 })}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Trọng số Thi kết thúc học phần (% Thi)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={rulesForm.examWeight}
+                  onChange={(e) => setRulesForm({ ...rulesForm, examWeight: parseInt(e.target.value, 10) || 60 })}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 font-mono font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Làm tròn số thập phân</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={2}
+                    value={rulesForm.roundingDecimals}
+                    onChange={(e) => setRulesForm({ ...rulesForm, roundingDecimals: parseInt(e.target.value, 10) || 1 })}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 font-mono font-bold text-center"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Điểm tối thiểu Đạt (Thang 10)</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min={0}
+                    max={10}
+                    value={rulesForm.passScoreMin10}
+                    onChange={(e) => setRulesForm({ ...rulesForm, passScoreMin10: parseFloat(e.target.value) || 4.0 })}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 font-mono font-bold text-center"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowRulesModal(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-slate-900 hover:bg-black text-white font-bold rounded-xl shadow-xs"
+                >
+                  Lưu Cấu Hình
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Grade Appeal Response */}
+      {selectedAppealForResponse && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-scale-up font-sans text-left">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                <Bell className="text-indigo-600" size={18} />
+                Cập nhật Kết Quả Phúc Khảo Điểm
+              </h3>
+              <button onClick={() => setSelectedAppealForResponse(null)} className="text-slate-400 hover:text-slate-600 text-xs font-bold">✕</button>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              resolveGradeAppeal(selectedAppealForResponse.id, "UPDATED", appealNewGrade, appealResponseText);
+              setSelectedAppealForResponse(null);
+              alert("Đã cập nhật điểm phúc khảo thành công!");
+            }} className="space-y-3 text-xs">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                <div>Sinh viên: <strong className="text-slate-900">{selectedAppealForResponse.studentName}</strong> ({selectedAppealForResponse.studentId})</div>
+                <div>Môn học: <strong className="text-blue-700">{selectedAppealForResponse.subjectName}</strong> ({selectedAppealForResponse.subjectCode})</div>
+                <div>Điểm cũ: <strong className="text-rose-700 font-mono font-bold">{selectedAppealForResponse.originalGrade}</strong></div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Điểm mới sau khi điều chỉnh (*)</label>
+                <input
+                  type="text"
+                  required
+                  value={appealNewGrade}
+                  onChange={(e) => setAppealNewGrade(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-900 font-mono font-black text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Nội dung phản hồi kết quả phúc khảo (*)</label>
+                <textarea
+                  required
+                  rows={3}
+                  value={appealResponseText}
+                  onChange={(e) => setAppealResponseText(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setSelectedAppealForResponse(null)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xs"
+                >
+                  Xác nhận điều chỉnh điểm
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

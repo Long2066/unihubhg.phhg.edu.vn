@@ -13,6 +13,7 @@ export enum UserRole {
   CLASS_MONITOR = "CLASS_MONITOR",     // Ban cán sự Lớp (BCS)
   ADVISER = "ADVISER",                 // Giáo viên chủ nhiệm (GVCN)
   FACULTY = "FACULTY",                 // Văn phòng Khoa
+  TEACHER = "TEACHER",                 // Giáo viên / Giảng viên Bộ môn
   ADMIN = "ADMIN"                      // CTHSSV / Admin Hệ thống
 }
 
@@ -477,5 +478,121 @@ export interface ThemeConfig {
   contactAddress?: string;
   contactEmail?: string;
   contactPhone?: string;
+}
+
+/** Phân công giảng dạy theo Học kỳ (Do Phòng Đào tạo tạo hoặc Import) */
+export interface CourseClassAssignment {
+  id: string;             // UUID hoặc `HP_${semesterId}_${classId}_${subjectCode}`
+  semesterId: string;     // e.g. "HOCKY_2_2025_2026"
+  semesterName?: string;  // e.g. "Học kỳ II - 2025-2026"
+  classId: string;        // e.g. "K20-CNTT", "K2-GDTH-A"
+  className?: string;     // e.g. "K2 GDTH A"
+  subjectCode: string;    // e.g. "VPS7251"
+  subjectName: string;    // e.g. "Cơ sở Tự nhiên - xã hội", "Tiếng Việt..."
+  credits: number;        // e.g. 4
+  teacherId: string;      // Email hoặc Mã GV được phân công (e.g. "gv_nguyenvana")
+  teacherName: string;    // Họ tên Giảng viên
+  status: "PENDING" | "DRAFT" | "SUBMITTED" | "LOCKED" | "UNLOCKED";
+  updatedAt?: string;
+}
+
+/** Điểm của 1 sinh viên trong 1 môn học phần */
+export interface SubjectStudentGrade {
+  studentId: string;
+  studentName: string;
+  gender?: string;
+  dob?: string;
+  classId: string;
+  cc?: number | string;      // Điểm chuyên cần (0-10 hoặc "-")
+  tx1?: number | string;     // Thường xuyên 1
+  tx2?: number | string;     // Thường xuyên 2
+  dk1?: number | string;     // Định kỳ 1
+  dk2?: number | string;     // Định kỳ 2
+  exam?: number | string;    // Điểm thi học kỳ
+  tb10?: number | string;    // Điểm Trung bình Thang 10
+  tb4?: number | string;     // Điểm Trung bình Thang 4
+  diemChu?: string;          // Điểm chữ (A+, A, B+, B, C+, C, D+, D, F)
+  xepLoai?: string;          // Xếp loại môn (Xuất sắc, Giỏi, Khá, Trung bình, Yếu, Kém, Đạt, Không đạt)
+  notes?: string;
+}
+
+/** Bảng điểm đầy đủ của 1 môn học phần (Giáo viên bộ môn nạp) */
+export interface SubjectGradeSheet {
+  id: string;               // e.g. `GRADE_${semesterId}_${classId}_${subjectCode}`
+  semesterId: string;       // e.g. "HOCKY_2_2025_2026"
+  classId: string;          // e.g. "K2-GDTH-A"
+  subjectCode: string;      // e.g. "VPS7251"
+  subjectName: string;      // e.g. "Cơ sở Tự nhiên - xã hội"
+  credits: number;          // e.g. 4
+  teacherId: string;        // ID / Email giáo viên
+  teacherName: string;      // Họ tên giáo viên
+  status: "DRAFT" | "SUBMITTED" | "LOCKED" | "UNLOCKED";
+  grades: SubjectStudentGrade[];
+  updatedAt: string;
+  submittedAt?: string;
+}
+
+/** Yêu cầu mở khóa nạp lại điểm từ Giảng viên gửi Phòng Đào tạo */
+export interface GradeUnlockRequest {
+  id: string;
+  sheetId: string;
+  semesterId: string;
+  classId: string;
+  subjectCode: string;
+  subjectName: string;
+  teacherId: string;
+  teacherName: string;
+  reason: string;
+  requestedAt: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  reviewedAt?: string;
+  reviewedBy?: string;
+}
+
+/** Đơn nộp phúc khảo điểm môn học từ Sinh viên */
+export interface GradeAppeal {
+  id: string;
+  studentId: string;
+  studentName: string;
+  classId: string;
+  semesterId: string;
+  subjectCode: string;
+  subjectName: string;
+  originalGrade: string; // Điểm ban đầu
+  reason: string;
+  requestedAt: string;
+  status: "PENDING" | "REVIEWING" | "UPDATED" | "REJECTED";
+  response?: string;
+  newGrade?: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+}
+
+/** Nhật ký thay đổi & lịch sử sửa điểm học phần */
+export interface GradeAuditLog {
+  id: string;
+  semesterId: string;
+  classId: string;
+  subjectCode: string;
+  subjectName: string;
+  action: "NẠP_MỚI" | "SỬA_ĐIỂM" | "LƯU_NHÁP" | "CHỐT_NỘP" | "MỞ_KHÓA" | "PHÚC_KHẢO";
+  userEmail: string;
+  userName: string;
+  userRole: string;
+  studentId?: string;
+  studentName?: string;
+  oldValue?: string;
+  newValue?: string;
+  reason?: string;
+  timestamp: string;
+}
+
+/** Cấu hình Trọng số & Quy tắc làm tròn điểm */
+export interface GradingRulesConfig {
+  ccWeight: number;    // % Chuyên cần (vd: 10)
+  processWeight: number; // % Điểm quá trình/thường xuyên (vd: 30)
+  examWeight: number;   // % Điểm thi kết thúc HP (vd: 60)
+  roundingDecimals: number; // Số chữ số thập phân làm tròn (vd: 1)
+  passScoreMin10: number;   // Điểm tối thiểu đạt môn hệ 10 (vd: 4.0)
 }
 

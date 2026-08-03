@@ -25,7 +25,10 @@ import {
   Home,
   Menu,
   MapPin,
-  Megaphone
+  Megaphone,
+  Printer,
+  QrCode,
+  AlertTriangle
 } from "lucide-react";
 
 // Predefined historical semesters for student DTG245140202053
@@ -130,8 +133,16 @@ export const StudentPortal: React.FC = () => {
     setActivePortletTab,
     selectedSemesterId,
     setSelectedSemesterId,
+    subjectGradeSheets,
+    submitGradeAppeal,
+    gradeAppeals,
     schedules
   } = useUniHub();
+
+  const [appealModalSubject, setAppealModalSubject] = useState<{ code: string; name: string; grade: string } | null>(null);
+  const [appealReason, setAppealReason] = useState<string>("");
+  const [appealSuccessMsg, setAppealSuccessMsg] = useState<string>("");
+  const [showTranscriptModal, setShowTranscriptModal] = useState<boolean>(false);
 
   const activeTab = (activePortletTab as "TRANG_CHU" | "DIEM" | "HOATDONG" | "CLB" | "MINHCHUNG" | "THOI_KHOA_BIEU") || "TRANG_CHU";
   const setActiveTab = (tab: "TRANG_CHU" | "DIEM" | "HOATDONG" | "CLB" | "MINHCHUNG" | "THOI_KHOA_BIEU") => {
@@ -507,6 +518,7 @@ export const StudentPortal: React.FC = () => {
         </div>
       </div>
     );
+  };
   const newsTickerItems = useMemo(() => {
     const list: string[] = [];
     (announcements || []).forEach(ann => {
@@ -1272,50 +1284,114 @@ export const StudentPortal: React.FC = () => {
                     Cấp ngày {sObj.idCardDate} tại {sObj.idCardPlace}
                   </div>
                 )}
-                <div className="col-span-2 space-y-1">
-                  <span className="text-slate-400 block font-mono text-[9px] uppercase tracking-wider font-bold">Học phần & Điểm chi tiết:</span>
+                <div className="col-span-2 space-y-1.5 mt-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 font-mono text-[10px] uppercase tracking-wider font-black flex items-center gap-1">
+                      <GraduationCap size={13} className="text-blue-500" />
+                      BẢNG ĐIỂM HỌC PHẦN CHI TIẾT
+                    </span>
+                    <span className="text-[10px] text-blue-600 font-bold bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                      Học kỳ II (2025-2026)
+                    </span>
+                  </div>
+
                   {(() => {
-                    const gradesList = sObj?.subjectGrades 
-                      ? sObj.subjectGrades.split(",").map(p => p.trim())
-                      : [];
-                    const subjectsList = sObj?.subjects 
-                      ? sObj.subjects.split(",").map(p => p.trim()).filter(Boolean)
-                      : [];
-                    
-                    if (gradesList.length === 0 && subjectsList.length === 0) {
-                      return <strong className="text-slate-450 italic text-[11px]">Chưa cập nhật học phần</strong>;
-                    }
-                    
-                    const itemsCount = Math.max(subjectsList.length, gradesList.length);
-                    const pairedItems = Array.from({ length: itemsCount }, (_, idx) => {
-                      const name = subjectsList[idx] || `Học phần ${idx + 1}`;
-                      let grade = gradesList[idx] || "-";
-                      if (grade === "") grade = "-";
-                      return { name, grade };
+                    // Check for subject grade sheets
+                    const studentId = sObj?.id || currentUser?.username || "DTG245140202053";
+                    const foundGrades: Array<{
+                      code: string;
+                      name: string;
+                      credits: number;
+                      cc: string;
+                      exam: string;
+                      tb10: string;
+                      diemChu: string;
+                      xepLoai: string;
+                    }> = [];
+
+                    subjectGradeSheets.forEach(sheet => {
+                      const matchGrade = sheet.grades.find(g => g.studentId === studentId);
+                      if (matchGrade) {
+                        foundGrades.push({
+                          code: sheet.subjectCode,
+                          name: sheet.subjectName,
+                          credits: sheet.credits,
+                          cc: String(matchGrade.cc || "-"),
+                          exam: String(matchGrade.exam || "-"),
+                          tb10: String(matchGrade.tb10 || "-"),
+                          diemChu: String(matchGrade.diemChu || "-"),
+                          xepLoai: String(matchGrade.xepLoai || (Number(matchGrade.tb10) >= 9 ? "Xuất sắc" : Number(matchGrade.tb10) >= 8 ? "Giỏi" : Number(matchGrade.tb10) >= 6.5 ? "Khá" : Number(matchGrade.tb10) >= 5 ? "Trung bình" : "Đạt"))
+                        });
+                      }
                     });
-                    
+
+                    // Fallback dataset if empty
+                    const displayGrades = foundGrades.length > 0 ? foundGrades : [
+                      { code: "VPS7251", name: "Cơ sở Tự nhiên - xã hội", credits: 4, cc: "9.0", exam: "8.5", tb10: "8.7", diemChu: "A", xepLoai: "Giỏi" },
+                      { code: "HCP7121", name: "Lịch sử Đảng Cộng sản VN", credits: 2, cc: "9.5", exam: "9.0", tb10: "9.2", diemChu: "A+", xepLoai: "Xuất sắc" },
+                      { code: "ETM7321", name: "Đạo đức & Phương pháp dạy học", credits: 2, cc: "8.0", exam: "7.5", tb10: "7.8", diemChu: "B", xepLoai: "Khá" },
+                      { code: "GDTC01", name: "Giáo dục thể chất 1", credits: 1, cc: "10", exam: "-", tb10: "-", diemChu: "-", xepLoai: "Đạt" },
+                      { code: "TH01", name: "Tin học Đại cương", credits: 2, cc: "8.5", exam: "6.0", tb10: "6.8", diemChu: "C+", xepLoai: "Trung bình" }
+                    ];
+
                     return (
-                      <div className="border border-slate-100/80 rounded-xl overflow-hidden shadow-xs mt-1">
-                        <table className="w-full text-left text-[11px] font-sans">
+                      <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs mt-1 bg-white">
+                        <table className="w-full text-left text-[11px] font-sans border-collapse">
                           <thead>
-                            <tr className="bg-slate-50/50 border-b border-slate-100 text-slate-450 text-[9px] font-bold uppercase tracking-wider">
-                              <th className="p-2 pl-3">Tên học phần</th>
-                              <th className="p-2 pr-3 text-right">Điểm số</th>
+                            <tr className="bg-slate-100/90 border-b border-slate-200 text-slate-700 text-[9px] font-bold uppercase tracking-wider">
+                              <th className="p-2 pl-3">STT</th>
+                              <th className="p-2">Học phần</th>
+                              <th className="p-2 text-center">TC</th>
+                              <th className="p-2 text-center font-mono">Đ.Thi</th>
+                              <th className="p-2 text-center font-mono">Đ.T10</th>
+                              <th className="p-2 text-center font-mono">Điểm chữ</th>
+                              <th className="p-2 text-center">XẾP LOẠI</th>
+                              <th className="p-2 pr-3 text-center">Phúc khảo</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100/60 bg-white">
-                            {pairedItems.map((item, idx) => {
-                              const scoreNum = Number(item.grade);
-                              const scoreColor = item.grade !== "-" && !isNaN(scoreNum)
-                                ? scoreNum >= 8.5 ? "text-emerald-600 font-bold"
-                                  : scoreNum >= 7.0 ? "text-blue-600 font-bold"
-                                  : scoreNum >= 5.0 ? "text-slate-700"
-                                  : "text-rose-500 font-bold"
-                                : "text-slate-400";
+                          <tbody className="divide-y divide-slate-100 bg-white">
+                            {displayGrades.map((item, idx) => {
                               return (
-                                <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
-                                  <td className="p-2 pl-3 text-slate-800 font-medium">{item.name}</td>
-                                  <td className={`p-2 pr-3 text-right font-mono font-black ${scoreColor}`}>{item.grade}</td>
+                                <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                                  <td className="p-2 pl-3 font-mono text-slate-400 text-center">{idx + 1}</td>
+                                  <td className="p-2 text-slate-900 font-bold">
+                                    {item.name}
+                                    <span className="block text-[9px] font-mono text-slate-400 font-normal">{item.code}</span>
+                                  </td>
+                                  <td className="p-2 text-center font-mono font-semibold text-slate-600">{item.credits}</td>
+                                  <td className="p-2 text-center font-mono font-bold text-blue-700">{item.exam}</td>
+                                  <td className="p-2 text-center font-mono font-black text-slate-900 bg-slate-50">{item.tb10}</td>
+                                  <td className="p-2 text-center font-mono font-black text-blue-800">{item.diemChu}</td>
+                                  <td className="p-2 text-center">
+                                    <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-black tracking-wide border ${
+                                      item.xepLoai === "Xuất sắc"
+                                        ? "bg-purple-100 text-purple-800 border-purple-200"
+                                        : item.xepLoai === "Giỏi"
+                                        ? "bg-blue-100 text-blue-800 border-blue-200"
+                                        : item.xepLoai === "Khá"
+                                        ? "bg-cyan-100 text-cyan-800 border-cyan-200"
+                                        : item.xepLoai === "Trung bình"
+                                        ? "bg-amber-100 text-amber-800 border-amber-200"
+                                        : item.xepLoai === "Yếu"
+                                        ? "bg-orange-100 text-orange-800 border-orange-200"
+                                        : item.xepLoai === "Đạt"
+                                        ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                                        : "bg-rose-100 text-rose-800 border-rose-200"
+                                    }`}>
+                                      {item.xepLoai}
+                                    </span>
+                                  </td>
+                                  <td className="p-2 pr-3 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setAppealModalSubject({ code: item.code, name: item.name, grade: item.tb10 });
+                                      }}
+                                      className="px-2 py-0.5 text-[9px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded transition-colors"
+                                    >
+                                      Nộp đơn
+                                    </button>
+                                  </td>
                                 </tr>
                               );
                             })}
@@ -1330,6 +1406,16 @@ export const StudentPortal: React.FC = () => {
                 <div className="col-span-2">Xếp loại: <strong className="text-slate-850 font-bold">{sObj?.academicGrade || "Chưa cập nhật"}</strong></div>
                 {sObj?.notes && <div className="col-span-2 text-[10.5px]">Ghi chú: <span className="text-slate-500 italic">{sObj.notes}</span></div>}
                 {sObj?.updatedAt && <div className="col-span-2 text-[9px] text-slate-400 font-mono">Ngày cập nhật: {sObj.updatedAt}</div>}
+                <div className="col-span-2 pt-2 border-t border-slate-100 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowTranscriptModal(true)}
+                    className="px-3.5 py-1.5 bg-blue-650 hover:bg-blue-750 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                  >
+                    <Printer size={13} />
+                    <span>Xuất Phiếu Điểm PDF/In A4</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -2616,18 +2702,10 @@ export const StudentPortal: React.FC = () => {
             );
           })()}
 
-              </div> {/* Close dynamic scrollable padding wrapper */}
-
-              {/* Minor inline footer inside sub-options */}
-              <div className="bg-slate-50/60 p-4 border-t border-slate-100 shrink-0 text-center flex flex-col sm:flex-row justify-between items-center text-[9px] text-slate-400 font-mono">
-                <span>PHÂN HỆ HỖ TRỢ SINH VIÊN UNIHUB © 2026</span>
-                <span className="mt-1 sm:mt-0">Bảo mật thông tin mã hóa bảo vệ quy trình xếp khảo</span>
               </div>
-
             </div>
           )}
-
-        </div> {/* Close right content area */}
+        </div>
 
       {/* GRAND UNIHUB FOOTER */}
       <footer className="bg-slate-100 p-5 rounded-3xl border border-slate-200 mt-8 text-center flex flex-col sm:flex-row justify-between items-center text-[10px] text-slate-400 font-medium">
@@ -3061,7 +3139,231 @@ export const StudentPortal: React.FC = () => {
         </div>
       )}
 
+      {/* MODAL: SUBMIT GRADE APPEAL FORM */}
+      {appealModalSubject && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-md w-full overflow-hidden animate-scale-up">
+            <div className="flex justify-between items-center bg-indigo-50/50 px-6 py-4 border-b border-indigo-100">
+              <h3 className="text-xs font-black text-indigo-900 flex items-center gap-2">
+                <HelpCircle size={15} className="text-indigo-600" />
+                <span>Nộp Đơn Phúc Khảo Điểm Môn Học</span>
+              </h3>
+              <button onClick={() => setAppealModalSubject(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X size={16} />
+              </button>
+            </div>
+
+            {appealSuccessMsg ? (
+              <div className="p-6 text-center space-y-2">
+                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                  <CheckCircle size={24} />
+                </div>
+                <h4 className="text-sm font-bold text-slate-800">{appealSuccessMsg}</h4>
+                <p className="text-xs text-slate-500">Giảng viên bộ môn và Phòng Đào tạo sẽ kiểm tra bài thi và phản hồi kết quả sớm nhất.</p>
+              </div>
+            ) : (
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (!appealReason.trim() || !appealModalSubject) return;
+
+                submitGradeAppeal({
+                  studentId: sObj?.id || currentUser?.username || "DTG245140202053",
+                  studentName: sObj?.name || currentUser?.name || "Sinh viên",
+                  classId: sObj?.classId || "K20-CNTT",
+                  semesterId: selectedSemesterId || "HOCKY_2_2025_2026",
+                  subjectCode: appealModalSubject.code,
+                  subjectName: appealModalSubject.name,
+                  originalGrade: appealModalSubject.grade,
+                  reason: appealReason
+                });
+
+                setAppealSuccessMsg("Đã gửi đơn phúc khảo thành công!");
+                setTimeout(() => {
+                  setAppealModalSubject(null);
+                  setAppealReason("");
+                  setAppealSuccessMsg("");
+                }, 2500);
+              }} className="p-6 space-y-4 font-sans">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
+                  <div>Học phần: <strong className="text-slate-900 font-bold">{appealModalSubject.name}</strong> ({appealModalSubject.code})</div>
+                  <div>Điểm tổng kết hiện tại: <strong className="text-blue-700 font-mono font-black">{appealModalSubject.grade}</strong></div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Lý do/Nội dung phúc khảo (*)</label>
+                  <textarea
+                    required
+                    rows={3}
+                    placeholder="VD: Điểm thi ghi trong bảng điểm chưa đúng với kết quả chấm bài thi kết thúc môn..."
+                    value={appealReason}
+                    onChange={(e) => setAppealReason(e.target.value)}
+                    className="w-full p-3 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-slate-800"
+                  />
+                </div>
+
+                <div className="flex gap-2 justify-end pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setAppealModalSubject(null)}
+                    className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold rounded-xl cursor-pointer"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs"
+                  >
+                    Nộp đơn phúc khảo
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Printable Transcript Modal (A4 Standard) */}
+      {showTranscriptModal && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 overflow-y-auto p-4 flex items-center justify-center">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-8 shadow-2xl space-y-6 border border-slate-200 my-8">
+            <div className="flex justify-between items-center border-b border-slate-200 pb-4 print:hidden">
+              <div className="flex items-center gap-2">
+                <Printer className="text-blue-600" size={20} />
+                <h3 className="text-base font-bold text-slate-800">Phiếu Kết Quả Học Tập Cá Nhân (Bản In / PDF)</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <Printer size={14} />
+                  <span>In bản A4 / Lưu PDF</span>
+                </button>
+                <button
+                  onClick={() => setShowTranscriptModal(false)}
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Document Sheet */}
+            <div className="p-6 bg-white border border-slate-300 rounded-xl space-y-6 font-serif text-slate-900 shadow-xs">
+              {/* Header */}
+              <div className="text-center space-y-1 border-b border-slate-200 pb-4">
+                <div className="text-xs font-bold uppercase tracking-wide text-slate-600">ĐẠI HỌC THÁI NGUYÊN</div>
+                <div className="text-sm font-black uppercase text-blue-900">PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI TỈNH HÀ GIANG</div>
+                <div className="text-xs font-bold text-slate-500">PHÒNG ĐÀO TẠO & QUẢN LÝ SINH VIÊN</div>
+                <div className="pt-2 text-base font-black text-slate-900 tracking-wider">PHIẾU KẾT QUẢ HỌC TẬP HỌC KỲ</div>
+                <div className="text-xs font-sans text-slate-600 italic">Học kỳ II - Năm học 2025 - 2026</div>
+              </div>
+
+              {/* Student Personal Summary */}
+              <div className="grid grid-cols-2 gap-4 text-xs font-sans">
+                <div>Họ và tên: <strong className="text-slate-900 font-bold uppercase">{sObj?.name || currentUser?.name || "Sinh viên"}</strong></div>
+                <div>Mã sinh viên: <strong className="text-slate-900 font-mono font-bold">{sObj?.id || currentUser?.username || "DTG245140202053"}</strong></div>
+                <div>Ngày sinh: <strong>{sObj?.dob || "2006-05-20"}</strong></div>
+                <div>Giới tính: <strong>{sObj?.gender || "Nam"}</strong></div>
+                <div>Lớp hành chính: <strong>{sObj?.classId || "K20-CNTT"}</strong></div>
+                <div>Ngành đào tạo: <strong>{sObj?.trainingMajor || "Công nghệ Thông tin"}</strong></div>
+              </div>
+
+              {/* Subject Grades Table */}
+              <div className="overflow-x-auto font-sans">
+                <table className="w-full text-left text-xs border-collapse border border-slate-300">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-800 font-bold uppercase text-[10px] border-b border-slate-300">
+                      <th className="p-2 border-r border-slate-300 text-center w-10">STT</th>
+                      <th className="p-2 border-r border-slate-300 w-24">Mã HP</th>
+                      <th className="p-2 border-r border-slate-300">Tên Học Phần</th>
+                      <th className="p-2 border-r border-slate-300 text-center w-12">Số TC</th>
+                      <th className="p-2 border-r border-slate-300 text-center w-16">TB Thang 10</th>
+                      <th className="p-2 border-r border-slate-300 text-center w-16">Thang 4</th>
+                      <th className="p-2 border-r border-slate-300 text-center w-16">Điểm chữ</th>
+                      <th className="p-2 text-center w-24">Xếp loại</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {subjectGradeSheets.length > 0 ? (
+                      subjectGradeSheets.map((sheet, idx) => {
+                        const match = sheet.grades.find(g => g.studentId === (sObj?.id || currentUser?.username));
+                        return (
+                          <tr key={sheet.id}>
+                            <td className="p-2 border-r border-slate-200 text-center font-mono">{idx + 1}</td>
+                            <td className="p-2 border-r border-slate-200 font-mono font-bold">{sheet.subjectCode}</td>
+                            <td className="p-2 border-r border-slate-200 font-bold">{sheet.subjectName}</td>
+                            <td className="p-2 border-r border-slate-200 text-center font-mono">{sheet.credits}</td>
+                            <td className="p-2 border-r border-slate-200 text-center font-mono font-bold">{match?.tb10 || "-"}</td>
+                            <td className="p-2 border-r border-slate-200 text-center font-mono font-bold">{match?.tb4 || "-"}</td>
+                            <td className="p-2 border-r border-slate-200 text-center font-mono font-bold text-blue-700">{match?.diemChu || "-"}</td>
+                            <td className="p-2 text-center font-bold">{match?.xepLoai || "Đạt"}</td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <>
+                        <tr>
+                          <td className="p-2 border-r border-slate-200 text-center font-mono">1</td>
+                          <td className="p-2 border-r border-slate-200 font-mono font-bold">VPS7251</td>
+                          <td className="p-2 border-r border-slate-200 font-bold">Cơ sở Tự nhiên - xã hội</td>
+                          <td className="p-2 border-r border-slate-200 text-center font-mono">4</td>
+                          <td className="p-2 border-r border-slate-200 text-center font-mono font-bold">8.7</td>
+                          <td className="p-2 border-r border-slate-200 text-center font-mono font-bold">3.8</td>
+                          <td className="p-2 border-r border-slate-200 text-center font-mono font-bold text-blue-700">A</td>
+                          <td className="p-2 text-center font-bold text-blue-800">Giỏi</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 border-r border-slate-200 text-center font-mono">2</td>
+                          <td className="p-2 border-r border-slate-200 font-mono font-bold">HCP7121</td>
+                          <td className="p-2 border-r border-slate-200 font-bold">Lịch sử Đảng Cộng sản VN</td>
+                          <td className="p-2 border-r border-slate-200 text-center font-mono">2</td>
+                          <td className="p-2 border-r border-slate-200 text-center font-mono font-bold">9.2</td>
+                          <td className="p-2 border-r border-slate-200 text-center font-mono font-bold">4.0</td>
+                          <td className="p-2 border-r border-slate-200 text-center font-mono font-bold text-blue-700">A+</td>
+                          <td className="p-2 text-center font-bold text-purple-800">Xuất sắc</td>
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Semester Summary Box */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-2 gap-4 text-xs font-sans">
+                <div>Điểm trung bình học kỳ (Thang 10): <strong className="font-mono text-slate-900">{sObj?.gpa10 ? sObj.gpa10.toFixed(2) : "8.85"}</strong></div>
+                <div>Điểm trung bình học kỳ (Thang 4): <strong className="font-mono text-blue-700">{sObj?.gpa ? sObj.gpa.toFixed(2) : "3.85"}</strong></div>
+                <div>Số tín chỉ đạt trong kỳ: <strong className="font-mono text-slate-900">18 TC</strong></div>
+                <div>Xếp loại học lực: <strong className="text-emerald-700 font-bold">{sObj?.academicGrade || "Giỏi"}</strong></div>
+              </div>
+
+              {/* Verification & Signatures Footer */}
+              <div className="pt-4 border-t border-slate-200 flex justify-between items-center text-xs font-sans">
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 bg-slate-100 border border-slate-300 rounded p-1 flex flex-col items-center justify-center text-[9px] font-mono text-slate-500">
+                    <QrCode size={32} className="text-slate-800" />
+                    <span>Xác thực</span>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-500 font-mono">Mã xác thực QR: UNIHUB-PHHG-{sObj?.id || "2026"}</div>
+                    <div className="text-[10px] text-slate-400">Trích xuất tự động từ Hệ thống Quản lý Điểm UniHub HG</div>
+                  </div>
+                </div>
+
+                <div className="text-center space-y-1 font-serif">
+                  <div className="italic text-[11px]">Hà Giang, ngày {new Date().getDate()} tháng {new Date().getMonth() + 1} năm {new Date().getFullYear()}</div>
+                  <div className="font-bold uppercase">TL. GIÁM ĐỐC</div>
+                  <div className="font-bold uppercase text-slate-700">TRƯỞNG PHÒNG ĐÀO TẠO</div>
+                  <div className="h-12"></div>
+                  <div className="font-bold underline text-blue-900">Phòng Đào tạo UniHub HG</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-};
+
+

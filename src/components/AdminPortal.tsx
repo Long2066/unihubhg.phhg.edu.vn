@@ -85,7 +85,7 @@ export const AdminPortal: React.FC = () => {
   const [clubFormUsername, setClubFormUsername] = useState("");
   const [clubFormPassword, setClubFormPassword] = useState("");
 
-  const [activeAccountTab, setActiveAccountTab] = useState<"CLUBS" | "CLASS_ACCOUNTS" | "UNIT_ACCOUNTS">("CLUBS");
+  const [activeAccountTab, setActiveAccountTab] = useState<"CLUBS" | "CLASS_ACCOUNTS" | "UNIT_ACCOUNTS" | "ALL_ACCOUNTS">("CLUBS");
   const [showClubModal, setShowClubModal] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
 
@@ -130,30 +130,40 @@ export const AdminPortal: React.FC = () => {
   const findAssocUser = (org: Organization, usersList: UserAccount[]): UserAccount | undefined => {
     if (!org) return undefined;
     const targetIdClean = (org.id || "").trim().toLowerCase();
+    const orgNameClean = (org.name || "").trim().toLowerCase();
 
     // 1. Direct targetId match (case insensitive)
-    let matched = usersList.find(u => isOrgRole(u.role) && u.targetId && u.targetId.trim().toLowerCase() === targetIdClean);
+    let matched = usersList.find(u => u.targetId && u.targetId.trim().toLowerCase() === targetIdClean);
     if (matched) return matched;
 
     // 2. Specific role match for Đoàn & Hội
-    if (org.type === "DOAN" || targetIdClean === "doantn") {
-      matched = usersList.find(u => u.role === UserRole.YOUTH_UNION || (u.username && u.username.toLowerCase().includes("doantn")) || (u.email && u.email.toLowerCase().includes("doantn")));
+    if (org.type === "DOAN" || targetIdClean.includes("doan")) {
+      matched = usersList.find(u => u.role === UserRole.YOUTH_UNION || (u.username && u.username.toLowerCase().includes("doan")) || (u.email && u.email.toLowerCase().includes("doan")));
       if (matched) return matched;
     }
-    if (org.type === "HOI" || targetIdClean === "hoisv") {
+    if (org.type === "HOI" || targetIdClean.includes("hoi") || targetIdClean.includes("hsv")) {
       matched = usersList.find(u => u.role === UserRole.STUDENT_UNION || (u.username && u.username.toLowerCase().includes("hsv")) || (u.email && u.email.toLowerCase().includes("hsv")));
       if (matched) return matched;
     }
 
-    // 3. Username / Email / Name match for CLB
+    // 3. Match by targetId / Username / Email / Name substring for CLB
     matched = usersList.find(u => isOrgRole(u.role) && (
+      (u.targetId && u.targetId.toLowerCase().includes(targetIdClean)) ||
       (u.username && targetIdClean && u.username.toLowerCase().includes(targetIdClean)) ||
       (u.email && targetIdClean && u.email.toLowerCase().includes(targetIdClean)) ||
-      (u.name && org.name && u.name.trim().toLowerCase() === org.name.trim().toLowerCase())
+      (u.name && orgNameClean && (u.name.trim().toLowerCase().includes(orgNameClean) || orgNameClean.includes(u.name.trim().toLowerCase())))
     ));
     if (matched) return matched;
 
-    // 4. Broad check: any user whose targetId matches org.id regardless of role or username match
+    // 4. Broad check: any org role user whose username, email or targetId matches org.id
+    matched = usersList.find(u => isOrgRole(u.role) && (
+      (u.targetId && u.targetId.trim().toLowerCase() === targetIdClean) ||
+      (u.username && targetIdClean && u.username.toLowerCase().includes(targetIdClean)) ||
+      (u.email && targetIdClean && u.email.toLowerCase().includes(targetIdClean))
+    ));
+    if (matched) return matched;
+
+    // 5. Fallback check: match any user whose targetId or username shares prefix/suffix
     return usersList.find(u => (u.targetId && u.targetId.trim().toLowerCase() === targetIdClean) || (u.username && targetIdClean && u.username.toLowerCase().includes(targetIdClean)));
   };
 
@@ -1217,6 +1227,20 @@ export const AdminPortal: React.FC = () => {
                   >
                     Tài khoản Đơn vị / Quản lý
                   </button>
+                  <button
+                    onClick={() => {
+                      setActiveAccountTab("ALL_ACCOUNTS");
+                      setAccountSearch("");
+                      setAccountRoleFilter("ALL");
+                    }}
+                    className={`pb-2 px-1 text-xs font-bold transition-all relative cursor-pointer ${
+                      activeAccountTab === "ALL_ACCOUNTS" 
+                        ? "text-indigo-655 font-black border-b-2 border-indigo-600" 
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    Tất cả tài khoản hệ thống ({users.length})
+                  </button>
                 </div>
                 <button
                   onClick={() => {
@@ -1350,6 +1374,7 @@ export const AdminPortal: React.FC = () => {
                         <option value="ALL">TẤT CẢ VAI TRÒ LỚP</option>
                         <option value={UserRole.STUDENT}>SINH VIÊN</option>
                         <option value={UserRole.CLASS_MONITOR}>CÁN BỘ LỚP (BCS)</option>
+                        <option value={UserRole.GROUP_LEADER}>TỔ TRƯỞNG LỚP</option>
                         <option value={UserRole.ADVISER}>GV CỐ VẤN (GVCN)</option>
                       </select>
                     </div>
@@ -1370,8 +1395,8 @@ export const AdminPortal: React.FC = () => {
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {users.filter(u => {
-                          // Only include STUDENT, CLASS_MONITOR, ADVISER
-                          if (u.role !== UserRole.STUDENT && u.role !== UserRole.CLASS_MONITOR && u.role !== UserRole.ADVISER) return false;
+                          // Include STUDENT, CLASS_MONITOR, ADVISER, GROUP_LEADER
+                          if (u.role !== UserRole.STUDENT && u.role !== UserRole.CLASS_MONITOR && u.role !== UserRole.ADVISER && u.role !== UserRole.GROUP_LEADER) return false;
                           
                           if (accountRoleFilter !== "ALL" && u.role !== accountRoleFilter) return false;
                           
@@ -1441,7 +1466,7 @@ export const AdminPortal: React.FC = () => {
                           );
                         })}
                         {users.filter(u => {
-                          if (u.role !== UserRole.STUDENT && u.role !== UserRole.CLASS_MONITOR && u.role !== UserRole.ADVISER) return false;
+                          if (u.role !== UserRole.STUDENT && u.role !== UserRole.CLASS_MONITOR && u.role !== UserRole.ADVISER && u.role !== UserRole.GROUP_LEADER) return false;
                           if (accountRoleFilter !== "ALL" && u.role !== accountRoleFilter) return false;
                           
                           const studentObj = students.find(s => s.id === u.targetId);
@@ -1595,6 +1620,144 @@ export const AdminPortal: React.FC = () => {
                           <tr>
                             <td colSpan={6} className="p-8 text-center text-slate-400 italic">
                               Không tìm thấy tài khoản ban quản lý nào phù hợp.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 4: ALL ACCOUNTS */}
+              {activeAccountTab === "ALL_ACCOUNTS" && (
+                <div className="space-y-4">
+                  {/* Search and Filters */}
+                  <div className="flex flex-col md:flex-row gap-3 bg-slate-50/60 p-4 rounded-xl border border-slate-200">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        placeholder="Tìm kiếm tất cả tài khoản theo tên, tên đăng nhập, email hoặc ID..."
+                        value={accountSearch}
+                        onChange={(e) => setAccountSearch(e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div className="w-full md:w-48">
+                      <select
+                        value={accountRoleFilter}
+                        onChange={(e) => setAccountRoleFilter(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-sans"
+                      >
+                        <option value="ALL">TẤT CẢ VAI TRÒ</option>
+                        <option value={UserRole.STUDENT}>SINH VIÊN</option>
+                        <option value={UserRole.CLASS_MONITOR}>CÁN BỘ LỚP</option>
+                        <option value={UserRole.GROUP_LEADER}>TỔ TRƯỞNG LỚP</option>
+                        <option value={UserRole.ADVISER}>GV CỐ VẤN (GVCN)</option>
+                        <option value={UserRole.CLUB_MANAGER}>CÂU LẠC BỘ</option>
+                        <option value={UserRole.YOUTH_UNION}>ĐOÀN THANH NIÊN</option>
+                        <option value={UserRole.STUDENT_UNION}>HỘI SINH VIÊN</option>
+                        <option value={UserRole.FACULTY}>KHOA</option>
+                        <option value={UserRole.TRAINING_DEPT}>PHÒNG ĐÀO TẠO</option>
+                        <option value={UserRole.ADMIN}>ADMIN CTHSSV</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* List/Table */}
+                  <div className="overflow-x-auto border border-slate-150 rounded-xl bg-white shadow-xs">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-150 text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                          <th className="p-3.5 pl-4">Họ và tên</th>
+                          <th className="p-3.5">Vai trò</th>
+                          <th className="p-3.5">Tài khoản</th>
+                          <th className="p-3.5">Mật khẩu</th>
+                          <th className="p-3.5">ID Liên kết</th>
+                          <th className="p-3.5 pr-4 text-right">Hành động</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {users.filter(u => {
+                          if (u.username === "superadmin" || u.email === "superadmin@unihub.edu.vn") return false;
+                          if (accountRoleFilter !== "ALL" && u.role !== accountRoleFilter) return false;
+                          if (accountSearch.trim()) {
+                            const q = accountSearch.toLowerCase().trim();
+                            return (
+                              u.name.toLowerCase().includes(q) ||
+                              u.username.toLowerCase().includes(q) ||
+                              (u.email || "").toLowerCase().includes(q) ||
+                              (u.targetId || "").toLowerCase().includes(q)
+                            );
+                          }
+                          return true;
+                        }).map((user) => {
+                          const badge = getRoleBadge(user.role);
+                          return (
+                            <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="p-3.5 pl-4 font-bold text-slate-800">{user.name}</td>
+                              <td className="p-3.5">
+                                <span className={`px-2 py-0.5 text-[9px] font-black rounded border uppercase whitespace-nowrap ${badge.className}`}>
+                                  {badge.label}
+                                </span>
+                              </td>
+                              <td className="p-3.5 font-mono font-medium text-slate-655">{user.username}</td>
+                              <td className="p-3.5 font-mono text-slate-750 font-medium">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="bg-slate-100 px-2 py-0.5 rounded select-all font-bold tracking-wider text-[10.5px]">
+                                    {user.password || "password123"}
+                                  </span>
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(user.password || "password123");
+                                      alert("Đã sao chép mật khẩu!");
+                                    }}
+                                    className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                                    title="Sao chép mật khẩu"
+                                  >
+                                    <Copy size={11} />
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="p-3.5 font-mono text-slate-500">{user.targetId || <span className="text-slate-350 italic">-</span>}</td>
+                              <td className="p-3.5 pr-4 text-right">
+                                <div className="flex justify-end gap-1.5">
+                                  <button
+                                    onClick={() => selectAccountForEditing(user)}
+                                    className="p-1 px-2 border border-slate-200 hover:border-indigo-200 text-indigo-650 hover:bg-indigo-50/50 rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
+                                  >
+                                    Sửa
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteAccount(user)}
+                                    disabled={user.username === "cthssv@hg.edu.vn" || user.username === "pcthssv@hg.edu.vn"}
+                                    className="p-1 text-rose-600 hover:bg-rose-50 disabled:opacity-30 disabled:hover:bg-transparent border border-rose-100 hover:border-rose-200 disabled:border-transparent rounded-lg cursor-pointer flex items-center justify-center transition-colors"
+                                    title={(user.username === "cthssv@hg.edu.vn" || user.username === "pcthssv@hg.edu.vn") ? "Không thể xóa admin tổng" : "Xóa tài khoản"}
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {users.filter(u => {
+                          if (u.username === "superadmin" || u.email === "superadmin@unihub.edu.vn") return false;
+                          if (accountRoleFilter !== "ALL" && u.role !== accountRoleFilter) return false;
+                          if (accountSearch.trim()) {
+                            const q = accountSearch.toLowerCase().trim();
+                            return (
+                              u.name.toLowerCase().includes(q) ||
+                              u.username.toLowerCase().includes(q) ||
+                              (u.email || "").toLowerCase().includes(q) ||
+                              (u.targetId || "").toLowerCase().includes(q)
+                            );
+                          }
+                          return true;
+                        }).length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="p-8 text-center text-slate-400 italic">
+                              Không tìm thấy tài khoản nào trong hệ thống.
                             </td>
                           </tr>
                         )}

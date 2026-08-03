@@ -14,7 +14,9 @@ import {
   EvaluationPeriod,
   DailyAttendanceReport,
   ScheduleSlot,
-  GroupAttendanceReport
+  GroupAttendanceReport,
+  CourseClassAssignment,
+  SubjectGradeSheet
 } from "./types";
 
 export const SEED_PERIOD: EvaluationPeriod = {
@@ -86,7 +88,8 @@ export const SEED_USERS: UserAccount[] = [
     username: "dtphhg@hg.edu.vn",
     name: "Trần Thị Mai",
     role: UserRole.TRAINING_DEPT,
-    email: "dtphhg@hg.edu.vn"
+    email: "dtphhg@hg.edu.vn",
+    password: "password123"
   },
   {
     id: "U_CM01",
@@ -94,6 +97,7 @@ export const SEED_USERS: UserAccount[] = [
     name: "Lâm Minh Triết",
     role: UserRole.CLASS_MONITOR,
     email: "cblk2gdtha@hg.edu.vn",
+    password: "password123",
     targetId: "K20-CNTT"
   },
   {
@@ -102,6 +106,7 @@ export const SEED_USERS: UserAccount[] = [
     name: "Hoàng Minh Đức",
     role: UserRole.ADVISER,
     email: "gvcnk2gdtha@hg.edu.vn",
+    password: "password123",
     targetId: "K20-CNTT"
   },
   {
@@ -110,14 +115,25 @@ export const SEED_USERS: UserAccount[] = [
     name: "Khoa Sư phạm",
     role: UserRole.FACULTY,
     email: "khoasp@hg.edu.vn",
+    password: "password123",
     targetId: "K-CNTT"
+  },
+  {
+    id: "U_TEA01",
+    username: "gvbm@phhg.edu.vn",
+    name: "ThS. Ngô Văn Bình (Giáo viên Bộ môn)",
+    role: UserRole.TEACHER,
+    email: "gvbm@phhg.edu.vn",
+    password: "password123",
+    targetId: "gv_ngovanbinh"
   },
   {
     id: "U_ADM01",
     username: "pcthssv@hg.edu.vn",
     name: "Phòng Công tác HSSV (Admin)",
     role: UserRole.ADMIN,
-    email: "pcthssv@hg.edu.vn"
+    email: "pcthssv@hg.edu.vn",
+    password: "password123"
   }
 ];
 
@@ -944,4 +960,119 @@ export const SEED_GROUP_ATTENDANCE: GroupAttendanceReport[] = [
     status: "PENDING"
   }
 ];
+
+export const SEED_TEACHER_ASSIGNMENTS: CourseClassAssignment[] = [
+  {
+    id: "HP_HOCKY_2_2025_2026_K2GDTHA_VPS7251",
+    semesterId: "HOCKY_2_2025_2026",
+    semesterName: "Học kỳ II - 2025-2026",
+    classId: "K2-GDTH-A",
+    className: "K2 GDTH A",
+    subjectCode: "VPS7251",
+    subjectName: "Cơ sở Tự nhiên - xã hội",
+    credits: 4,
+    teacherId: "gvbm@phhg.edu.vn",
+    teacherName: "ThS. Ngô Văn Bình",
+    status: "SUBMITTED",
+    updatedAt: "2026-08-02"
+  },
+  {
+    id: "HP_HOCKY_2_2025_2026_K2GDTHB_VPS7251",
+    semesterId: "HOCKY_2_2025_2026",
+    semesterName: "Học kỳ II - 2025-2026",
+    classId: "K2-GDTH-B",
+    className: "K2 GDTH B",
+    subjectCode: "VPS7251",
+    subjectName: "Cơ sở Tự nhiên - xã hội",
+    credits: 4,
+    teacherId: "gvbm@phhg.edu.vn",
+    teacherName: "ThS. Ngô Văn Bình",
+    status: "DRAFT",
+    updatedAt: "2026-08-02"
+  },
+  {
+    id: "HP_HOCKY_2_2025_2026_K20CNTT_CS01",
+    semesterId: "HOCKY_2_2025_2026",
+    semesterName: "Học kỳ II - 2025-2026",
+    classId: "K20-CNTT",
+    className: "K20 Công nghệ Thông tin",
+    subjectCode: "CS01",
+    subjectName: "Tin học Đại cương",
+    credits: 3,
+    teacherId: "gvbm@phhg.edu.vn",
+    teacherName: "ThS. Ngô Văn Bình",
+    status: "SUBMITTED",
+    updatedAt: "2026-08-02"
+  }
+];
+
+export const SEED_SUBJECT_GRADES: SubjectGradeSheet[] = [
+  {
+    id: "GRADE_HOCKY_2_2025_2026_K2GDTHA_VPS7251",
+    semesterId: "HOCKY_2_2025_2026",
+    classId: "K2-GDTH-A",
+    subjectCode: "VPS7251",
+    subjectName: "Cơ sở Tự nhiên - xã hội",
+    credits: 4,
+    teacherId: "gvbm@phhg.edu.vn",
+    teacherName: "ThS. Ngô Văn Bình",
+    status: "SUBMITTED",
+    updatedAt: "2026-08-02",
+    submittedAt: "2026-08-02 10:30:00",
+    grades: [
+      {
+        studentId: "DTG2357140202099",
+        studentName: "Hoàng Hải Nam",
+        gender: "Nam",
+        dob: "2006-01-01",
+        classId: "K2-GDTH-A",
+        cc: 8.0,
+        tx1: 9.0,
+        tx2: 7.5,
+        dk1: 8.0,
+        dk2: 8.0,
+        exam: 7.5,
+        tb10: 7.8,
+        tb4: 3.0,
+        diemChu: "B",
+        xepLoai: "Khá"
+      },
+      {
+        studentId: "DTG245140202002",
+        studentName: "Đỗ Thị Huyền Anh",
+        gender: "Nữ",
+        dob: "2006-03-15",
+        classId: "K2-GDTH-A",
+        cc: 9.0,
+        tx1: 8.5,
+        tx2: 9.0,
+        dk1: 8.5,
+        dk2: 9.0,
+        exam: 8.5,
+        tb10: 8.7,
+        tb4: 3.5,
+        diemChu: "A",
+        xepLoai: "Giỏi"
+      },
+      {
+        studentId: "DTG245140202053",
+        studentName: "Ma Văn Long",
+        gender: "Nam",
+        dob: "2006-05-20",
+        classId: "K20-CNTT",
+        cc: 9.5,
+        tx1: 9.0,
+        tx2: 8.5,
+        dk1: 9.0,
+        dk2: 9.5,
+        exam: 9.0,
+        tb10: 9.1,
+        tb4: 4.0,
+        diemChu: "A+",
+        xepLoai: "Xuất sắc"
+      }
+    ]
+  }
+];
+
 

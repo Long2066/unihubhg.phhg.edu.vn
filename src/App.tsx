@@ -61,6 +61,7 @@ const ClassPortal = lazy(() => import("./components/ClassPortal").then(module =>
 const AdviserPortal = lazy(() => import("./components/AdviserPortal").then(module => ({ default: module.AdviserPortal })));
 const FacultyPortal = lazy(() => import("./components/FacultyPortal").then(module => ({ default: module.FacultyPortal })));
 const AdminPortal = lazy(() => import("./components/AdminPortal").then(module => ({ default: module.AdminPortal })));
+const TeacherPortal = lazy(() => import("./components/TeacherPortal").then(module => ({ default: module.TeacherPortal })));
 const ClassStatisticsBottom = lazy(() => import("./components/ClassStatisticsBottom").then(module => ({ default: module.ClassStatisticsBottom })));
 
 const PortalLoader: React.FC = () => (
@@ -770,6 +771,9 @@ const AppContent: React.FC = () => {
         case UserRole.FACULTY:
           portal = <FacultyPortal />;
           break;
+        case UserRole.TEACHER:
+          portal = <TeacherPortal />;
+          break;
         case UserRole.ADMIN:
           portal = <AdminPortal />;
           break;
@@ -806,6 +810,7 @@ const AppContent: React.FC = () => {
       case UserRole.CLASS_MONITOR: return { label: "Ban Cán sự Lớp", color: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: UserCheck };
       case UserRole.ADVISER: return { label: "GVCN", color: "bg-rose-100 text-rose-800 border-rose-200", icon: AdviserIcon };
       case UserRole.FACULTY: return { label: "Văn phòng Khoa", color: "bg-indigo-100 text-indigo-800 border-indigo-200", icon: School };
+      case UserRole.TEACHER: return { label: "Giáo viên Bộ môn", color: "bg-blue-100 text-blue-800 border-blue-200", icon: GraduationCap };
       case UserRole.ADMIN: return { label: "Admin tổng", color: "bg-slate-800 text-white border-slate-700", icon: Settings };
     }
   };
@@ -816,6 +821,10 @@ const AppContent: React.FC = () => {
   // Active side tabs maps matching Attachment 1 design
   const getSidebarTabs = () => {
     switch (currentUser.role) {
+      case UserRole.TEACHER:
+        return [
+          { id: "TEACHER_GRADES", label: "Nhập & Nạp Điểm Học Phần", icon: GraduationCap }
+        ];
       case UserRole.STUDENT:
         return [
           { id: "TRANG_CHU", label: "Bảng tin & Hồ sơ chính", icon: Home },

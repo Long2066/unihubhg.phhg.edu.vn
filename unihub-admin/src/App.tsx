@@ -1104,7 +1104,7 @@ export default function App() {
             (userForm.name && o.name.toLowerCase().includes(userForm.name.toLowerCase())) ||
             (userForm.username && userForm.username.toLowerCase().includes(o.id.toLowerCase()))
           );
-          if (matchedOrg) resolvedTargetId = matchedOrg.id;
+          resolvedTargetId = matchedOrg ? matchedOrg.id : (userForm.username.split("@")[0].toUpperCase() || `CLB_${Date.now()}`);
         }
       }
 
@@ -1159,6 +1159,20 @@ export default function App() {
         const targetDocId = authUid || `U_GEN_${Date.now()}`;
         userData.id = targetDocId;
         await setDoc(doc(db, "users", targetDocId), userData);
+      }
+
+      // Auto-upsert matching Organization document for org accounts so CTHSSV portal renders it
+      if (isOrgRole(userForm.role) && resolvedTargetId) {
+        const orgType = userForm.role === UserRole.YOUTH_UNION ? "DOAN" : (userForm.role === UserRole.STUDENT_UNION ? "HOI" : "CLB");
+        const orgDoc = {
+          id: resolvedTargetId,
+          name: userForm.name || "Tổ chức / CLB",
+          type: orgType,
+          leaderName: "Trưởng ban quản lý",
+          field: "Hoạt động sinh viên",
+          level: "TRUONG"
+        };
+        await setDoc(doc(db, "organizations", resolvedTargetId), orgDoc, { merge: true }).catch(() => {});
       }
 
       setShowUserModal(false);
