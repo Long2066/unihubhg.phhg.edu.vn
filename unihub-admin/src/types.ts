@@ -12,6 +12,7 @@ export enum UserRole {
   TRAINING_DEPT = "TRAINING_DEPT",     // Phòng Đào tạo
   CLASS_MONITOR = "CLASS_MONITOR",     // Ban cán sự Lớp (BCS)
   ADVISER = "ADVISER",                 // Giáo viên chủ nhiệm (GVCN)
+  TEACHER = "TEACHER",                 // Giảng viên Bộ môn
   FACULTY = "FACULTY",                 // Văn phòng Khoa
   ADMIN = "ADMIN"                      // CTHSSV / Admin Hệ thống
 }

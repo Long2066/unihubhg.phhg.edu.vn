@@ -1247,6 +1247,7 @@ export default function App() {
         if (user?.isGroupLeader) return `Tổ trưởng (${user.groupInCharge || 'Tổ'})`;
         return user?.monitorTitle || "Lớp trưởng (BCS)";
       case UserRole.ADVISER: return "Giảng viên Cố vấn (GVCN)";
+      case UserRole.TEACHER: return "Giảng viên Bộ môn";
       case UserRole.ORGANIZER: return "CLB / Đoàn / Hội";
       case UserRole.CLUB_MANAGER: return "Câu lạc bộ";
       case UserRole.YOUTH_UNION: return "Đoàn Thanh niên";
@@ -2005,6 +2006,7 @@ export default function App() {
                   <option value={UserRole.STUDENT}>Sinh viên</option>
                   <option value={UserRole.CLASS_MONITOR}>Lớp trưởng (BCS)</option>
                   <option value={UserRole.ADVISER}>Giáo viên chủ nhiệm (GVCN)</option>
+                  <option value={UserRole.TEACHER}>Giảng viên Bộ môn</option>
                   <option value={UserRole.CLUB_MANAGER}>Câu lạc bộ</option>
                   <option value={UserRole.YOUTH_UNION}>Đoàn Thanh niên</option>
                   <option value={UserRole.STUDENT_UNION}>Hội Sinh viên</option>
@@ -2038,6 +2040,7 @@ export default function App() {
                           u.role === UserRole.ADMIN ? "badge-danger" :
                           u.role === UserRole.TRAINING_DEPT ? "badge-purple" :
                           u.role === UserRole.ADVISER ? "badge-warning" :
+                          u.role === UserRole.TEACHER ? "badge-cyan" :
                           u.role === UserRole.FACULTY ? "badge-cyan" : "badge-active"
                         }`}>
                           {translateRole(u.role)}
@@ -3232,6 +3235,7 @@ export default function App() {
                     <option value={UserRole.GROUP_LEADER}>Tổ trưởng</option>
                     <option value={UserRole.CLASS_MONITOR}>Lớp trưởng (BCS)</option>
                     <option value={UserRole.ADVISER}>Giảng viên Cố vấn (GVCN)</option>
+                    <option value={UserRole.TEACHER}>Giảng viên Bộ môn</option>
                     <option value={UserRole.CLUB_MANAGER}>Câu lạc bộ</option>
                     <option value={UserRole.YOUTH_UNION}>Đoàn Thanh niên</option>
                     <option value={UserRole.STUDENT_UNION}>Hội Sinh viên</option>
