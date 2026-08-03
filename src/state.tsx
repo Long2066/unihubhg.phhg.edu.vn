@@ -360,7 +360,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   });
 
-  const provisionTeacherAccounts = (assignments: CourseClassAssignment[]) => {
+  const provisionTeacherAccounts = (assignments: (CourseClassAssignment & { teacherPassword?: string })[]) => {
     setUsers(prevUsers => {
       let updated = false;
       const nextUsers = [...prevUsers];
@@ -368,22 +368,32 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       assignments.forEach(assign => {
         if (!assign.teacherName) return;
         const teacherEmail = (assign.teacherId || assign.teacherName.toLowerCase().replace(/[^a-z0-9]/g, "") + "@phhg.edu.vn").trim();
-        
+        const setPassword = (assign.teacherPassword || "password123").trim();
+
         // Check if account already exists
-        const exists = nextUsers.some(u => 
+        const existingIdx = nextUsers.findIndex(u => 
           (u.email && u.email.toLowerCase() === teacherEmail.toLowerCase()) ||
           (u.username && u.username.toLowerCase() === teacherEmail.toLowerCase()) ||
           (u.name && u.name.trim().toLowerCase() === assign.teacherName.trim().toLowerCase() && u.role === UserRole.TEACHER)
         );
 
-        if (!exists) {
+        if (existingIdx >= 0) {
+          // If custom password provided, update existing teacher account password as requested by Training Dept
+          if (assign.teacherPassword && assign.teacherPassword.trim() && nextUsers[existingIdx].password !== setPassword) {
+            nextUsers[existingIdx] = {
+              ...nextUsers[existingIdx],
+              password: setPassword
+            };
+            updated = true;
+          }
+        } else {
           const newAccount: UserAccount = {
             id: `U_TEACHER_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
             username: teacherEmail,
             name: assign.teacherName,
             role: UserRole.TEACHER,
             email: teacherEmail,
-            password: "password123",
+            password: setPassword,
             targetId: assign.subjectCode
           };
           nextUsers.push(newAccount);
@@ -407,19 +417,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     provisionTeacherAccounts(assignments);
   };
 
-  const importTeacherAssignmentsExcel = (newAssignments: CourseClassAssignment[]) => {
+  const importTeacherAssignmentsExcel = (newAssignments: (CourseClassAssignment & { teacherPassword?: string })[]) => {
     setTeacherAssignments(prev => {
-      const next = [...prev];
+      const merged = [...prev];
       newAssignments.forEach(item => {
-        const idx = next.findIndex(a => a.semesterId === item.semesterId && a.classId === item.classId && a.subjectCode === item.subjectCode);
+        const idx = merged.findIndex(a => a.semesterId === item.semesterId && a.classId === item.classId && a.subjectCode === item.subjectCode);
         if (idx >= 0) {
-          next[idx] = item;
+          merged[idx] = item;
         } else {
-          next.push(item);
+          merged.push(item);
         }
       });
-      localStorage.setItem("unihub_teacher_assignments", JSON.stringify(next));
-      return next;
+      localStorage.setItem("unihub_teacher_assignments", JSON.stringify(merged));
+      return merged;
     });
     provisionTeacherAccounts(newAssignments);
   };

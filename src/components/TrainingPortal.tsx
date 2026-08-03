@@ -111,7 +111,8 @@ export const TrainingPortal: React.FC = () => {
     subjectName: "Cơ sở Tự nhiên - xã hội",
     credits: 4,
     teacherId: "gv_nguyenvana@phhg.edu.vn",
-    teacherName: "ThS. Nguyễn Văn A"
+    teacherName: "ThS. Nguyễn Văn A",
+    teacherPassword: "password123"
   });
 
   // Grading Rules Modal
@@ -132,7 +133,8 @@ export const TrainingPortal: React.FC = () => {
     subjectName: "",
     credits: 3,
     teacherId: "",
-    teacherName: ""
+    teacherName: "",
+    teacherPassword: "password123"
   });
 
   // Handler: Export Sample Excel for Course Assignments
@@ -146,7 +148,8 @@ export const TrainingPortal: React.FC = () => {
         "Số tín chỉ": 4,
         "Lớp niên chế": "K2-GDTH-A",
         "Mã / Email Giảng viên": "gvbm@phhg.edu.vn",
-        "Họ và tên Giảng viên": "ThS. Ngô Văn Bình"
+        "Họ và tên Giảng viên": "ThS. Ngô Văn Bình",
+        "Mật khẩu đăng nhập": "password123"
       },
       {
         "STT": 2,
@@ -156,7 +159,8 @@ export const TrainingPortal: React.FC = () => {
         "Số tín chỉ": 3,
         "Lớp niên chế": "K20-CNTT",
         "Mã / Email Giảng viên": "gvbm@phhg.edu.vn",
-        "Họ và tên Giảng viên": "ThS. Ngô Văn Bình"
+        "Họ và tên Giảng viên": "ThS. Ngô Văn Bình",
+        "Mật khẩu đăng nhập": "password123"
       },
       {
         "STT": 3,
@@ -166,22 +170,27 @@ export const TrainingPortal: React.FC = () => {
         "Số tín chỉ": 3,
         "Lớp niên chế": "K20-CNTT",
         "Mã / Email Giảng viên": "gv_nguyenvana@phhg.edu.vn",
-        "Họ và tên Giảng viên": "ThS. Nguyễn Văn A"
+        "Họ và tên Giảng viên": "ThS. Nguyễn Văn A",
+        "Mật khẩu đăng nhập": "password123"
       }
     ];
 
     const currentSemAssignments = teacherAssignments.filter(a => a.semesterId === selectedSemesterId);
     const exportRows = currentSemAssignments.length > 0
-      ? currentSemAssignments.map((item, idx) => ({
-          "STT": idx + 1,
-          "Mã học kỳ": item.semesterId,
-          "Mã học phần": item.subjectCode,
-          "Tên học phần": item.subjectName,
-          "Số tín chỉ": item.credits,
-          "Lớp niên chế": item.classId,
-          "Mã / Email Giảng viên": item.teacherId,
-          "Họ và tên Giảng viên": item.teacherName
-        }))
+      ? currentSemAssignments.map((item, idx) => {
+          const teacherUser = users.find(u => u.email === item.teacherId || u.username === item.teacherId);
+          return {
+            "STT": idx + 1,
+            "Mã học kỳ": item.semesterId,
+            "Mã học phần": item.subjectCode,
+            "Tên học phần": item.subjectName,
+            "Số tín chỉ": item.credits,
+            "Lớp niên chế": item.classId,
+            "Mã / Email Giảng viên": item.teacherId,
+            "Họ và tên Giảng viên": item.teacherName,
+            "Mật khẩu đăng nhập": teacherUser?.password || "password123"
+          };
+        })
       : sampleData;
 
     const worksheet = XLSX.utils.json_to_sheet(exportRows);
@@ -194,7 +203,8 @@ export const TrainingPortal: React.FC = () => {
       { wch: 12 }, // Số tín chỉ
       { wch: 18 }, // Lớp niên chế
       { wch: 30 }, // Email Giảng viên
-      { wch: 26 }  // Họ tên Giảng viên
+      { wch: 26 }, // Họ tên Giảng viên
+      { wch: 20 }  // Mật khẩu đăng nhập
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -205,13 +215,18 @@ export const TrainingPortal: React.FC = () => {
   // Handlers for Editing Assignment
   const handleOpenEditAssignmentModal = (assignment: CourseClassAssignment) => {
     setEditingAssignmentId(assignment.id);
+    const existingTeacher = users.find(u => 
+      (u.email && u.email.toLowerCase() === assignment.teacherId.toLowerCase()) || 
+      (u.username && u.username.toLowerCase() === assignment.teacherId.toLowerCase())
+    );
     setEditAssignForm({
       classId: assignment.classId,
       subjectCode: assignment.subjectCode,
       subjectName: assignment.subjectName,
       credits: assignment.credits,
       teacherId: assignment.teacherId,
-      teacherName: assignment.teacherName
+      teacherName: assignment.teacherName,
+      teacherPassword: existingTeacher?.password || "password123"
     });
     setShowEditAssignmentModal(true);
   };
@@ -229,7 +244,8 @@ export const TrainingPortal: React.FC = () => {
           subjectName: editAssignForm.subjectName.trim(),
           credits: Number(editAssignForm.credits) || 3,
           teacherId: editAssignForm.teacherId.trim(),
-          teacherName: editAssignForm.teacherName.trim()
+          teacherName: editAssignForm.teacherName.trim(),
+          teacherPassword: editAssignForm.teacherPassword.trim()
         };
       }
       return a;
@@ -245,12 +261,12 @@ export const TrainingPortal: React.FC = () => {
       subjectCode: editAssignForm.subjectCode,
       classId: editAssignForm.classId,
       oldValue: "Phân công cũ",
-      newValue: `Đổi sang GV: ${editAssignForm.teacherName} (${editAssignForm.teacherId})`
+      newValue: `Đổi sang GV: ${editAssignForm.teacherName} (${editAssignForm.teacherId}) - MK: ${editAssignForm.teacherPassword}`
     });
 
     setShowEditAssignmentModal(false);
     setEditingAssignmentId("");
-    alert(`Đã điều chỉnh phân công giảng dạy môn ${editAssignForm.subjectName} (${editAssignForm.classId}) thành công!`);
+    alert(`Đã điều chỉnh phân công giảng dạy và cập nhật mật khẩu cho Giảng viên thành công!`);
   };
 
   // Schedule Management State
@@ -280,7 +296,7 @@ export const TrainingPortal: React.FC = () => {
           }
         }
 
-        const newAssignments: CourseClassAssignment[] = [];
+        const newAssignments: (CourseClassAssignment & { teacherPassword?: string })[] = [];
         const startRow = headerIdx >= 0 ? headerIdx + 1 : 1;
 
         for (let i = startRow; i < jsonData.length; i++) {
@@ -294,6 +310,7 @@ export const TrainingPortal: React.FC = () => {
           const credits = parseInt(String(row[4] || "2"), 10) || 2;
           const teacherId = String(row[5] || "").trim();
           const teacherName = String(row[6] || "").trim();
+          const teacherPassword = String(row[7] || "password123").trim();
 
           if (classId && subjectCode) {
             newAssignments.push({
@@ -305,6 +322,7 @@ export const TrainingPortal: React.FC = () => {
               credits,
               teacherId: teacherId || "teacher",
               teacherName: teacherName || "Giảng viên",
+              teacherPassword: teacherPassword || "password123",
               status: "PENDING"
             });
           }
@@ -312,7 +330,7 @@ export const TrainingPortal: React.FC = () => {
 
         if (newAssignments.length > 0) {
           importTeacherAssignmentsExcel(newAssignments);
-          alert(`Đã nạp thành công ${newAssignments.length} phân công giảng dạy từ file Excel!`);
+          alert(`Đã nạp thành công ${newAssignments.length} phân công giảng dạy và cấp mật khẩu Giảng viên từ file Excel!`);
         } else {
           alert("Không tìm thấy dữ liệu phân công hợp lệ trong file!");
         }
@@ -329,7 +347,7 @@ export const TrainingPortal: React.FC = () => {
     e.preventDefault();
     if (!assignForm.classId || !assignForm.subjectCode || !assignForm.subjectName) return;
 
-    const newAssignment: CourseClassAssignment = {
+    const newAssignment: CourseClassAssignment & { teacherPassword?: string } = {
       id: `HP_${selectedSemesterId}_${assignForm.classId}_${assignForm.subjectCode}`,
       semesterId: selectedSemesterId,
       classId: assignForm.classId,
@@ -338,12 +356,13 @@ export const TrainingPortal: React.FC = () => {
       credits: assignForm.credits,
       teacherId: assignForm.teacherId,
       teacherName: assignForm.teacherName,
+      teacherPassword: assignForm.teacherPassword,
       status: "PENDING"
     };
 
     saveTeacherAssignments([...teacherAssignments, newAssignment]);
     setShowAddAssignmentModal(false);
-    alert("Đã thêm phân công giảng dạy mới thành công!");
+    alert("Đã thêm phân công giảng dạy mới và cấp mật khẩu Giảng viên thành công!");
   };
 
   // Handler: Deadline Reminders
@@ -2617,6 +2636,18 @@ export const TrainingPortal: React.FC = () => {
                 />
               </div>
 
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Mật khẩu đăng nhập của Giảng viên (*)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Mật khẩu tài khoản (Mặc định: password123)"
+                  value={assignForm.teacherPassword}
+                  onChange={(e) => setAssignForm({ ...assignForm, teacherPassword: e.target.value })}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 font-mono text-xs font-bold"
+                />
+              </div>
+
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
@@ -2720,6 +2751,18 @@ export const TrainingPortal: React.FC = () => {
                   value={editAssignForm.teacherName}
                   onChange={(e) => setEditAssignForm({ ...editAssignForm, teacherName: e.target.value })}
                   className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-slate-800 font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Mật khẩu đăng nhập của Giảng viên (*)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Mật khẩu tài khoản (Mặc định: password123)"
+                  value={editAssignForm.teacherPassword}
+                  onChange={(e) => setEditAssignForm({ ...editAssignForm, teacherPassword: e.target.value })}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-slate-800 font-mono text-xs font-bold"
                 />
               </div>
 
