@@ -1108,13 +1108,18 @@ export default function App() {
         }
       }
 
-      // Build clean user data object (only allowed Firestore fields)
+      // Build clean user data object (only allowed Firestore fields, trimmed for accuracy)
+      const cleanUsername = userForm.username.trim();
+      const cleanEmail = targetEmail.trim();
+      const cleanPassword = targetPassword.trim();
+      const cleanName = userForm.name.trim();
+
       const userData: Record<string, any> = {
-        name: userForm.name,
-        username: userForm.username,
-        email: targetEmail,
+        name: cleanName,
+        username: cleanUsername,
+        email: cleanEmail,
         role: userForm.role,
-        password: targetPassword
+        password: cleanPassword
       };
       if (resolvedTargetId) {
         userData.targetId = resolvedTargetId;

@@ -628,17 +628,65 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const resolveGradeAppeal = (appealId: string, status: "UPDATED" | "REJECTED", newGrade?: string, response?: string) => {
+    let targetSemesterId = "HOCKY_2_2025_2026";
+    let targetStudentId = "";
+    let targetSubjectCode = "";
+
     setGradeAppeals(prev => {
-      const next = prev.map(a => a.id === appealId ? {
-        ...a,
-        status,
-        newGrade: newGrade || a.newGrade,
-        response: response || a.response,
-        resolvedAt: new Date().toISOString().replace("T", " ").substring(0, 19)
-      } : a);
+      const next = prev.map(a => {
+        if (a.id === appealId) {
+          targetSemesterId = a.semesterId || targetSemesterId;
+          targetStudentId = a.studentId;
+          targetSubjectCode = a.subjectCode;
+          return {
+            ...a,
+            status,
+            newGrade: newGrade || a.newGrade,
+            response: response || a.response,
+            resolvedAt: new Date().toISOString().replace("T", " ").substring(0, 19)
+          };
+        }
+        return a;
+      });
       localStorage.setItem("unihub_grade_appeals", JSON.stringify(next));
+      saveToFirestore("unihub_grade_appeals", next);
       return next;
     });
+
+    if (status === "UPDATED" && newGrade) {
+      const parsedNum = parseFloat(newGrade.trim());
+      if (!isNaN(parsedNum)) {
+        setSubjectGradeSheets(prevSheets => {
+          const nextSheets = prevSheets.map(sheet => {
+            if (sheet.subjectCode === targetSubjectCode || (targetSubjectCode && sheet.subjectName.toLowerCase().includes(targetSubjectCode.toLowerCase()))) {
+              const updatedGrades = sheet.grades.map(g => {
+                if (g.studentId === targetStudentId) {
+                  const tb10 = parsedNum;
+                  const tb4 = tb10 >= 8.5 ? 4.0 : tb10 >= 7.0 ? 3.0 : tb10 >= 5.5 ? 2.0 : tb10 >= 4.0 ? 1.0 : 0;
+                  const letter = tb10 >= 8.5 ? "A" : tb10 >= 7.0 ? "B" : tb10 >= 5.5 ? "C" : tb10 >= 4.0 ? "D" : "F";
+                  return {
+                    ...g,
+                    finalScore: tb10,
+                    tb10: tb10,
+                    tb4: tb4,
+                    letterGrade: letter
+                  };
+                }
+                return g;
+              });
+              return { ...sheet, grades: updatedGrades };
+            }
+            return sheet;
+          });
+          localStorage.setItem("unihub_subject_grade_sheets", JSON.stringify(nextSheets));
+          saveToFirestore("unihub_subject_grade_sheets", nextSheets);
+          return nextSheets;
+        });
+
+        // Auto-recalculate semester GPA & Academic Standing
+        aggregateSubjectGradesToSemesterGpa(targetSemesterId);
+      }
+    }
   };
 
   // Keep only lightweight session/UI preferences in localStorage. Business data is
