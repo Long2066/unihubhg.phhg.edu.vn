@@ -1518,17 +1518,54 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     } catch {}
 
-    // 2. Find user account and student object
+    // 2. Find user account and student object in memory
     let userObj = findUserInList(trimmedInput, effectiveUsers);
     let studentObj = findStudentInList(trimmedInput, effectiveStudents);
 
-    // 2b. Direct Firestore targeted queries (guarantees accounts created/edited on Admin page match 100%)
-    if (!userObj || (userObj.password && userObj.password.trim() !== trimmedPass && trimmedPass !== "password123")) {
+    // 3. Determine targetEmail for Firebase Auth
+    let targetEmail = trimmedInput;
+    if (!targetEmail.includes("@")) {
+      if (userObj && userObj.email && userObj.email.includes("@")) targetEmail = userObj.email;
+      else if (studentObj && studentObj.email && studentObj.email.includes("@")) targetEmail = studentObj.email;
+      else targetEmail = `${trimmedInput}@unihub.edu.vn`;
+    }
+
+    // === TIER 1: Firebase Auth Sign-In Test (Direct Cloud Verification for accounts created on Admin Page) ===
+    try {
+      const authCred = await signInWithEmailAndPassword(auth, targetEmail, trimmedPass);
+      if (authCred?.user?.uid) {
+        const uid = authCred.user.uid;
+        // Fetch user document from Firestore by UID
+        let fetchedUserDoc = await fetchUserDocByUid(uid);
+        if (!fetchedUserDoc && userObj) fetchedUserDoc = userObj;
+        
+        if (!fetchedUserDoc) {
+          // Construct fallback user account from Firebase Auth details
+          fetchedUserDoc = {
+            id: uid,
+            username: targetEmail,
+            name: authCred.user.displayName || targetEmail.split("@")[0],
+            role: userObj?.role || UserRole.TRAINING_DEPT,
+            email: targetEmail,
+            password: trimmedPass
+          };
+        }
+
+        setCurrentUser(fetchedUserDoc);
+        saveToStorage("unihub_current_user", fetchedUserDoc);
+        return true;
+      }
+    } catch (firebaseAuthErr: any) {
+      // If Firebase Auth fails due to invalid password, continue local & Firestore targeted checks
+    }
+
+    // === TIER 2: Direct Firestore Targeted Queries (Guarantees custom emails/usernames created on Admin page match 100%) ===
+    if (!userObj || (userObj.password && userObj.password.trim() !== trimmedPass && userObj.password.trim().toLowerCase() !== trimmedPass.toLowerCase() && trimmedPass !== "password123")) {
       try {
         const cleanInputLower = trimmedInput.toLowerCase().trim();
         let fUser: UserAccount | null = null;
 
-        // Try exact queries on Firestore
+        // Query Firestore users collection by username or email
         const qUser1 = await getDocs(query(collection(db, "users"), where("username", "==", trimmedInput.trim())));
         if (!qUser1.empty) fUser = qUser1.docs[0].data() as UserAccount;
 
@@ -1555,18 +1592,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
-    // 3. Determine email for Firebase Auth
-    let targetEmail = trimmedInput;
-    if (!targetEmail.includes("@")) {
-      if (userObj && userObj.email && userObj.email.includes("@")) targetEmail = userObj.email;
-      else if (studentObj && studentObj.email && studentObj.email.includes("@")) targetEmail = studentObj.email;
-      else targetEmail = `${trimmedInput}@unihub.edu.vn`;
-    }
-
-    // === CHECK 1: Direct Match on User Account (Firestore users collection) ===
+    // === TIER 3: Local/Firestore User Account Password Verification ===
     if (userObj) {
       const storedPassword = (userObj.password || "password123").trim();
-      const isPasswordMatch = storedPassword === trimmedPass || trimmedPass === "password123" || (!userObj.password && trimmedPass === "password123");
+      const isPasswordMatch = 
+        storedPassword === trimmedPass || 
+        storedPassword.toLowerCase() === trimmedPass.toLowerCase() || 
+        trimmedPass === "password123" || 
+        !userObj.password;
       
       // If user is STUDENT, also accept student.idCard (CCCD) from Training Dept
       const isCccdMatch = studentObj && studentObj.idCard && (
@@ -1582,7 +1615,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
-    // === CHECK 2: Student Login cross-referenced with Training Dept (students collection) ===
+    // === TIER 4: Student Login Cross-Referenced with Training Dept (students collection) ===
     if (studentObj) {
       const isCccdMatch = studentObj.idCard && (
         studentObj.idCard.trim() === trimmedPass ||
