@@ -1380,24 +1380,47 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const cleanInput = input.trim().toLowerCase();
       const prefix = cleanInput.split('@')[0];
 
-      return list.find(u => {
+      // STAGE 1: EXACT MATCH (highest priority for real accounts created on Admin page)
+      const exactMatch = list.find(u => {
         const uUsername = (u.username || "").trim().toLowerCase();
         const uEmail = (u.email || "").trim().toLowerCase();
         const uTarget = (u.targetId || "").trim().toLowerCase();
         const uId = (u.id || "").trim().toLowerCase();
-
-        if (uUsername === cleanInput || uEmail === cleanInput || uTarget === cleanInput || uId === cleanInput) {
-          return true;
-        }
-        if (prefix) {
-          const uUsernamePrefix = uUsername.split('@')[0];
-          const uEmailPrefix = uEmail.split('@')[0];
-          if (uUsernamePrefix === prefix || uEmailPrefix === prefix) {
-            return true;
-          }
-        }
-        return false;
+        return uUsername === cleanInput || uEmail === cleanInput || uTarget === cleanInput || uId === cleanInput;
       });
+      if (exactMatch) return exactMatch;
+
+      // STAGE 2: EMAIL DOMAIN VARIATION MATCH (e.g., @hgc.edu.vn vs @hg.edu.vn vs @phhg.edu.vn)
+      if (cleanInput.includes("@")) {
+        const domainMatch = list.find(u => {
+          const uEmail = (u.email || "").trim().toLowerCase();
+          const uUsername = (u.username || "").trim().toLowerCase();
+          const uEmailPrefix = uEmail.split("@")[0];
+          const uUserPrefix = uUsername.split("@")[0];
+          return (uEmailPrefix === prefix || uUserPrefix === prefix);
+        });
+        if (domainMatch) return domainMatch;
+      }
+
+      // STAGE 3: NON-EMAIL / PREFIX FALLBACK MATCH
+      if (prefix) {
+        const prefixMatch = list.find(u => {
+          const uUsername = (u.username || "").trim().toLowerCase();
+          const uEmail = (u.email || "").trim().toLowerCase();
+          const uTarget = (u.targetId || "").trim().toLowerCase();
+          const uId = (u.id || "").trim().toLowerCase();
+          return (
+            uUsername === prefix ||
+            uEmail.split("@")[0] === prefix ||
+            uUsername.split("@")[0] === prefix ||
+            uTarget === prefix ||
+            uId === prefix
+          );
+        });
+        if (prefixMatch) return prefixMatch;
+      }
+
+      return undefined;
     };
 
     const findStudentInList = (input: string, list: Student[]): Student | undefined => {
@@ -1405,7 +1428,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return list.find(s =>
         (s.id && s.id.trim().toLowerCase() === cleanInput) ||
         (s.email && s.email.trim().toLowerCase() === cleanInput) ||
-        (s.idCard && s.idCard.trim() === input.trim())
+        (s.idCard && (s.idCard.trim() === input.trim() || s.idCard.replace(/\s+/g, '') === input.trim().replace(/\s+/g, '')))
       );
     };
 
@@ -1425,7 +1448,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!usersSnap.empty) {
         const firestoreUsers = usersSnap.docs.map(d => d.data() as UserAccount);
         firestoreUsers.forEach(fUser => {
-          const idx = effectiveUsers.findIndex(u => u.id === fUser.id);
+          const idx = effectiveUsers.findIndex(u => 
+            u.id === fUser.id || 
+            (u.username && fUser.username && u.username.trim().toLowerCase() === fUser.username.trim().toLowerCase()) ||
+            (u.email && fUser.email && u.email.trim().toLowerCase() === fUser.email.trim().toLowerCase())
+          );
           if (idx >= 0) effectiveUsers[idx] = fUser;
           else effectiveUsers.push(fUser);
         });
