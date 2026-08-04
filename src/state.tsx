@@ -387,6 +387,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   });
 
+  const persistTeacherAssignmentsToFirestore = (assignments: (CourseClassAssignment & { teacherPassword?: string })[]) => {
+    assignments.forEach(assign => {
+      if (!assign?.id) return;
+      const cleanAssignment = {
+        ...assign,
+        teacherPassword: (assign.teacherPassword || "password123").trim(),
+        updatedAt: assign.updatedAt || new Date().toISOString()
+      };
+      setDoc(doc(db, "teacherAssignments", cleanAssignment.id), cleanAssignment, { merge: true })
+        .catch(e => console.warn("Lỗi lưu phân công giảng dạy Firestore:", e));
+    });
+  };
+
   const provisionTeacherAccounts = (assignments: (CourseClassAssignment & { teacherPassword?: string })[]) => {
     setUsers(prevUsers => {
       let updated = false;
@@ -463,6 +476,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const saveTeacherAssignments = (assignments: CourseClassAssignment[]) => {
     setTeacherAssignments(assignments);
     localStorage.setItem("unihub_teacher_assignments", JSON.stringify(assignments));
+    persistTeacherAssignmentsToFirestore(assignments);
     provisionTeacherAccounts(assignments);
   };
 
@@ -478,6 +492,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       });
       localStorage.setItem("unihub_teacher_assignments", JSON.stringify(merged));
+      persistTeacherAssignmentsToFirestore(newAssignments);
       return merged;
     });
     provisionTeacherAccounts(newAssignments);
@@ -1142,6 +1157,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } else if (key === "unihub_system_feedbacks" && Array.isArray(data)) {
         for (const item of data) {
           if (item?.id) await setDoc(doc(db, "systemFeedbacks", item.id), item, { merge: true });
+        }
+      } else if (key === "unihub_teacher_assignments" && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.id) await setDoc(doc(db, "teacherAssignments", item.id), item, { merge: true });
         }
       } else if (key === "unihub_period" && data) {
         await setDoc(doc(db, "settings", "period"), {

@@ -492,6 +492,7 @@ export interface CourseClassAssignment {
   credits: number;        // e.g. 4
   teacherId: string;      // Email hoặc Mã GV được phân công (e.g. "gv_nguyenvana")
   teacherName: string;    // Họ tên Giảng viên
+  teacherPassword?: string; // Mật khẩu do Phòng Đào tạo cấp cho GV bộ môn
   status: "PENDING" | "DRAFT" | "SUBMITTED" | "LOCKED" | "UNLOCKED";
   updatedAt?: string;
 }

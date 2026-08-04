@@ -187,6 +187,75 @@ const sanitizeTextField = (val?: string, maxLength = 1000): string => {
   return trimmed.slice(0, maxLength);
 };
 
+const normalizeTeacherIdentity = (value?: string): string => (value || "").trim().toLowerCase();
+
+const normalizeTeacherName = (value?: string): string => (value || "")
+  .replace(/\([^)]*\)/g, " ")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLowerCase()
+  .replace(/\b(ths|ts|ths\.|ts\.|gv|giang vien|giao vien|bo mon)\b/g, " ")
+  .replace(/[^a-z0-9]+/g, " ")
+  .trim();
+
+const buildDerivedTeacherDocId = (value: string): string =>
+  `U_TEACHER_VIEW_${value.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 72) || "UNKNOWN"}`;
+
+const resolveAssignmentTeacherLogin = (assignment: CourseClassAssignment): string => {
+  const teacherId = (assignment.teacherId || "").trim();
+  if (teacherId) return teacherId;
+
+  const asciiName = (assignment.teacherName || "giangvien")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
+    .slice(0, 40);
+  return `${asciiName || "giangvien"}@phhg.edu.vn`;
+};
+
+const buildTeacherUserFromAssignment = (assignment: CourseClassAssignment): UserAccount => {
+  const login = resolveAssignmentTeacherLogin(assignment);
+  return {
+    id: buildDerivedTeacherDocId(login || assignment.teacherName || assignment.id),
+    username: login,
+    name: assignment.teacherName || login || "Giảng viên Bộ môn",
+    role: UserRole.TEACHER,
+    email: login,
+    password: (assignment.teacherPassword || "password123").trim(),
+    targetId: assignment.teacherId || assignment.subjectCode
+  };
+};
+
+const getTeacherDedupKey = (teacher: UserAccount): string =>
+  normalizeTeacherIdentity(teacher.email || teacher.username || teacher.targetId) ||
+  normalizeTeacherName(teacher.name) ||
+  teacher.id;
+
+const doesAssignmentBelongToTeacher = (assignment: CourseClassAssignment, teacher: UserAccount): boolean => {
+  const teacherKeys = [teacher.username, teacher.email, teacher.targetId]
+    .map(normalizeTeacherIdentity)
+    .filter(Boolean);
+  const assignmentKeys = [assignment.teacherId, resolveAssignmentTeacherLogin(assignment)]
+    .map(normalizeTeacherIdentity)
+    .filter(Boolean);
+
+  if (teacherKeys.some(key => assignmentKeys.includes(key))) return true;
+
+  const teacherName = normalizeTeacherName(teacher.name);
+  const assignmentTeacherName = normalizeTeacherName(assignment.teacherName);
+  return !!teacherName && !!assignmentTeacherName && (
+    teacherName === assignmentTeacherName ||
+    teacherName.includes(assignmentTeacherName) ||
+    assignmentTeacherName.includes(teacherName)
+  );
+};
+
+const resolveTeacherPassword = (teacher: UserAccount, assignments: CourseClassAssignment[]): string => {
+  const passwordFromTraining = assignments.find(item => item.teacherPassword?.trim())?.teacherPassword?.trim();
+  return passwordFromTraining || teacher.password || "password123";
+};
+
 const sanitizeStorageFileName = (fileName: string) => {
   return fileName
     .normalize("NFD")
@@ -905,64 +974,10 @@ export default function App() {
     };
   }, [isAuthenticated]);
 
-  // Auto-provision & sync teacher accounts when course assignments exist
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    const assignmentsToUse = teacherAssignments.length > 0 ? teacherAssignments : SEED_TEACHER_ASSIGNMENTS;
-    if (!assignmentsToUse || assignmentsToUse.length === 0) return;
+  // Admin Portal is read-only for Giảng viên Bộ môn.
+  // Teacher accounts are displayed from Firestore `users` plus `teacherAssignments` below,
+  // but this page must not create extra teacher accounts to avoid lệch phân công từ Phòng Đào tạo.
 
-    let updated = false;
-    const nextUsers = [...users];
-
-    assignmentsToUse.forEach(assign => {
-      if (!assign.teacherName) return;
-      const teacherEmail = (assign.teacherId || assign.teacherName.toLowerCase().replace(/[^a-z0-9]/g, "") + "@phhg.edu.vn").trim();
-      const setPassword = (assign.teacherPassword || "password123").trim();
-
-      const existingIdx = nextUsers.findIndex(u =>
-        (u.email && u.email.toLowerCase() === teacherEmail.toLowerCase()) ||
-        (u.username && u.username.toLowerCase() === teacherEmail.toLowerCase()) ||
-        (u.name && u.name.trim().toLowerCase().includes(assign.teacherName.trim().toLowerCase()) && u.role === UserRole.TEACHER)
-      );
-
-      if (existingIdx >= 0) {
-        const curr = nextUsers[existingIdx];
-        let userChanged = false;
-        const updatedUser = { ...curr };
-        if (curr.role !== UserRole.TEACHER) {
-          updatedUser.role = UserRole.TEACHER;
-          userChanged = true;
-        }
-        if (assign.teacherPassword && assign.teacherPassword.trim() && curr.password !== setPassword) {
-          updatedUser.password = setPassword;
-          userChanged = true;
-        }
-        if (userChanged) {
-          nextUsers[existingIdx] = updatedUser;
-          updated = true;
-          setDoc(doc(db, "users", curr.id), updatedUser, { merge: true }).catch(() => {});
-        }
-      } else {
-        const newDocId = `U_TEACHER_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-        const newAccount: UserAccount = {
-          id: newDocId,
-          username: teacherEmail,
-          name: assign.teacherName,
-          role: UserRole.TEACHER,
-          email: teacherEmail,
-          password: setPassword,
-          targetId: assign.subjectCode
-        };
-        nextUsers.push(newAccount);
-        updated = true;
-        setDoc(doc(db, "users", newDocId), newAccount, { merge: true }).catch(() => {});
-      }
-    });
-
-    if (updated) {
-      setUsers(nextUsers);
-    }
-  }, [isAuthenticated, teacherAssignments, users.length]);
 
   // Handle Login
   const handleLogin = async (e: React.FormEvent) => {
@@ -1140,6 +1155,10 @@ export default function App() {
 
   const saveUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (selectedUser?.role === UserRole.TEACHER || userForm.role === UserRole.TEACHER) {
+      alert("Tài khoản Giảng viên Bộ môn chỉ được cấp/cập nhật từ Phòng Đào tạo theo phân công giảng dạy. Admin chỉ được xem chi tiết để hỗ trợ.");
+      return;
+    }
     try {
       // Setup email and password
       let targetEmail = (userForm.email || "").trim();
@@ -1262,6 +1281,10 @@ export default function App() {
     if (confirm(`Bạn có chắc chắn muốn xóa tài khoản "${name}"?`)) {
       try {
         const userToDelete = users.find(u => u.id === id);
+        if (userToDelete?.role === UserRole.TEACHER) {
+          alert("Không thể xóa tài khoản Giảng viên Bộ môn trên Admin. Vui lòng điều chỉnh/xóa phân công tại Phòng Đào tạo để đảm bảo đồng bộ nghiệp vụ.");
+          return;
+        }
         await deleteDoc(doc(db, "users", id));
         if (userToDelete && isOrgRole(userToDelete.role) && userToDelete.targetId) {
           await deleteDoc(doc(db, "organizations", userToDelete.targetId)).catch(() => {});
@@ -1527,6 +1550,7 @@ export default function App() {
       for (const da of SEED_DAILY_ATTENDANCE) await setDoc(doc(db, "dailyAttendance", da.id), da, { merge: true });
       for (const sc of SEED_SCHEDULES) await setDoc(doc(db, "schedules", sc.id), sc, { merge: true });
       for (const m of SEED_MEMBERS) await setDoc(doc(db, "members", m.id), m, { merge: true });
+      for (const ta of SEED_TEACHER_ASSIGNMENTS) await setDoc(doc(db, "teacherAssignments", ta.id), ta, { merge: true });
 
       // Add default super admin account
       const superadminAccount: UserAccount = {
@@ -1681,8 +1705,45 @@ export default function App() {
   };
 
   // Memoized lists (search filters)
+  const teacherAwareUsers = useMemo(() => {
+    const rows = new Map<string, UserAccount>();
+
+    users.forEach(u => {
+      const rowKey = u.role === UserRole.TEACHER
+        ? `TEACHER:${getTeacherDedupKey(u)}`
+        : `USER:${u.id || u.username || u.email}`;
+      rows.set(rowKey, u);
+    });
+
+    teacherAssignments.forEach(assign => {
+      if (!assign.teacherName && !assign.teacherId) return;
+      const matchedEntry = Array.from(rows.entries()).find(([, user]) =>
+        user.role === UserRole.TEACHER && doesAssignmentBelongToTeacher(assign, user)
+      );
+
+      if (matchedEntry) {
+        const [key, existing] = matchedEntry;
+        const assignmentLogin = resolveAssignmentTeacherLogin(assign);
+        rows.set(key, {
+          ...existing,
+          role: UserRole.TEACHER,
+          name: existing.name || assign.teacherName,
+          username: existing.username || assignmentLogin,
+          email: existing.email || assignmentLogin,
+          password: existing.password || assign.teacherPassword || "password123",
+          targetId: existing.targetId || assign.teacherId || assign.subjectCode
+        });
+      } else {
+        const derivedTeacher = buildTeacherUserFromAssignment(assign);
+        rows.set(`TEACHER:${getTeacherDedupKey(derivedTeacher)}`, derivedTeacher);
+      }
+    });
+
+    return Array.from(rows.values());
+  }, [users, teacherAssignments]);
+
   const filteredUsers = useMemo(() => {
-    return users.filter(u => {
+    return teacherAwareUsers.filter(u => {
       const uName = (u.name || "").toLowerCase();
       const uUsername = (u.username || u.email || "").toLowerCase();
       const sTerm = userSearch.toLowerCase();
@@ -1690,7 +1751,14 @@ export default function App() {
       const matchRole = userRoleFilter === "ALL" || u.role === userRoleFilter;
       return matchSearch && matchRole;
     });
-  }, [users, userSearch, userRoleFilter]);
+  }, [teacherAwareUsers, userSearch, userRoleFilter]);
+
+  const getTeacherAssignmentsForUser = (teacher: UserAccount | null): CourseClassAssignment[] => {
+    if (!teacher) return [];
+    return teacherAssignments
+      .filter(assignment => doesAssignmentBelongToTeacher(assignment, teacher))
+      .sort((a, b) => `${a.semesterId}_${a.classId}_${a.subjectCode}`.localeCompare(`${b.semesterId}_${b.classId}_${b.subjectCode}`));
+  };
 
   const filteredDbRows = useMemo(() => {
     let targetList: any[] = [];
@@ -1771,6 +1839,27 @@ export default function App() {
   const adminPreviewBgUrl = adminBgUrls[0] || "";
   const hasConfiguredAdminBg = Boolean(themeConfig.loginBgUrl || (themeConfig.loginBgUrls && themeConfig.loginBgUrls.length > 0));
   const hasLegacyAdminThemeImages = hasLegacyInlineThemeImages(themeConfig);
+
+  const isTeacherUserModal = showUserModal && (selectedUser?.role === UserRole.TEACHER || userForm.role === UserRole.TEACHER);
+  const modalTeacherAccount: UserAccount | null = isTeacherUserModal ? {
+    ...(selectedUser || {
+      id: buildDerivedTeacherDocId(userForm.username || userForm.email || userForm.name || "teacher"),
+      name: userForm.name || "Giảng viên Bộ môn",
+      username: userForm.username || userForm.email || "",
+      email: userForm.email || userForm.username || "",
+      role: UserRole.TEACHER,
+      password: userForm.password || "password123"
+    }),
+    name: userForm.name || selectedUser?.name || "Giảng viên Bộ môn",
+    username: userForm.username || userForm.email || selectedUser?.username || selectedUser?.email || "",
+    email: userForm.email || userForm.username || selectedUser?.email || selectedUser?.username || "",
+    role: UserRole.TEACHER,
+    password: userForm.password || selectedUser?.password || "password123",
+    targetId: userForm.targetId || selectedUser?.targetId || ""
+  } : null;
+  const modalTeacherAssignments = modalTeacherAccount ? getTeacherAssignmentsForUser(modalTeacherAccount) : [];
+  const modalTeacherPassword = modalTeacherAccount ? resolveTeacherPassword(modalTeacherAccount, modalTeacherAssignments) : userForm.password;
+  const teacherInputReadonlyStyle = isTeacherUserModal ? { opacity: 0.68, cursor: "not-allowed" } : undefined;
 
   // If not authenticated, render beautiful Glassmorphic Login page
   if (!isAuthenticated) {
@@ -2051,10 +2140,17 @@ export default function App() {
                 <h1 style={{ margin: "0 0 4px 0", fontSize: "28px", fontWeight: 800 }}>Tài khoản & Phân quyền</h1>
                 <p style={{ margin: "0", color: "var(--text-muted)", fontSize: "14px" }}>Quản lý thông tin đăng nhập, phân bổ quyền cho các cán bộ quản lý và tính năng Giả lập đăng nhập.</p>
               </div>
-              <button className="btn-neon-cyan" onClick={() => openUserModal(null)}>
-                <Plus size={16} />
-                Tạo tài khoản mới
-              </button>
+              {userRoleFilter === UserRole.TEACHER ? (
+                <div className="glass-card" style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: "8px", color: "var(--text-muted)", fontSize: "12px", maxWidth: "360px" }}>
+                  <Shield size={16} style={{ color: "var(--accent-cyan)", flexShrink: 0 }} />
+                  Giảng viên Bộ môn được cấp từ Phòng Đào tạo — Admin chỉ xem, không tạo mới tại đây.
+                </div>
+              ) : (
+                <button className="btn-neon-cyan" onClick={() => openUserModal(null)}>
+                  <Plus size={16} />
+                  Tạo tài khoản mới
+                </button>
+              )}
             </div>
 
             {/* Filter and Search Bar */}
@@ -2106,51 +2202,74 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsers.map((u) => (
-                    <tr key={u.id}>
-                      <td style={{ fontWeight: 700, color: "#0f172a" }}>{u.name}</td>
-                      <td style={{ fontFamily: 'monospace' }}>{u.username}</td>
-                      <td>
-                        <span className={`badge ${
-                          u.role === UserRole.ADMIN ? "badge-danger" :
-                          u.role === UserRole.TRAINING_DEPT ? "badge-purple" :
-                          u.role === UserRole.ADVISER ? "badge-warning" :
-                          u.role === UserRole.TEACHER ? "badge-cyan" :
-                          u.role === UserRole.FACULTY ? "badge-cyan" : "badge-active"
-                        }`}>
-                          {translateRole(u.role)}
-                        </span>
-                      </td>
-                      <td style={{ fontFamily: 'monospace', color: "var(--accent-cyan)" }}>{u.targetId || "—"}</td>
-                      <td style={{ fontFamily: 'monospace', fontSize: "11px" }}>{u.password || "••••••••"}</td>
-                      <td style={{ textAlign: "right" }}>
-                        <div style={{ display: "inline-flex", gap: "8px" }}>
-                          <button 
-                            className="btn-neon-purple" 
-                            style={{ padding: "4px 8px", fontSize: "11px" }}
-                            onClick={() => impersonate(u.username)}
-                            title="Đăng nhập giả lập dưới tài khoản này tại cổng 3000"
-                          >
-                            Giả lập (Masquerade)
-                          </button>
-                          <button 
-                            className="btn-neon-cyan" 
-                            style={{ padding: "4px 8px" }}
-                            onClick={() => openUserModal(u)}
-                          >
-                            <Edit2 size={12} />
-                          </button>
-                          <button 
-                            className="btn-solid-danger" 
-                            style={{ padding: "4px 8px" }}
-                            onClick={() => deleteUser(u.id, u.name)}
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredUsers.map((u) => {
+                    const isTeacherRow = u.role === UserRole.TEACHER;
+                    const linkedAssignments = isTeacherRow ? getTeacherAssignmentsForUser(u) : [];
+                    const displayPassword = isTeacherRow ? resolveTeacherPassword(u, linkedAssignments) : (u.password || "••••••••");
+
+                    return (
+                      <tr key={u.id || u.username || u.email}>
+                        <td style={{ fontWeight: 700, color: "#0f172a" }}>{u.name}</td>
+                        <td style={{ fontFamily: 'monospace' }}>{u.username || u.email || "—"}</td>
+                        <td>
+                          <span className={`badge ${
+                            u.role === UserRole.ADMIN ? "badge-danger" :
+                            u.role === UserRole.TRAINING_DEPT ? "badge-purple" :
+                            u.role === UserRole.ADVISER ? "badge-warning" :
+                            u.role === UserRole.TEACHER ? "badge-cyan" :
+                            u.role === UserRole.FACULTY ? "badge-cyan" : "badge-active"
+                          }`}>
+                            {translateRole(u.role)}
+                          </span>
+                        </td>
+                        <td style={{ fontFamily: 'monospace', color: "var(--accent-cyan)" }}>
+                          {isTeacherRow ? `${linkedAssignments.length} học phần` : (u.targetId || "—")}
+                        </td>
+                        <td style={{ fontFamily: 'monospace', fontSize: "11px" }}>{displayPassword}</td>
+                        <td style={{ textAlign: "right" }}>
+                          <div style={{ display: "inline-flex", gap: "8px" }}>
+                            {isTeacherRow ? (
+                              <button 
+                                type="button"
+                                className="btn-neon-cyan" 
+                                style={{ padding: "4px 10px", fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                                onClick={() => openUserModal(u)}
+                                title="Xem chi tiết tài khoản và học phần Giảng viên phụ trách"
+                              >
+                                <Info size={12} />
+                                Xem chi tiết
+                              </button>
+                            ) : (
+                              <>
+                                <button 
+                                  className="btn-neon-purple" 
+                                  style={{ padding: "4px 8px", fontSize: "11px" }}
+                                  onClick={() => impersonate(u.username)}
+                                  title="Đăng nhập giả lập dưới tài khoản này tại cổng 3000"
+                                >
+                                  Giả lập (Masquerade)
+                                </button>
+                                <button 
+                                  className="btn-neon-cyan" 
+                                  style={{ padding: "4px 8px" }}
+                                  onClick={() => openUserModal(u)}
+                                >
+                                  <Edit2 size={12} />
+                                </button>
+                                <button 
+                                  className="btn-solid-danger" 
+                                  style={{ padding: "4px 8px" }}
+                                  onClick={() => deleteUser(u.id, u.name)}
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -3269,13 +3388,29 @@ export default function App() {
         <div className="modal-overlay">
           <form className="modal-container" onSubmit={saveUser}>
             <div className="modal-header">
-              <h3 className="modal-title">{selectedUser ? "Cập nhật tài khoản" : "Tạo tài khoản mới"}</h3>
+              <h3 className="modal-title">
+                {isTeacherUserModal ? "Chi tiết tài khoản Giảng viên Bộ môn" : (selectedUser ? "Cập nhật tài khoản" : "Tạo tài khoản mới")}
+              </h3>
               <button type="button" className="btn-neon-cyan" style={{ padding: "4px 8px" }} onClick={() => setShowUserModal(false)}>
                 <X size={16} />
               </button>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {isTeacherUserModal && (
+                <div className="glass-card" style={{ padding: "12px 14px", borderColor: "rgba(0, 240, 255, 0.28)", background: "rgba(0, 240, 255, 0.06)" }}>
+                  <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                    <Shield size={18} style={{ color: "var(--accent-cyan)", flexShrink: 0, marginTop: "2px" }} />
+                    <div>
+                      <div style={{ fontWeight: 800, color: "#0f172a", marginBottom: "4px" }}>Chế độ chỉ xem</div>
+                      <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "12px", lineHeight: 1.5 }}>
+                        Tài khoản Giảng viên Bộ môn được đồng bộ từ phân công của Phòng Đào tạo. Admin chỉ xem tài khoản, mật khẩu và học phần phụ trách; không tạo/sửa/xóa tại màn hình này.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>Họ và tên</label>
                 <input 
@@ -3284,6 +3419,8 @@ export default function App() {
                   value={userForm.name} 
                   onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} 
                   required 
+                  readOnly={isTeacherUserModal}
+                  style={teacherInputReadonlyStyle}
                 />
               </div>
 
@@ -3292,9 +3429,11 @@ export default function App() {
                 <input 
                   type="text" 
                   className="input-dark" 
-                  value={userForm.username} 
-                  onChange={(e) => setUserForm({ ...userForm, username: e.target.value })} 
+                  value={userForm.username || userForm.email} 
+                  onChange={(e) => setUserForm({ ...userForm, username: e.target.value, email: e.target.value })} 
                   required 
+                  readOnly={isTeacherUserModal}
+                  style={teacherInputReadonlyStyle}
                 />
               </div>
 
@@ -3305,12 +3444,14 @@ export default function App() {
                     className="select-dark"
                     value={userForm.role}
                     onChange={(e) => setUserForm({ ...userForm, role: e.target.value as UserRole })}
+                    disabled={isTeacherUserModal}
+                    style={teacherInputReadonlyStyle}
                   >
+                    {isTeacherUserModal && <option value={UserRole.TEACHER}>Giảng viên Bộ môn (chỉ xem)</option>}
                     <option value={UserRole.STUDENT}>Sinh viên</option>
                     <option value={UserRole.GROUP_LEADER}>Tổ trưởng</option>
                     <option value={UserRole.CLASS_MONITOR}>Lớp trưởng (BCS)</option>
                     <option value={UserRole.ADVISER}>Giảng viên Cố vấn (GVCN)</option>
-                    <option value={UserRole.TEACHER}>Giảng viên Bộ môn</option>
                     <option value={UserRole.CLUB_MANAGER}>Câu lạc bộ</option>
                     <option value={UserRole.YOUTH_UNION}>Đoàn Thanh niên</option>
                     <option value={UserRole.STUDENT_UNION}>Hội Sinh viên</option>
@@ -3325,25 +3466,31 @@ export default function App() {
                   <input 
                     type="text" 
                     className="input-dark" 
-                    value={userForm.password} 
+                    value={isTeacherUserModal ? modalTeacherPassword : userForm.password} 
                     onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} 
                     placeholder="Bắt buộc nhập..."
                     required 
+                    readOnly={isTeacherUserModal}
+                    style={teacherInputReadonlyStyle}
                   />
                 </div>
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>Mã liên kết (Mã SV / Mã Lớp / Mã CLB nếu có)</label>
+                <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>
+                  {isTeacherUserModal ? "Mã liên kết / định danh phân công" : "Mã liên kết (Mã SV / Mã Lớp / Mã CLB nếu có)"}
+                </label>
                 <input 
                   type="text" 
                   className="input-dark" 
                   value={userForm.targetId} 
                   onChange={(e) => setUserForm({ ...userForm, targetId: e.target.value })} 
+                  readOnly={isTeacherUserModal}
+                  style={teacherInputReadonlyStyle}
                 />
               </div>
 
-              {userForm.role === UserRole.CLASS_MONITOR && (
+              {userForm.role === UserRole.CLASS_MONITOR && !isTeacherUserModal && (
                 <div style={{ marginTop: "16px" }}>
                   <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>Chức danh Ban cán sự</label>
                   <select 
@@ -3358,15 +3505,79 @@ export default function App() {
                   </select>
                 </div>
               )}
+
+              {isTeacherUserModal && (
+                <div className="glass-card" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                    <div>
+                      <h4 style={{ margin: 0, color: "#0f172a", fontSize: "15px", fontWeight: 900 }}>Học phần phụ trách</h4>
+                      <p style={{ margin: "4px 0 0 0", color: "var(--text-muted)", fontSize: "12px" }}>
+                        Đồng bộ từ bảng phân công của Phòng Đào tạo.
+                      </p>
+                    </div>
+                    <span className="badge badge-cyan">{modalTeacherAssignments.length} học phần</span>
+                  </div>
+
+                  {modalTeacherAssignments.length > 0 ? (
+                    <div className="custom-table-container" style={{ maxHeight: "260px", overflowY: "auto" }}>
+                      <table className="custom-table">
+                        <thead>
+                          <tr>
+                            <th>Mã HP</th>
+                            <th>Tên học phần</th>
+                            <th>Lớp học phần</th>
+                            <th>TC</th>
+                            <th>Học kỳ</th>
+                            <th>Trạng thái nộp điểm</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {modalTeacherAssignments.map(assign => {
+                            const statusLabel = assign.status === "LOCKED" ? "Đã khóa" :
+                              assign.status === "SUBMITTED" ? "Đã nộp" :
+                              assign.status === "UNLOCKED" ? "Đã mở khóa" :
+                              assign.status === "DRAFT" ? "Bản nháp" : "Chưa nộp";
+                            const statusClass = assign.status === "LOCKED" ? "badge-danger" :
+                              assign.status === "SUBMITTED" ? "badge-active" :
+                              assign.status === "UNLOCKED" ? "badge-warning" : "badge-cyan";
+                            return (
+                              <tr key={assign.id}>
+                                <td style={{ fontFamily: "monospace", fontWeight: 800, color: "var(--accent-cyan)" }}>{assign.subjectCode}</td>
+                                <td style={{ color: "#0f172a", fontWeight: 700 }}>{assign.subjectName}</td>
+                                <td>{assign.className || assign.classId}</td>
+                                <td style={{ textAlign: "center", fontFamily: "monospace" }}>{assign.credits}</td>
+                                <td>{assign.semesterName || assign.semesterId}</td>
+                                <td><span className={`badge ${statusClass}`}>{statusLabel}</span></td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div style={{ padding: "16px", borderRadius: "12px", border: "1px dashed var(--border-normal)", color: "var(--text-muted)", fontSize: "12px", textAlign: "center" }}>
+                      Chưa tìm thấy học phần liên kết trong bảng phân công Firestore. Hãy kiểm tra lại dữ liệu tại Cổng Phòng Đào tạo.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "32px", borderTop: "1px solid var(--border-normal)", paddingTop: "16px" }}>
-              <button type="button" className="btn-solid-danger" style={{ padding: "8px 16px" }} onClick={() => setShowUserModal(false)}>
-                Hủy bỏ
-              </button>
-              <button type="submit" className="btn-neon-cyan">
-                Lưu tài khoản
-              </button>
+              {isTeacherUserModal ? (
+                <button type="button" className="btn-neon-cyan" style={{ padding: "8px 16px" }} onClick={() => setShowUserModal(false)}>
+                  Đóng
+                </button>
+              ) : (
+                <>
+                  <button type="button" className="btn-solid-danger" style={{ padding: "8px 16px" }} onClick={() => setShowUserModal(false)}>
+                    Hủy bỏ
+                  </button>
+                  <button type="submit" className="btn-neon-cyan">
+                    Lưu tài khoản
+                  </button>
+                </>
+              )}
             </div>
           </form>
         </div>
