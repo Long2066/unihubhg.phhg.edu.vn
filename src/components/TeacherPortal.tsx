@@ -32,8 +32,8 @@ import {
   Plus
 } from "lucide-react";
 import * as XLSX from "xlsx";
-// @ts-ignore
-import html2pdf from "html2pdf.js";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 
 type TeacherExcelCellValue = string | number | null | undefined;
 
@@ -1561,17 +1561,80 @@ export const TeacherPortal: React.FC = () => {
                     const element = document.getElementById("printable-report-area");
                     if (!element || !activeAssignment) return;
                     setIsGeneratingPdf(true);
+
+                    // Save original scroll & height styles
+                    const originalMaxHeight = element.style.maxHeight;
+                    const originalOverflow = element.style.overflow;
+
                     try {
-                      const opt = {
-                        margin: [8, 8, 8, 8],
-                        filename: `Bao_cao_pho_diem_${sanitizeFilePart(activeAssignment.subjectCode)}_${sanitizeFilePart(activeAssignment.classId)}.pdf`,
-                        image: { type: "jpeg", quality: 0.98 },
-                        html2canvas: { scale: 2, useCORS: true, logging: false },
-                        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
-                      };
-                      await html2pdf().set(opt).from(element).save();
+                      // Temporarily expand element to capture all rows (including off-screen scroll content)
+                      element.style.maxHeight = "none";
+                      element.style.overflow = "visible";
+
+                      const canvas = await html2canvas(element, {
+                        scale: 2,
+                        useCORS: true,
+                        logging: false,
+                        backgroundColor: "#ffffff"
+                      });
+
+                      // Restore original element styles immediately
+                      element.style.maxHeight = originalMaxHeight;
+                      element.style.overflow = originalOverflow;
+
+                      const pdf = new jsPDF({
+                        orientation: "portrait",
+                        unit: "mm",
+                        format: "a4"
+                      });
+
+                      const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
+                      const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
+                      const margin = 10; // 10mm margins
+                      const printableWidth = pdfWidth - (margin * 2); // 190mm
+                      const pageCanvasHeight = (canvas.width * (pdfHeight - (margin * 2))) / printableWidth;
+
+                      let heightLeft = canvas.height;
+                      let sY = 0;
+                      let firstPage = true;
+
+                      while (heightLeft > 0) {
+                        const sectionHeight = Math.min(heightLeft, pageCanvasHeight);
+                        const pageCanvas = document.createElement("canvas");
+                        pageCanvas.width = canvas.width;
+                        pageCanvas.height = sectionHeight;
+                        const ctx = pageCanvas.getContext("2d");
+
+                        if (ctx) {
+                          ctx.fillStyle = "#ffffff";
+                          ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+                          ctx.drawImage(
+                            canvas,
+                            0, sY, canvas.width, sectionHeight,
+                            0, 0, canvas.width, sectionHeight
+                          );
+                        }
+
+                        const pageImgData = pageCanvas.toDataURL("image/jpeg", 0.98);
+                        const slicePdfHeight = (sectionHeight * printableWidth) / canvas.width;
+
+                        if (!firstPage) {
+                          pdf.addPage();
+                        }
+                        pdf.addImage(pageImgData, "JPEG", margin, margin, printableWidth, slicePdfHeight);
+
+                        sY += sectionHeight;
+                        heightLeft -= sectionHeight;
+                        firstPage = false;
+                      }
+
+                      const fileName = `Bao_cao_pho_diem_${sanitizeFilePart(activeAssignment.subjectCode)}_${sanitizeFilePart(activeAssignment.classId)}.pdf`;
+                      pdf.save(fileName);
                     } catch (err) {
-                      console.error("PDF Export error:", err);
+                      console.error("PDF generation failed:", err);
+                      element.style.maxHeight = originalMaxHeight;
+                      element.style.overflow = originalOverflow;
+                      alert("Không thể khởi tạo file PDF tự động. Hệ thống sẽ mở cửa sổ in của trình duyệt...");
                       window.print();
                     } finally {
                       setIsGeneratingPdf(false);
