@@ -298,16 +298,72 @@ export const SEED_STUDENTS: Student[] = [
     updatedAt: "2026-06-02"
   },
   {
-    id: "SV20CN05",
-    name: "Trần Bảo Ngọc",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
-    email: "ngoctb@unihub.edu.vn",
-    gpa: 2.95,
-    creditsEarned: 17,
+    id: "DTG2357140202099",
+    name: "Hoàng Hải Nam",
+    classId: "K2-GDTH-A",
+    facultyId: "K-GDTH",
+    email: "namhh@unihub.edu.vn",
+    gpa: 3.20,
+    creditsEarned: 16,
     learningWarning: false,
     learningStatus: "Bình thường",
-    learningDataLocked: true
+    learningDataLocked: false,
+    gender: "Nam",
+    dob: "2006-01-01",
+    pob: "Hà Giang",
+    ethnicity: "Kinh",
+    idCard: "001206001099"
+  },
+  {
+    id: "DTG245140202002",
+    name: "Đỗ Thị Huyền Anh",
+    classId: "K2-GDTH-A",
+    facultyId: "K-GDTH",
+    email: "anhdth@unihub.edu.vn",
+    gpa: 3.60,
+    creditsEarned: 18,
+    learningWarning: false,
+    learningStatus: "Bình thường",
+    learningDataLocked: false,
+    gender: "Nữ",
+    dob: "2006-03-15",
+    pob: "Hà Giang",
+    ethnicity: "Kinh",
+    idCard: "001206001002"
+  },
+  {
+    id: "DTG245140202004",
+    name: "Hứa Hải Anh",
+    classId: "K2-GDTH-A",
+    facultyId: "K-GDTH",
+    email: "anhhh@unihub.edu.vn",
+    gpa: 3.10,
+    creditsEarned: 16,
+    learningWarning: false,
+    learningStatus: "Bình thường",
+    learningDataLocked: false,
+    gender: "Nam",
+    dob: "2006-04-10",
+    pob: "Hà Giang",
+    ethnicity: "Tày",
+    idCard: "001206001004"
+  },
+  {
+    id: "DTG245140202007",
+    name: "Hoàng Thị Ngọc Ánh",
+    classId: "K2-GDTH-A",
+    facultyId: "K-GDTH",
+    email: "anhhtn@unihub.edu.vn",
+    gpa: 3.40,
+    creditsEarned: 16,
+    learningWarning: false,
+    learningStatus: "Bình thường",
+    learningDataLocked: false,
+    gender: "Nữ",
+    dob: "2006-08-22",
+    pob: "Hà Giang",
+    ethnicity: "Kinh",
+    idCard: "001206001007"
   },
   {
     id: "SV20NL01",
@@ -319,7 +375,7 @@ export const SEED_STUDENTS: Student[] = [
     creditsEarned: 19,
     learningWarning: false,
     learningStatus: "Bình thường",
-    learningDataLocked: true
+    learningDataLocked: false
   }
 ];
 
@@ -1016,7 +1072,7 @@ export const SEED_SUBJECT_GRADES: SubjectGradeSheet[] = [
     credits: 4,
     teacherId: "gvbm@phhg.edu.vn",
     teacherName: "ThS. Ngô Văn Bình",
-    status: "SUBMITTED",
+    status: "DRAFT",
     updatedAt: "2026-08-02",
     submittedAt: "2026-08-02 10:30:00",
     grades: [

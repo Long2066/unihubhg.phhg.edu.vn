@@ -153,20 +153,24 @@ export const TeacherPortal: React.FC = () => {
     const targetNormClass = normalizeClass(activeAssignment.classId);
     const matchingTrainingStudents = students.filter(s => {
       const sNorm = normalizeClass(s.classId || "");
+      if (!sNorm || !targetNormClass) return false;
       return sNorm === targetNormClass || targetNormClass.includes(sNorm) || sNorm.includes(targetNormClass);
     });
 
     let baseGrades: SubjectStudentGrade[] = activeGradeSheet?.grades ? [...activeGradeSheet.grades] : [];
 
+    const defaultSeedStudents = [
+      { id: "DTG2357140202099", name: "Hoàng Hải Nam", gender: "Nam", dob: "2006-01-01", classId: activeAssignment.classId },
+      { id: "DTG245140202002", name: "Đỗ Thị Huyền Anh", gender: "Nữ", dob: "2006-03-15", classId: activeAssignment.classId },
+      { id: "DTG245140202004", name: "Hứa Hải Anh", gender: "Nam", dob: "2006-04-10", classId: activeAssignment.classId },
+      { id: "DTG245140202007", name: "Hoàng Thị Ngọc Ánh", gender: "Nữ", dob: "2006-08-22", classId: activeAssignment.classId },
+      { id: "DTG245140202053", name: "Ma Văn Long", gender: "Nam", dob: "2006-05-20", classId: activeAssignment.classId }
+    ];
+
+    const sourceStudents = matchingTrainingStudents.length > 0 ? matchingTrainingStudents : defaultSeedStudents;
+
     if (baseGrades.length === 0) {
-      const rawList = matchingTrainingStudents.length > 0 ? matchingTrainingStudents : [
-        { id: "DTG2357140202099", name: "Hoàng Hải Nam", gender: "Nam", dob: "2006-01-01", classId: activeAssignment.classId },
-        { id: "DTG245140202002", name: "Đỗ Thị Huyền Anh", gender: "Nữ", dob: "2006-03-15", classId: activeAssignment.classId },
-        { id: "DTG245140202004", name: "Hứa Hải Anh", gender: "Nam", dob: "2006-04-10", classId: activeAssignment.classId },
-        { id: "DTG245140202007", name: "Hoàng Thị Ngọc Ánh", gender: "Nữ", dob: "2006-08-22", classId: activeAssignment.classId },
-        { id: "DTG245140202053", name: "Ma Văn Long", gender: "Nam", dob: "2006-05-20", classId: activeAssignment.classId }
-      ];
-      baseGrades = rawList.map((s: any, idx: number) => ({
+      baseGrades = sourceStudents.map((s: any, idx: number) => ({
         studentId: String(s.id || s.studentId || `STUDENT_${idx + 1}`).trim(),
         studentName: String(s.name || s.studentName || `Sinh viên ${idx + 1}`).trim(),
         gender: s.gender || "Nam",
@@ -175,13 +179,18 @@ export const TeacherPortal: React.FC = () => {
         cc: "", tx1: "", tx2: "", dk1: "", dk2: "", exam: "", tb10: "", tb4: "", diemChu: "", xepLoai: ""
       }));
     } else {
-      // Auto-merge any missing Training Dept students into existing sheet
-      matchingTrainingStudents.forEach(st => {
-        const stId = (st.id || "").trim();
-        if (stId && !baseGrades.some(g => (g.studentId || "").trim().toLowerCase() === stId.toLowerCase())) {
+      // Auto-merge ANY missing Training Dept students into existing sheet
+      sourceStudents.forEach((st: any) => {
+        const stId = String(st.id || st.studentId || "").trim();
+        const stName = String(st.name || st.studentName || "").trim();
+        const exists = baseGrades.some(g => 
+          (g.studentId && g.studentId.trim().toLowerCase() === stId.toLowerCase()) ||
+          (g.studentName && g.studentName.trim().toLowerCase() === stName.toLowerCase())
+        );
+        if (!exists) {
           baseGrades.push({
-            studentId: stId,
-            studentName: st.name || stId,
+            studentId: stId || `SV_${Date.now()}_${baseGrades.length + 1}`,
+            studentName: stName || "Sinh viên mới",
             gender: st.gender || "Nam",
             dob: st.dob || "2006-01-01",
             classId: st.classId || activeAssignment.classId,
@@ -288,6 +297,18 @@ export const TeacherPortal: React.FC = () => {
         return g;
       });
     });
+  };
+
+  const handleTeacherSelfUnlock = () => {
+    if (!activeGradeSheet) return;
+    const updatedSheet: SubjectGradeSheet = {
+      ...activeGradeSheet,
+      status: "DRAFT",
+      updatedAt: new Date().toISOString().split("T")[0]
+    };
+    saveSubjectGradeSheet(updatedSheet);
+    setSaveSuccessMsg("Đã mở lại bảng điểm thành công! Giảng viên có thể tiếp tục nhập và sửa điểm.");
+    setTimeout(() => setSaveSuccessMsg(""), 4000);
   };
 
   const handleSaveDraft = () => {
@@ -728,13 +749,24 @@ export const TeacherPortal: React.FC = () => {
                       </button>
                     </>
                   ) : (
-                    <button
-                      onClick={() => setShowUnlockModal(true)}
-                      className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-                    >
-                      <Unlock size={13} />
-                      <span>Gửi yêu cầu sửa điểm</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleTeacherSelfUnlock}
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        title="Giảng viên chủ động mở lại bảng điểm để nhập và chỉnh sửa"
+                      >
+                        <Unlock size={13} />
+                        <span>Mở lại bảng điểm để nhập</span>
+                      </button>
+
+                      <button
+                        onClick={() => setShowUnlockModal(true)}
+                        className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <Send size={13} />
+                        <span>Gửi yêu cầu sửa điểm</span>
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
