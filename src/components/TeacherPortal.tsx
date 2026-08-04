@@ -453,6 +453,16 @@ export const TeacherPortal: React.FC = () => {
       { s: { r: teacherNameRowIndex, c: 12 }, e: { r: teacherNameRowIndex, c: 15 } } // Teacher Name
     ];
 
+    // Set row heights and freeze panes at F3 (5 columns A-E, 2 header rows)
+    ws["!rows"] = [
+      { hpt: 75, hpx: 75 }, // Row 1 height for multi-line Title block
+      { hpt: 28, hpx: 28 }  // Row 2 height for Table headers
+    ];
+
+    ws["!views"] = [
+      { state: 'frozen', xSplit: 5, ySplit: 2, activePane: 'bottomRight', topLeftCell: 'F3' }
+    ];
+
     // Set column widths for beautiful Excel layout
     ws["!cols"] = [
       { wch: 6 },  // STT
@@ -1132,24 +1142,24 @@ export const TeacherPortal: React.FC = () => {
 
       {/* Printable Grade Distribution Modal (A4 Standard) */}
       {showDistributionPrintModal && activeAssignment && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 overflow-y-auto p-4 flex items-center justify-center font-sans">
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-8 shadow-2xl space-y-6 border border-slate-200 my-8 text-left">
-            <div className="flex justify-between items-center border-b border-slate-200 pb-4 print:hidden">
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 p-4 sm:p-6 flex items-center justify-center font-sans print:p-0 print:bg-white print:static print:z-auto">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col p-6 shadow-2xl space-y-4 border border-slate-200 text-left print:shadow-none print:border-none print:p-0 print:max-h-none print:w-full">
+            <div className="flex justify-between items-center border-b border-slate-200 pb-3 print:hidden flex-shrink-0">
               <div className="flex items-center gap-2">
-                <Printer className="text-indigo-600" size={20} />
-                <h3 className="text-base font-bold text-slate-800">Báo Cáo Phổ Điểm & Bảng Tổng Kết Học Phần (A4)</h3>
+                <Printer className="text-indigo-600" size={18} />
+                <h3 className="text-sm font-bold text-slate-800">Báo Cáo Phổ Điểm & Bảng Tổng Kết Học Phần (A4)</h3>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => window.print()}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <Printer size={14} />
                   <span>In bản A4 / Tải PDF</span>
                 </button>
                 <button
                   onClick={() => setShowDistributionPrintModal(false)}
-                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
                 >
                   Đóng
                 </button>
@@ -1157,7 +1167,7 @@ export const TeacherPortal: React.FC = () => {
             </div>
 
             {/* Printable Document Sheet */}
-            <div className="p-6 bg-white border border-slate-300 rounded-xl space-y-6 text-slate-900 shadow-xs">
+            <div className="flex-1 overflow-y-auto max-h-[calc(90vh-100px)] p-6 bg-white border border-slate-300 rounded-xl space-y-4 text-slate-900 shadow-xs print:overflow-visible print:max-h-none print:border-none print:p-0">
               {/* Letterhead Header */}
               <div className="text-center space-y-1 border-b border-slate-200 pb-4 font-serif">
                 <div className="text-xs font-bold uppercase tracking-wide text-slate-600">ĐẠI HỌC THÁI NGUYÊN</div>
