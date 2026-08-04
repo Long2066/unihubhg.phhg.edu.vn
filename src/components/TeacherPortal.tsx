@@ -365,43 +365,101 @@ export const TeacherPortal: React.FC = () => {
 
   const handleExportTemplate = () => {
     if (!activeAssignment) return;
-    
-    // Prepare Excel headers conforming to standard PHHG template
+
+    // Calculate total score count & total points sum for footer summary
+    let scoreCount = 0;
+    let scoreSum = 0;
+    currentGrades.forEach(g => {
+      [g.cc, g.tx1, g.tx2, g.dk1, g.dk2, g.exam].forEach(val => {
+        const n = parseFloat(String(val));
+        if (!isNaN(n)) {
+          scoreCount++;
+          scoreSum += n;
+        }
+      });
+    });
+
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+
+    const dateStr = `Tuyên Quang, ngày ${day} tháng ${month} năm ${year}`;
+    const teacherNameStr = currentUser?.name || activeAssignment.teacherName || "ThS. Nguyễn Thị Liệu";
+
+    // 1. Header rows matching Image 2
     const headerRows = [
-      ["THÔNG TIN CHUNG", "", "", "", "", "", "", "", "", "", "", `ĐIỂM HỌC TẬP ${activeAssignment.semesterName || "HỌC KỲ II 2025-2026"}`],
-      ["", "", "", "", "", "", "", "", "", "", "", activeAssignment.subjectName],
-      ["", "", "", "", "", "", "", "", "", "", "", `Số tín chỉ: ${activeAssignment.credits} | Mã học phần: ${activeAssignment.subjectCode}`],
-      ["STT", "Mã sinh viên", "Họ và tên", "Giới tính", "Ngày sinh", "Nơi sinh", "Dân tộc", "Số CCCD/CMND", "Ngày cấp CCCD/CMND", "Nơi cấp CCCD/CMND", "Lớp", "CC", "TX 1", "TX2", "ĐK 1", "ĐK 2", "Thi", "TB", "TB*", "Điểm chữ", "Xếp loại"]
+      ["PHÂN HIỆU ĐHTN TẠI HÀ GIANG", "", "", "", `ĐIỂM HỌC TẬP HỌC KỲ II, NĂM HỌC 2025 - 2026`, "", "", "", "", "", "", "", "", "", "", "", ""],
+      ["", "", "", "", `LỚP ${activeAssignment.classId}`, "", "", "", "", "", "", "", "", "", "", "", ""],
+      ["", "", "", "", `Học phần: ${activeAssignment.subjectName}`, "", "", "", "", "", "", "", "", "", "", "", ""],
+      ["", "", "", "", `Số tín chỉ: ${activeAssignment.credits}          Mã học phần: ${activeAssignment.subjectCode}`, "", "", "", "", "", "", "", "", "", "", "", ""],
+      [], // Empty row
+      ["STT", "Mã sinh viên", "Họ và tên", "Giới tính", "Ngày sinh", "CC", "TX 1", "TX2", "ĐK 1", "ĐK 2", "Thi", "TB", "TB*", "Điểm chữ", "Xếp loại", "Ghi chú", "Ngày cập nhật"]
     ];
 
+    // 2. Data rows matching Image 2
     const dataRows = currentGrades.map((g, idx) => [
       idx + 1,
       g.studentId,
       g.studentName,
       g.gender || "Nam",
-      g.dob || "2006-01-01",
-      "Hà Giang",
-      "Kinh",
-      "001206001000",
-      "2022-10-15",
-      "Cục Cảnh sát QLHC",
-      g.classId || activeAssignment.classId,
-      g.cc || "",
-      g.tx1 || "",
-      g.tx2 || "",
-      g.dk1 || "",
-      g.dk2 || "",
-      g.exam || "",
-      g.tb10 || "",
-      g.tb4 || "",
+      g.dob || "01/01/2006",
+      g.cc !== "" && g.cc !== undefined ? (isNaN(Number(g.cc)) ? g.cc : Number(g.cc)) : "-",
+      g.tx1 !== "" && g.tx1 !== undefined ? (isNaN(Number(g.tx1)) ? g.tx1 : Number(g.tx1)) : "",
+      g.tx2 !== "" && g.tx2 !== undefined ? (isNaN(Number(g.tx2)) ? g.tx2 : Number(g.tx2)) : "",
+      g.dk1 !== "" && g.dk1 !== undefined ? (isNaN(Number(g.dk1)) ? g.dk1 : Number(g.dk1)) : "",
+      g.dk2 !== "" && g.dk2 !== undefined ? (isNaN(Number(g.dk2)) ? g.dk2 : Number(g.dk2)) : "",
+      g.exam !== "" && g.exam !== undefined ? (isNaN(Number(g.exam)) ? g.exam : Number(g.exam)) : "",
+      g.tb10 !== "" && g.tb10 !== undefined ? (isNaN(Number(g.tb10)) ? g.tb10 : Number(g.tb10)) : "",
+      g.tb4 !== "" && g.tb4 !== undefined ? (isNaN(Number(g.tb4)) ? g.tb4 : Number(g.tb4)) : "",
       g.diemChu || "",
-      g.xepLoai || ""
+      g.xepLoai || "",
+      "",
+      new Date().toISOString().split("T")[0]
     ]);
 
-    const ws = XLSX.utils.aoa_to_sheet([...headerRows, ...dataRows]);
+    // 3. Footer rows matching Image 3
+    const footerRows = [
+      [],
+      ["", "", "", "", `Bảng điểm từ CC đến thi có ${scoreCount} con điểm, với tổng điểm = ${Math.round(scoreSum * 10) / 10}`, "", "", "", "", "", "", "", "", "", "", "", ""],
+      [],
+      ["", "", "", "", "", "", "", "", "", "", "", "", dateStr, "", "", "", ""],
+      ["Lãnh đạo Khoa", "", "", "", "", "", "", "", "", "", "", "", "Giảng viên", "", "", "", ""],
+      [],
+      [],
+      [],
+      ["", "", "", "", "", "", "", "", "", "", "", "", teacherNameStr, "", "", "", ""]
+    ];
+
+    const allRows = [...headerRows, ...dataRows, ...footerRows];
+
+    const ws = XLSX.utils.aoa_to_sheet(allRows);
+
+    // Set column widths for beautiful Excel layout
+    ws["!cols"] = [
+      { wch: 6 },  // STT
+      { wch: 18 }, // Mã sinh viên
+      { wch: 26 }, // Họ và tên
+      { wch: 10 }, // Giới tính
+      { wch: 12 }, // Ngày sinh
+      { wch: 8 },  // CC
+      { wch: 8 },  // TX 1
+      { wch: 8 },  // TX2
+      { wch: 8 },  // ĐK 1
+      { wch: 8 },  // ĐK 2
+      { wch: 8 },  // Thi
+      { wch: 8 },  // TB
+      { wch: 8 },  // TB*
+      { wch: 10 }, // Điểm chữ
+      { wch: 12 }, // Xếp loại
+      { wch: 14 }, // Ghi chú
+      { wch: 14 }  // Ngày cập nhật
+    ];
+
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, activeAssignment.classId);
-    XLSX.writeFile(wb, `Danh_sach_diem_hoc_phan_${activeAssignment.subjectCode}_${activeAssignment.classId}.xlsx`);
+    const cleanSheetName = activeAssignment.classId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 30);
+    XLSX.utils.book_append_sheet(wb, ws, cleanSheetName);
+    XLSX.writeFile(wb, `Bang_diem_hoc_phan_${activeAssignment.subjectCode}_${activeAssignment.classId}.xlsx`);
   };
 
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -417,10 +475,10 @@ export const TeacherPortal: React.FC = () => {
         const worksheet = workbook.Sheets[firstSheetName];
         const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-        // Find header row containing "Mã sinh viên"
+        // Find header row containing "Mã sinh viên" or "Mã SV"
         let headerRowIndex = -1;
-        for (let i = 0; i < Math.min(10, jsonData.length); i++) {
-          if (jsonData[i] && jsonData[i].some(cell => String(cell).includes("Mã sinh viên") || String(cell).includes("STT"))) {
+        for (let i = 0; i < Math.min(12, jsonData.length); i++) {
+          if (jsonData[i] && jsonData[i].some(cell => String(cell).includes("Mã sinh viên") || String(cell).includes("Mã SV"))) {
             headerRowIndex = i;
             break;
           }
@@ -431,34 +489,56 @@ export const TeacherPortal: React.FC = () => {
           return;
         }
 
+        const headerRow = jsonData[headerRowIndex].map(c => String(c || "").trim());
+        const isNewFormat = headerRow.length <= 18 && (headerRow[5] === "CC" || headerRow[5]?.includes("CC"));
+
         const importedRows: SubjectStudentGrade[] = [];
         for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
           const row = jsonData[i];
-          if (!row || !row[1]) continue; // Skip empty student code
+          if (!row || !row[1]) continue; 
 
-          const rawCc = row[11] !== undefined ? row[11] : "";
-          const rawTx1 = row[12] !== undefined ? row[12] : "";
-          const rawTx2 = row[13] !== undefined ? row[13] : "";
-          const rawDk1 = row[14] !== undefined ? row[14] : "";
-          const rawDk2 = row[15] !== undefined ? row[15] : "";
-          const rawExam = row[16] !== undefined ? row[16] : "";
+          const stId = String(row[1]).trim();
+          if (!stId || stId.startsWith("Bảng điểm") || stId.startsWith("Lãnh đạo") || stId.startsWith("Giảng viên")) continue;
+
+          let rawCc = "", rawTx1 = "", rawTx2 = "", rawDk1 = "", rawDk2 = "", rawExam = "";
+          let gender = "Nam", dob = "2006-01-01";
+
+          if (isNewFormat) {
+            gender = String(row[3] || "Nam").trim();
+            dob = String(row[4] || "2006-01-01").trim();
+            rawCc = row[5] !== undefined ? row[5] : "";
+            rawTx1 = row[6] !== undefined ? row[6] : "";
+            rawTx2 = row[7] !== undefined ? row[7] : "";
+            rawDk1 = row[8] !== undefined ? row[8] : "";
+            rawDk2 = row[9] !== undefined ? row[9] : "";
+            rawExam = row[10] !== undefined ? row[10] : "";
+          } else {
+            gender = String(row[3] || "Nam").trim();
+            dob = String(row[4] || "2006-01-01").trim();
+            rawCc = row[11] !== undefined ? row[11] : "";
+            rawTx1 = row[12] !== undefined ? row[12] : "";
+            rawTx2 = row[13] !== undefined ? row[13] : "";
+            rawDk1 = row[14] !== undefined ? row[14] : "";
+            rawDk2 = row[15] !== undefined ? row[15] : "";
+            rawExam = row[16] !== undefined ? row[16] : "";
+          }
 
           const draftItem: SubjectStudentGrade = {
-            studentId: String(row[1]).trim(),
+            studentId: stId,
             studentName: String(row[2] || "").trim(),
-            gender: String(row[3] || "Nam").trim(),
-            dob: String(row[4] || "2006-01-01").trim(),
-            classId: String(row[10] || activeAssignment?.classId || "").trim(),
+            gender,
+            dob,
+            classId: activeAssignment?.classId || "",
             cc: rawCc,
             tx1: rawTx1,
             tx2: rawTx2,
             dk1: rawDk1,
             dk2: rawDk2,
             exam: rawExam,
-            tb10: row[17] || "",
-            tb4: row[18] || "",
-            diemChu: row[19] || "",
-            xepLoai: row[20] || ""
+            tb10: "",
+            tb4: "",
+            diemChu: "",
+            xepLoai: ""
           };
 
           importedRows.push(calculateSingleRow(draftItem));
@@ -466,7 +546,7 @@ export const TeacherPortal: React.FC = () => {
 
         if (importedRows.length > 0) {
           setCurrentGrades(importedRows);
-          alert(`Nạp thành công ${importedRows.length} sinh viên từ file Excel! Vui lòng kiểm tra và bấm "Lưu nháp" hoặc "Chốt nộp điểm".`);
+          alert(`Nạp thành công ${importedRows.length} sinh viên từ file Excel mẫu! Vui lòng kiểm tra và bấm "Lưu nháp" hoặc "Chốt nộp điểm".`);
         } else {
           alert("Không tìm thấy dữ liệu điểm sinh viên hợp lệ trong file!");
         }
