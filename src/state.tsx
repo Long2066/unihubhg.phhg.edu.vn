@@ -378,12 +378,24 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         );
 
         if (existingIdx >= 0) {
-          // If custom password provided, update existing teacher account password as requested by Training Dept
-          if (assign.teacherPassword && assign.teacherPassword.trim() && nextUsers[existingIdx].password !== setPassword) {
-            nextUsers[existingIdx] = {
-              ...nextUsers[existingIdx],
-              password: setPassword
-            };
+          const curr = nextUsers[existingIdx];
+          let userChanged = false;
+          const updatedUser = { ...curr };
+
+          // Enforce UserRole.TEACHER for teacher accounts
+          if (curr.role !== UserRole.TEACHER) {
+            updatedUser.role = UserRole.TEACHER;
+            userChanged = true;
+          }
+
+          // If custom password provided, update existing teacher account password
+          if (assign.teacherPassword && assign.teacherPassword.trim() && curr.password !== setPassword) {
+            updatedUser.password = setPassword;
+            userChanged = true;
+          }
+
+          if (userChanged) {
+            nextUsers[existingIdx] = updatedUser;
             updated = true;
           }
         } else {
@@ -1532,13 +1544,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let userObj = findUserInList(trimmedInput, effectiveUsers);
     let studentObj = findStudentInList(trimmedInput, effectiveStudents);
 
-    // 3. Determine targetEmail for Firebase Auth
+    // 3. Determine targetEmail for Firebase Auth & check if Teacher account
     let targetEmail = trimmedInput;
     if (!targetEmail.includes("@")) {
       if (userObj && userObj.email && userObj.email.includes("@")) targetEmail = userObj.email;
       else if (studentObj && studentObj.email && studentObj.email.includes("@")) targetEmail = studentObj.email;
       else targetEmail = `${trimmedInput}@unihub.edu.vn`;
     }
+
+    const isTeacherAccount = 
+      targetEmail.toLowerCase().startsWith("gv_") ||
+      targetEmail.toLowerCase().startsWith("gv") ||
+      targetEmail.toLowerCase().includes("nguyenthilieu") ||
+      teacherAssignments.some(a => (a.teacherId || "").toLowerCase() === targetEmail.toLowerCase() || (a.teacherId || "").toLowerCase() === trimmedInput.toLowerCase());
 
     // === TIER 1: Firebase Auth Sign-In Test (Direct Cloud Verification for accounts created on Admin Page) ===
     try {
@@ -1555,10 +1573,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             id: uid,
             username: targetEmail,
             name: authCred.user.displayName || targetEmail.split("@")[0],
-            role: userObj?.role || UserRole.TRAINING_DEPT,
+            role: isTeacherAccount ? UserRole.TEACHER : (userObj?.role || UserRole.TRAINING_DEPT),
             email: targetEmail,
             password: trimmedPass
           };
+        }
+
+        if (isTeacherAccount && fetchedUserDoc.role !== UserRole.TEACHER) {
+          fetchedUserDoc.role = UserRole.TEACHER;
         }
 
         setCurrentUser(fetchedUserDoc);
@@ -1604,6 +1626,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // === TIER 3: Local/Firestore User Account Password Verification ===
     if (userObj) {
+      if (isTeacherAccount && userObj.role !== UserRole.TEACHER) {
+        userObj = { ...userObj, role: UserRole.TEACHER };
+      }
+
       const storedPassword = (userObj.password || "password123").trim();
       const isPasswordMatch = 
         storedPassword === trimmedPass || 
