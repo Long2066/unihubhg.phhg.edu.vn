@@ -32,8 +32,6 @@ import {
   Plus
 } from "lucide-react";
 import * as XLSX from "xlsx";
-import html2canvas from "html2canvas";
-import { jsPDF } from "jspdf";
 
 type TeacherExcelCellValue = string | number | null | undefined;
 
@@ -1568,11 +1566,20 @@ export const TeacherPortal: React.FC = () => {
                     const originalOverflow = element.style.overflow;
 
                     try {
-                      // Temporarily expand element to capture all rows (including off-screen scroll content)
+                      // Dynamic imports to avoid bundling issues on Vercel
+                      const html2canvasModule = await import("html2canvas");
+                      const html2canvasFn = html2canvasModule.default || html2canvasModule;
+                      const jsPDFModule = await import("jspdf");
+                      const JsPDF = jsPDFModule.jsPDF || jsPDFModule.default;
+
+                      // Temporarily expand element to capture all rows
                       element.style.maxHeight = "none";
                       element.style.overflow = "visible";
 
-                      const canvas = await html2canvas(element, {
+                      // Wait for layout reflow
+                      await new Promise(resolve => setTimeout(resolve, 100));
+
+                      const canvas = await html2canvasFn(element, {
                         scale: 2,
                         useCORS: true,
                         logging: false,
@@ -1583,16 +1590,16 @@ export const TeacherPortal: React.FC = () => {
                       element.style.maxHeight = originalMaxHeight;
                       element.style.overflow = originalOverflow;
 
-                      const pdf = new jsPDF({
+                      const pdf = new JsPDF({
                         orientation: "portrait",
                         unit: "mm",
                         format: "a4"
                       });
 
-                      const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
-                      const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
-                      const margin = 10; // 10mm margins
-                      const printableWidth = pdfWidth - (margin * 2); // 190mm
+                      const pdfWidth = pdf.internal.pageSize.getWidth();
+                      const pdfHeight = pdf.internal.pageSize.getHeight();
+                      const margin = 10;
+                      const printableWidth = pdfWidth - (margin * 2);
                       const pageCanvasHeight = (canvas.width * (pdfHeight - (margin * 2))) / printableWidth;
 
                       let heightLeft = canvas.height;
@@ -1635,7 +1642,6 @@ export const TeacherPortal: React.FC = () => {
                       console.error("PDF generation failed:", err);
                       element.style.maxHeight = originalMaxHeight;
                       element.style.overflow = originalOverflow;
-                      alert("Không thể khởi tạo file PDF tự động. Hệ thống sẽ mở cửa sổ in của trình duyệt...");
                       window.print();
                     } finally {
                       setIsGeneratingPdf(false);
