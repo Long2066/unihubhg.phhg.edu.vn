@@ -1682,11 +1682,14 @@ export const AdminPortal: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {users.filter(u => u.role === UserRole.TEACHER).map((teacher) => (
+                        {(users.filter(u => u.role === UserRole.TEACHER).length > 0
+                          ? users.filter(u => u.role === UserRole.TEACHER)
+                          : SEED_USERS.filter(u => u.role === UserRole.TEACHER)
+                        ).map((teacher) => (
                           <tr key={teacher.id} className="hover:bg-slate-50/50 transition-colors">
                             <td className="p-3.5 pl-4 font-bold text-slate-900">{teacher.name}</td>
                             <td className="p-3.5 font-mono text-blue-700 font-bold">{teacher.username || teacher.email}</td>
-                            <td className="p-3.5 font-mono text-slate-600">{teacher.password || "password123"}</td>
+                            <td className="p-3.5 font-mono text-slate-600">{teacher.password || "Abc@123"}</td>
                             <td className="p-3.5">
                               <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 Cố định xuyên suốt các kỳ
@@ -1699,7 +1702,7 @@ export const AdminPortal: React.FC = () => {
                                   setAccFormName(teacher.name);
                                   setAccFormRole(teacher.role);
                                   setAccFormUsername(teacher.username || teacher.email || "");
-                                  setAccFormPassword(teacher.password || "password123");
+                                  setAccFormPassword(teacher.password || "Abc@123");
                                   setAccFormTargetId(teacher.targetId || "");
                                   setShowAccountModal(true);
                                 }}
@@ -1710,7 +1713,7 @@ export const AdminPortal: React.FC = () => {
                             </td>
                           </tr>
                         ))}
-                        {users.filter(u => u.role === UserRole.TEACHER).length === 0 && (
+                        {users.filter(u => u.role === UserRole.TEACHER).length === 0 && SEED_USERS.filter(u => u.role === UserRole.TEACHER).length === 0 && (
                           <tr>
                             <td colSpan={5} className="p-8 text-center text-slate-400 italic">
                               Chưa có tài khoản Giảng viên bộ môn nào. Khi Phòng Đào tạo phân công môn học, tài khoản Giảng viên sẽ được tự động cấp cố định tại đây.
