@@ -340,6 +340,287 @@ const sanitizeFilePart = (value: string) => (value || "Bang_diem")
   .replace(/_+/g, "_")
   .replace(/^_|_$/g, "");
 
+type TeacherPdfStats = {
+  xuatSac: number;
+  gioi: number;
+  kha: number;
+  trungBinh: number;
+  yeu: number;
+  kem: number;
+  dat: number;
+  total: number;
+};
+
+const pdfValue = (value: string | number | undefined | null) => {
+  if (value === undefined || value === null || value === "") return "-";
+  return String(value);
+};
+
+const drawPdfRoundRect = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  radius: number,
+  fill: string,
+  stroke?: string,
+  lineWidth: number = 1
+) => {
+  const r = Math.min(radius, w / 2, h / 2);
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.fill();
+  if (stroke) {
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = lineWidth;
+    ctx.stroke();
+  }
+  ctx.restore();
+};
+
+const drawPdfText = (
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  options: {
+    size?: number;
+    weight?: string;
+    color?: string;
+    align?: CanvasTextAlign;
+    italic?: boolean;
+    mono?: boolean;
+    maxWidth?: number;
+  } = {}
+) => {
+  ctx.save();
+  const size = options.size ?? 18;
+  const weight = options.weight ?? "400";
+  const style = options.italic ? "italic " : "";
+  const family = options.mono ? "'Courier New', monospace" : "'Times New Roman', serif";
+  ctx.font = `${style}${weight} ${size}px ${family}`;
+  ctx.fillStyle = options.color ?? "#0f172a";
+  ctx.textAlign = options.align ?? "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(text, x, y, options.maxWidth);
+  ctx.restore();
+};
+
+const downloadTeacherGradeReportPdf = async (
+  assignment: CourseClassAssignment,
+  grades: SubjectStudentGrade[],
+  stats: TeacherPdfStats
+) => {
+  const jsPDFModule = await import("jspdf");
+  const JsPDF = (jsPDFModule as any).jsPDF || (jsPDFModule as any).default;
+  const pdf = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+  const pageW = 1240;
+  const pageH = 1754;
+  const marginX = 70;
+  const tableW = pageW - marginX * 2;
+  const tableX = marginX;
+  const contentBottom = pageH - 115;
+  const rowH = 48;
+  const headerH = 52;
+  const cols = [
+    { label: "STT", w: 60, align: "center" as CanvasTextAlign },
+    { label: "MÃ SV", w: 180, align: "left" as CanvasTextAlign },
+    { label: "HỌ VÀ TÊN", w: 340, align: "left" as CanvasTextAlign },
+    { label: "CC", w: 70, align: "center" as CanvasTextAlign },
+    { label: "THI", w: 80, align: "center" as CanvasTextAlign },
+    { label: "TB (10)", w: 95, align: "center" as CanvasTextAlign },
+    { label: "ĐIỂM CHỮ", w: 130, align: "center" as CanvasTextAlign },
+    { label: "XẾP LOẠI", w: 145, align: "center" as CanvasTextAlign }
+  ];
+
+  const now = new Date();
+  const percent = (count: number) => stats.total ? Math.round((count / stats.total) * 100) : 0;
+
+  const createCanvasPage = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = pageW;
+    canvas.height = pageH;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Không thể khởi tạo Canvas PDF");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, pageW, pageH);
+    return { canvas, ctx };
+  };
+
+  const drawReportHeader = (ctx: CanvasRenderingContext2D) => {
+    drawPdfText(ctx, "ĐẠI HỌC THÁI NGUYÊN", pageW / 2, 135, { size: 22, weight: "700", color: "#475569", align: "center" });
+    drawPdfText(ctx, "PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI TỈNH HÀ GIANG", pageW / 2, 180, { size: 26, weight: "700", color: "#1e3a8a", align: "center" });
+    drawPdfText(ctx, "KHOA / BỘ MÔN CHUYÊN MÔN", pageW / 2, 220, { size: 20, weight: "700", color: "#64748b", align: "center" });
+    drawPdfText(ctx, "BÁO CÁO PHỔ ĐIỂM & BẢNG TỔNG KẾT MÔN HỌC", pageW / 2, 285, { size: 30, weight: "700", color: "#0f172a", align: "center" });
+    drawPdfText(ctx, `Môn học: ${assignment.subjectName} (${assignment.subjectCode}) - Lớp: ${assignment.classId}`, pageW / 2, 330, { size: 18, italic: true, color: "#475569", align: "center", maxWidth: tableW });
+
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(marginX, 380);
+    ctx.lineTo(pageW - marginX, 380);
+    ctx.stroke();
+
+    drawPdfText(ctx, "Giảng viên giảng dạy:", marginX, 435, { size: 19 });
+    drawPdfText(ctx, assignment.teacherName, marginX + 205, 435, { size: 19, weight: "700" });
+    drawPdfText(ctx, "Số tín chỉ học phần:", pageW / 2 + 20, 435, { size: 19 });
+    drawPdfText(ctx, `${assignment.credits} TC`, pageW / 2 + 235, 435, { size: 19, weight: "700", mono: true });
+    drawPdfText(ctx, "Lớp học phần:", marginX, 490, { size: 19 });
+    drawPdfText(ctx, assignment.classId, marginX + 150, 490, { size: 19, weight: "700", mono: true });
+    drawPdfText(ctx, "Tổng số sinh viên:", pageW / 2 + 20, 490, { size: 19 });
+    drawPdfText(ctx, `${stats.total} SV`, pageW / 2 + 225, 490, { size: 19, weight: "700", mono: true });
+
+    drawPdfRoundRect(ctx, marginX, 545, tableW, 170, 18, "#f8fafc", "#dbe4ef", 2);
+    drawPdfText(ctx, "TÓM TẮT PHÂN BỐ PHỔ ĐIỂM HỌC PHẦN:", marginX + 28, 595, { size: 20, weight: "700", color: "#334155" });
+    const boxW = (tableW - 86) / 4;
+    const boxes = [
+      { title: "Xuất sắc", count: stats.xuatSac, fill: "#faf5ff", stroke: "#e9d5ff", color: "#7e22ce" },
+      { title: "Giỏi", count: stats.gioi, fill: "#eff6ff", stroke: "#bfdbfe", color: "#1d4ed8" },
+      { title: "Khá", count: stats.kha, fill: "#ecfeff", stroke: "#a5f3fc", color: "#0e7490" },
+      { title: "Trung bình & Yếu", count: stats.trungBinh + stats.yeu + stats.kem, fill: "#fffbeb", stroke: "#fde68a", color: "#b45309" }
+    ];
+    boxes.forEach((box, idx) => {
+      const x = marginX + 26 + idx * (boxW + 12);
+      drawPdfRoundRect(ctx, x, 620, boxW, 70, 8, box.fill, box.stroke, 2);
+      drawPdfText(ctx, box.title, x + boxW / 2, 648, { size: 15, weight: "700", color: box.color, align: "center", mono: true });
+      drawPdfText(ctx, String(box.count), x + boxW / 2 - 10, 678, { size: 24, weight: "700", color: box.color, align: "right", mono: true });
+      drawPdfText(ctx, `(${percent(box.count)}%)`, x + boxW / 2 + 15, 676, { size: 13, color: "#64748b", align: "left", mono: true });
+    });
+    return 745;
+  };
+
+  const drawContinuationHeader = (ctx: CanvasRenderingContext2D, pageNo: number) => {
+    drawPdfText(ctx, "BÁO CÁO PHỔ ĐIỂM & BẢNG TỔNG KẾT MÔN HỌC", marginX, 85, { size: 20, weight: "700", color: "#0f172a" });
+    drawPdfText(ctx, `${assignment.subjectCode} - ${assignment.classId}`, marginX, 120, { size: 16, italic: true, color: "#475569" });
+    drawPdfText(ctx, `Trang ${pageNo}`, pageW - marginX, 85, { size: 16, color: "#64748b", align: "right" });
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(marginX, 140);
+    ctx.lineTo(pageW - marginX, 140);
+    ctx.stroke();
+    return 170;
+  };
+
+  const drawTableHeader = (ctx: CanvasRenderingContext2D, y: number) => {
+    drawPdfRoundRect(ctx, tableX, y, tableW, headerH, 0, "#f1f5f9", "#cbd5e1", 2);
+    let x = tableX;
+    cols.forEach(col => {
+      ctx.strokeStyle = "#cbd5e1";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x, y, col.w, headerH);
+      drawPdfText(ctx, col.label, x + col.w / 2, y + 33, { size: 14, weight: "700", color: "#334155", align: "center", mono: true });
+      x += col.w;
+    });
+  };
+
+  const drawTableRows = (ctx: CanvasRenderingContext2D, rows: SubjectStudentGrade[], startIndex: number, y: number) => {
+    rows.forEach((g, rowIdx) => {
+      const rowY = y + rowIdx * rowH;
+      ctx.fillStyle = rowIdx % 2 === 0 ? "#ffffff" : "#f8fafc";
+      ctx.fillRect(tableX, rowY, tableW, rowH);
+      const values = [
+        String(startIndex + rowIdx + 1),
+        g.studentId,
+        g.studentName,
+        pdfValue(g.cc),
+        pdfValue(g.exam),
+        pdfValue(g.tb10),
+        pdfValue(g.diemChu),
+        pdfValue(g.xepLoai)
+      ];
+      let x = tableX;
+      cols.forEach((col, colIdx) => {
+        ctx.strokeStyle = "#dbe4ef";
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x, rowY, col.w, rowH);
+        const align = col.align;
+        const textX = align === "center" ? x + col.w / 2 : x + 16;
+        const isStrong = colIdx === 2 || colIdx === 5 || colIdx === 7;
+        drawPdfText(ctx, values[colIdx], textX, rowY + 31, {
+          size: 15,
+          weight: isStrong ? "700" : "500",
+          color: colIdx === 4 || colIdx === 6 ? "#1d4ed8" : "#0f172a",
+          align,
+          mono: colIdx !== 2,
+          maxWidth: col.w - 20
+        });
+        x += col.w;
+      });
+    });
+    return y + rows.length * rowH;
+  };
+
+  const drawSignature = (ctx: CanvasRenderingContext2D, y: number) => {
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(marginX, y - 40);
+    ctx.lineTo(pageW - marginX, y - 40);
+    ctx.stroke();
+    const dateLine = `Hà Giang, ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`;
+    drawPdfText(ctx, dateLine, pageW - 270, y, { size: 17, italic: true, color: "#334155", align: "center" });
+    drawPdfText(ctx, "Lãnh đạo Khoa", marginX + 180, y + 50, { size: 20, weight: "700", align: "center" });
+    drawPdfText(ctx, "Giảng viên", pageW - 270, y + 50, { size: 20, weight: "700", align: "center" });
+    drawPdfText(ctx, "(Ký & ghi rõ họ tên)", marginX + 180, y + 225, { size: 16, weight: "700", color: "#64748b", align: "center" });
+    drawPdfText(ctx, assignment.teacherName, pageW - 270, y + 225, { size: 19, weight: "700", color: "#1e3a8a", align: "center" });
+  };
+
+  let pdfPageIndex = 0;
+  const addCanvasPageToPdf = (canvas: HTMLCanvasElement) => {
+    if (pdfPageIndex > 0) pdf.addPage();
+    pdf.addImage(canvas.toDataURL("image/jpeg", 0.97), "JPEG", 0, 0, 210, 297);
+    pdfPageIndex += 1;
+  };
+
+  let gradeIndex = 0;
+  let pageNo = 1;
+  const sourceGrades = grades.length ? grades : [];
+  do {
+    const { canvas, ctx } = createCanvasPage();
+    const tableY = pageNo === 1 ? drawReportHeader(ctx) : drawContinuationHeader(ctx, pageNo);
+    drawTableHeader(ctx, tableY);
+    const rowsStartY = tableY + headerH;
+    const rowsPerPage = Math.max(1, Math.floor((contentBottom - rowsStartY) / rowH));
+    const rows = sourceGrades.slice(gradeIndex, gradeIndex + rowsPerPage);
+    const afterRowsY = drawTableRows(ctx, rows, gradeIndex, rowsStartY);
+    gradeIndex += rows.length;
+
+    const isLastPage = gradeIndex >= sourceGrades.length;
+    if (isLastPage) {
+      if (afterRowsY + 300 > contentBottom) {
+        addCanvasPageToPdf(canvas);
+        const next = createCanvasPage();
+        drawContinuationHeader(next.ctx, pageNo + 1);
+        drawSignature(next.ctx, 430);
+        addCanvasPageToPdf(next.canvas);
+      } else {
+        drawSignature(ctx, Math.max(afterRowsY + 95, contentBottom - 280));
+        addCanvasPageToPdf(canvas);
+      }
+    } else {
+      addCanvasPageToPdf(canvas);
+    }
+    pageNo += 1;
+  } while (gradeIndex < sourceGrades.length);
+
+  const fileName = `Bao_cao_pho_diem_${sanitizeFilePart(assignment.subjectCode)}_${sanitizeFilePart(assignment.classId)}.pdf`;
+  pdf.save(fileName);
+};
+
 const excelDateSerial = (value?: string | number) => {
   if (value === undefined || value === null || value === "") return null;
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -1557,92 +1838,13 @@ export const TeacherPortal: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={async () => {
-                    const element = document.getElementById("printable-report-area");
-                    if (!element || !activeAssignment) return;
+                    if (!activeAssignment) return;
                     setIsGeneratingPdf(true);
-
-                    // Save original scroll & height styles
-                    const originalMaxHeight = element.style.maxHeight;
-                    const originalOverflow = element.style.overflow;
-
                     try {
-                      // Dynamic imports to avoid bundling issues on Vercel
-                      const html2canvasModule = await import("html2canvas");
-                      const html2canvasFn = html2canvasModule.default || html2canvasModule;
-                      const jsPDFModule = await import("jspdf");
-                      const JsPDF = jsPDFModule.jsPDF || jsPDFModule.default;
-
-                      // Temporarily expand element to capture all rows
-                      element.style.maxHeight = "none";
-                      element.style.overflow = "visible";
-
-                      // Wait for layout reflow
-                      await new Promise(resolve => setTimeout(resolve, 100));
-
-                      const canvas = await html2canvasFn(element, {
-                        scale: 2,
-                        useCORS: true,
-                        logging: false,
-                        backgroundColor: "#ffffff"
-                      });
-
-                      // Restore original element styles immediately
-                      element.style.maxHeight = originalMaxHeight;
-                      element.style.overflow = originalOverflow;
-
-                      const pdf = new JsPDF({
-                        orientation: "portrait",
-                        unit: "mm",
-                        format: "a4"
-                      });
-
-                      const pdfWidth = pdf.internal.pageSize.getWidth();
-                      const pdfHeight = pdf.internal.pageSize.getHeight();
-                      const margin = 10;
-                      const printableWidth = pdfWidth - (margin * 2);
-                      const pageCanvasHeight = (canvas.width * (pdfHeight - (margin * 2))) / printableWidth;
-
-                      let heightLeft = canvas.height;
-                      let sY = 0;
-                      let firstPage = true;
-
-                      while (heightLeft > 0) {
-                        const sectionHeight = Math.min(heightLeft, pageCanvasHeight);
-                        const pageCanvas = document.createElement("canvas");
-                        pageCanvas.width = canvas.width;
-                        pageCanvas.height = sectionHeight;
-                        const ctx = pageCanvas.getContext("2d");
-
-                        if (ctx) {
-                          ctx.fillStyle = "#ffffff";
-                          ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-                          ctx.drawImage(
-                            canvas,
-                            0, sY, canvas.width, sectionHeight,
-                            0, 0, canvas.width, sectionHeight
-                          );
-                        }
-
-                        const pageImgData = pageCanvas.toDataURL("image/jpeg", 0.98);
-                        const slicePdfHeight = (sectionHeight * printableWidth) / canvas.width;
-
-                        if (!firstPage) {
-                          pdf.addPage();
-                        }
-                        pdf.addImage(pageImgData, "JPEG", margin, margin, printableWidth, slicePdfHeight);
-
-                        sY += sectionHeight;
-                        heightLeft -= sectionHeight;
-                        firstPage = false;
-                      }
-
-                      const fileName = `Bao_cao_pho_diem_${sanitizeFilePart(activeAssignment.subjectCode)}_${sanitizeFilePart(activeAssignment.classId)}.pdf`;
-                      pdf.save(fileName);
+                      await downloadTeacherGradeReportPdf(activeAssignment, currentGrades, stats);
                     } catch (err) {
                       console.error("PDF generation failed:", err);
-                      element.style.maxHeight = originalMaxHeight;
-                      element.style.overflow = originalOverflow;
-                      window.print();
+                      alert("Không thể tải file PDF tự động. Vui lòng thử lại hoặc kiểm tra trình duyệt có đang chặn tải xuống không.");
                     } finally {
                       setIsGeneratingPdf(false);
                     }
