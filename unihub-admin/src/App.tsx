@@ -37,7 +37,8 @@ import {
   DailyAttendanceReport,
   ScheduleSlot,
   SystemFeedback,
-  ThemeConfig
+  ThemeConfig,
+  CourseClassAssignment
 } from "./types";
 import { 
   SEED_USERS, 
@@ -53,7 +54,8 @@ import {
   SEED_RESULTS,
   SEED_DAILY_ATTENDANCE,
   SEED_SCHEDULES,
-  SEED_PERIOD 
+  SEED_PERIOD,
+  SEED_TEACHER_ASSIGNMENTS
 } from "./data";
 import { 
   LayoutDashboard, 
@@ -726,6 +728,7 @@ export default function App() {
   const [schedules, setSchedules] = useState<ScheduleSlot[]>([]);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [systemFeedbacks, setSystemFeedbacks] = useState<SystemFeedback[]>([]);
+  const [teacherAssignments, setTeacherAssignments] = useState<CourseClassAssignment[]>([]);
 
   // Feedback tab search & filters state
   const [feedbackSearch, setFeedbackSearch] = useState("");
@@ -848,6 +851,12 @@ export default function App() {
         setSchedules(list);
       }),
 
+      onSnapshot(collection(db, "teacherAssignments"), (snap) => {
+        const list: CourseClassAssignment[] = [];
+        snap.forEach(d => list.push(d.data() as CourseClassAssignment));
+        setTeacherAssignments(list);
+      }),
+
       onSnapshot(collection(db, "members"), (snap) => {
         const list: OrganizationMember[] = [];
         snap.forEach(d => list.push(d.data() as OrganizationMember));
@@ -895,6 +904,65 @@ export default function App() {
       unsubscribes.forEach(unsub => unsub());
     };
   }, [isAuthenticated]);
+
+  // Auto-provision & sync teacher accounts when course assignments exist
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const assignmentsToUse = teacherAssignments.length > 0 ? teacherAssignments : SEED_TEACHER_ASSIGNMENTS;
+    if (!assignmentsToUse || assignmentsToUse.length === 0) return;
+
+    let updated = false;
+    const nextUsers = [...users];
+
+    assignmentsToUse.forEach(assign => {
+      if (!assign.teacherName) return;
+      const teacherEmail = (assign.teacherId || assign.teacherName.toLowerCase().replace(/[^a-z0-9]/g, "") + "@phhg.edu.vn").trim();
+      const setPassword = (assign.teacherPassword || "password123").trim();
+
+      const existingIdx = nextUsers.findIndex(u =>
+        (u.email && u.email.toLowerCase() === teacherEmail.toLowerCase()) ||
+        (u.username && u.username.toLowerCase() === teacherEmail.toLowerCase()) ||
+        (u.name && u.name.trim().toLowerCase().includes(assign.teacherName.trim().toLowerCase()) && u.role === UserRole.TEACHER)
+      );
+
+      if (existingIdx >= 0) {
+        const curr = nextUsers[existingIdx];
+        let userChanged = false;
+        const updatedUser = { ...curr };
+        if (curr.role !== UserRole.TEACHER) {
+          updatedUser.role = UserRole.TEACHER;
+          userChanged = true;
+        }
+        if (assign.teacherPassword && assign.teacherPassword.trim() && curr.password !== setPassword) {
+          updatedUser.password = setPassword;
+          userChanged = true;
+        }
+        if (userChanged) {
+          nextUsers[existingIdx] = updatedUser;
+          updated = true;
+          setDoc(doc(db, "users", curr.id), updatedUser, { merge: true }).catch(() => {});
+        }
+      } else {
+        const newDocId = `U_TEACHER_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        const newAccount: UserAccount = {
+          id: newDocId,
+          username: teacherEmail,
+          name: assign.teacherName,
+          role: UserRole.TEACHER,
+          email: teacherEmail,
+          password: setPassword,
+          targetId: assign.subjectCode
+        };
+        nextUsers.push(newAccount);
+        updated = true;
+        setDoc(doc(db, "users", newDocId), newAccount, { merge: true }).catch(() => {});
+      }
+    });
+
+    if (updated) {
+      setUsers(nextUsers);
+    }
+  }, [isAuthenticated, teacherAssignments, users.length]);
 
   // Handle Login
   const handleLogin = async (e: React.FormEvent) => {
@@ -1615,8 +1683,10 @@ export default function App() {
   // Memoized lists (search filters)
   const filteredUsers = useMemo(() => {
     return users.filter(u => {
-      const matchSearch = u.name.toLowerCase().includes(userSearch.toLowerCase()) || 
-                          u.username.toLowerCase().includes(userSearch.toLowerCase());
+      const uName = (u.name || "").toLowerCase();
+      const uUsername = (u.username || u.email || "").toLowerCase();
+      const sTerm = userSearch.toLowerCase();
+      const matchSearch = uName.includes(sTerm) || uUsername.includes(sTerm);
       const matchRole = userRoleFilter === "ALL" || u.role === userRoleFilter;
       return matchSearch && matchRole;
     });

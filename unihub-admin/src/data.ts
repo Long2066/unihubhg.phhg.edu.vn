@@ -14,7 +14,8 @@ import {
   EvaluationPeriod,
   DailyAttendanceReport,
   ScheduleSlot,
-  GroupAttendanceReport
+  GroupAttendanceReport,
+  CourseClassAssignment
 } from "./types";
 
 export const SEED_PERIOD: EvaluationPeriod = {
@@ -117,12 +118,68 @@ export const SEED_USERS: UserAccount[] = [
     targetId: "K-CNTT"
   },
   {
+    id: "U_TEA01",
+    username: "gvbm@phhg.edu.vn",
+    name: "ThS. Ngô Văn Bình (Giáo viên Bộ môn)",
+    role: UserRole.TEACHER,
+    email: "gvbm@phhg.edu.vn",
+    password: "password123",
+    targetId: "gv_ngovanbinh"
+  },
+  {
     id: "U_ADM01",
     username: "pcthssv@hg.edu.vn",
     name: "Phòng Công tác HSSV (Admin)",
     role: UserRole.ADMIN,
     email: "pcthssv@hg.edu.vn",
     password: "password123"
+  }
+];
+
+export const SEED_TEACHER_ASSIGNMENTS: CourseClassAssignment[] = [
+  {
+    id: "HP_HK2_2025_2026_K20-CNTT_INT1001",
+    semesterId: "HOCKY_2_2025_2026",
+    classId: "K20-CNTT",
+    subjectCode: "INT1001",
+    subjectName: "Cơ sở dữ liệu",
+    credits: 3,
+    teacherId: "gvbm@phhg.edu.vn",
+    teacherName: "ThS. Ngô Văn Bình",
+    status: "PENDING"
+  },
+  {
+    id: "HP_HK2_2025_2026_K20-CNTT_INT1002",
+    semesterId: "HOCKY_2_2025_2026",
+    classId: "K20-CNTT",
+    subjectCode: "INT1002",
+    subjectName: "Lập trình Web",
+    credits: 3,
+    teacherId: "gvbm@phhg.edu.vn",
+    teacherName: "ThS. Ngô Văn Bình",
+    status: "PENDING"
+  },
+  {
+    id: "HP_HK2_2025_2026_K20-CNTT_MAT1001",
+    semesterId: "HOCKY_2_2025_2026",
+    classId: "K20-CNTT",
+    subjectCode: "MAT1001",
+    subjectName: "Toán cao cấp",
+    credits: 4,
+    teacherId: "gvbm@phhg.edu.vn",
+    teacherName: "ThS. Ngô Văn Bình",
+    status: "PENDING"
+  },
+  {
+    id: "HP_HK2_2025_2026_K20-CNTT_ENG1001",
+    semesterId: "HOCKY_2_2025_2026",
+    classId: "K20-CNTT",
+    subjectCode: "ENG1001",
+    subjectName: "Tiếng Anh chuyên ngành",
+    credits: 2,
+    teacherId: "gvbm@phhg.edu.vn",
+    teacherName: "ThS. Ngô Văn Bình",
+    status: "PENDING"
   }
 ];
 

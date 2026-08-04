@@ -37,6 +37,22 @@ export interface UserAccount {
   monitorTitle?: string;
 }
 
+export interface CourseClassAssignment {
+  id: string;
+  semesterId: string;
+  classId: string;
+  subjectCode: string;
+  subjectName: string;
+  credits: number;
+  teacherId: string;
+  teacherName: string;
+  teacherPassword?: string;
+  status: "PENDING" | "SUBMITTED" | "LOCKED";
+  submittedAt?: string;
+  unlockedAt?: string;
+  unlockReason?: string;
+}
+
 export interface EvaluationPeriod {
   id: string;
   academicYear: string; // e.g., "2025-2026"

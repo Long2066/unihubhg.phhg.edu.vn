@@ -443,12 +443,22 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (updated) {
         localStorage.setItem("unihub_users", JSON.stringify(nextUsers));
         try {
-          nextUsers.forEach(u => setDoc(doc(db, "users", u.id), u, { merge: true }));
+          nextUsers.forEach(u => {
+            if (u.role === UserRole.TEACHER) {
+              setDoc(doc(db, "users", u.id), u, { merge: true }).catch(() => {});
+            }
+          });
         } catch {}
       }
       return nextUsers;
     });
   };
+
+  useEffect(() => {
+    if (teacherAssignments && teacherAssignments.length > 0) {
+      provisionTeacherAccounts(teacherAssignments);
+    }
+  }, [teacherAssignments]);
 
   const saveTeacherAssignments = (assignments: CourseClassAssignment[]) => {
     setTeacherAssignments(assignments);
