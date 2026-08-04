@@ -387,17 +387,15 @@ export const TeacherPortal: React.FC = () => {
     const dateStr = `Tuyên Quang, ngày ${day} tháng ${month} năm ${year}`;
     const teacherNameStr = currentUser?.name || activeAssignment.teacherName || "ThS. Nguyễn Thị Liệu";
 
-    // 1. Header rows matching Image 2
+    const titleBlock = `ĐIỂM HỌC TẬP ${activeAssignment.semesterName || "HỌC KỲ II, NĂM HỌC 2025 - 2026"}\r\nLỚP ${activeAssignment.classId}\r\nHọc phần: ${activeAssignment.subjectName}\r\nSố tín chỉ: ${activeAssignment.credits}                Mã học phần: ${activeAssignment.subjectCode}`;
+
+    // 1. Header rows matching reference file
     const headerRows = [
-      ["PHÂN HIỆU ĐHTN TẠI HÀ GIANG", "", "", "", `ĐIỂM HỌC TẬP HỌC KỲ II, NĂM HỌC 2025 - 2026`, "", "", "", "", "", "", "", "", "", "", "", ""],
-      ["", "", "", "", `LỚP ${activeAssignment.classId}`, "", "", "", "", "", "", "", "", "", "", "", ""],
-      ["", "", "", "", `Học phần: ${activeAssignment.subjectName}`, "", "", "", "", "", "", "", "", "", "", "", ""],
-      ["", "", "", "", `Số tín chỉ: ${activeAssignment.credits}          Mã học phần: ${activeAssignment.subjectCode}`, "", "", "", "", "", "", "", "", "", "", "", ""],
-      [], // Empty row
-      ["STT", "Mã sinh viên", "Họ và tên", "Giới tính", "Ngày sinh", "CC", "TX 1", "TX2", "ĐK 1", "ĐK 2", "Thi", "TB", "TB*", "Điểm chữ", "Xếp loại", "Ghi chú", "Ngày cập nhật"]
+      ["PHÂN HIỆU ĐHTN TẠI HÀ GIANG", "", "", titleBlock, "", "", "", "", "", "", "", "", "", "", "", "", ""],
+      ["STT", "Mã sinh viên", "Họ và tên", "Giới tính", "Ngày sinh", "CC", "TX 1", "TX2", "ĐK 1", "ĐK 2", "Thi", "TB", "TB*", "Điểm chữ", "Xếp loại", "Ghi chú", "Ngày\r\ncập nhật"]
     ];
 
-    // 2. Data rows matching Image 2
+    // 2. Data rows matching reference file
     const dataRows = currentGrades.map((g, idx) => [
       idx + 1,
       g.studentId,
@@ -418,28 +416,48 @@ export const TeacherPortal: React.FC = () => {
       new Date().toISOString().split("T")[0]
     ]);
 
-    // 3. Footer rows matching Image 3
+    // 3. Footer rows matching reference file
     const footerRows = [
+      ["", `Bảng điểm từ CC đến thi có ${scoreCount} con điểm, với tổng điểm = ${Math.round(scoreSum * 10) / 10}`],
       [],
-      ["", "", "", "", `Bảng điểm từ CC đến thi có ${scoreCount} con điểm, với tổng điểm = ${Math.round(scoreSum * 10) / 10}`, "", "", "", "", "", "", "", "", "", "", "", ""],
+      ["", "", "", "", "", "", "", "", "", "", dateStr],
       [],
-      ["", "", "", "", "", "", "", "", "", "", "", "", dateStr, "", "", "", ""],
-      ["Lãnh đạo Khoa", "", "", "", "", "", "", "", "", "", "", "", "Giảng viên", "", "", "", ""],
-      [],
+      ["", "Lãnh đạo Khoa", "", "", "", "", "", "", "", "", "", "", "Giảng viên"],
       [],
       [],
-      ["", "", "", "", "", "", "", "", "", "", "", "", teacherNameStr, "", "", "", ""]
+      [],
+      [],
+      ["", "", "", "", "", "", "", "", "", "", "", "", teacherNameStr]
     ];
 
     const allRows = [...headerRows, ...dataRows, ...footerRows];
 
     const ws = XLSX.utils.aoa_to_sheet(allRows);
 
+    // Calculate row indices for merging
+    const dataStartIndex = 2;
+    const dataEndIndex = dataStartIndex + dataRows.length - 1;
+    const summaryRowIndex = dataEndIndex + 1;
+    const dateRowIndex = summaryRowIndex + 2;
+    const signHeaderRowIndex = dateRowIndex + 2;
+    const teacherNameRowIndex = signHeaderRowIndex + 5;
+
+    // Apply exact cell merges (!merges) matching reference template
+    ws["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }, // PHÂN HIỆU ĐHTN TẠI HÀ GIANG
+      { s: { r: 0, c: 3 }, e: { r: 0, c: 11 } }, // Main Title Block
+      { s: { r: summaryRowIndex, c: 1 }, e: { r: summaryRowIndex, c: 15 } }, // Footer Summary
+      { s: { r: dateRowIndex, c: 10 }, e: { r: dateRowIndex, c: 16 } }, // Date string
+      { s: { r: signHeaderRowIndex, c: 1 }, e: { r: signHeaderRowIndex, c: 2 } }, // Lãnh đạo Khoa
+      { s: { r: signHeaderRowIndex, c: 12 }, e: { r: signHeaderRowIndex, c: 15 } }, // Giảng viên
+      { s: { r: teacherNameRowIndex, c: 12 }, e: { r: teacherNameRowIndex, c: 15 } } // Teacher Name
+    ];
+
     // Set column widths for beautiful Excel layout
     ws["!cols"] = [
       { wch: 6 },  // STT
-      { wch: 18 }, // Mã sinh viên
-      { wch: 26 }, // Họ và tên
+      { wch: 22 }, // Mã sinh viên
+      { wch: 28 }, // Họ và tên
       { wch: 10 }, // Giới tính
       { wch: 12 }, // Ngày sinh
       { wch: 8 },  // CC
@@ -459,7 +477,7 @@ export const TeacherPortal: React.FC = () => {
     const wb = XLSX.utils.book_new();
     const cleanSheetName = activeAssignment.classId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 30);
     XLSX.utils.book_append_sheet(wb, ws, cleanSheetName);
-    XLSX.writeFile(wb, `Bang_diem_hoc_phan_${activeAssignment.subjectCode}_${activeAssignment.classId}.xlsx`);
+    XLSX.writeFile(wb, `Danh_sach_diem_hoc_phan_${activeAssignment.subjectCode}_${activeAssignment.classId}.xlsx`);
   };
 
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
