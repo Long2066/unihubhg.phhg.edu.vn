@@ -96,3 +96,36 @@ html, body {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
+
+/* Media Print Optimizations for PDF Export & A4 Printing */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide non-printable elements */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Ensure printable report container fills A4 page cleanly */
+  #printable-report-area {
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm;
+  }
+}
+

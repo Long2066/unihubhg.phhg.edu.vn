@@ -32,6 +32,524 @@ import {
   Plus
 } from "lucide-react";
 import * as XLSX from "xlsx";
+// @ts-ignore
+import html2pdf from "html2pdf.js";
+
+type TeacherExcelCellValue = string | number | null | undefined;
+
+type TeacherExcelCell = {
+  col: number;
+  value?: TeacherExcelCellValue;
+  style: number;
+};
+
+type TeacherExcelRow = {
+  rowNumber: number;
+  height?: number;
+  cells: TeacherExcelCell[];
+};
+
+const TEACHER_EXCEL_COL_COUNT = 17;
+
+const TEACHER_EXCEL_STYLE = {
+  normal: 0,
+  name: 1,
+  center: 2,
+  date: 3,
+  header: 4,
+  title: 5,
+  branchTitle: 6,
+  topBlank: 7,
+  signature: 8,
+  dateRight: 9,
+  summary: 10
+} as const;
+
+const TEACHER_EXCEL_HEADERS = [
+  "STT",
+  "Mã sinh viên",
+  "Họ và tên",
+  "Giới tính",
+  "Ngày sinh",
+  "CC",
+  "TX 1",
+  "TX2",
+  "ĐK 1",
+  "ĐK 2",
+  "Thi",
+  "TB",
+  "TB*",
+  "Điểm chữ",
+  "Xếp loại",
+  "Ghi chú",
+  "Ngày\r\ncập nhật"
+];
+
+const makeCrc32Table = () => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) {
+      c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    }
+    table[i] = c >>> 0;
+  }
+  return table;
+};
+
+const CRC32_TABLE = makeCrc32Table();
+
+const crc32 = (data: Uint8Array) => {
+  let crc = 0xffffffff;
+  for (let i = 0; i < data.length; i++) {
+    crc = CRC32_TABLE[(crc ^ data[i]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+};
+
+const encodeUtf8 = (value: string) => new TextEncoder().encode(value);
+
+const concatUint8Arrays = (parts: Uint8Array[]) => {
+  const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
+  const output = new Uint8Array(totalLength);
+  let offset = 0;
+  parts.forEach(part => {
+    output.set(part, offset);
+    offset += part.length;
+  });
+  return output;
+};
+
+const getDosDateTime = (date = new Date()) => {
+  const year = Math.max(1980, date.getFullYear());
+  const dosTime = (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2);
+  const dosDate = ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
+  return { dosTime, dosDate };
+};
+
+const createStoredZip = (entries: { name: string; content: string | Uint8Array }[]) => {
+  const localParts: Uint8Array[] = [];
+  const centralParts: Uint8Array[] = [];
+  let offset = 0;
+  const { dosTime, dosDate } = getDosDateTime();
+
+  entries.forEach(entry => {
+    const nameBytes = encodeUtf8(entry.name);
+    const data = typeof entry.content === "string" ? encodeUtf8(entry.content) : entry.content;
+    const crc = crc32(data);
+
+    const localHeader = new Uint8Array(30 + nameBytes.length);
+    const localView = new DataView(localHeader.buffer);
+    localView.setUint32(0, 0x04034b50, true);
+    localView.setUint16(4, 20, true);
+    localView.setUint16(6, 0x0800, true);
+    localView.setUint16(8, 0, true);
+    localView.setUint16(10, dosTime, true);
+    localView.setUint16(12, dosDate, true);
+    localView.setUint32(14, crc, true);
+    localView.setUint32(18, data.length, true);
+    localView.setUint32(22, data.length, true);
+    localView.setUint16(26, nameBytes.length, true);
+    localView.setUint16(28, 0, true);
+    localHeader.set(nameBytes, 30);
+
+    localParts.push(localHeader, data);
+
+    const centralHeader = new Uint8Array(46 + nameBytes.length);
+    const centralView = new DataView(centralHeader.buffer);
+    centralView.setUint32(0, 0x02014b50, true);
+    centralView.setUint16(4, 20, true);
+    centralView.setUint16(6, 20, true);
+    centralView.setUint16(8, 0x0800, true);
+    centralView.setUint16(10, 0, true);
+    centralView.setUint16(12, dosTime, true);
+    centralView.setUint16(14, dosDate, true);
+    centralView.setUint32(16, crc, true);
+    centralView.setUint32(20, data.length, true);
+    centralView.setUint32(24, data.length, true);
+    centralView.setUint16(28, nameBytes.length, true);
+    centralView.setUint16(30, 0, true);
+    centralView.setUint16(32, 0, true);
+    centralView.setUint16(34, 0, true);
+    centralView.setUint16(36, 0, true);
+    centralView.setUint32(38, 0, true);
+    centralView.setUint32(42, offset, true);
+    centralHeader.set(nameBytes, 46);
+
+    centralParts.push(centralHeader);
+    offset += localHeader.length + data.length;
+  });
+
+  const centralDirectory = concatUint8Arrays(centralParts);
+  const endRecord = new Uint8Array(22);
+  const endView = new DataView(endRecord.buffer);
+  endView.setUint32(0, 0x06054b50, true);
+  endView.setUint16(4, 0, true);
+  endView.setUint16(6, 0, true);
+  endView.setUint16(8, entries.length, true);
+  endView.setUint16(10, entries.length, true);
+  endView.setUint32(12, centralDirectory.length, true);
+  endView.setUint32(16, offset, true);
+  endView.setUint16(20, 0, true);
+
+  return concatUint8Arrays([...localParts, centralDirectory, endRecord]);
+};
+
+const escapeXml = (value: TeacherExcelCellValue) => String(value ?? "")
+  .replace(/&/g, "&amp;")
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;")
+  .replace(/\"/g, "&quot;")
+  .replace(/'/g, "&apos;");
+
+const escapeXmlText = (value: TeacherExcelCellValue) => escapeXml(value).replace(/\r/g, "&#13;");
+
+const columnName = (col: number) => {
+  let name = "";
+  let current = col;
+  while (current > 0) {
+    const remainder = (current - 1) % 26;
+    name = String.fromCharCode(65 + remainder) + name;
+    current = Math.floor((current - 1) / 26);
+  }
+  return name;
+};
+
+const cellRef = (row: number, col: number) => `${columnName(col)}${row}`;
+
+const serializeCell = (row: number, cell: TeacherExcelCell) => {
+  const ref = cellRef(row, cell.col);
+  const style = ` s=\"${cell.style}\"`;
+  const value = cell.value;
+
+  if (value === undefined || value === null || value === "") {
+    return `<c r=\"${ref}\"${style}/>`;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return `<c r=\"${ref}\"${style}><v>${value}</v></c>`;
+  }
+
+  const text = String(value);
+  const preserve = /^\s|\s$|\r|\n| {2,}/.test(text) ? ' xml:space="preserve"' : "";
+  return `<c r=\"${ref}\"${style} t=\"inlineStr\"><is><t${preserve}>${escapeXmlText(text)}</t></is></c>`;
+};
+
+const createStyledTeacherSheetXml = (
+  rows: TeacherExcelRow[],
+  merges: string[],
+  lastRow: number
+) => {
+  const rowXml = rows
+    .sort((a, b) => a.rowNumber - b.rowNumber)
+    .map(row => {
+      const height = row.height ? ` ht=\"${row.height}\" customHeight=\"1\"` : "";
+      const cells = row.cells
+        .sort((a, b) => a.col - b.col)
+        .map(cell => serializeCell(row.rowNumber, cell))
+        .join("");
+      return `<row r=\"${row.rowNumber}\" spans=\"1:${TEACHER_EXCEL_COL_COUNT}\"${height}>${cells}</row>`;
+    })
+    .join("");
+
+  const mergeXml = merges.length
+    ? `<mergeCells count=\"${merges.length}\">${merges.map(ref => `<mergeCell ref=\"${ref}\"/>`).join("")}</mergeCells>`
+    : "";
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac">
+  <dimension ref="A1:Q${lastRow}"/>
+  <sheetViews><sheetView tabSelected="1" workbookViewId="0"><pane xSplit="5" ySplit="2" topLeftCell="F3" activePane="bottomRight" state="frozen"/><selection pane="topRight" activeCell="F1" sqref="F1"/><selection pane="bottomLeft" activeCell="A3" sqref="A3"/><selection pane="bottomRight" activeCell="F3" sqref="F3"/></sheetView></sheetViews>
+  <sheetFormatPr defaultRowHeight="13.2" x14ac:dyDescent="0.25"/>
+  <cols><col min="1" max="1" width="5.3984375" customWidth="1"/><col min="2" max="2" width="14.59765625" customWidth="1"/><col min="3" max="3" width="20.09765625" customWidth="1"/><col min="4" max="4" width="7.296875" customWidth="1"/><col min="5" max="5" width="8.796875" customWidth="1"/><col min="6" max="13" width="5" customWidth="1"/><col min="14" max="17" width="8" customWidth="1"/></cols>
+  <sheetData>${rowXml}</sheetData>
+  ${mergeXml}
+  <pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>
+</worksheet>`;
+};
+
+const createTeacherExcelStylesXml = () => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac">
+  <numFmts count="1"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/></numFmts>
+  <fonts count="2" x14ac:knownFonts="1"><font><sz val="10"/><color rgb="FF000000"/><name val="Times New Roman"/><family val="1"/><charset val="163"/></font><font><b/><sz val="10"/><color rgb="FF000000"/><name val="Times New Roman"/><family val="1"/><charset val="163"/></font></fonts>
+  <fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
+  <borders count="4"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color indexed="64"/></left><right style="thin"><color indexed="64"/></right><top style="thin"><color indexed="64"/></top><bottom style="thin"><color indexed="64"/></bottom><diagonal/></border><border><left/><right/><top/><bottom style="thin"><color indexed="64"/></bottom><diagonal/></border><border><left/><right/><top style="thin"><color indexed="64"/></top><bottom/><diagonal/></border></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="11">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="2" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="2" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="3" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+  </cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+  <dxfs count="0"/>
+  <tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleLight16"/>
+</styleSheet>`;
+
+const createTeacherWorkbookEntries = (sheetName: string, sheetXml: string) => {
+  const safeSheetName = escapeXml(sheetName);
+  const createdAt = new Date().toISOString();
+
+  return [
+    {
+      name: "[Content_Types].xml",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`
+    },
+    {
+      name: "_rels/.rels",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>`
+    },
+    {
+      name: "docProps/app.xml",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>UniHub HG</Application><DocSecurity>0</DocSecurity><ScaleCrop>false</ScaleCrop><HeadingPairs><vt:vector size="2" baseType="variant"><vt:variant><vt:lpstr>Worksheets</vt:lpstr></vt:variant><vt:variant><vt:i4>1</vt:i4></vt:variant></vt:vector></HeadingPairs><TitlesOfParts><vt:vector size="1" baseType="lpstr"><vt:lpstr>${safeSheetName}</vt:lpstr></vt:vector></TitlesOfParts><Company>PHHG</Company><LinksUpToDate>false</LinksUpToDate><SharedDoc>false</SharedDoc><HyperlinksChanged>false</HyperlinksChanged><AppVersion>16.0300</AppVersion></Properties>`
+    },
+    {
+      name: "docProps/core.xml",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:creator>UniHub HG</dc:creator><cp:lastModifiedBy>UniHub HG</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">${createdAt}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${createdAt}</dcterms:modified></cp:coreProperties>`
+    },
+    {
+      name: "xl/workbook.xml",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><workbookPr/><bookViews><workbookView workbookViewId="0"/></bookViews><sheets><sheet name="${safeSheetName}" sheetId="1" r:id="rId1"/></sheets><calcPr calcId="191029"/></workbook>`
+    },
+    {
+      name: "xl/_rels/workbook.xml.rels",
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`
+    },
+    { name: "xl/styles.xml", content: createTeacherExcelStylesXml() },
+    { name: "xl/worksheets/sheet1.xml", content: sheetXml }
+  ];
+};
+
+const sanitizeExcelSheetName = (value: string) => {
+  const cleaned = (value || "BangDiem")
+    .replace(/[\\/?*\[\]:]/g, "")
+    .replace(/[^\p{L}\p{N}_ -]/gu, "")
+    .trim();
+  return (cleaned || "BangDiem").slice(0, 31);
+};
+
+const sanitizeFilePart = (value: string) => (value || "Bang_diem")
+  .replace(/[\\/:*?\"<>|]+/g, "_")
+  .replace(/\s+/g, "_")
+  .replace(/_+/g, "_")
+  .replace(/^_|_$/g, "");
+
+const excelDateSerial = (value?: string | number) => {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+
+  const raw = String(value).trim();
+  const iso = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  const vietnamese = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  let date: Date | null = null;
+
+  if (iso) {
+    date = new Date(Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])));
+  } else if (vietnamese) {
+    date = new Date(Date.UTC(Number(vietnamese[3]), Number(vietnamese[2]) - 1, Number(vietnamese[1])));
+  } else {
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) {
+      date = new Date(Date.UTC(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()));
+    }
+  }
+
+  if (!date || Number.isNaN(date.getTime())) return null;
+  return Math.floor((date.getTime() - Date.UTC(1899, 11, 30)) / 86400000);
+};
+
+const scoreOrBlank = (value: number | string | undefined, blankValue: string = "") => {
+  if (value === undefined || value === null || value === "") return blankValue;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : String(value);
+};
+
+const formatSemesterForExcelTitle = (assignment: CourseClassAssignment) => {
+  const raw = assignment.semesterName || "";
+  const semesterMatch = raw.match(/Học\s*k[ỳìi]\s*([IVX]+)\s*[-–]\s*(\d{4})\s*[-–]\s*(\d{4})/i);
+  if (semesterMatch) {
+    return `HỌC KÌ ${semesterMatch[1].toUpperCase()}, NĂM HỌC ${semesterMatch[2]} - ${semesterMatch[3]}`;
+  }
+
+  const idMatch = assignment.semesterId.match(/HOCKY_(\d)_(\d{4})_(\d{4})/i);
+  if (idMatch) {
+    const semesterRoman = idMatch[1] === "1" ? "I" : "II";
+    return `HỌC KÌ ${semesterRoman}, NĂM HỌC ${idMatch[2]} - ${idMatch[3]}`;
+  }
+
+  return (raw || "HỌC KÌ II, NĂM HỌC 2025 - 2026")
+    .toLocaleUpperCase("vi-VN")
+    .replace(/KỲ/g, "KÌ");
+};
+
+const createTeacherGradeWorkbookBlob = (
+  assignment: CourseClassAssignment,
+  grades: SubjectStudentGrade[],
+  teacherName: string,
+  currentUserName?: string
+) => {
+  let scoreCount = 0;
+  let scoreSum = 0;
+  grades.forEach(grade => {
+    [grade.cc, grade.tx1, grade.tx2, grade.dk1, grade.dk2, grade.exam].forEach(value => {
+      const parsed = parseFloat(String(value));
+      if (!Number.isNaN(parsed)) {
+        scoreCount++;
+        scoreSum += parsed;
+      }
+    });
+  });
+
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, "0");
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const year = now.getFullYear();
+  const exportDateText = `Tuyên Quang, ngày ${day} tháng ${month} năm ${year}`;
+  const exportDateSerial = excelDateSerial(`${year}-${month}-${day}`);
+  const titleBlock = `ĐIỂM HỌC TẬP ${formatSemesterForExcelTitle(assignment)}\r\nLỚP ${assignment.className || assignment.classId}\r\nHọc phần: ${assignment.subjectName}\r\nSố tín chỉ: ${assignment.credits}                Mã học phần: ${assignment.subjectCode}`;
+
+  const rows: TeacherExcelRow[] = [
+    {
+      rowNumber: 1,
+      height: 72.6,
+      cells: Array.from({ length: TEACHER_EXCEL_COL_COUNT }, (_, index) => {
+        const col = index + 1;
+        if (col === 1) return { col, value: "PHÂN HIỆU ĐHTN TẠI HÀ GIANG", style: TEACHER_EXCEL_STYLE.branchTitle };
+        if (col >= 2 && col <= 3) return { col, value: "", style: TEACHER_EXCEL_STYLE.branchTitle };
+        if (col === 4) return { col, value: titleBlock, style: TEACHER_EXCEL_STYLE.title };
+        if (col >= 5 && col <= 12) return { col, value: "", style: TEACHER_EXCEL_STYLE.title };
+        return { col, value: "", style: TEACHER_EXCEL_STYLE.topBlank };
+      })
+    },
+    {
+      rowNumber: 2,
+      height: 26.4,
+      cells: TEACHER_EXCEL_HEADERS.map((header, index) => ({
+        col: index + 1,
+        value: header,
+        style: TEACHER_EXCEL_STYLE.header
+      }))
+    }
+  ];
+
+  grades.forEach((grade, index) => {
+    const rowNumber = index + 3;
+    const dobSerial = excelDateSerial(grade.dob);
+    const values: TeacherExcelCellValue[] = [
+      index + 1,
+      grade.studentId,
+      grade.studentName,
+      grade.gender || "Nam",
+      dobSerial ?? (grade.dob || ""),
+      scoreOrBlank(grade.cc, "-"),
+      scoreOrBlank(grade.tx1),
+      scoreOrBlank(grade.tx2),
+      scoreOrBlank(grade.dk1),
+      scoreOrBlank(grade.dk2),
+      scoreOrBlank(grade.exam),
+      scoreOrBlank(grade.tb10),
+      scoreOrBlank(grade.tb4),
+      grade.diemChu || "",
+      grade.xepLoai || "",
+      grade.notes || "",
+      exportDateSerial ?? `${year}-${month}-${day}`
+    ];
+
+    rows.push({
+      rowNumber,
+      cells: values.map((value, valueIndex) => {
+        const col = valueIndex + 1;
+        const style = col === 3
+          ? TEACHER_EXCEL_STYLE.name
+          : (col === 5 || col === 17) && typeof value === "number"
+            ? TEACHER_EXCEL_STYLE.date
+            : TEACHER_EXCEL_STYLE.center;
+        return { col, value, style };
+      })
+    });
+  });
+
+  const summaryRow = grades.length + 3;
+  const dateRow = summaryRow + 2;
+  const signatureRow = dateRow + 2;
+  const teacherNameRow = signatureRow + 5;
+  const summaryText = `Bảng điểm từ CC đến thi có ${scoreCount} con điểm, với tổng điểm = ${Math.round(scoreSum * 10) / 10}`;
+  const signerName = teacherName || currentUserName || "Giảng viên";
+
+  rows.push(
+    {
+      rowNumber: summaryRow,
+      height: 26.4,
+      cells: Array.from({ length: 15 }, (_, idx) => ({
+        col: idx + 2,
+        value: idx === 0 ? summaryText : "",
+        style: TEACHER_EXCEL_STYLE.summary
+      }))
+    },
+    {
+      rowNumber: dateRow,
+      cells: Array.from({ length: 7 }, (_, idx) => ({
+        col: idx + 11,
+        value: idx === 0 ? exportDateText : "",
+        style: TEACHER_EXCEL_STYLE.dateRight
+      }))
+    },
+    {
+      rowNumber: signatureRow,
+      cells: [
+        { col: 2, value: "Lãnh đạo Khoa", style: TEACHER_EXCEL_STYLE.signature },
+        { col: 3, value: "", style: TEACHER_EXCEL_STYLE.signature },
+        { col: 13, value: "Giảng viên", style: TEACHER_EXCEL_STYLE.signature },
+        { col: 14, value: "", style: TEACHER_EXCEL_STYLE.signature },
+        { col: 15, value: "", style: TEACHER_EXCEL_STYLE.signature },
+        { col: 16, value: "", style: TEACHER_EXCEL_STYLE.signature }
+      ]
+    },
+    {
+      rowNumber: teacherNameRow,
+      height: 15.6,
+      cells: [
+        { col: 13, value: signerName, style: TEACHER_EXCEL_STYLE.signature },
+        { col: 14, value: "", style: TEACHER_EXCEL_STYLE.signature },
+        { col: 15, value: "", style: TEACHER_EXCEL_STYLE.signature },
+        { col: 16, value: "", style: TEACHER_EXCEL_STYLE.signature }
+      ]
+    }
+  );
+
+  const merges = [
+    "A1:C1",
+    "D1:L1",
+    `B${summaryRow}:P${summaryRow}`,
+    `K${dateRow}:Q${dateRow}`,
+    `B${signatureRow}:C${signatureRow}`,
+    `M${signatureRow}:P${signatureRow}`,
+    `M${teacherNameRow}:P${teacherNameRow}`
+  ];
+
+  const sheetXml = createStyledTeacherSheetXml(rows, merges, teacherNameRow);
+  const sheetName = sanitizeExcelSheetName((assignment.className || assignment.classId || "BangDiem").replace(/[^\p{L}\p{N}]/gu, ""));
+  const zipBytes = createStoredZip(createTeacherWorkbookEntries(sheetName, sheetXml));
+  return new Blob([zipBytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+};
+
+const downloadBlob = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+};
 
 export const TeacherPortal: React.FC = () => {
   const { 
@@ -55,6 +573,7 @@ export const TeacherPortal: React.FC = () => {
   // Modal states
   const [showUnlockModal, setShowUnlockModal] = useState<boolean>(false);
   const [showDistributionPrintModal, setShowDistributionPrintModal] = useState<boolean>(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
   const [unlockReason, setUnlockReason] = useState<string>("");
   const [unlockSuccessMsg, setUnlockSuccessMsg] = useState<string>("");
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string>("");
@@ -366,128 +885,15 @@ export const TeacherPortal: React.FC = () => {
   const handleExportTemplate = () => {
     if (!activeAssignment) return;
 
-    // Calculate total score count & total points sum for footer summary
-    let scoreCount = 0;
-    let scoreSum = 0;
-    currentGrades.forEach(g => {
-      [g.cc, g.tx1, g.tx2, g.dk1, g.dk2, g.exam].forEach(val => {
-        const n = parseFloat(String(val));
-        if (!isNaN(n)) {
-          scoreCount++;
-          scoreSum += n;
-        }
-      });
-    });
-
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, '0');
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const year = now.getFullYear();
-
-    const dateStr = `Tuyên Quang, ngày ${day} tháng ${month} năm ${year}`;
-    const teacherNameStr = currentUser?.name || activeAssignment.teacherName || "ThS. Nguyễn Thị Liệu";
-
-    const titleBlock = `ĐIỂM HỌC TẬP ${activeAssignment.semesterName || "HỌC KỲ II, NĂM HỌC 2025 - 2026"}\r\nLỚP ${activeAssignment.classId}\r\nHọc phần: ${activeAssignment.subjectName}\r\nSố tín chỉ: ${activeAssignment.credits}                Mã học phần: ${activeAssignment.subjectCode}`;
-
-    // 1. Header rows matching reference file
-    const headerRows = [
-      ["PHÂN HIỆU ĐHTN TẠI HÀ GIANG", "", "", titleBlock, "", "", "", "", "", "", "", "", "", "", "", "", ""],
-      ["STT", "Mã sinh viên", "Họ và tên", "Giới tính", "Ngày sinh", "CC", "TX 1", "TX2", "ĐK 1", "ĐK 2", "Thi", "TB", "TB*", "Điểm chữ", "Xếp loại", "Ghi chú", "Ngày\r\ncập nhật"]
-    ];
-
-    // 2. Data rows matching reference file
-    const dataRows = currentGrades.map((g, idx) => [
-      idx + 1,
-      g.studentId,
-      g.studentName,
-      g.gender || "Nam",
-      g.dob || "01/01/2006",
-      g.cc !== "" && g.cc !== undefined ? (isNaN(Number(g.cc)) ? g.cc : Number(g.cc)) : "-",
-      g.tx1 !== "" && g.tx1 !== undefined ? (isNaN(Number(g.tx1)) ? g.tx1 : Number(g.tx1)) : "",
-      g.tx2 !== "" && g.tx2 !== undefined ? (isNaN(Number(g.tx2)) ? g.tx2 : Number(g.tx2)) : "",
-      g.dk1 !== "" && g.dk1 !== undefined ? (isNaN(Number(g.dk1)) ? g.dk1 : Number(g.dk1)) : "",
-      g.dk2 !== "" && g.dk2 !== undefined ? (isNaN(Number(g.dk2)) ? g.dk2 : Number(g.dk2)) : "",
-      g.exam !== "" && g.exam !== undefined ? (isNaN(Number(g.exam)) ? g.exam : Number(g.exam)) : "",
-      g.tb10 !== "" && g.tb10 !== undefined ? (isNaN(Number(g.tb10)) ? g.tb10 : Number(g.tb10)) : "",
-      g.tb4 !== "" && g.tb4 !== undefined ? (isNaN(Number(g.tb4)) ? g.tb4 : Number(g.tb4)) : "",
-      g.diemChu || "",
-      g.xepLoai || "",
-      "",
-      new Date().toISOString().split("T")[0]
-    ]);
-
-    // 3. Footer rows matching reference file
-    const footerRows = [
-      ["", `Bảng điểm từ CC đến thi có ${scoreCount} con điểm, với tổng điểm = ${Math.round(scoreSum * 10) / 10}`],
-      [],
-      ["", "", "", "", "", "", "", "", "", "", dateStr],
-      [],
-      ["", "Lãnh đạo Khoa", "", "", "", "", "", "", "", "", "", "", "Giảng viên"],
-      [],
-      [],
-      [],
-      [],
-      ["", "", "", "", "", "", "", "", "", "", "", "", teacherNameStr]
-    ];
-
-    const allRows = [...headerRows, ...dataRows, ...footerRows];
-
-    const ws = XLSX.utils.aoa_to_sheet(allRows);
-
-    // Calculate row indices for merging
-    const dataStartIndex = 2;
-    const dataEndIndex = dataStartIndex + dataRows.length - 1;
-    const summaryRowIndex = dataEndIndex + 1;
-    const dateRowIndex = summaryRowIndex + 2;
-    const signHeaderRowIndex = dateRowIndex + 2;
-    const teacherNameRowIndex = signHeaderRowIndex + 5;
-
-    // Apply exact cell merges (!merges) matching reference template
-    ws["!merges"] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }, // PHÂN HIỆU ĐHTN TẠI HÀ GIANG
-      { s: { r: 0, c: 3 }, e: { r: 0, c: 11 } }, // Main Title Block
-      { s: { r: summaryRowIndex, c: 1 }, e: { r: summaryRowIndex, c: 15 } }, // Footer Summary
-      { s: { r: dateRowIndex, c: 10 }, e: { r: dateRowIndex, c: 16 } }, // Date string
-      { s: { r: signHeaderRowIndex, c: 1 }, e: { r: signHeaderRowIndex, c: 2 } }, // Lãnh đạo Khoa
-      { s: { r: signHeaderRowIndex, c: 12 }, e: { r: signHeaderRowIndex, c: 15 } }, // Giảng viên
-      { s: { r: teacherNameRowIndex, c: 12 }, e: { r: teacherNameRowIndex, c: 15 } } // Teacher Name
-    ];
-
-    // Set row heights and freeze panes at F3 (5 columns A-E, 2 header rows)
-    ws["!rows"] = [
-      { hpt: 75, hpx: 75 }, // Row 1 height for multi-line Title block
-      { hpt: 28, hpx: 28 }  // Row 2 height for Table headers
-    ];
-
-    ws["!views"] = [
-      { state: 'frozen', xSplit: 5, ySplit: 2, activePane: 'bottomRight', topLeftCell: 'F3' }
-    ];
-
-    // Set column widths for beautiful Excel layout
-    ws["!cols"] = [
-      { wch: 6 },  // STT
-      { wch: 22 }, // Mã sinh viên
-      { wch: 28 }, // Họ và tên
-      { wch: 10 }, // Giới tính
-      { wch: 12 }, // Ngày sinh
-      { wch: 8 },  // CC
-      { wch: 8 },  // TX 1
-      { wch: 8 },  // TX2
-      { wch: 8 },  // ĐK 1
-      { wch: 8 },  // ĐK 2
-      { wch: 8 },  // Thi
-      { wch: 8 },  // TB
-      { wch: 8 },  // TB*
-      { wch: 10 }, // Điểm chữ
-      { wch: 12 }, // Xếp loại
-      { wch: 14 }, // Ghi chú
-      { wch: 14 }  // Ngày cập nhật
-    ];
-
-    const wb = XLSX.utils.book_new();
-    const cleanSheetName = activeAssignment.classId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 30);
-    XLSX.utils.book_append_sheet(wb, ws, cleanSheetName);
-    XLSX.writeFile(wb, `Danh_sach_diem_hoc_phan_${activeAssignment.subjectCode}_${activeAssignment.classId}.xlsx`);
+    const teacherName = activeAssignment.teacherName || currentUser?.name || "Giảng viên";
+    const workbookBlob = createTeacherGradeWorkbookBlob(
+      activeAssignment,
+      currentGrades,
+      teacherName,
+      currentUser?.name
+    );
+    const fileName = `Danh_sach_diem_hoc_phan_${sanitizeFilePart(activeAssignment.subjectCode)}_${sanitizeFilePart(activeAssignment.classId)}.xlsx`;
+    downloadBlob(workbookBlob, fileName);
   };
 
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1151,11 +1557,40 @@ export const TeacherPortal: React.FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={async () => {
+                    const element = document.getElementById("printable-report-area");
+                    if (!element || !activeAssignment) return;
+                    setIsGeneratingPdf(true);
+                    try {
+                      const opt = {
+                        margin: [8, 8, 8, 8],
+                        filename: `Bao_cao_pho_diem_${sanitizeFilePart(activeAssignment.subjectCode)}_${sanitizeFilePart(activeAssignment.classId)}.pdf`,
+                        image: { type: "jpeg", quality: 0.98 },
+                        html2canvas: { scale: 2, useCORS: true, logging: false },
+                        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+                      };
+                      await html2pdf().set(opt).from(element).save();
+                    } catch (err) {
+                      console.error("PDF Export error:", err);
+                      window.print();
+                    } finally {
+                      setIsGeneratingPdf(false);
+                    }
+                  }}
+                  disabled={isGeneratingPdf}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 transition-all"
+                  title="Tải trực tiếp file PDF về máy"
+                >
+                  <Download size={14} />
+                  <span>{isGeneratingPdf ? "Đang tạo PDF..." : "Tải file PDF (.pdf)"}</span>
+                </button>
+                <button
                   onClick={() => window.print()}
-                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                  title="Mở giao diện in bản A4 hoặc Lưu dạng PDF của trình duyệt"
                 >
                   <Printer size={14} />
-                  <span>In bản A4 / Tải PDF</span>
+                  <span>In bản A4</span>
                 </button>
                 <button
                   onClick={() => setShowDistributionPrintModal(false)}
@@ -1167,7 +1602,7 @@ export const TeacherPortal: React.FC = () => {
             </div>
 
             {/* Printable Document Sheet */}
-            <div className="flex-1 overflow-y-auto max-h-[calc(90vh-100px)] p-6 bg-white border border-slate-300 rounded-xl space-y-4 text-slate-900 shadow-xs print:overflow-visible print:max-h-none print:border-none print:p-0">
+            <div id="printable-report-area" className="flex-1 overflow-y-auto max-h-[calc(90vh-100px)] p-6 bg-white border border-slate-300 rounded-xl space-y-4 text-slate-900 shadow-xs print:overflow-visible print:max-h-none print:border-none print:p-0">
               {/* Letterhead Header */}
               <div className="text-center space-y-1 border-b border-slate-200 pb-4 font-serif">
                 <div className="text-xs font-bold uppercase tracking-wide text-slate-600">ĐẠI HỌC THÁI NGUYÊN</div>
