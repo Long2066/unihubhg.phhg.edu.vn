@@ -137,74 +137,120 @@ export const TrainingPortal: React.FC = () => {
     teacherPassword: "password123"
   });
 
-  // Handler: Export Sample Excel for Course Assignments
+  // Handler: Export Sample Excel for Course Assignments (Định dạng chuẩn theo mẫu Mau_Phan_Cong_Giang_Day)
   const handleExportAssignmentSampleExcel = () => {
-    const sampleData = [
-      {
-        "STT": 1,
-        "Mã học kỳ": selectedSemesterId || "HOCKY_2_2025_2026",
-        "Mã học phần": "VPS7251",
-        "Tên học phần": "Cơ sở Tự nhiên - xã hội",
-        "Số tín chỉ": 4,
-        "Lớp niên chế": "K2-GDTH-A",
-        "Mã / Email Giảng viên": "gvbm@phhg.edu.vn",
-        "Họ và tên Giảng viên": "ThS. Ngô Văn Bình",
-        "Mật khẩu đăng nhập": "password123"
-      },
-      {
-        "STT": 2,
-        "Mã học kỳ": selectedSemesterId || "HOCKY_2_2025_2026",
-        "Mã học phần": "CS01",
-        "Tên học phần": "Tin học Đại cương",
-        "Số tín chỉ": 3,
-        "Lớp niên chế": "K20-CNTT",
-        "Mã / Email Giảng viên": "gvbm@phhg.edu.vn",
-        "Họ và tên Giảng viên": "ThS. Ngô Văn Bình",
-        "Mật khẩu đăng nhập": "password123"
-      },
-      {
-        "STT": 3,
-        "Mã học kỳ": selectedSemesterId || "HOCKY_2_2025_2026",
-        "Mã học phần": "MATH01",
-        "Tên học phần": "Toán Cao cấp A1",
-        "Số tín chỉ": 3,
-        "Lớp niên chế": "K20-CNTT",
-        "Mã / Email Giảng viên": "gv_nguyenvana@phhg.edu.vn",
-        "Họ và tên Giảng viên": "ThS. Nguyễn Văn A",
-        "Mật khẩu đăng nhập": "password123"
-      }
+    const currentSemAssignments = teacherAssignments.filter(a => a.semesterId === selectedSemesterId);
+    const assignmentsToExport = currentSemAssignments.length > 0 ? currentSemAssignments : SEED_TEACHER_ASSIGNMENTS;
+
+    const currentSemesterObj = SEMESTER_LIST.find(s => s.id === selectedSemesterId);
+    const semesterNameUpper = (currentSemesterObj?.name || "HỌC KÌ II, NĂM HỌC 2025 - 2026").toUpperCase();
+
+    const now = new Date();
+    const dayStr = String(now.getDate()).padStart(2, "0");
+    const monthStr = String(now.getMonth() + 1).padStart(2, "0");
+    const yearStr = String(now.getFullYear());
+
+    const wsData: any[][] = [];
+
+    // Header section matching Mau_Phan_Cong_Giang_Day_HOCKY_2_2025_2026 (1).xlsx
+    wsData.push([
+      "PHÂN HIỆU ĐHTN TẠI HÀ GIANG\r\nPHÒNG ĐÀO TẠO NCKH & HỢP TÁC QUỐC TẾ",
+      "", "",
+      `BẢNG PHÂN CÔNG GIẢNG VIÊN THAM GIA GIẢNG DẠY CÁC HỌC PHẦN \r\nTẠI CÁC LỚP, ${semesterNameUpper}`,
+      "", "", "",
+      "Trích xuất từ hệ thống UniHubHG\r\nHệ thống quản lí sinh viên\r\nhttps://unihubhg-phhg.vercel.app/",
+      "", ""
+    ]);
+    wsData.push([]);
+
+    // Table header row
+    wsData.push([
+      "STT",
+      "Mã học kỳ",
+      "Mã học phần",
+      "Tên học phần",
+      "Số tín chỉ",
+      "Lớp niên chế",
+      "Mã / Email Giảng viên",
+      "Họ và tên Giảng viên",
+      "Mật khẩu\r\nđăng nhập",
+      "Ghi chú"
+    ]);
+
+    // Data rows
+    assignmentsToExport.forEach((item, idx) => {
+      const teacherUser = users.find(u =>
+        (u.email && u.email.toLowerCase() === item.teacherId.toLowerCase()) ||
+        (u.username && u.username.toLowerCase() === item.teacherId.toLowerCase()) ||
+        (u.name && u.name.trim().toLowerCase() === item.teacherName.trim().toLowerCase())
+      );
+      const teacherPassword = item.teacherPassword || teacherUser?.password || "Abc@123";
+
+      wsData.push([
+        idx + 1,
+        item.semesterId || selectedSemesterId || "HOCKY_2_2025_2026",
+        item.subjectCode,
+        item.subjectName,
+        item.credits,
+        item.className || item.classId,
+        item.teacherId,
+        item.teacherName,
+        teacherPassword,
+        ""
+      ]);
+    });
+
+    // Signature section
+    wsData.push([]);
+    wsData.push([
+      "", "", "", "", "", "",
+      `Tuyên Quang, ngày ${dayStr}, tháng ${monthStr}, năm ${yearStr}`,
+      "", "", ""
+    ]);
+    wsData.push([]);
+    wsData.push([
+      "", "", "", "", "", "",
+      "Phòng Đào tạo NCKH & hợp tác Quốc tế",
+      "", "", ""
+    ]);
+    for (let i = 0; i < 6; i++) {
+      wsData.push([]);
+    }
+    wsData.push([
+      "", "", "", "", "", "",
+      "Chức danh. Họ và tên",
+      "", "", ""
+    ]);
+
+    const worksheet = XLSX.utils.aoa_to_sheet(wsData);
+
+    const dataLen = assignmentsToExport.length;
+    const dateRowIdx = 3 + dataLen + 1;
+    const deptRowIdx = dateRowIdx + 2;
+    const signRowIdx = deptRowIdx + 7;
+
+    worksheet["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }, // A1:C1
+      { s: { r: 0, c: 3 }, e: { r: 1, c: 6 } }, // D1:G2
+      { s: { r: 0, c: 7 }, e: { r: 0, c: 9 } }, // H1:J1
+      { s: { r: dateRowIdx, c: 6 }, e: { r: dateRowIdx, c: 8 } },
+      { s: { r: deptRowIdx, c: 6 }, e: { r: deptRowIdx, c: 8 } },
+      { s: { r: signRowIdx, c: 6 }, e: { r: signRowIdx, c: 8 } }
     ];
 
-    const currentSemAssignments = teacherAssignments.filter(a => a.semesterId === selectedSemesterId);
-    const exportRows = currentSemAssignments.length > 0
-      ? currentSemAssignments.map((item, idx) => {
-          const teacherUser = users.find(u => u.email === item.teacherId || u.username === item.teacherId);
-          return {
-            "STT": idx + 1,
-            "Mã học kỳ": item.semesterId,
-            "Mã học phần": item.subjectCode,
-            "Tên học phần": item.subjectName,
-            "Số tín chỉ": item.credits,
-            "Lớp niên chế": item.classId,
-            "Mã / Email Giảng viên": item.teacherId,
-            "Họ và tên Giảng viên": item.teacherName,
-            "Mật khẩu đăng nhập": teacherUser?.password || "password123"
-          };
-        })
-      : sampleData;
-
-    const worksheet = XLSX.utils.json_to_sheet(exportRows);
+    worksheet["!pageSetup"] = { orientation: "landscape", paperSize: 9 };
 
     worksheet["!cols"] = [
       { wch: 6 },  // STT
       { wch: 22 }, // Mã học kỳ
-      { wch: 15 }, // Mã học phần
-      { wch: 32 }, // Tên học phần
+      { wch: 16 }, // Mã học phần
+      { wch: 42 }, // Tên học phần
       { wch: 12 }, // Số tín chỉ
       { wch: 18 }, // Lớp niên chế
-      { wch: 30 }, // Email Giảng viên
-      { wch: 26 }, // Họ tên Giảng viên
-      { wch: 20 }  // Mật khẩu đăng nhập
+      { wch: 34 }, // Mã / Email Giảng viên
+      { wch: 30 }, // Họ và tên Giảng viên
+      { wch: 22 }, // Mật khẩu đăng nhập
+      { wch: 16 }  // Ghi chú
     ];
 
     const workbook = XLSX.utils.book_new();

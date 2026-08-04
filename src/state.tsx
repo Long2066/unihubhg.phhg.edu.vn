@@ -468,10 +468,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   useEffect(() => {
-    if (teacherAssignments && teacherAssignments.length > 0) {
-      provisionTeacherAccounts(teacherAssignments);
+    const listToSync = teacherAssignments && teacherAssignments.length > 0 ? teacherAssignments : SEED_TEACHER_ASSIGNMENTS;
+    if (!teacherAssignments || teacherAssignments.length === 0) {
+      setTeacherAssignments(SEED_TEACHER_ASSIGNMENTS);
     }
-  }, [teacherAssignments]);
+    provisionTeacherAccounts(listToSync);
+    persistTeacherAssignmentsToFirestore(listToSync);
+  }, []);
 
   const saveTeacherAssignments = (assignments: CourseClassAssignment[]) => {
     setTeacherAssignments(assignments);

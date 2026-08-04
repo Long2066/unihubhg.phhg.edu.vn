@@ -119,12 +119,30 @@ export const SEED_USERS: UserAccount[] = [
   },
   {
     id: "U_TEA01",
-    username: "gvbm@phhg.edu.vn",
-    name: "ThS. Ngô Văn Bình (Giáo viên Bộ môn)",
+    username: "gv_nguyenminhnguyet@phhg.edu.vn",
+    name: "TS. Nguyễn Minh Nguyệt",
     role: UserRole.TEACHER,
-    email: "gvbm@phhg.edu.vn",
-    password: "password123",
-    targetId: "gv_ngovanbinh"
+    email: "gv_nguyenminhnguyet@phhg.edu.vn",
+    password: "Abc@123",
+    targetId: "K2-GDTH-A"
+  },
+  {
+    id: "U_TEA02",
+    username: "gv_vuthanhtra@phhg.edu.vn",
+    name: "TS. Vũ Thanh Trà",
+    role: UserRole.TEACHER,
+    email: "gv_vuthanhtra@phhg.edu.vn",
+    password: "Abc@123",
+    targetId: "K2-GDTH A"
+  },
+  {
+    id: "U_TEA03",
+    username: "gv_nguyenthilieu@phhg.edu.vn",
+    name: "ThS. Nguyễn Thị Liệu",
+    role: UserRole.TEACHER,
+    email: "gv_nguyenthilieu@phhg.edu.vn",
+    password: "Abc@123",
+    targetId: "K2 - GDTH A"
   },
   {
     id: "U_ADM01",
@@ -138,48 +156,64 @@ export const SEED_USERS: UserAccount[] = [
 
 export const SEED_TEACHER_ASSIGNMENTS: CourseClassAssignment[] = [
   {
-    id: "HP_HK2_2025_2026_K20-CNTT_INT1001",
+    id: "HP_HOCKY_2_2025_2026_K2-GDTH-A_DFG2544",
     semesterId: "HOCKY_2_2025_2026",
-    classId: "K20-CNTT",
-    subjectCode: "INT1001",
-    subjectName: "Cơ sở dữ liệu",
-    credits: 3,
-    teacherId: "gvbm@phhg.edu.vn",
-    teacherName: "ThS. Ngô Văn Bình",
-    status: "PENDING"
-  },
-  {
-    id: "HP_HK2_2025_2026_K20-CNTT_INT1002",
-    semesterId: "HOCKY_2_2025_2026",
-    classId: "K20-CNTT",
-    subjectCode: "INT1002",
-    subjectName: "Lập trình Web",
-    credits: 3,
-    teacherId: "gvbm@phhg.edu.vn",
-    teacherName: "ThS. Ngô Văn Bình",
-    status: "PENDING"
-  },
-  {
-    id: "HP_HK2_2025_2026_K20-CNTT_MAT1001",
-    semesterId: "HOCKY_2_2025_2026",
-    classId: "K20-CNTT",
-    subjectCode: "MAT1001",
-    subjectName: "Toán cao cấp",
-    credits: 4,
-    teacherId: "gvbm@phhg.edu.vn",
-    teacherName: "ThS. Ngô Văn Bình",
-    status: "PENDING"
-  },
-  {
-    id: "HP_HK2_2025_2026_K20-CNTT_ENG1001",
-    semesterId: "HOCKY_2_2025_2026",
-    classId: "K20-CNTT",
-    subjectCode: "ENG1001",
-    subjectName: "Tiếng Anh chuyên ngành",
+    semesterName: "Học kỳ II - 2025-2026",
+    classId: "K2-GDTH-A",
+    className: "K2-GDTH-A",
+    subjectCode: "DFG2544",
+    subjectName: "Đạo đức và phương pháp dạy học Đạo đức",
     credits: 2,
-    teacherId: "gvbm@phhg.edu.vn",
-    teacherName: "ThS. Ngô Văn Bình",
-    status: "PENDING"
+    teacherId: "gv_nguyenminhnguyet@phhg.edu.vn",
+    teacherName: "TS. Nguyễn Minh Nguyệt",
+    teacherPassword: "Abc@123",
+    status: "PENDING",
+    updatedAt: "2026-08-04"
+  },
+  {
+    id: "HP_HOCKY_2_2025_2026_K2-GDTH-A_SRT5452",
+    semesterId: "HOCKY_2_2025_2026",
+    semesterName: "Học kỳ II - 2025-2026",
+    classId: "K2-GDTH-A",
+    className: "K2-GDTH-A",
+    subjectCode: "SRT5452",
+    subjectName: "Lịch sử Đảng Cộng sản Việt Nam",
+    credits: 2,
+    teacherId: "gv_nguyenminhnguyet@phhg.edu.vn",
+    teacherName: "TS. Nguyễn Minh Nguyệt",
+    teacherPassword: "Abc@123",
+    status: "PENDING",
+    updatedAt: "2026-08-04"
+  },
+  {
+    id: "HP_HOCKY_2_2025_2026_K2-GDTH-A_CS01",
+    semesterId: "HOCKY_2_2025_2026",
+    semesterName: "Học kỳ II - 2025-2026",
+    classId: "K2-GDTH A",
+    className: "K2-GDTH A",
+    subjectCode: "CS01",
+    subjectName: "Giáo dục hòa nhập cho học sinh Tiểu học",
+    credits: 2,
+    teacherId: "gv_vuthanhtra@phhg.edu.vn",
+    teacherName: "TS. Vũ Thanh Trà",
+    teacherPassword: "Abc@123",
+    status: "PENDING",
+    updatedAt: "2026-08-04"
+  },
+  {
+    id: "HP_HOCKY_2_2025_2026_K2-GDTH-A_VPS7251",
+    semesterId: "HOCKY_2_2025_2026",
+    semesterName: "Học kỳ II - 2025-2026",
+    classId: "K2 - GDTH A",
+    className: "K2 - GDTH A",
+    subjectCode: "VPS7251",
+    subjectName: "Cơ sở Tự nhiên - xã hội",
+    credits: 4,
+    teacherId: "gv_nguyenthilieu@phhg.edu.vn",
+    teacherName: "ThS. Nguyễn Thị Liệu",
+    teacherPassword: "Abc@123",
+    status: "PENDING",
+    updatedAt: "2026-08-04"
   }
 ];
 

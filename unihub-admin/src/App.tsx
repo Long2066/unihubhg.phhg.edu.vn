@@ -785,7 +785,7 @@ export default function App() {
   };
 
   // Real-time Firestore Collections state
-  const [users, setUsers] = useState<UserAccount[]>([]);
+  const [users, setUsers] = useState<UserAccount[]>(SEED_USERS);
   const [students, setStudents] = useState<Student[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [activities, setActivities] = useState<ExtracurricularActivity[]>(SEED_ACTIVITIES);
@@ -797,7 +797,7 @@ export default function App() {
   const [schedules, setSchedules] = useState<ScheduleSlot[]>([]);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [systemFeedbacks, setSystemFeedbacks] = useState<SystemFeedback[]>([]);
-  const [teacherAssignments, setTeacherAssignments] = useState<CourseClassAssignment[]>([]);
+  const [teacherAssignments, setTeacherAssignments] = useState<CourseClassAssignment[]>(SEED_TEACHER_ASSIGNMENTS);
 
   // Feedback tab search & filters state
   const [feedbackSearch, setFeedbackSearch] = useState("");
@@ -858,7 +858,11 @@ export default function App() {
       onSnapshot(collection(db, "users"), (snap) => {
         const list: UserAccount[] = [];
         snap.forEach(d => list.push(d.data() as UserAccount));
-        setUsers(list);
+        if (list.length > 0) {
+          setUsers(list);
+        } else {
+          setUsers(SEED_USERS);
+        }
       }, (err) => {
         console.error("Users sync error", err);
         setIsFirebaseConnected(false);
@@ -923,7 +927,14 @@ export default function App() {
       onSnapshot(collection(db, "teacherAssignments"), (snap) => {
         const list: CourseClassAssignment[] = [];
         snap.forEach(d => list.push(d.data() as CourseClassAssignment));
-        setTeacherAssignments(list);
+        if (list.length > 0) {
+          setTeacherAssignments(list);
+        } else {
+          setTeacherAssignments(SEED_TEACHER_ASSIGNMENTS);
+          SEED_TEACHER_ASSIGNMENTS.forEach(ta => {
+            setDoc(doc(db, "teacherAssignments", ta.id), ta, { merge: true }).catch(() => {});
+          });
+        }
       }),
 
       onSnapshot(collection(db, "members"), (snap) => {
@@ -1708,14 +1719,16 @@ export default function App() {
   const teacherAwareUsers = useMemo(() => {
     const rows = new Map<string, UserAccount>();
 
-    users.forEach(u => {
+    const sourceUsers = users.length > 0 ? users : SEED_USERS;
+    sourceUsers.forEach(u => {
       const rowKey = u.role === UserRole.TEACHER
         ? `TEACHER:${getTeacherDedupKey(u)}`
         : `USER:${u.id || u.username || u.email}`;
       rows.set(rowKey, u);
     });
 
-    teacherAssignments.forEach(assign => {
+    const sourceAssignments = teacherAssignments.length > 0 ? teacherAssignments : SEED_TEACHER_ASSIGNMENTS;
+    sourceAssignments.forEach(assign => {
       if (!assign.teacherName && !assign.teacherId) return;
       const matchedEntry = Array.from(rows.entries()).find(([, user]) =>
         user.role === UserRole.TEACHER && doesAssignmentBelongToTeacher(assign, user)
@@ -1730,12 +1743,19 @@ export default function App() {
           name: existing.name || assign.teacherName,
           username: existing.username || assignmentLogin,
           email: existing.email || assignmentLogin,
-          password: existing.password || assign.teacherPassword || "password123",
+          password: existing.password || assign.teacherPassword || "Abc@123",
           targetId: existing.targetId || assign.teacherId || assign.subjectCode
         });
       } else {
         const derivedTeacher = buildTeacherUserFromAssignment(assign);
         rows.set(`TEACHER:${getTeacherDedupKey(derivedTeacher)}`, derivedTeacher);
+      }
+    });
+
+    SEED_USERS.filter(u => u.role === UserRole.TEACHER).forEach(st => {
+      const dedupKey = `TEACHER:${getTeacherDedupKey(st)}`;
+      if (!rows.has(dedupKey)) {
+        rows.set(dedupKey, st);
       }
     });
 
@@ -1755,7 +1775,8 @@ export default function App() {
 
   const getTeacherAssignmentsForUser = (teacher: UserAccount | null): CourseClassAssignment[] => {
     if (!teacher) return [];
-    return teacherAssignments
+    const sourceAssignments = teacherAssignments.length > 0 ? teacherAssignments : SEED_TEACHER_ASSIGNMENTS;
+    return sourceAssignments
       .filter(assignment => doesAssignmentBelongToTeacher(assignment, teacher))
       .sort((a, b) => `${a.semesterId}_${a.classId}_${a.subjectCode}`.localeCompare(`${b.semesterId}_${b.classId}_${b.subjectCode}`));
   };
