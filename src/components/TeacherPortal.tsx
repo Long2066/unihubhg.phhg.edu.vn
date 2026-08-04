@@ -80,18 +80,26 @@ export const TeacherPortal: React.FC = () => {
     return teacherAssignments.find(a => a.id === selectedAssignmentId) || myAssignments[0];
   }, [teacherAssignments, selectedAssignmentId, myAssignments]);
 
+  // Helper: Normalize class name strings (ignores spaces, hyphens, case)
+  const normalizeClass = (str: string) => (str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
   // Find or initialize subject grade sheet
   const activeGradeSheet = useMemo(() => {
     if (!activeAssignment) return null;
     const existing = subjectGradeSheets.find(s => 
       s.semesterId === activeAssignment.semesterId &&
-      s.classId === activeAssignment.classId &&
+      normalizeClass(s.classId) === normalizeClass(activeAssignment.classId) &&
       s.subjectCode === activeAssignment.subjectCode
     );
     if (existing) return existing;
 
-    // Build initial list from class students if not exists
-    const classStudents = students.filter(s => s.classId === activeAssignment.classId || activeAssignment.classId.includes(s.classId) || s.classId.includes(activeAssignment.classId));
+    // Build initial list from class students imported by Training Dept
+    const targetNormClass = normalizeClass(activeAssignment.classId);
+    const classStudents = students.filter(s => {
+      const sNorm = normalizeClass(s.classId || "");
+      return sNorm === targetNormClass || targetNormClass.includes(sNorm) || sNorm.includes(targetNormClass);
+    });
+
     const rawList = classStudents.length > 0 ? classStudents : [
       { id: "DTG2357140202099", name: "Hoàng Hải Nam", gender: "Nam", dob: "2006-01-01", classId: activeAssignment.classId },
       { id: "DTG245140202002", name: "Đỗ Thị Huyền Anh", gender: "Nữ", dob: "2006-03-15", classId: activeAssignment.classId },
@@ -140,19 +148,61 @@ export const TeacherPortal: React.FC = () => {
   const [currentGrades, setCurrentGrades] = useState<SubjectStudentGrade[]>([]);
 
   React.useEffect(() => {
-    if (activeGradeSheet && Array.isArray(activeGradeSheet.grades)) {
-      // Normalize grades array: guarantee every row has a non-empty, unique studentId!
-      const normalized = activeGradeSheet.grades.map((g: any, idx: number) => {
-        const fallbackId = `SV_${Date.now()}_${idx + 1}`;
-        return {
-          ...g,
-          studentId: String(g.studentId || g.id || fallbackId).trim(),
-          studentName: String(g.studentName || g.name || `Sinh viên ${idx + 1}`).trim()
-        };
+    if (!activeAssignment) return;
+    
+    const targetNormClass = normalizeClass(activeAssignment.classId);
+    const matchingTrainingStudents = students.filter(s => {
+      const sNorm = normalizeClass(s.classId || "");
+      return sNorm === targetNormClass || targetNormClass.includes(sNorm) || sNorm.includes(targetNormClass);
+    });
+
+    let baseGrades: SubjectStudentGrade[] = activeGradeSheet?.grades ? [...activeGradeSheet.grades] : [];
+
+    if (baseGrades.length === 0) {
+      const rawList = matchingTrainingStudents.length > 0 ? matchingTrainingStudents : [
+        { id: "DTG2357140202099", name: "Hoàng Hải Nam", gender: "Nam", dob: "2006-01-01", classId: activeAssignment.classId },
+        { id: "DTG245140202002", name: "Đỗ Thị Huyền Anh", gender: "Nữ", dob: "2006-03-15", classId: activeAssignment.classId },
+        { id: "DTG245140202004", name: "Hứa Hải Anh", gender: "Nam", dob: "2006-04-10", classId: activeAssignment.classId },
+        { id: "DTG245140202007", name: "Hoàng Thị Ngọc Ánh", gender: "Nữ", dob: "2006-08-22", classId: activeAssignment.classId },
+        { id: "DTG245140202053", name: "Ma Văn Long", gender: "Nam", dob: "2006-05-20", classId: activeAssignment.classId }
+      ];
+      baseGrades = rawList.map((s: any, idx: number) => ({
+        studentId: String(s.id || s.studentId || `STUDENT_${idx + 1}`).trim(),
+        studentName: String(s.name || s.studentName || `Sinh viên ${idx + 1}`).trim(),
+        gender: s.gender || "Nam",
+        dob: s.dob || "2006-01-01",
+        classId: s.classId || activeAssignment.classId,
+        cc: "", tx1: "", tx2: "", dk1: "", dk2: "", exam: "", tb10: "", tb4: "", diemChu: "", xepLoai: ""
+      }));
+    } else {
+      // Auto-merge any missing Training Dept students into existing sheet
+      matchingTrainingStudents.forEach(st => {
+        const stId = (st.id || "").trim();
+        if (stId && !baseGrades.some(g => (g.studentId || "").trim().toLowerCase() === stId.toLowerCase())) {
+          baseGrades.push({
+            studentId: stId,
+            studentName: st.name || stId,
+            gender: st.gender || "Nam",
+            dob: st.dob || "2006-01-01",
+            classId: st.classId || activeAssignment.classId,
+            cc: "", tx1: "", tx2: "", dk1: "", dk2: "", exam: "", tb10: "", tb4: "", diemChu: "", xepLoai: ""
+          });
+        }
       });
-      setCurrentGrades(normalized);
     }
-  }, [activeGradeSheet]);
+
+    // Normalize studentId for clean matching
+    const normalized = baseGrades.map((g: any, idx: number) => {
+      const fallbackId = `SV_${Date.now()}_${idx + 1}`;
+      return {
+        ...g,
+        studentId: String(g.studentId || g.id || fallbackId).trim(),
+        studentName: String(g.studentName || g.name || `Sinh viên ${idx + 1}`).trim()
+      };
+    });
+
+    setCurrentGrades(normalized);
+  }, [activeGradeSheet, activeAssignment, students]);
 
   // Helper auto calculator
   const calculateSingleRow = (grade: SubjectStudentGrade): SubjectStudentGrade => {
@@ -706,24 +756,24 @@ export const TeacherPortal: React.FC = () => {
                 </div>
               </div>
 
-              {/* Gradebook Interactive Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse font-sans">
-                  <thead>
-                    <tr className="bg-slate-100/80 text-slate-700 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
-                      <th className="p-3 text-center w-12 border-r border-slate-200">STT</th>
-                      <th className="p-3 w-36 border-r border-slate-200 font-mono">Mã SV</th>
-                      <th className="p-3 w-48 border-r border-slate-200">Họ và tên</th>
-                      <th className="p-3 text-center w-24 border-r border-slate-200 font-mono">Chuyên cần</th>
-                      <th className="p-3 text-center w-20 border-r border-slate-200 font-mono">TX 1</th>
-                      <th className="p-3 text-center w-20 border-r border-slate-200 font-mono">TX 2</th>
-                      <th className="p-3 text-center w-20 border-r border-slate-200 font-mono">ĐK 1</th>
-                      <th className="p-3 text-center w-20 border-r border-slate-200 font-mono">ĐK 2</th>
-                      <th className="p-3 text-center w-24 border-r border-slate-200 font-mono bg-blue-50/50">Thi HK</th>
-                      <th className="p-3 text-center w-20 border-r border-slate-200 font-mono font-black text-slate-900 bg-slate-200/50">TB (10)</th>
-                      <th className="p-3 text-center w-20 border-r border-slate-200 font-mono font-black text-slate-900 bg-slate-200/50">TB (4)</th>
-                      <th className="p-3 text-center w-20 border-r border-slate-200 font-mono">Điểm chữ</th>
-                      <th className="p-3 text-center w-28">XẾP LOẠI</th>
+              {/* Gradebook Interactive Table (Sticky Header Scrollable Container) */}
+              <div className="overflow-x-auto overflow-y-auto max-h-[600px] border border-slate-200 rounded-xl relative shadow-2xs">
+                <table className="w-full text-left text-xs border-separate border-spacing-0 font-sans">
+                  <thead className="sticky top-0 z-20 shadow-xs">
+                    <tr className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] tracking-wider">
+                      <th className="p-3 text-center w-12 border-r border-b border-slate-200 bg-slate-100">STT</th>
+                      <th className="p-3 w-36 border-r border-b border-slate-200 font-mono bg-slate-100">Mã SV</th>
+                      <th className="p-3 w-48 border-r border-b border-slate-200 bg-slate-100">Họ và tên</th>
+                      <th className="p-3 text-center w-24 border-r border-b border-slate-200 font-mono bg-slate-100">Chuyên cần</th>
+                      <th className="p-3 text-center w-20 border-r border-b border-slate-200 font-mono bg-slate-100">TX 1</th>
+                      <th className="p-3 text-center w-20 border-r border-b border-slate-200 font-mono bg-slate-100">TX 2</th>
+                      <th className="p-3 text-center w-20 border-r border-b border-slate-200 font-mono bg-slate-100">ĐK 1</th>
+                      <th className="p-3 text-center w-20 border-r border-b border-slate-200 font-mono bg-slate-100">ĐK 2</th>
+                      <th className="p-3 text-center w-24 border-r border-b border-slate-200 font-mono bg-blue-100/70 text-blue-900">Thi HK</th>
+                      <th className="p-3 text-center w-20 border-r border-b border-slate-200 font-mono font-black text-slate-900 bg-slate-200">TB (10)</th>
+                      <th className="p-3 text-center w-20 border-r border-b border-slate-200 font-mono font-black text-slate-900 bg-slate-200">TB (4)</th>
+                      <th className="p-3 text-center w-20 border-r border-b border-slate-200 font-mono bg-slate-100">Điểm chữ</th>
+                      <th className="p-3 text-center w-28 border-b border-slate-200 bg-slate-100">XẾP LOẠI</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
