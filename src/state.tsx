@@ -247,9 +247,27 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // when the matching Firestore collection is empty; runtime state is hydrated by
   // Firestore snapshots below.
   const [period, setPeriod] = useState<EvaluationPeriod>(SEED_PERIOD);
-  const [users, setUsers] = useState<UserAccount[]>([]);
+  const [users, setUsers] = useState<UserAccount[]>(() => {
+    const cached = localStorage.getItem("unihub_users");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return SEED_USERS;
+  });
   const [criteria, setCriteria] = useState<PointCriteria[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
+  const [students, setStudents] = useState<Student[]>(() => {
+    const cached = localStorage.getItem("unihub_students");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return SEED_STUDENTS;
+  });
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [activities, setActivities] = useState<ExtracurricularActivity[]>(() => {
@@ -270,7 +288,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Feature databases
   const [dailyAttendance, setDailyAttendance] = useState<DailyAttendanceReport[]>([]);
-  const [schedules, setSchedules] = useState<ScheduleSlot[]>([]);
+  const [schedules, setSchedules] = useState<ScheduleSlot[]>(() => {
+    const cached = localStorage.getItem("unihub_schedules");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return SEED_SCHEDULES;
+  });
   const [groupAttendances, setGroupAttendances] = useState<GroupAttendanceReport[]>([]);
   const [customClasses, setCustomClasses] = useState<string[]>([]);
   const [feedbacks, setFeedbacks] = useState<ScoreFeedback[]>([]);
@@ -763,17 +790,34 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const list = snap.docs.map(d => d.data() as T);
         const normalized = sorter ? sorter(list) : list;
         if (normalized.length > 0) {
-          setter(normalized);
-          localStorage.setItem(`unihub_${key}`, JSON.stringify(normalized));
-        } else {
-          // If snapshot returns empty, preserve existing state for critical business collections
           setter(prev => {
-            if (prev.length > 0 && (key === "activities" || key === "announcements" || key === "members" || key === "evidence" || key === "attendance")) {
+            const merged = [...prev];
+            normalized.forEach(item => {
+              const itemId = (item as any).id || (item as any).studentId || (item as any).username;
+              if (itemId) {
+                const idx = merged.findIndex(p => 
+                  ((p as any).id && (p as any).id === itemId) ||
+                  ((p as any).studentId && (p as any).studentId === itemId) ||
+                  ((p as any).username && (p as any).username === itemId)
+                );
+                if (idx >= 0) merged[idx] = item;
+                else merged.push(item);
+              } else {
+                merged.push(item);
+              }
+            });
+            const finalResult = merged.length > 0 ? merged : normalized;
+            localStorage.setItem(`unihub_${key}`, JSON.stringify(finalResult));
+            return finalResult;
+          });
+        } else {
+          // If snapshot returns empty, preserve existing state to protect local data from getting wiped
+          setter(prev => {
+            if (prev.length > 0) {
               console.warn(`Firestore snapshot returned empty for ${key}, preserving ${prev.length} existing items in state.`);
               return prev;
             }
-            localStorage.setItem(`unihub_${key}`, JSON.stringify([]));
-            return [];
+            return prev;
           });
         }
       },
@@ -786,6 +830,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const unsubscribers = [
       cacheCollection<UserAccount>("users", setUsers),
       cacheCollection<Student>("students", setStudents),
+      cacheCollection<CourseClassAssignment>("teacherAssignments", setTeacherAssignments),
+      cacheCollection<SubjectGradeSheet>("subjectGradeSheets", setSubjectGradeSheets),
       cacheCollection<Organization>("organizations", setOrganizations),
       cacheCollection<OrganizationMember>("members", setMembers),
       cacheCollection<ExtracurricularActivity>("activities", setActivities),
