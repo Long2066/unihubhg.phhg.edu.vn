@@ -28,7 +28,8 @@ import {
   RefreshCw,
   Clock,
   Send,
-  Calendar
+  Calendar,
+  Plus
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -91,29 +92,35 @@ export const TeacherPortal: React.FC = () => {
 
     // Build initial list from class students if not exists
     const classStudents = students.filter(s => s.classId === activeAssignment.classId || activeAssignment.classId.includes(s.classId) || s.classId.includes(activeAssignment.classId));
-    const initialGrades: SubjectStudentGrade[] = (classStudents.length > 0 ? classStudents : [
-      { studentId: "DTG2357140202099", studentName: "Hoàng Hải Nam", gender: "Nam", dob: "2006-01-01", classId: activeAssignment.classId },
-      { studentId: "DTG245140202002", studentName: "Đỗ Thị Huyền Anh", gender: "Nữ", dob: "2006-03-15", classId: activeAssignment.classId },
-      { studentId: "DTG245140202004", studentName: "Hứa Hải Anh", gender: "Nam", dob: "2006-04-10", classId: activeAssignment.classId },
-      { studentId: "DTG245140202007", studentName: "Hoàng Thị Ngọc Ánh", gender: "Nữ", dob: "2006-08-22", classId: activeAssignment.classId },
-      { studentId: "DTG245140202053", studentName: "Ma Văn Long", gender: "Nam", dob: "2006-05-20", classId: activeAssignment.classId }
-    ]).map(s => ({
-      studentId: s.id,
-      studentName: s.name,
-      gender: s.gender || "Nam",
-      dob: s.dob || "2006-01-01",
-      classId: s.classId || activeAssignment.classId,
-      cc: "",
-      tx1: "",
-      tx2: "",
-      dk1: "",
-      dk2: "",
-      exam: "",
-      tb10: "",
-      tb4: "",
-      diemChu: "",
-      xepLoai: ""
-    }));
+    const rawList = classStudents.length > 0 ? classStudents : [
+      { id: "DTG2357140202099", name: "Hoàng Hải Nam", gender: "Nam", dob: "2006-01-01", classId: activeAssignment.classId },
+      { id: "DTG245140202002", name: "Đỗ Thị Huyền Anh", gender: "Nữ", dob: "2006-03-15", classId: activeAssignment.classId },
+      { id: "DTG245140202004", name: "Hứa Hải Anh", gender: "Nam", dob: "2006-04-10", classId: activeAssignment.classId },
+      { id: "DTG245140202007", name: "Hoàng Thị Ngọc Ánh", gender: "Nữ", dob: "2006-08-22", classId: activeAssignment.classId },
+      { id: "DTG245140202053", name: "Ma Văn Long", gender: "Nam", dob: "2006-05-20", classId: activeAssignment.classId }
+    ];
+
+    const initialGrades: SubjectStudentGrade[] = rawList.map((s: any, idx: number) => {
+      const realId = String(s.id || s.studentId || `STUDENT_${idx + 1}`).trim();
+      const realName = String(s.name || s.studentName || `Sinh viên ${idx + 1}`).trim();
+      return {
+        studentId: realId,
+        studentName: realName,
+        gender: s.gender || "Nam",
+        dob: s.dob || "2006-01-01",
+        classId: s.classId || activeAssignment.classId,
+        cc: "",
+        tx1: "",
+        tx2: "",
+        dk1: "",
+        dk2: "",
+        exam: "",
+        tb10: "",
+        tb4: "",
+        diemChu: "",
+        xepLoai: ""
+      };
+    });
 
     return {
       id: `GRADE_${activeAssignment.semesterId}_${activeAssignment.classId}_${activeAssignment.subjectCode}`,
@@ -133,8 +140,17 @@ export const TeacherPortal: React.FC = () => {
   const [currentGrades, setCurrentGrades] = useState<SubjectStudentGrade[]>([]);
 
   React.useEffect(() => {
-    if (activeGradeSheet) {
-      setCurrentGrades(activeGradeSheet.grades);
+    if (activeGradeSheet && Array.isArray(activeGradeSheet.grades)) {
+      // Normalize grades array: guarantee every row has a non-empty, unique studentId!
+      const normalized = activeGradeSheet.grades.map((g: any, idx: number) => {
+        const fallbackId = `SV_${Date.now()}_${idx + 1}`;
+        return {
+          ...g,
+          studentId: String(g.studentId || g.id || fallbackId).trim(),
+          studentName: String(g.studentName || g.name || `Sinh viên ${idx + 1}`).trim()
+        };
+      });
+      setCurrentGrades(normalized);
     }
   }, [activeGradeSheet]);
 
@@ -186,12 +202,36 @@ export const TeacherPortal: React.FC = () => {
     };
   };
 
-  const handleCellChange = (studentId: string, field: keyof SubjectStudentGrade, value: any) => {
+  const handleAddNewStudentToSheet = () => {
+    if (isLocked || !activeAssignment) return;
+    const newStudentId = `DTG_${Date.now().toString().slice(-6)}`;
+    const newStudent: SubjectStudentGrade = {
+      studentId: newStudentId,
+      studentName: `Sinh viên mới`,
+      gender: "Nam",
+      dob: "2006-01-01",
+      classId: activeAssignment.classId,
+      cc: "",
+      tx1: "",
+      tx2: "",
+      dk1: "",
+      dk2: "",
+      exam: "",
+      tb10: "",
+      tb4: "",
+      diemChu: "",
+      xepLoai: ""
+    };
+    setCurrentGrades(prev => [...prev, newStudent]);
+  };
+
+  const handleCellChange = (targetStudentId: string, field: keyof SubjectStudentGrade, value: any) => {
     if (activeGradeSheet?.status === "SUBMITTED" || activeGradeSheet?.status === "LOCKED") return;
     
     setCurrentGrades(prev => {
       return prev.map(g => {
-        if (g.studentId === studentId) {
+        // Strict matching on targetStudentId guarantees editing 1 row ONLY updates that 1 row!
+        if (g.studentId === targetStudentId) {
           const updated = { ...g, [field]: value };
           return calculateSingleRow(updated);
         }
@@ -601,11 +641,22 @@ export const TeacherPortal: React.FC = () => {
                   </button>
 
                   {!isLocked && (
-                    <label className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-250 text-blue-800 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs">
-                      <Upload size={13} />
-                      <span>Nạp file Excel</span>
-                      <input type="file" accept=".xlsx, .xls" onChange={handleImportExcel} className="hidden" />
-                    </label>
+                    <>
+                      <button
+                        onClick={handleAddNewStudentToSheet}
+                        className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-250 text-emerald-800 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        title="Thêm thủ công 1 dòng sinh viên mới vào lớp"
+                      >
+                        <Plus size={13} />
+                        <span>Thêm sinh viên</span>
+                      </button>
+
+                      <label className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-250 text-blue-800 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs">
+                        <Upload size={13} />
+                        <span>Nạp file Excel</span>
+                        <input type="file" accept=".xlsx, .xls" onChange={handleImportExcel} className="hidden" />
+                      </label>
+                    </>
                   )}
 
                   {!isLocked ? (
@@ -680,8 +731,32 @@ export const TeacherPortal: React.FC = () => {
                       return (
                         <tr key={g.studentId} className="hover:bg-slate-50/80 transition-colors">
                           <td className="p-2.5 text-center font-mono text-slate-400 border-r border-slate-100">{idx + 1}</td>
-                          <td className="p-2.5 font-mono font-bold text-slate-800 border-r border-slate-100">{g.studentId}</td>
-                          <td className="p-2.5 font-bold text-slate-900 border-r border-slate-100">{g.studentName}</td>
+                          
+                          {/* Mã SV */}
+                          <td className="p-1 border-r border-slate-100">
+                            <input
+                              type="text"
+                              disabled={isLocked}
+                              value={g.studentId ?? ""}
+                              onChange={(e) => handleCellChange(g.studentId, "studentId", e.target.value)}
+                              className={`w-32 px-2 py-1 rounded font-mono font-bold border text-xs focus:outline-none ${
+                                isLocked ? "bg-slate-50 border-slate-100 text-slate-700" : "border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 text-slate-900"
+                              }`}
+                            />
+                          </td>
+
+                          {/* Họ và tên */}
+                          <td className="p-1 border-r border-slate-100">
+                            <input
+                              type="text"
+                              disabled={isLocked}
+                              value={g.studentName ?? ""}
+                              onChange={(e) => handleCellChange(g.studentId, "studentName", e.target.value)}
+                              className={`w-44 px-2 py-1 rounded font-bold border text-xs focus:outline-none ${
+                                isLocked ? "bg-slate-50 border-slate-100 text-slate-700" : "border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 text-slate-900"
+                              }`}
+                            />
+                          </td>
                           
                           {/* Chuyên cần */}
                           <td className="p-1.5 border-r border-slate-100 text-center">
