@@ -351,274 +351,259 @@ type TeacherPdfStats = {
   total: number;
 };
 
+type PdfMakeInstance = {
+  vfs?: Record<string, string>;
+  fonts?: Record<string, unknown>;
+  createPdf: (definition: unknown) => { download: (fileName?: string) => void };
+};
+
 const pdfValue = (value: string | number | undefined | null) => {
   if (value === undefined || value === null || value === "") return "-";
   return String(value);
 };
 
-const drawPdfRoundRect = (
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  radius: number,
-  fill: string,
-  stroke?: string,
-  lineWidth: number = 1
-) => {
-  const r = Math.min(radius, w / 2, h / 2);
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-  ctx.fillStyle = fill;
-  ctx.fill();
-  if (stroke) {
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = lineWidth;
-    ctx.stroke();
-  }
-  ctx.restore();
+const pdfPercent = (count: number, total: number) => total ? Math.round((count / total) * 100) : 0;
+
+const configurePdfMake = async () => {
+  const pdfMakeModule = await import("pdfmake/build/pdfmake");
+  const vfsFontsModule = await import("pdfmake/build/vfs_fonts");
+  const pdfMake = ((pdfMakeModule as any).default || pdfMakeModule) as PdfMakeInstance;
+  const vfsSource = (vfsFontsModule as any).default || vfsFontsModule;
+  pdfMake.vfs = vfsSource.pdfMake?.vfs || vfsSource.vfs || pdfMake.vfs;
+  pdfMake.fonts = {
+    Roboto: {
+      normal: "Roboto-Regular.ttf",
+      bold: "Roboto-Medium.ttf",
+      italics: "Roboto-Italic.ttf",
+      bolditalics: "Roboto-MediumItalic.ttf"
+    }
+  };
+  return pdfMake;
 };
 
-const drawPdfText = (
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  options: {
-    size?: number;
-    weight?: string;
-    color?: string;
-    align?: CanvasTextAlign;
-    italic?: boolean;
-    mono?: boolean;
-    maxWidth?: number;
-  } = {}
-) => {
-  ctx.save();
-  const size = options.size ?? 18;
-  const weight = options.weight ?? "400";
-  const style = options.italic ? "italic " : "";
-  const family = options.mono ? "'Courier New', monospace" : "'Times New Roman', serif";
-  ctx.font = `${style}${weight} ${size}px ${family}`;
-  ctx.fillStyle = options.color ?? "#0f172a";
-  ctx.textAlign = options.align ?? "left";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillText(text, x, y, options.maxWidth);
-  ctx.restore();
-};
+const createStatisticCard = (
+  title: string,
+  count: number,
+  total: number,
+  colors: { fill: string; border: string; text: string }
+) => ({
+  table: {
+    widths: ["*"],
+    body: [
+      [{ text: title, style: "statLabel", color: colors.text, alignment: "center", border: [false, false, false, false] }],
+      [{
+        text: [
+          { text: String(count), style: "statNumber", color: colors.text },
+          { text: `  (${pdfPercent(count, total)}%)`, style: "statPercent" }
+        ],
+        alignment: "center",
+        border: [false, false, false, false]
+      }]
+    ]
+  },
+  fillColor: colors.fill,
+  layout: {
+    hLineColor: () => colors.border,
+    vLineColor: () => colors.border,
+    hLineWidth: () => 0.6,
+    vLineWidth: () => 0.6,
+    paddingLeft: () => 4,
+    paddingRight: () => 4,
+    paddingTop: () => 5,
+    paddingBottom: () => 5
+  },
+  margin: [0, 0, 0, 0]
+});
 
 const downloadTeacherGradeReportPdf = async (
   assignment: CourseClassAssignment,
   grades: SubjectStudentGrade[],
   stats: TeacherPdfStats
 ) => {
-  const jsPDFModule = await import("jspdf");
-  const JsPDF = (jsPDFModule as any).jsPDF || (jsPDFModule as any).default;
-  const pdf = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pdfMake = await configurePdfMake();
+  const now = new Date();
+  const weakCount = stats.trungBinh + stats.yeu + stats.kem;
+  const fileName = `Bao_cao_pho_diem_${sanitizeFilePart(assignment.subjectCode)}_${sanitizeFilePart(assignment.classId)}.pdf`;
 
-  const pageW = 1240;
-  const pageH = 1754;
-  const marginX = 70;
-  const tableW = pageW - marginX * 2;
-  const tableX = marginX;
-  const contentBottom = pageH - 115;
-  const rowH = 48;
-  const headerH = 52;
-  const cols = [
-    { label: "STT", w: 60, align: "center" as CanvasTextAlign },
-    { label: "MÃ SV", w: 180, align: "left" as CanvasTextAlign },
-    { label: "HỌ VÀ TÊN", w: 340, align: "left" as CanvasTextAlign },
-    { label: "CC", w: 70, align: "center" as CanvasTextAlign },
-    { label: "THI", w: 80, align: "center" as CanvasTextAlign },
-    { label: "TB (10)", w: 95, align: "center" as CanvasTextAlign },
-    { label: "ĐIỂM CHỮ", w: 130, align: "center" as CanvasTextAlign },
-    { label: "XẾP LOẠI", w: 145, align: "center" as CanvasTextAlign }
+  const tableBody = [
+    [
+      { text: "STT", style: "tableHeader", alignment: "center" },
+      { text: "MÃ SV", style: "tableHeader" },
+      { text: "HỌ VÀ TÊN", style: "tableHeader" },
+      { text: "CC", style: "tableHeader", alignment: "center" },
+      { text: "THI", style: "tableHeader", alignment: "center" },
+      { text: "TB (10)", style: "tableHeader", alignment: "center" },
+      { text: "ĐIỂM CHỮ", style: "tableHeader", alignment: "center" },
+      { text: "XẾP LOẠI", style: "tableHeader", alignment: "center" }
+    ],
+    ...(grades.length ? grades : [{ studentId: "", studentName: "Chưa có dữ liệu sinh viên", classId: assignment.classId } as SubjectStudentGrade]).map((grade, index) => [
+      { text: grades.length ? String(index + 1) : "-", style: "mutedMono", alignment: "center" },
+      { text: pdfValue(grade.studentId), style: "bodyMonoStrong" },
+      { text: pdfValue(grade.studentName), style: "bodyStrong" },
+      { text: pdfValue(grade.cc), style: "bodyMono", alignment: "center" },
+      { text: pdfValue(grade.exam), style: "blueMonoStrong", alignment: "center" },
+      { text: pdfValue(grade.tb10), style: "bodyMonoStrong", alignment: "center" },
+      { text: pdfValue(grade.diemChu), style: "blueMonoStrong", alignment: "center" },
+      { text: pdfValue(grade.xepLoai), style: "bodyStrong", alignment: "center" }
+    ])
   ];
 
-  const now = new Date();
-  const percent = (count: number) => stats.total ? Math.round((count / stats.total) * 100) : 0;
-
-  const createCanvasPage = () => {
-    const canvas = document.createElement("canvas");
-    canvas.width = pageW;
-    canvas.height = pageH;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Không thể khởi tạo Canvas PDF");
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, pageW, pageH);
-    return { canvas, ctx };
-  };
-
-  const drawReportHeader = (ctx: CanvasRenderingContext2D) => {
-    drawPdfText(ctx, "ĐẠI HỌC THÁI NGUYÊN", pageW / 2, 135, { size: 22, weight: "700", color: "#475569", align: "center" });
-    drawPdfText(ctx, "PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI TỈNH HÀ GIANG", pageW / 2, 180, { size: 26, weight: "700", color: "#1e3a8a", align: "center" });
-    drawPdfText(ctx, "KHOA / BỘ MÔN CHUYÊN MÔN", pageW / 2, 220, { size: 20, weight: "700", color: "#64748b", align: "center" });
-    drawPdfText(ctx, "BÁO CÁO PHỔ ĐIỂM & BẢNG TỔNG KẾT MÔN HỌC", pageW / 2, 285, { size: 30, weight: "700", color: "#0f172a", align: "center" });
-    drawPdfText(ctx, `Môn học: ${assignment.subjectName} (${assignment.subjectCode}) - Lớp: ${assignment.classId}`, pageW / 2, 330, { size: 18, italic: true, color: "#475569", align: "center", maxWidth: tableW });
-
-    ctx.strokeStyle = "#e2e8f0";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(marginX, 380);
-    ctx.lineTo(pageW - marginX, 380);
-    ctx.stroke();
-
-    drawPdfText(ctx, "Giảng viên giảng dạy:", marginX, 435, { size: 19 });
-    drawPdfText(ctx, assignment.teacherName, marginX + 205, 435, { size: 19, weight: "700" });
-    drawPdfText(ctx, "Số tín chỉ học phần:", pageW / 2 + 20, 435, { size: 19 });
-    drawPdfText(ctx, `${assignment.credits} TC`, pageW / 2 + 235, 435, { size: 19, weight: "700", mono: true });
-    drawPdfText(ctx, "Lớp học phần:", marginX, 490, { size: 19 });
-    drawPdfText(ctx, assignment.classId, marginX + 150, 490, { size: 19, weight: "700", mono: true });
-    drawPdfText(ctx, "Tổng số sinh viên:", pageW / 2 + 20, 490, { size: 19 });
-    drawPdfText(ctx, `${stats.total} SV`, pageW / 2 + 225, 490, { size: 19, weight: "700", mono: true });
-
-    drawPdfRoundRect(ctx, marginX, 545, tableW, 170, 18, "#f8fafc", "#dbe4ef", 2);
-    drawPdfText(ctx, "TÓM TẮT PHÂN BỐ PHỔ ĐIỂM HỌC PHẦN:", marginX + 28, 595, { size: 20, weight: "700", color: "#334155" });
-    const boxW = (tableW - 86) / 4;
-    const boxes = [
-      { title: "Xuất sắc", count: stats.xuatSac, fill: "#faf5ff", stroke: "#e9d5ff", color: "#7e22ce" },
-      { title: "Giỏi", count: stats.gioi, fill: "#eff6ff", stroke: "#bfdbfe", color: "#1d4ed8" },
-      { title: "Khá", count: stats.kha, fill: "#ecfeff", stroke: "#a5f3fc", color: "#0e7490" },
-      { title: "Trung bình & Yếu", count: stats.trungBinh + stats.yeu + stats.kem, fill: "#fffbeb", stroke: "#fde68a", color: "#b45309" }
-    ];
-    boxes.forEach((box, idx) => {
-      const x = marginX + 26 + idx * (boxW + 12);
-      drawPdfRoundRect(ctx, x, 620, boxW, 70, 8, box.fill, box.stroke, 2);
-      drawPdfText(ctx, box.title, x + boxW / 2, 648, { size: 15, weight: "700", color: box.color, align: "center", mono: true });
-      drawPdfText(ctx, String(box.count), x + boxW / 2 - 10, 678, { size: 24, weight: "700", color: box.color, align: "right", mono: true });
-      drawPdfText(ctx, `(${percent(box.count)}%)`, x + boxW / 2 + 15, 676, { size: 13, color: "#64748b", align: "left", mono: true });
-    });
-    return 745;
-  };
-
-  const drawContinuationHeader = (ctx: CanvasRenderingContext2D, pageNo: number) => {
-    drawPdfText(ctx, "BÁO CÁO PHỔ ĐIỂM & BẢNG TỔNG KẾT MÔN HỌC", marginX, 85, { size: 20, weight: "700", color: "#0f172a" });
-    drawPdfText(ctx, `${assignment.subjectCode} - ${assignment.classId}`, marginX, 120, { size: 16, italic: true, color: "#475569" });
-    drawPdfText(ctx, `Trang ${pageNo}`, pageW - marginX, 85, { size: 16, color: "#64748b", align: "right" });
-    ctx.strokeStyle = "#e2e8f0";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(marginX, 140);
-    ctx.lineTo(pageW - marginX, 140);
-    ctx.stroke();
-    return 170;
-  };
-
-  const drawTableHeader = (ctx: CanvasRenderingContext2D, y: number) => {
-    drawPdfRoundRect(ctx, tableX, y, tableW, headerH, 0, "#f1f5f9", "#cbd5e1", 2);
-    let x = tableX;
-    cols.forEach(col => {
-      ctx.strokeStyle = "#cbd5e1";
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(x, y, col.w, headerH);
-      drawPdfText(ctx, col.label, x + col.w / 2, y + 33, { size: 14, weight: "700", color: "#334155", align: "center", mono: true });
-      x += col.w;
-    });
-  };
-
-  const drawTableRows = (ctx: CanvasRenderingContext2D, rows: SubjectStudentGrade[], startIndex: number, y: number) => {
-    rows.forEach((g, rowIdx) => {
-      const rowY = y + rowIdx * rowH;
-      ctx.fillStyle = rowIdx % 2 === 0 ? "#ffffff" : "#f8fafc";
-      ctx.fillRect(tableX, rowY, tableW, rowH);
-      const values = [
-        String(startIndex + rowIdx + 1),
-        g.studentId,
-        g.studentName,
-        pdfValue(g.cc),
-        pdfValue(g.exam),
-        pdfValue(g.tb10),
-        pdfValue(g.diemChu),
-        pdfValue(g.xepLoai)
-      ];
-      let x = tableX;
-      cols.forEach((col, colIdx) => {
-        ctx.strokeStyle = "#dbe4ef";
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(x, rowY, col.w, rowH);
-        const align = col.align;
-        const textX = align === "center" ? x + col.w / 2 : x + 16;
-        const isStrong = colIdx === 2 || colIdx === 5 || colIdx === 7;
-        drawPdfText(ctx, values[colIdx], textX, rowY + 31, {
-          size: 15,
-          weight: isStrong ? "700" : "500",
-          color: colIdx === 4 || colIdx === 6 ? "#1d4ed8" : "#0f172a",
-          align,
-          mono: colIdx !== 2,
-          maxWidth: col.w - 20
-        });
-        x += col.w;
-      });
-    });
-    return y + rows.length * rowH;
-  };
-
-  const drawSignature = (ctx: CanvasRenderingContext2D, y: number) => {
-    ctx.strokeStyle = "#e2e8f0";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(marginX, y - 40);
-    ctx.lineTo(pageW - marginX, y - 40);
-    ctx.stroke();
-    const dateLine = `Hà Giang, ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`;
-    drawPdfText(ctx, dateLine, pageW - 270, y, { size: 17, italic: true, color: "#334155", align: "center" });
-    drawPdfText(ctx, "Lãnh đạo Khoa", marginX + 180, y + 50, { size: 20, weight: "700", align: "center" });
-    drawPdfText(ctx, "Giảng viên", pageW - 270, y + 50, { size: 20, weight: "700", align: "center" });
-    drawPdfText(ctx, "(Ký & ghi rõ họ tên)", marginX + 180, y + 225, { size: 16, weight: "700", color: "#64748b", align: "center" });
-    drawPdfText(ctx, assignment.teacherName, pageW - 270, y + 225, { size: 19, weight: "700", color: "#1e3a8a", align: "center" });
-  };
-
-  let pdfPageIndex = 0;
-  const addCanvasPageToPdf = (canvas: HTMLCanvasElement) => {
-    if (pdfPageIndex > 0) pdf.addPage();
-    pdf.addImage(canvas.toDataURL("image/jpeg", 0.97), "JPEG", 0, 0, 210, 297);
-    pdfPageIndex += 1;
-  };
-
-  let gradeIndex = 0;
-  let pageNo = 1;
-  const sourceGrades = grades.length ? grades : [];
-  do {
-    const { canvas, ctx } = createCanvasPage();
-    const tableY = pageNo === 1 ? drawReportHeader(ctx) : drawContinuationHeader(ctx, pageNo);
-    drawTableHeader(ctx, tableY);
-    const rowsStartY = tableY + headerH;
-    const rowsPerPage = Math.max(1, Math.floor((contentBottom - rowsStartY) / rowH));
-    const rows = sourceGrades.slice(gradeIndex, gradeIndex + rowsPerPage);
-    const afterRowsY = drawTableRows(ctx, rows, gradeIndex, rowsStartY);
-    gradeIndex += rows.length;
-
-    const isLastPage = gradeIndex >= sourceGrades.length;
-    if (isLastPage) {
-      if (afterRowsY + 300 > contentBottom) {
-        addCanvasPageToPdf(canvas);
-        const next = createCanvasPage();
-        drawContinuationHeader(next.ctx, pageNo + 1);
-        drawSignature(next.ctx, 430);
-        addCanvasPageToPdf(next.canvas);
-      } else {
-        drawSignature(ctx, Math.max(afterRowsY + 95, contentBottom - 280));
-        addCanvasPageToPdf(canvas);
+  const docDefinition = {
+    pageSize: "A4",
+    pageOrientation: "portrait",
+    pageMargins: [28, 30, 28, 34],
+    defaultStyle: {
+      font: "Roboto",
+      fontSize: 8.5,
+      color: "#0f172a",
+      lineHeight: 1.12
+    },
+    footer: (currentPage: number, pageCount: number) => ({
+      columns: [
+        { text: `UniHub - ${assignment.subjectCode} - ${assignment.classId}`, alignment: "left", color: "#94a3b8", fontSize: 7 },
+        { text: `${currentPage}/${pageCount}`, alignment: "right", color: "#94a3b8", fontSize: 7 }
+      ],
+      margin: [28, 0, 28, 0]
+    }),
+    content: [
+      { text: "ĐẠI HỌC THÁI NGUYÊN", style: "schoolLine" },
+      { text: "PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI TỈNH HÀ GIANG", style: "branchLine" },
+      { text: "KHOA / BỘ MÔN CHUYÊN MÔN", style: "facultyLine" },
+      { text: "BÁO CÁO PHỔ ĐIỂM & BẢNG TỔNG KẾT MÔN HỌC", style: "reportTitle" },
+      { text: `Môn học: ${assignment.subjectName} (${assignment.subjectCode}) - Lớp: ${assignment.classId}`, style: "subtitle" },
+      {
+        canvas: [{ type: "line", x1: 0, y1: 0, x2: 539, y2: 0, lineWidth: 0.6, lineColor: "#e2e8f0" }],
+        margin: [0, 10, 0, 12]
+      },
+      {
+        columns: [
+          {
+            width: "50%",
+            stack: [
+              { text: [{ text: "Giảng viên giảng dạy: " }, { text: assignment.teacherName, bold: true }] },
+              { text: [{ text: "Lớp học phần: " }, { text: assignment.classId, bold: true, fontSize: 8.2 }], margin: [0, 10, 0, 0] }
+            ]
+          },
+          {
+            width: "50%",
+            stack: [
+              { text: [{ text: "Số tín chỉ học phần: " }, { text: `${assignment.credits} TC`, bold: true }] },
+              { text: [{ text: "Tổng số sinh viên: " }, { text: `${stats.total} SV`, bold: true }], margin: [0, 10, 0, 0] }
+            ]
+          }
+        ],
+        margin: [0, 0, 0, 14]
+      },
+      {
+        table: {
+          widths: ["*"],
+          body: [[
+            {
+              border: [false, false, false, false],
+              fillColor: "#f8fafc",
+              stack: [
+                { text: "TÓM TẮT PHÂN BỐ PHỔ ĐIỂM HỌC PHẦN:", style: "sectionTitle", margin: [0, 0, 0, 8] },
+                {
+                  columns: [
+                    createStatisticCard("Xuất sắc", stats.xuatSac, stats.total, { fill: "#faf5ff", border: "#e9d5ff", text: "#7e22ce" }),
+                    createStatisticCard("Giỏi", stats.gioi, stats.total, { fill: "#eff6ff", border: "#bfdbfe", text: "#1d4ed8" }),
+                    createStatisticCard("Khá", stats.kha, stats.total, { fill: "#ecfeff", border: "#a5f3fc", text: "#0e7490" }),
+                    createStatisticCard("Trung bình & Yếu", weakCount, stats.total, { fill: "#fffbeb", border: "#fde68a", text: "#b45309" })
+                  ],
+                  columnGap: 6
+                }
+              ]
+            }
+          ]]
+        },
+        layout: {
+          hLineColor: () => "#dbe4ef",
+          vLineColor: () => "#dbe4ef",
+          hLineWidth: () => 0.7,
+          vLineWidth: () => 0.7,
+          paddingLeft: () => 12,
+          paddingRight: () => 12,
+          paddingTop: () => 11,
+          paddingBottom: () => 11
+        },
+        margin: [0, 0, 0, 14]
+      },
+      {
+        table: {
+          headerRows: 1,
+          dontBreakRows: true,
+          keepWithHeaderRows: 1,
+          widths: [24, 72, "*", 30, 34, 42, 52, 58],
+          body: tableBody
+        },
+        layout: {
+          fillColor: (rowIndex: number) => {
+            if (rowIndex === 0) return "#f1f5f9";
+            return rowIndex % 2 === 0 ? "#f8fafc" : null;
+          },
+          hLineColor: () => "#cbd5e1",
+          vLineColor: () => "#dbe4ef",
+          hLineWidth: (i: number) => i === 0 || i === tableBody.length ? 0.7 : 0.45,
+          vLineWidth: () => 0.45,
+          paddingLeft: () => 4,
+          paddingRight: () => 4,
+          paddingTop: () => 5,
+          paddingBottom: () => 5
+        }
+      },
+      {
+        canvas: [{ type: "line", x1: 0, y1: 0, x2: 539, y2: 0, lineWidth: 0.6, lineColor: "#e2e8f0" }],
+        margin: [0, 18, 0, 10]
+      },
+      {
+        columns: [
+          {
+            width: "42%",
+            stack: [
+              { text: "XÁC NHẬN CỦA TRƯỞNG BỘ MÔN", style: "signatureTitle" },
+              { text: "\n\n\n\n", fontSize: 10 },
+              { text: "(Ký & ghi rõ họ tên)", style: "signatureHint" }
+            ],
+            alignment: "center"
+          },
+          { width: "16%", text: "" },
+          {
+            width: "42%",
+            stack: [
+              { text: `Hà Giang, ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`, italics: true, fontSize: 8.2, margin: [0, 0, 0, 5] },
+              { text: "GIẢNG VIÊN GIẢNG DẠY", style: "signatureTitle" },
+              { text: "\n\n\n", fontSize: 10 },
+              { text: assignment.teacherName, style: "teacherSignature" }
+            ],
+            alignment: "center"
+          }
+        ],
+        margin: [0, 0, 0, 0]
       }
-    } else {
-      addCanvasPageToPdf(canvas);
+    ],
+    styles: {
+      schoolLine: { alignment: "center", fontSize: 10, bold: true, color: "#475569", margin: [0, 0, 0, 2] },
+      branchLine: { alignment: "center", fontSize: 11.5, bold: true, color: "#1e3a8a", margin: [0, 0, 0, 2] },
+      facultyLine: { alignment: "center", fontSize: 9.5, bold: true, color: "#64748b", margin: [0, 0, 0, 10] },
+      reportTitle: { alignment: "center", fontSize: 13.5, bold: true, color: "#0f172a", margin: [0, 0, 0, 5] },
+      subtitle: { alignment: "center", fontSize: 8.4, italics: true, color: "#475569" },
+      sectionTitle: { fontSize: 8.8, bold: true, color: "#334155" },
+      statLabel: { fontSize: 7.2, bold: true },
+      statNumber: { fontSize: 12.5, bold: true },
+      statPercent: { fontSize: 7.2, color: "#64748b" },
+      tableHeader: { fontSize: 7, bold: true, color: "#334155" },
+      bodyStrong: { fontSize: 7.7, bold: true, color: "#0f172a" },
+      bodyMono: { fontSize: 7.5, color: "#0f172a" },
+      bodyMonoStrong: { fontSize: 7.5, bold: true, color: "#0f172a" },
+      blueMonoStrong: { fontSize: 7.5, bold: true, color: "#1d4ed8" },
+      mutedMono: { fontSize: 7.2, color: "#64748b" },
+      signatureTitle: { fontSize: 8.6, bold: true, color: "#0f172a" },
+      signatureHint: { fontSize: 7.8, bold: true, color: "#64748b" },
+      teacherSignature: { fontSize: 8.8, bold: true, color: "#1e3a8a" }
     }
-    pageNo += 1;
-  } while (gradeIndex < sourceGrades.length);
+  };
 
-  const fileName = `Bao_cao_pho_diem_${sanitizeFilePart(assignment.subjectCode)}_${sanitizeFilePart(assignment.classId)}.pdf`;
-  pdf.save(fileName);
+  pdfMake.createPdf(docDefinition).download(fileName);
 };
 
 const excelDateSerial = (value?: string | number) => {
