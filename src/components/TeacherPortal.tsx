@@ -279,8 +279,8 @@ const createStyledTeacherSheetXml = (
   </cols>
   <sheetData>${rowXml}</sheetData>
   ${mergeXml}
-  <pageMargins left="0.98425" right="0.19685" top="0.3937" bottom="0.19685" header="0.19685" footer="0.19685"/>
-  <pageSetup paperSize="9" orientation="landscape"/>
+  <pageMargins left="0.98425" right="0.19685" top="0.98425" bottom="0.7874" header="0.3937" footer="0.3937"/>
+  <pageSetup paperSize="9" orientation="landscape" scale="85"/>
   <headerFooter>
     <oddFooter>&amp;C${escapeXml(footerText)}</oddFooter>
   </headerFooter>
