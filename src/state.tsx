@@ -203,6 +203,12 @@ interface UniHubContextType {
   aggregateSubjectGradesToSemesterGpa: (semesterId: string) => { updatedCount: number; warningsCount: number };
 }
 
+export const normalizeClassId = (classId: string | undefined | null): string => {
+  if (!classId) return "";
+  let str = String(classId).trim();
+  return str.replace(/^(K\d+)[-_ ]+GDTH[-_ ]+([A-Z0-9]+)$/i, "$1-GDTH $2");
+};
+
 const UniHubContext = createContext<UniHubContextType | undefined>(undefined);
 
 export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -257,6 +263,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     return SEED_USERS;
   });
+
   const [criteria, setCriteria] = useState<PointCriteria[]>([]);
   const [students, setStudents] = useState<Student[]>(() => {
     const formatStudentId = (id: any) => {
@@ -278,7 +285,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     return list.map((s: Student) => ({
       ...s,
-      id: formatStudentId(s.id)
+      id: formatStudentId(s.id),
+      classId: normalizeClassId(s.classId)
     }));
   });
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -303,16 +311,30 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [dailyAttendance, setDailyAttendance] = useState<DailyAttendanceReport[]>([]);
   const [schedules, setSchedules] = useState<ScheduleSlot[]>(() => {
     const cached = localStorage.getItem("unihub_schedules");
+    let list: ScheduleSlot[] = SEED_SCHEDULES;
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) list = parsed;
       } catch {}
     }
-    return SEED_SCHEDULES;
+    return list.map(item => ({
+      ...item,
+      classId: normalizeClassId(item.classId),
+      className: normalizeClassId(item.className || item.classId)
+    }));
   });
   const [groupAttendances, setGroupAttendances] = useState<GroupAttendanceReport[]>([]);
-  const [customClasses, setCustomClasses] = useState<string[]>([]);
+  const [customClasses, setCustomClasses] = useState<string[]>(() => {
+    const cached = localStorage.getItem("unihub_custom_classes");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) return parsed.map(c => normalizeClassId(c));
+      } catch {}
+    }
+    return [];
+  });
   const [feedbacks, setFeedbacks] = useState<ScoreFeedback[]>([]);
   const [groupCriteria, setGroupCriteria] = useState<GroupEvaluationCriteria[]>([]);
   const [announcements, setAnnouncements] = useState<ClubAnnouncement[]>([]);
@@ -330,24 +352,33 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const [teacherAssignments, setTeacherAssignments] = useState<CourseClassAssignment[]>(() => {
     const cached = localStorage.getItem("unihub_teacher_assignments");
+    let list: CourseClassAssignment[] = SEED_TEACHER_ASSIGNMENTS;
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) list = parsed;
       } catch {}
     }
-    return SEED_TEACHER_ASSIGNMENTS;
+    return list.map(item => ({
+      ...item,
+      classId: normalizeClassId(item.classId),
+      className: normalizeClassId(item.className || item.classId)
+    }));
   });
 
   const [subjectGradeSheets, setSubjectGradeSheets] = useState<SubjectGradeSheet[]>(() => {
     const cached = localStorage.getItem("unihub_subject_grade_sheets");
+    let list: SubjectGradeSheet[] = SEED_SUBJECT_GRADES;
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) list = parsed;
       } catch {}
     }
-    return SEED_SUBJECT_GRADES;
+    return list.map(item => ({
+      ...item,
+      classId: normalizeClassId(item.classId)
+    }));
   });
 
   const [unlockRequests, setUnlockRequests] = useState<GradeUnlockRequest[]>(() => {

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useUniHub } from "../state";
+import { useUniHub, normalizeClassId } from "../state";
 import { UserRole, Student, UserAccount, ScheduleSlot, STUDENT_FIELDS_META, SEMESTER_LIST, CourseClassAssignment, GradeAppeal, GradingRulesConfig } from "../types";
 import { SEED_TEACHER_ASSIGNMENTS } from "../data";
 import * as XLSX from "xlsx";
@@ -2113,8 +2113,8 @@ export const TrainingPortal: React.FC = () => {
                   {/* Grid list of classes */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {Array.from(new Set([
-                      ...students.map(s => s.classId),
-                      ...customClasses
+                      ...students.map(s => normalizeClassId(s.classId)),
+                      ...customClasses.map(c => normalizeClassId(c))
                     ])).filter(Boolean).sort().map(clsId => {
                       const classStudents = students.filter(s => s.classId === clsId);
                       // Calculate completeness indicator
@@ -2378,10 +2378,8 @@ export const TrainingPortal: React.FC = () => {
           {/* TAB 4: THOI_KHOA_BIEU */}
           {activeTab === "THOI_KHOA_BIEU" && (() => {
             const availableScheduleClasses = Array.from(new Set([
-              ...students.map(s => s.classId),
-              ...customClasses,
-              ...teacherAssignments.map(a => a.classId),
-              ...schedules.map(s => s.classId)
+              ...students.map(s => normalizeClassId(s.classId)),
+              ...customClasses.map(c => normalizeClassId(c))
             ])).filter(Boolean).sort();
 
             // Set default class if empty or invalid
@@ -2389,7 +2387,7 @@ export const TrainingPortal: React.FC = () => {
               setSelectedScheduleClass(availableScheduleClasses[0]);
             }
 
-            const classSchedules = schedules.filter(s => s.classId === selectedScheduleClass);
+            const classSchedules = schedules.filter(s => normalizeClassId(s.classId) === selectedScheduleClass);
 
             return (
               <div className="space-y-6 text-left animate-fade-in">

@@ -125,7 +125,7 @@ export const SEED_USERS: UserAccount[] = [
     role: UserRole.TEACHER,
     email: "gv_nguyenminhnguyet@phhg.edu.vn",
     password: "Abc@123",
-    targetId: "K2-GDTH-A"
+    targetId: "K2-GDTH A"
   },
   {
     id: "U_TEA02",
@@ -318,7 +318,7 @@ export const SEED_STUDENTS: Student[] = [
   {
     id: "DTG2357140202099",
     name: "Hoàng Hải Nam",
-    classId: "K2-GDTH-A",
+    classId: "K2-GDTH A",
     facultyId: "K-GDTH",
     email: "namhh@unihub.edu.vn",
     gpa: 3.20,
@@ -335,7 +335,7 @@ export const SEED_STUDENTS: Student[] = [
   {
     id: "DTG245140202002",
     name: "Đỗ Thị Huyền Anh",
-    classId: "K2-GDTH-A",
+    classId: "K2-GDTH A",
     facultyId: "K-GDTH",
     email: "anhdth@unihub.edu.vn",
     gpa: 3.60,
@@ -352,7 +352,7 @@ export const SEED_STUDENTS: Student[] = [
   {
     id: "DTG245140202004",
     name: "Hứa Hải Anh",
-    classId: "K2-GDTH-A",
+    classId: "K2-GDTH A",
     facultyId: "K-GDTH",
     email: "anhhh@unihub.edu.vn",
     gpa: 3.10,
@@ -369,7 +369,7 @@ export const SEED_STUDENTS: Student[] = [
   {
     id: "DTG245140202007",
     name: "Hoàng Thị Ngọc Ánh",
-    classId: "K2-GDTH-A",
+    classId: "K2-GDTH A",
     facultyId: "K-GDTH",
     email: "anhhtn@unihub.edu.vn",
     gpa: 3.40,
@@ -976,7 +976,7 @@ export const SEED_SCHEDULES: ScheduleSlot[] = [
   },
   {
     id: "SCH_04",
-    classId: "K2-GDTH-A",
+    classId: "K2-GDTH A",
     className: "K2 GDTH A",
     subjectName: "Phương pháp dạy học Toán",
     subjectCode: "GDTH204",
@@ -994,7 +994,7 @@ export const SEED_SCHEDULES: ScheduleSlot[] = [
   },
   {
     id: "SCH_05",
-    classId: "K2-GDTH-A",
+    classId: "K2-GDTH A",
     className: "K2 GDTH A",
     subjectName: "Tâm lý học tiểu học",
     subjectCode: "GDTH205",
@@ -1040,8 +1040,8 @@ export const SEED_TEACHER_ASSIGNMENTS: CourseClassAssignment[] = [
     id: "HP_HOCKY_2_2025_2026_K2-GDTH-A_DFG2544",
     semesterId: "HOCKY_2_2025_2026",
     semesterName: "Học kỳ II - 2025-2026",
-    classId: "K2-GDTH-A",
-    className: "K2-GDTH-A",
+    classId: "K2-GDTH A",
+    className: "K2-GDTH A",
     subjectCode: "DFG2544",
     subjectName: "Đạo đức và phương pháp dạy học Đạo đức",
     credits: 2,
@@ -1055,8 +1055,8 @@ export const SEED_TEACHER_ASSIGNMENTS: CourseClassAssignment[] = [
     id: "HP_HOCKY_2_2025_2026_K2-GDTH-A_SRT5452",
     semesterId: "HOCKY_2_2025_2026",
     semesterName: "Học kỳ II - 2025-2026",
-    classId: "K2-GDTH-A",
-    className: "K2-GDTH-A",
+    classId: "K2-GDTH A",
+    className: "K2-GDTH A",
     subjectCode: "SRT5452",
     subjectName: "Lịch sử Đảng Cộng sản Việt Nam",
     credits: 2,
@@ -1102,7 +1102,7 @@ export const SEED_SUBJECT_GRADES: SubjectGradeSheet[] = [
   {
     id: "GRADE_HOCKY_2_2025_2026_K2GDTHA_VPS7251",
     semesterId: "HOCKY_2_2025_2026",
-    classId: "K2-GDTH-A",
+    classId: "K2-GDTH A",
     subjectCode: "VPS7251",
     subjectName: "Cơ sở Tự nhiên - xã hội",
     credits: 4,
@@ -1117,7 +1117,7 @@ export const SEED_SUBJECT_GRADES: SubjectGradeSheet[] = [
         studentName: "Hoàng Hải Nam",
         gender: "Nam",
         dob: "2006-01-01",
-        classId: "K2-GDTH-A",
+        classId: "K2-GDTH A",
         cc: 8.0,
         tx1: 9.0,
         tx2: 7.5,
@@ -1134,7 +1134,7 @@ export const SEED_SUBJECT_GRADES: SubjectGradeSheet[] = [
         studentName: "Đỗ Thị Huyền Anh",
         gender: "Nữ",
         dob: "2006-03-15",
-        classId: "K2-GDTH-A",
+        classId: "K2-GDTH A",
         cc: 9.0,
         tx1: 8.5,
         tx2: 9.0,
