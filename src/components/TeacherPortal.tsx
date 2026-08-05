@@ -1012,6 +1012,8 @@ export const TeacherPortal: React.FC = () => {
 
     const sourceStudents = matchingTrainingStudents.length > 0 ? matchingTrainingStudents : defaultSeedStudents;
 
+    const cleanId = (str: string) => String(str || "").replace(/^DTG/i, "").toLowerCase();
+
     if (baseGrades.length === 0) {
       baseGrades = sourceStudents.map((s: any, idx: number) => ({
         studentId: String(s.id || s.studentId || `STUDENT_${idx + 1}`).trim(),
@@ -1027,7 +1029,7 @@ export const TeacherPortal: React.FC = () => {
         const stId = String(st.id || st.studentId || "").trim();
         const stName = String(st.name || st.studentName || "").trim();
         const exists = baseGrades.some(g => 
-          (g.studentId && g.studentId.trim().toLowerCase() === stId.toLowerCase()) ||
+          cleanId(g.studentId) === cleanId(stId) ||
           (g.studentName && g.studentName.trim().toLowerCase() === stName.toLowerCase())
         );
         if (!exists) {
@@ -1043,18 +1045,43 @@ export const TeacherPortal: React.FC = () => {
       });
     }
 
-    // Normalize studentId for clean matching
+    // Normalize studentId AND recalculate all scores according to the current grade scale!
     const normalized = baseGrades.map((g: any, idx: number) => {
       const fallbackId = `SV_${Date.now()}_${idx + 1}`;
-      return {
+      const item = {
         ...g,
         studentId: String(g.studentId || g.id || fallbackId).trim(),
         studentName: String(g.studentName || g.name || `Sinh viên ${idx + 1}`).trim()
       };
+      return calculateSingleRow(item);
     });
 
     setCurrentGrades(normalized);
   }, [activeGradeSheet, activeAssignment, students]);
+
+  // Auto-sync currentGrades to persistent storage so F5/Reload never loses student grades
+  React.useEffect(() => {
+    if (!activeAssignment || currentGrades.length === 0) return;
+    
+    const hasAnyScores = currentGrades.some(g => (g.cc && g.cc !== "-") || (g.exam && g.exam !== "-") || g.tx1 || g.tx2 || g.dk1 || g.dk2);
+    if (!hasAnyScores) return;
+
+    const sheetToSave: SubjectGradeSheet = {
+      id: activeGradeSheet?.id || `GRADE_${activeAssignment.semesterId}_${activeAssignment.classId}_${activeAssignment.subjectCode}`,
+      semesterId: activeAssignment.semesterId,
+      classId: activeAssignment.classId,
+      subjectCode: activeAssignment.subjectCode,
+      subjectName: activeAssignment.subjectName,
+      credits: activeAssignment.credits,
+      teacherId: currentUser?.email || "teacher",
+      teacherName: currentUser?.name || "Giảng viên",
+      status: activeGradeSheet?.status || "DRAFT",
+      grades: currentGrades,
+      updatedAt: new Date().toISOString().split("T")[0]
+    };
+
+    saveSubjectGradeSheet(sheetToSave);
+  }, [currentGrades, activeAssignment]);
 
   // Helper auto calculator
   const calculateSingleRow = (grade: SubjectStudentGrade): SubjectStudentGrade => {
