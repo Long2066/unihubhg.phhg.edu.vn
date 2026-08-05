@@ -26,7 +26,8 @@ import {
   Bell,
   Sliders,
   AlertTriangle,
-  Send
+  Send,
+  Search
 } from "lucide-react";
 
 export const formatStudentId = (id: any) => {
@@ -75,6 +76,7 @@ export const TrainingPortal: React.FC = () => {
     setActivePortletTab(tab);
   };
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [classDetailSearchQuery, setClassDetailSearchQuery] = useState("");
 
   // Modal manual edit GPA
   const [editGpa, setEditGpa] = useState(3.0);
@@ -910,7 +912,7 @@ export const TrainingPortal: React.FC = () => {
     alert("Nhập danh mục nhiều lớp & auto-provision tài khoản BCS lớp (cblk2gdtha@hg.edu.vn / password123) thành công!");
   };
 
-  const handleExportClassStudentsExcel = (targetClassId: string) => {
+  const handleExportClassStudentsExcel = async (targetClassId: string) => {
     const classStudents = students.filter(s => s.classId === targetClassId);
     const headers = [
       "STT", "Mã sinh viên", "Họ và tên", "Giới tính", "Ngày sinh", "Nơi sinh", "Dân tộc", "Tôn giáo", "Quốc tịch", "Số CCCD/CMND",
@@ -920,11 +922,43 @@ export const TrainingPortal: React.FC = () => {
       "Học phí còn nợ", "Trạng thái thanh toán", "Ghi chú", "Ngày cập nhật"
     ];
 
-    const rows = classStudents.map((s, idx) => {
-      return [
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet(`Lớp ${targetClassId}`);
+
+    worksheet.pageSetup = {
+      orientation: 'landscape',
+      paperSize: 9,
+      fitToPage: false
+    };
+
+    // Header Row
+    const headerRow = worksheet.addRow(headers);
+    headerRow.height = 26;
+    headerRow.eachCell((cell) => {
+      cell.font = { name: "Times New Roman", size: 10, bold: true };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "F1F5F9" }
+      };
+      cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+      cell.border = {
+        top: { style: "thin", color: { argb: "CBD5E1" } },
+        left: { style: "thin", color: { argb: "CBD5E1" } },
+        bottom: { style: "medium", color: { argb: "94A3B8" } },
+        right: { style: "thin", color: { argb: "CBD5E1" } }
+      };
+    });
+
+    const colWidths = headers.map(h => Math.max(h.length + 3, 10));
+
+    // Data Rows
+    classStudents.forEach((s, idx) => {
+      const formattedId = formatStudentId(s.id);
+      const rowValues = [
         idx + 1,
-        s.id,
-        s.name,
+        formattedId,
+        s.name || "",
         s.gender || "",
         s.dob || "",
         s.pob || "",
@@ -967,12 +1001,46 @@ export const TrainingPortal: React.FC = () => {
         s.notes || "",
         s.updatedAt || new Date().toISOString().split("T")[0]
       ];
+
+      const row = worksheet.addRow(rowValues);
+      row.height = 20;
+
+      rowValues.forEach((val, colIdx) => {
+        const valStr = String(val ?? "");
+        if (valStr.length + 3 > colWidths[colIdx]) {
+          colWidths[colIdx] = Math.min(valStr.length + 3, 40);
+        }
+
+        const cell = row.getCell(colIdx + 1);
+        cell.font = { name: "Times New Roman", size: 10 };
+        cell.alignment = {
+          vertical: "middle",
+          horizontal: colIdx === 0 || colIdx === 1 || colIdx === 3 || colIdx === 4 || colIdx === 9 || colIdx === 16 ? "center" : "left",
+          wrapText: true
+        };
+        cell.border = {
+          top: { style: "thin", color: { argb: "E2E8F0" } },
+          left: { style: "thin", color: { argb: "E2E8F0" } },
+          bottom: { style: "thin", color: { argb: "E2E8F0" } },
+          right: { style: "thin", color: { argb: "E2E8F0" } }
+        };
+      });
     });
 
-    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
-    XLSX.writeFile(workbook, `Thong_tin_sinh_vien_Lop_${targetClassId}.xlsx`);
+    worksheet.columns.forEach((col, colIdx) => {
+      if (colWidths[colIdx]) {
+        col.width = colWidths[colIdx];
+      }
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Thong_tin_sinh_vien_Lop_${targetClassId}.xlsx`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleImportClassStudentsExcel = (e: React.ChangeEvent<HTMLInputElement>, targetClassId: string) => {
@@ -2082,6 +2150,16 @@ export const TrainingPortal: React.FC = () => {
                 // CLASS DETAIL VIEW (IDENTICAL INTERFACE INSIDE EACH CLASS)
                 (() => {
                   const classStudents = students.filter(s => s.classId === selectedClassId);
+                  const displayClassStudents = classStudents.filter(s => {
+                    if (!classDetailSearchQuery.trim()) return true;
+                    const q = classDetailSearchQuery.trim().toLowerCase();
+                    const formattedId = formatStudentId(s.id).toLowerCase();
+                    const rawId = String(s.id || "").toLowerCase();
+                    const name = String(s.name || "").toLowerCase();
+                    const idCard = String(s.idCard || "").toLowerCase();
+                    const phone = String(s.phone || "").toLowerCase();
+                    return name.includes(q) || idCard.includes(q) || formattedId.includes(q) || rawId.includes(q) || phone.includes(q);
+                  });
                   
                   return (
                     <div className="space-y-4 animate-fade-in">
@@ -2150,14 +2228,41 @@ export const TrainingPortal: React.FC = () => {
 
                       {/* Students table */}
                       <div className="bg-white border border-slate-150 rounded-2xl overflow-hidden shadow-xs">
-                        <div className="p-4 border-b border-slate-150 flex justify-between items-center bg-slate-50/50">
-                          <h4 className="text-xs font-extrabold text-slate-750 uppercase tracking-wider">Danh sách Sinh viên Lớp {selectedClassId}</h4>
-                          <span className="text-[10px] text-slate-400 leading-none font-medium">Bầm "Sửa nhanh" để điền trực tiếp thông tin</span>
+                        <div className="p-4 border-b border-slate-150 flex justify-between items-center bg-slate-50/50 flex-wrap gap-3">
+                          <div>
+                            <h4 className="text-xs font-extrabold text-slate-750 uppercase tracking-wider">Danh sách Sinh viên Lớp {selectedClassId}</h4>
+                            <span className="text-[10px] text-slate-400 leading-none font-medium">Bấm "Sửa nhanh" để điền trực tiếp thông tin</span>
+                          </div>
+
+                          {/* Search Bar */}
+                          <div className="relative min-w-[280px]">
+                            <Search className="absolute left-3 top-2.5 text-slate-400" size={14} />
+                            <input
+                              type="text"
+                              placeholder="Tìm theo Họ và tên, CCCD, Mã SV..."
+                              value={classDetailSearchQuery}
+                              onChange={(e) => setClassDetailSearchQuery(e.target.value)}
+                              className="w-full pl-9 pr-7 py-1.5 bg-white border border-slate-250 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-2xs text-slate-800 font-medium placeholder:text-slate-400"
+                            />
+                            {classDetailSearchQuery && (
+                              <button
+                                onClick={() => setClassDetailSearchQuery("")}
+                                className="absolute right-2.5 top-1.5 text-slate-400 hover:text-slate-600 font-bold text-xs cursor-pointer"
+                                title="Xóa từ khóa"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         {classStudents.length === 0 ? (
                           <div className="p-8 text-center text-slate-400 text-xs font-medium">
                             Lớp chưa có sinh viên nào. Vui lòng nạp tệp Excel danh sách sinh viên!
+                          </div>
+                        ) : displayClassStudents.length === 0 ? (
+                          <div className="p-8 text-center text-slate-400 text-xs font-medium">
+                            Không tìm thấy sinh viên nào phù hợp với từ khóa "{classDetailSearchQuery}".
                           </div>
                         ) : (
                           <div className="overflow-x-auto">
@@ -2174,9 +2279,9 @@ export const TrainingPortal: React.FC = () => {
                                   <th className="p-3 font-mono text-center">Trạng thái hồ sơ</th>
                                   <th className="p-3 font-mono text-center">Tác vụ</th>
                                 </tr>
-                              </thead>
+                               </thead>
                               <tbody className="divide-y divide-slate-100 text-slate-700">
-                                {classStudents.map((s, idx) => {
+                                {displayClassStudents.map((s, idx) => {
                                   // Count filled fields out of 44
                                   let filled = 0;
                                   STUDENT_FIELDS_META.forEach(f => {
