@@ -223,8 +223,10 @@ const serializeCell = (row: number, cell: TeacherExcelCell) => {
   const formula = cell.formula;
 
   if (formula) {
-    const valTag = (value !== undefined && value !== null && value !== "") ? `<v>${value}</v>` : "";
-    return `<c r=\"${ref}\"${style}><f>${escapeXml(formula)}</f>${valTag}</c>`;
+    const isStringResult = typeof value === "string" && !/^-?\d+(\.\d+)?$/.test(value.trim());
+    const typeAttr = isStringResult ? ' t="str"' : "";
+    const valTag = (value !== undefined && value !== null && value !== "") ? `<v>${escapeXmlText(value)}</v>` : "";
+    return `<c r=\"${ref}\"${style}${typeAttr}><f>${escapeXml(formula)}</f>${valTag}</c>`;
   }
 
   if (value === undefined || value === null || value === "") {
@@ -286,17 +288,17 @@ const createStyledTeacherSheetXml = (
   </cols>
   <sheetData>${rowXml}</sheetData>
   ${mergeXml}
-  <pageMargins left="0.98425" right="0.19685" top="0.98425" bottom="0.7874" header="0.3937" footer="0.3937"/>
-  <pageSetup paperSize="9" orientation="landscape" scale="85"/>
-  <headerFooter>
-    <oddFooter>&amp;C${escapeXml(footerText)}</oddFooter>
-  </headerFooter>
   <dataValidations count="1">
     <dataValidation type="decimal" operator="between" allowBlank="1" showInputMessage="1" showErrorMessage="1" errorTitle="Lỗi nhập điểm" error="Điểm số nhập vào phải là số từ 0.0 đến 10.0!" sqref="F3:K${lastRow}">
       <formula1>0</formula1>
       <formula2>10</formula2>
     </dataValidation>
   </dataValidations>
+  <pageMargins left="0.98425" right="0.19685" top="0.98425" bottom="0.7874" header="0.3937" footer="0.3937"/>
+  <pageSetup paperSize="9" orientation="landscape" scale="85"/>
+  <headerFooter>
+    <oddFooter>&amp;C${escapeXml(footerText)}</oddFooter>
+  </headerFooter>
 </worksheet>`;
 };
 
