@@ -253,6 +253,17 @@ export const TrainingPortal: React.FC = () => {
       worksheet.mergeCells(`G${deptRowNumber}:H${deptRowNumber}`);
       worksheet.mergeCells(`G${signRowNumber}:H${signRowNumber}`);
 
+      worksheet.getColumn(1).width = 7;
+      worksheet.getColumn(2).width = 25;
+      worksheet.getColumn(3).width = 18;
+      worksheet.getColumn(4).width = 42;
+      worksheet.getColumn(5).width = 12;
+      worksheet.getColumn(6).width = 18;
+      worksheet.getColumn(7).width = 34;
+      worksheet.getColumn(8).width = 30;
+      worksheet.getColumn(9).width = 22;
+      worksheet.getColumn(10).width = 16;
+
       workbook.creator = "UniHubHG";
       workbook.modified = now;
       worksheet.pageSetup = {
