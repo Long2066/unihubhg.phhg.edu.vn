@@ -419,24 +419,47 @@ export const TrainingPortal: React.FC = () => {
           teacherPassword: 8
         };
 
-        // Scan the first 15 rows to find header row and map column positions dynamically
+        // Scan the first 15 rows to find the REAL table header row (skipping banner/title rows)
         for (let i = 0; i < Math.min(15, jsonData.length); i++) {
           const row = jsonData[i];
           if (!row || !Array.isArray(row)) continue;
 
           const rowText = row.map(cell => String(cell || "").toLowerCase()).join(" ");
-          if (rowText.includes("mã học phần") || rowText.includes("mã học kỳ") || rowText.includes("lớp niên chế") || rowText.includes("giảng viên")) {
+
+          // Ignore main banner / title rows
+          if (rowText.includes("bảng phân công") || rowText.includes("trích xuất từ") || rowText.includes("phân hiệu đhtn")) {
+            continue;
+          }
+
+          // A valid table header row must contain explicit table header keywords
+          const hasSubjectHeader = rowText.includes("mã học phần") || rowText.includes("mã hp") || rowText.includes("mã môn");
+          const hasClassHeader = rowText.includes("lớp niên chế") || rowText.includes("lớp học phần") || rowText.includes("lớp");
+          const hasTeacherHeader = rowText.includes("giảng viên") || rowText.includes("họ và tên");
+
+          if (hasSubjectHeader || (hasClassHeader && hasTeacherHeader)) {
             headerIdx = i;
             row.forEach((cell: any, cIdx: number) => {
               const val = String(cell || "").trim().toLowerCase();
-              if (val.includes("học kỳ") || val.includes("mã học kỳ")) colMap.semId = cIdx;
-              else if (val.includes("mã học phần") || val.includes("mã hp") || val.includes("mã môn")) colMap.subjectCode = cIdx;
-              else if (val.includes("tên học phần") || val.includes("tên hp") || val.includes("tên môn")) colMap.subjectName = cIdx;
-              else if (val.includes("tín chỉ") || val.includes("số tc") || val.includes("số tín")) colMap.credits = cIdx;
-              else if (val.includes("lớp")) colMap.classId = cIdx;
-              else if (val.includes("mã / email") || val.includes("email giảng viên") || val.includes("mã giảng viên")) colMap.teacherId = cIdx;
-              else if (val.includes("họ và tên") || val.includes("họ tên")) colMap.teacherName = cIdx;
-              else if (val.includes("mật khẩu")) colMap.teacherPassword = cIdx;
+              // Only evaluate short cell strings as header labels (skip long description text)
+              if (val.length > 60) return;
+
+              if (val.includes("mã học kỳ") || val === "mã hk" || val === "học kỳ") {
+                colMap.semId = cIdx;
+              } else if (val.includes("mã học phần") || val.includes("mã hp") || val.includes("mã môn")) {
+                colMap.subjectCode = cIdx;
+              } else if (val.includes("tên học phần") || val.includes("tên hp") || val.includes("tên môn")) {
+                colMap.subjectName = cIdx;
+              } else if (val.includes("tín chỉ") || val.includes("số tc") || val.includes("số tín")) {
+                colMap.credits = cIdx;
+              } else if (val.includes("lớp niên chế") || val === "lớp" || val.includes("lớp hp")) {
+                colMap.classId = cIdx;
+              } else if (val.includes("mã / email") || val.includes("email giảng viên") || val.includes("mã giảng viên")) {
+                colMap.teacherId = cIdx;
+              } else if (val.includes("họ và tên") || val.includes("họ tên")) {
+                colMap.teacherName = cIdx;
+              } else if (val.includes("mật khẩu")) {
+                colMap.teacherPassword = cIdx;
+              }
             });
             break;
           }
