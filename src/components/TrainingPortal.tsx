@@ -129,6 +129,7 @@ export const TrainingPortal: React.FC = () => {
   // Edit Assignment Modal State
   const [showEditAssignmentModal, setShowEditAssignmentModal] = useState<boolean>(false);
   const [editingAssignmentId, setEditingAssignmentId] = useState<string>("");
+  const [selectedAssignmentIds, setSelectedAssignmentIds] = useState<string[]>([]);
   const [editAssignForm, setEditAssignForm] = useState({
     classId: "",
     subjectCode: "",
@@ -348,6 +349,40 @@ export const TrainingPortal: React.FC = () => {
     setShowEditAssignmentModal(false);
     setEditingAssignmentId("");
     alert(`Đã điều chỉnh phân công giảng dạy và cập nhật mật khẩu cho Giảng viên thành công!`);
+  };
+
+  // Handlers for Assignment Deletion (Xóa từng giảng viên & Xóa hàng loạt)
+  const handleToggleSelectAllAssignments = (semAssignments: CourseClassAssignment[]) => {
+    const semIds = semAssignments.map(a => a.id);
+    const allSelected = semIds.length > 0 && semIds.every(id => selectedAssignmentIds.includes(id));
+    if (allSelected) {
+      setSelectedAssignmentIds(prev => prev.filter(id => !semIds.includes(id)));
+    } else {
+      setSelectedAssignmentIds(prev => Array.from(new Set([...prev, ...semIds])));
+    }
+  };
+
+  const handleToggleSelectAssignment = (id: string) => {
+    setSelectedAssignmentIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleDeleteSingleAssignment = (assignment: CourseClassAssignment) => {
+    if (window.confirm(`Xác nhận xóa phân công giảng dạy môn "${assignment.subjectName}" (${assignment.subjectCode}) - Lớp ${assignment.classId} của giảng viên ${assignment.teacherName}?`)) {
+      const updated = teacherAssignments.filter(a => a.id !== assignment.id);
+      saveTeacherAssignments(updated);
+      setSelectedAssignmentIds(prev => prev.filter(id => id !== assignment.id));
+    }
+  };
+
+  const handleBulkDeleteAssignments = () => {
+    if (selectedAssignmentIds.length === 0) return;
+    if (window.confirm(`Xác nhận xóa hàng loạt ${selectedAssignmentIds.length} phân công giảng dạy đã chọn?`)) {
+      const updated = teacherAssignments.filter(a => !selectedAssignmentIds.includes(a.id));
+      saveTeacherAssignments(updated);
+      setSelectedAssignmentIds([]);
+    }
   };
 
   // Schedule Management State
@@ -1610,6 +1645,17 @@ export const TrainingPortal: React.FC = () => {
                     <span>Nhắc nhở deadline</span>
                   </button>
 
+                  {selectedAssignmentIds.length > 0 && (
+                    <button
+                      onClick={handleBulkDeleteAssignments}
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all"
+                      title="Xóa tất cả các phân công giảng dạy đã chọn"
+                    >
+                      <Trash2 size={13} />
+                      <span>Xóa đã chọn ({selectedAssignmentIds.length})</span>
+                    </button>
+                  )}
+
                   <button
                     onClick={() => setShowRulesModal(true)}
                     className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-2xs"
@@ -1661,71 +1707,105 @@ export const TrainingPortal: React.FC = () => {
               })()}
 
               {/* Assignments Table */}
-              <div className="border border-slate-200 bg-white rounded-xl overflow-hidden shadow-2xs">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
-                      <th className="p-3 w-12 text-center">STT</th>
-                      <th className="p-3 w-32 font-mono">Mã HP</th>
-                      <th className="p-3">Tên Học Phần</th>
-                      <th className="p-3 text-center w-16">Số TC</th>
-                      <th className="p-3 w-32">Lớp Niên Chế</th>
-                      <th className="p-3">Giảng viên Đảm Nhận</th>
-                      <th className="p-3 text-center w-28">Trạng thái Nộp</th>
-                      <th className="p-3 text-right w-24">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {teacherAssignments.filter(a => a.semesterId === selectedSemesterId).length === 0 ? (
-                      <tr>
-                        <td colSpan={8} className="p-8 text-center text-slate-400 text-xs">
-                          Chưa có phân công nào trong học kỳ này. Bấm "Xuất Excel Mẫu", "Nạp Excel Phân công" hoặc "Thêm thủ công" để tạo mới.
-                        </td>
-                      </tr>
-                    ) : (
-                      teacherAssignments.filter(a => a.semesterId === selectedSemesterId).map((item, idx) => {
-                        const sheet = subjectGradeSheets.find(s => s.semesterId === item.semesterId && s.classId === item.classId && s.subjectCode === item.subjectCode);
-                        const isSubmitted = sheet?.status === "SUBMITTED" || sheet?.status === "LOCKED";
-                        const isDraft = sheet?.status === "DRAFT";
+              {(() => {
+                const currentSemAssignments = teacherAssignments.filter(a => a.semesterId === selectedSemesterId);
+                const isAllSelected = currentSemAssignments.length > 0 && currentSemAssignments.every(a => selectedAssignmentIds.includes(a.id));
 
-                        return (
-                          <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="p-3 text-center font-mono text-slate-400">{idx + 1}</td>
-                            <td className="p-3 font-mono font-bold text-blue-700">{item.subjectCode}</td>
-                            <td className="p-3 font-bold text-slate-900">{item.subjectName}</td>
-                            <td className="p-3 text-center font-mono font-bold text-slate-700">{item.credits}</td>
-                            <td className="p-3 font-mono font-bold text-slate-800">{item.classId}</td>
-                            <td className="p-3 text-slate-800 font-medium">
-                              {item.teacherName}
-                              <span className="block text-[10px] font-mono text-slate-400">{item.teacherId}</span>
-                            </td>
-                            <td className="p-3 text-center">
-                              <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                                isSubmitted
-                                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                  : isDraft
-                                  ? "bg-blue-50 text-blue-800 border-blue-200"
-                                  : "bg-amber-50 text-amber-800 border-amber-200"
-                              }`}>
-                                {isSubmitted ? "Đã nộp điểm" : isDraft ? "Đang lưu nháp" : "Chưa nộp điểm"}
-                              </span>
-                            </td>
-                            <td className="p-3 text-right">
-                              <button
-                                onClick={() => handleOpenEditAssignmentModal(item)}
-                                className="p-1.5 bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-800 rounded-lg border border-slate-200 transition-colors cursor-pointer inline-flex items-center gap-1 shadow-2xs"
-                                title="Hiệu chỉnh phân công giảng viên thủ công"
-                              >
-                                <Edit size={13} />
-                              </button>
+                return (
+                  <div className="border border-slate-200 bg-white rounded-xl overflow-hidden shadow-2xs">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                          <th className="p-3 w-10 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isAllSelected}
+                              onChange={() => handleToggleSelectAllAssignments(currentSemAssignments)}
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                              title="Chọn / Bỏ chọn tất cả"
+                            />
+                          </th>
+                          <th className="p-3 w-12 text-center">STT</th>
+                          <th className="p-3 w-32 font-mono">Mã HP</th>
+                          <th className="p-3">Tên Học Phần</th>
+                          <th className="p-3 text-center w-16">Số TC</th>
+                          <th className="p-3 w-32">Lớp Niên Chế</th>
+                          <th className="p-3">Giảng viên Đảm Nhận</th>
+                          <th className="p-3 text-center w-28">Trạng thái Nộp</th>
+                          <th className="p-3 text-right w-24">Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {currentSemAssignments.length === 0 ? (
+                          <tr>
+                            <td colSpan={9} className="p-8 text-center text-slate-400 text-xs">
+                              Chưa có phân công nào trong học kỳ này. Bấm "Xuất Excel Mẫu", "Nạp Excel Phân công" hoặc "Thêm thủ công" để tạo mới.
                             </td>
                           </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                        ) : (
+                          currentSemAssignments.map((item, idx) => {
+                            const sheet = subjectGradeSheets.find(s => s.semesterId === item.semesterId && s.classId === item.classId && s.subjectCode === item.subjectCode);
+                            const isSubmitted = sheet?.status === "SUBMITTED" || sheet?.status === "LOCKED";
+                            const isDraft = sheet?.status === "DRAFT";
+                            const isRowSelected = selectedAssignmentIds.includes(item.id);
+
+                            return (
+                              <tr key={item.id} className={`transition-colors ${isRowSelected ? "bg-blue-50/60" : "hover:bg-slate-50/80"}`}>
+                                <td className="p-3 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={isRowSelected}
+                                    onChange={() => handleToggleSelectAssignment(item.id)}
+                                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                  />
+                                </td>
+                                <td className="p-3 text-center font-mono text-slate-400">{idx + 1}</td>
+                                <td className="p-3 font-mono font-bold text-blue-700">{item.subjectCode}</td>
+                                <td className="p-3 font-bold text-slate-900">{item.subjectName}</td>
+                                <td className="p-3 text-center font-mono font-bold text-slate-700">{item.credits}</td>
+                                <td className="p-3 font-mono font-bold text-slate-800">{item.classId}</td>
+                                <td className="p-3 text-slate-800 font-medium">
+                                  {item.teacherName}
+                                  <span className="block text-[10px] font-mono text-slate-400">{item.teacherId}</span>
+                                </td>
+                                <td className="p-3 text-center">
+                                  <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                                    isSubmitted
+                                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                      : isDraft
+                                      ? "bg-blue-50 text-blue-800 border-blue-200"
+                                      : "bg-amber-50 text-amber-800 border-amber-200"
+                                  }`}>
+                                    {isSubmitted ? "Đã nộp điểm" : isDraft ? "Đang lưu nháp" : "Chưa nộp điểm"}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <button
+                                      onClick={() => handleOpenEditAssignmentModal(item)}
+                                      className="p-1.5 bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-800 rounded-lg border border-slate-200 transition-colors cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+                                      title="Hiệu chỉnh phân công giảng viên thủ công"
+                                    >
+                                      <Edit size={13} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteSingleAssignment(item)}
+                                      className="p-1.5 bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-700 rounded-lg border border-slate-200 transition-colors cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+                                      title="Xóa phân công giảng dạy này"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
