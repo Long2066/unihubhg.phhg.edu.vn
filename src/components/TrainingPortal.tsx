@@ -246,6 +246,7 @@ export const TrainingPortal: React.FC = () => {
       }
 
       worksheet.getCell(`G${dateRowNumber}`).value = `Tuyên Quang, ngày ${dayStr}, tháng ${monthStr}, năm ${yearStr}`;
+      worksheet.getCell(`G${dateRowNumber}`).alignment = { horizontal: "right", vertical: "middle" };
       worksheet.getCell(`G${deptRowNumber}`).value = "Phòng Đào tạo NCKH & hợp tác Quốc tế";
       worksheet.getCell(`G${signRowNumber}`).value = "Chức danh. Họ và tên";
       worksheet.mergeCells(`G${dateRowNumber}:I${dateRowNumber}`);
@@ -343,7 +344,7 @@ export const TrainingPortal: React.FC = () => {
   const [showSchedulePreview, setShowSchedulePreview] = useState<boolean>(false);
   const [selectedScheduleClass, setSelectedScheduleClass] = useState<string>("");
 
-  // Handler: Import Assignments from Excel
+  // Handler: Import Assignments from Excel (Hỗ trợ file xuất mẫu 10 cột & nhận diện tiêu đề động)
   const handleImportAssignmentExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -358,9 +359,39 @@ export const TrainingPortal: React.FC = () => {
         const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
         let headerIdx = -1;
-        for (let i = 0; i < Math.min(10, jsonData.length); i++) {
-          if (jsonData[i] && jsonData[i].some(cell => String(cell).includes("Lớp") || String(cell).includes("Mã môn") || String(cell).includes("Giảng viên"))) {
+        // Default mapping based on standard 10-column export template:
+        // Col A (0): STT | Col B (1): Mã HK | Col C (2): Mã HP | Col D (3): Tên HP | Col E (4): Số TC
+        // Col F (5): Lớp | Col G (6): Email/Mã GV | Col H (7): Họ tên GV | Col I (8): Mật khẩu | Col J (9): Ghi chú
+        let colMap = {
+          semId: 1,
+          subjectCode: 2,
+          subjectName: 3,
+          credits: 4,
+          classId: 5,
+          teacherId: 6,
+          teacherName: 7,
+          teacherPassword: 8
+        };
+
+        // Scan the first 15 rows to find header row and map column positions dynamically
+        for (let i = 0; i < Math.min(15, jsonData.length); i++) {
+          const row = jsonData[i];
+          if (!row || !Array.isArray(row)) continue;
+
+          const rowText = row.map(cell => String(cell || "").toLowerCase()).join(" ");
+          if (rowText.includes("mã học phần") || rowText.includes("mã học kỳ") || rowText.includes("lớp niên chế") || rowText.includes("giảng viên")) {
             headerIdx = i;
+            row.forEach((cell: any, cIdx: number) => {
+              const val = String(cell || "").trim().toLowerCase();
+              if (val.includes("học kỳ") || val.includes("mã học kỳ")) colMap.semId = cIdx;
+              else if (val.includes("mã học phần") || val.includes("mã hp") || val.includes("mã môn")) colMap.subjectCode = cIdx;
+              else if (val.includes("tên học phần") || val.includes("tên hp") || val.includes("tên môn")) colMap.subjectName = cIdx;
+              else if (val.includes("tín chỉ") || val.includes("số tc") || val.includes("số tín")) colMap.credits = cIdx;
+              else if (val.includes("lớp")) colMap.classId = cIdx;
+              else if (val.includes("mã / email") || val.includes("email giảng viên") || val.includes("mã giảng viên")) colMap.teacherId = cIdx;
+              else if (val.includes("họ và tên") || val.includes("họ tên")) colMap.teacherName = cIdx;
+              else if (val.includes("mật khẩu")) colMap.teacherPassword = cIdx;
+            });
             break;
           }
         }
@@ -370,31 +401,46 @@ export const TrainingPortal: React.FC = () => {
 
         for (let i = startRow; i < jsonData.length; i++) {
           const row = jsonData[i];
-          if (!row || !row[1] || !row[2]) continue;
+          if (!row || !Array.isArray(row) || row.length === 0) continue;
 
-          const semId = String(row[0] || selectedSemesterId).trim();
-          const classId = String(row[1] || "").trim();
-          const subjectCode = String(row[2] || "").trim();
-          const subjectName = String(row[3] || "").trim();
-          const credits = parseInt(String(row[4] || "2"), 10) || 2;
-          const teacherId = String(row[5] || "").trim();
-          const teacherName = String(row[6] || "").trim();
-          const teacherPassword = String(row[7] || "password123").trim();
-
-          if (classId && subjectCode) {
-            newAssignments.push({
-              id: `HP_${semId}_${classId}_${subjectCode}`,
-              semesterId: semId,
-              classId,
-              subjectCode,
-              subjectName,
-              credits,
-              teacherId: teacherId || "teacher",
-              teacherName: teacherName || "Giảng viên",
-              teacherPassword: teacherPassword || "password123",
-              status: "PENDING"
-            });
+          // Skip signature or department footer rows
+          const fullRowText = row.map(c => String(c || "")).join(" ").toLowerCase();
+          if (fullRowText.includes("tuyên quang") || fullRowText.includes("phòng đào tạo") || fullRowText.includes("chức danh") || fullRowText.includes("trích xuất từ")) {
+            continue;
           }
+
+          const subjectCode = String(row[colMap.subjectCode] || "").trim();
+          const classId = String(row[colMap.classId] || "").trim();
+
+          // Ignore rows without mandatory subjectCode or classId
+          if (!subjectCode || !classId || subjectCode.toLowerCase().includes("mã học phần") || classId.toLowerCase().includes("lớp")) {
+            continue;
+          }
+
+          let semId = String(row[colMap.semId] || "").trim();
+          if (!semId || semId.match(/^\d+$/)) {
+            // If semId is missing or accidentally read STT number, fallback to current selectedSemesterId
+            semId = selectedSemesterId || "HOCKY_2_2025_2026";
+          }
+
+          const subjectName = String(row[colMap.subjectName] || "").trim();
+          const credits = parseInt(String(row[colMap.credits] || "2"), 10) || 2;
+          const teacherId = String(row[colMap.teacherId] || "").trim();
+          const teacherName = String(row[colMap.teacherName] || "").trim();
+          const teacherPassword = String(row[colMap.teacherPassword] || "Abc@123").trim();
+
+          newAssignments.push({
+            id: `HP_${semId}_${classId}_${subjectCode}`,
+            semesterId: semId,
+            classId,
+            subjectCode,
+            subjectName,
+            credits,
+            teacherId: teacherId || "teacher",
+            teacherName: teacherName || "Giảng viên",
+            teacherPassword: teacherPassword || "Abc@123",
+            status: "PENDING"
+          });
         }
 
         if (newAssignments.length > 0) {
@@ -404,7 +450,7 @@ export const TrainingPortal: React.FC = () => {
           alert("Không tìm thấy dữ liệu phân công hợp lệ trong file!");
         }
       } catch (err) {
-        console.error(err);
+        console.error("Import assignment Excel error:", err);
         alert("Có lỗi khi đọc file Excel phân công!");
       }
     };
