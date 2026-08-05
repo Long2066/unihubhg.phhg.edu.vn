@@ -259,14 +259,27 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   });
   const [criteria, setCriteria] = useState<PointCriteria[]>([]);
   const [students, setStudents] = useState<Student[]>(() => {
+    const formatStudentId = (id: any) => {
+      const str = String(id || "").trim();
+      if (!str) return str;
+      if (!str.toUpperCase().startsWith("DTG") && /^\d+$/.test(str)) {
+        return `DTG${str}`;
+      }
+      return str;
+    };
+
     const cached = localStorage.getItem("unihub_students");
+    let list: Student[] = SEED_STUDENTS;
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) list = parsed;
       } catch {}
     }
-    return SEED_STUDENTS;
+    return list.map((s: Student) => ({
+      ...s,
+      id: formatStudentId(s.id)
+    }));
   });
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [members, setMembers] = useState<OrganizationMember[]>([]);

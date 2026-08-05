@@ -29,6 +29,15 @@ import {
   Send
 } from "lucide-react";
 
+export const formatStudentId = (id: any) => {
+  const str = String(id || "").trim();
+  if (!str) return "-";
+  if (!str.toUpperCase().startsWith("DTG") && /^\d+$/.test(str)) {
+    return `DTG${str}`;
+  }
+  return str;
+};
+
 export const TrainingPortal: React.FC = () => {
   const { 
     students, 
@@ -771,8 +780,9 @@ export const TrainingPortal: React.FC = () => {
         for (let i = 1; i < rawData.length; i++) {
           const row = rawData[i];
           if (!row || row.length === 0) continue;
-          const id = row[colIdx.id]?.toString().trim();
-          if (!id) continue;
+          const rawId = row[colIdx.id]?.toString().trim();
+          if (!rawId) continue;
+          const id = formatStudentId(rawId);
 
           const gpa = colIdx.gpa4 !== -1 && row[colIdx.gpa4] !== undefined ? Number(row[colIdx.gpa4]) : 3.0;
           const gpa10 = colIdx.gpa10 !== -1 && row[colIdx.gpa10] !== undefined ? Number(row[colIdx.gpa10]) : 8.0;
@@ -1003,8 +1013,9 @@ export const TrainingPortal: React.FC = () => {
           const row = rawData[i];
           if (!row || row.length === 0) continue;
 
-          const id = row[colIdx.id]?.toString().trim();
-          if (!id) continue;
+          const rawId = row[colIdx.id]?.toString().trim();
+          if (!rawId) continue;
+          const id = formatStudentId(rawId);
 
           const name = colIdx.name !== -1 && row[colIdx.name] ? row[colIdx.name]?.toString().trim() : "Sinh viên mới";
           const idCard = colIdx.idCard !== -1 && row[colIdx.idCard] ? row[colIdx.idCard]?.toString().trim() : "";
@@ -1566,7 +1577,7 @@ export const TrainingPortal: React.FC = () => {
                           const origin = students.find(s => s.id === row.id);
                           return (
                             <tr key={row.id} className="hover:bg-slate-50/50">
-                              <td className="p-2 font-bold">{row.id}</td>
+                              <td className="p-2 font-bold">{formatStudentId(row.id)}</td>
                               <td className="p-2 truncate max-w-[120px]">{row.name || origin?.name}</td>
                               <td className="p-2">{row.classId || origin?.classId}</td>
                               <td className="p-2">{row.gender}</td>
@@ -2178,7 +2189,7 @@ export const TrainingPortal: React.FC = () => {
                                   return (
                                     <tr key={s.id} className="hover:bg-slate-50/50">
                                       <td className="p-3 font-mono text-center text-slate-400">{idx + 1}</td>
-                                      <td className="p-3 font-bold font-mono text-slate-900">{s.id}</td>
+                                      <td className="p-3 font-bold font-mono text-slate-900">{formatStudentId(s.id)}</td>
                                       <td className="p-3 font-semibold text-slate-800">{s.name}</td>
                                       <td className="p-3 text-center">{s.gender || "-"}</td>
                                       <td className="p-3 font-mono">{s.idCard || "-"}</td>
@@ -2233,7 +2244,7 @@ export const TrainingPortal: React.FC = () => {
                     <div key={s.id} className="p-3 bg-white flex justify-between items-center flex-wrap gap-2 text-xs">
                       <div>
                         <h5 className="font-extrabold text-slate-900">{s.name}</h5>
-                        <p className="text-[10px] text-slate-400 font-mono">MSSV: {s.id} | Lớp: {s.classId} | Khoa: {s.facultyId}</p>
+                        <p className="text-[10px] text-slate-400 font-mono">MSSV: {formatStudentId(s.id)} | Lớp: {s.classId} | Khoa: {s.facultyId}</p>
                       </div>
 
                       <div className="flex items-center gap-4">
