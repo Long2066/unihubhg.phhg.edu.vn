@@ -236,7 +236,9 @@ const serializeCell = (row: number, cell: TeacherExcelCell) => {
 const createStyledTeacherSheetXml = (
   rows: TeacherExcelRow[],
   merges: string[],
-  lastRow: number
+  lastRow: number,
+  subjectCode: string,
+  classId: string
 ) => {
   const rowXml = rows
     .sort((a, b) => a.rowNumber - b.rowNumber)
@@ -254,16 +256,34 @@ const createStyledTeacherSheetXml = (
     ? `<mergeCells count=\"${merges.length}\">${merges.map(ref => `<mergeCell ref=\"${ref}\"/>`).join("")}</mergeCells>`
     : "";
 
+  const safeSubjectCode = sanitizeFilePart(subjectCode || "HP");
+  const safeClassId = sanitizeFilePart(classId || "Lop");
+  const footerText = `Danh_sach_diem_hoc_phan_${safeSubjectCode}_${safeClassId}`;
+
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac">
   <dimension ref="A1:Q${lastRow}"/>
   <sheetViews><sheetView tabSelected="1" workbookViewId="0"><pane xSplit="5" ySplit="2" topLeftCell="F3" activePane="bottomRight" state="frozen"/><selection pane="topRight" activeCell="F1" sqref="F1"/><selection pane="bottomLeft" activeCell="A3" sqref="A3"/><selection pane="bottomRight" activeCell="F3" sqref="F3"/></sheetView></sheetViews>
   <sheetFormatPr defaultRowHeight="13.2" x14ac:dyDescent="0.25"/>
-  <cols><col min="1" max="1" width="5.3984375" customWidth="1"/><col min="2" max="2" width="14.59765625" customWidth="1"/><col min="3" max="3" width="20.09765625" customWidth="1"/><col min="4" max="4" width="7.296875" customWidth="1"/><col min="5" max="5" width="8.796875" customWidth="1"/><col min="6" max="13" width="5" customWidth="1"/><col min="14" max="17" width="8" customWidth="1"/></cols>
+  <cols>
+    <col min="1" max="1" width="6" customWidth="1"/>
+    <col min="2" max="2" width="18" customWidth="1"/>
+    <col min="3" max="3" width="28" customWidth="1"/>
+    <col min="4" max="4" width="8" customWidth="1"/>
+    <col min="5" max="5" width="14" customWidth="1"/>
+    <col min="6" max="13" width="6" customWidth="1"/>
+    <col min="14" max="14" width="10" customWidth="1"/>
+    <col min="15" max="15" width="12" customWidth="1"/>
+    <col min="16" max="16" width="12" customWidth="1"/>
+    <col min="17" max="17" width="15" customWidth="1"/>
+  </cols>
   <sheetData>${rowXml}</sheetData>
   ${mergeXml}
-  <pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>
+  <pageMargins left="0.98425" right="0.19685" top="0.3937" bottom="0.19685" header="0.19685" footer="0.19685"/>
   <pageSetup paperSize="9" orientation="landscape"/>
+  <headerFooter>
+    <oddFooter>&amp;C${escapeXml(footerText)}</oddFooter>
+  </headerFooter>
 </worksheet>`;
 };
 
@@ -707,9 +727,16 @@ const createTeacherGradeWorkbookBlob = (
   grades.forEach((grade, index) => {
     const rowNumber = index + 3;
     const dobSerial = excelDateSerial(grade.dob);
+    
+    // Ensure studentId always retains its DTG prefix (e.g. DTG245140202004)
+    let formattedStudentId = String(grade.studentId || "").trim();
+    if (formattedStudentId && !formattedStudentId.toUpperCase().startsWith("DTG")) {
+      formattedStudentId = `DTG${formattedStudentId}`;
+    }
+
     const values: TeacherExcelCellValue[] = [
       index + 1,
-      grade.studentId,
+      formattedStudentId,
       grade.studentName,
       grade.gender || "Nam",
       dobSerial ?? (grade.dob || ""),
@@ -799,7 +826,13 @@ const createTeacherGradeWorkbookBlob = (
     `M${teacherNameRow}:P${teacherNameRow}`
   ];
 
-  const sheetXml = createStyledTeacherSheetXml(rows, merges, teacherNameRow);
+  const sheetXml = createStyledTeacherSheetXml(
+    rows,
+    merges,
+    teacherNameRow,
+    assignment.subjectCode,
+    assignment.classId || assignment.className
+  );
   const sheetName = sanitizeExcelSheetName((assignment.className || assignment.classId || "BangDiem").replace(/[^\p{L}\p{N}]/gu, ""));
   const zipBytes = createStoredZip(createTeacherWorkbookEntries(sheetName, sheetXml));
   return new Blob([zipBytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
