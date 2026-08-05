@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { useUniHub } from "../state";
 import { UserRole, Student, UserAccount, ScheduleSlot, STUDENT_FIELDS_META, SEMESTER_LIST, CourseClassAssignment, GradeAppeal, GradingRulesConfig } from "../types";
+import { SEED_TEACHER_ASSIGNMENTS } from "../data";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { 
   FileSpreadsheet, 
   Upload, 
@@ -137,125 +139,146 @@ export const TrainingPortal: React.FC = () => {
     teacherPassword: "password123"
   });
 
-  // Handler: Export Sample Excel for Course Assignments (Định dạng chuẩn theo mẫu Mau_Phan_Cong_Giang_Day)
-  const handleExportAssignmentSampleExcel = () => {
-    const currentSemAssignments = teacherAssignments.filter(a => a.semesterId === selectedSemesterId);
-    const assignmentsToExport = currentSemAssignments.length > 0 ? currentSemAssignments : SEED_TEACHER_ASSIGNMENTS;
+  // Handler: Export Sample Excel for Course Assignments (lấy đúng file mẫu Excel làm template)
+  const handleExportAssignmentSampleExcel = async () => {
+    try {
+      const currentSemAssignments = teacherAssignments.filter(a => a.semesterId === selectedSemesterId);
+      const seedAssignmentsForSemester = SEED_TEACHER_ASSIGNMENTS.filter(a => a.semesterId === selectedSemesterId);
+      const assignmentsToExport = currentSemAssignments.length > 0
+        ? currentSemAssignments
+        : (seedAssignmentsForSemester.length > 0 ? seedAssignmentsForSemester : SEED_TEACHER_ASSIGNMENTS);
 
-    const currentSemesterObj = SEMESTER_LIST.find(s => s.id === selectedSemesterId);
-    const semesterNameUpper = (currentSemesterObj?.name || "HỌC KÌ II, NĂM HỌC 2025 - 2026").toUpperCase();
+      const currentSemesterObj = SEMESTER_LIST.find(s => s.id === selectedSemesterId);
+      const semesterMatch = selectedSemesterId.match(/^HOCKY_(\d+)_(\d{4})_(\d{4})$/);
+      const semesterNameUpper = semesterMatch
+        ? `HỌC KÌ ${semesterMatch[1] === "1" ? "I" : "II"}, NĂM HỌC ${semesterMatch[2]} - ${semesterMatch[3]}`
+        : (currentSemesterObj?.name || "HỌC KÌ II, NĂM HỌC 2025 - 2026")
+            .toUpperCase()
+            .replace("HỌC KỲ", "HỌC KÌ")
+            .replace(" - ", ", NĂM HỌC ");
 
-    const now = new Date();
-    const dayStr = String(now.getDate()).padStart(2, "0");
-    const monthStr = String(now.getMonth() + 1).padStart(2, "0");
-    const yearStr = String(now.getFullYear());
+      const templateResponse = await fetch("/templates/mau_phan_cong_giang_day_hocky_2_2025_2026.xlsx");
+      if (!templateResponse.ok) {
+        throw new Error("Không tải được file mẫu phân công giảng dạy.");
+      }
 
-    const wsData: any[][] = [];
+      const workbook = new ExcelJS.Workbook();
+      const templateBuffer = await templateResponse.arrayBuffer();
+      await workbook.xlsx.load(templateBuffer);
+      const worksheet = workbook.worksheets[0];
 
-    // Header section matching Mau_Phan_Cong_Giang_Day_HOCKY_2_2025_2026 (1).xlsx
-    wsData.push([
-      "PHÂN HIỆU ĐHTN TẠI HÀ GIANG\r\nPHÒNG ĐÀO TẠO NCKH & HỢP TÁC QUỐC TẾ",
-      "", "",
-      `BẢNG PHÂN CÔNG GIẢNG VIÊN THAM GIA GIẢNG DẠY CÁC HỌC PHẦN \r\nTẠI CÁC LỚP, ${semesterNameUpper}`,
-      "", "", "",
-      "Trích xuất từ hệ thống UniHubHG\r\nHệ thống quản lí sinh viên\r\nhttps://unihubhg-phhg.vercel.app/",
-      "", ""
-    ]);
-    wsData.push([]);
+      if (!worksheet) {
+        throw new Error("File mẫu phân công giảng dạy không có worksheet hợp lệ.");
+      }
 
-    // Table header row
-    wsData.push([
-      "STT",
-      "Mã học kỳ",
-      "Mã học phần",
-      "Tên học phần",
-      "Số tín chỉ",
-      "Lớp niên chế",
-      "Mã / Email Giảng viên",
-      "Họ và tên Giảng viên",
-      "Mật khẩu\r\nđăng nhập",
-      "Ghi chú"
-    ]);
+      const now = new Date();
+      const dayStr = String(now.getDate()).padStart(2, "0");
+      const monthStr = String(now.getMonth() + 1).padStart(2, "0");
+      const yearStr = String(now.getFullYear());
 
-    // Data rows
-    assignmentsToExport.forEach((item, idx) => {
-      const teacherUser = users.find(u =>
-        (u.email && u.email.toLowerCase() === item.teacherId.toLowerCase()) ||
-        (u.username && u.username.toLowerCase() === item.teacherId.toLowerCase()) ||
-        (u.name && u.name.trim().toLowerCase() === item.teacherName.trim().toLowerCase())
-      );
-      const teacherPassword = item.teacherPassword || teacherUser?.password || "Abc@123";
+      const cloneStyle = (style: any) => style ? JSON.parse(JSON.stringify(style)) : style;
+      const baseTemplateDataRows = 4;
+      const renderedDataRows = Math.max(assignmentsToExport.length, baseTemplateDataRows);
+      const extraRows = Math.max(renderedDataRows - baseTemplateDataRows, 0);
 
-      wsData.push([
-        idx + 1,
-        item.semesterId || selectedSemesterId || "HOCKY_2_2025_2026",
-        item.subjectCode,
-        item.subjectName,
-        item.credits,
-        item.className || item.classId,
-        item.teacherId,
-        item.teacherName,
-        teacherPassword,
-        ""
-      ]);
-    });
+      // Các vùng chữ ký sẽ được đặt lại theo số dòng dữ liệu thực tế.
+      ["G9:I9", "G11:H11", "G18:H18"].forEach(range => {
+        try {
+          worksheet.unMergeCells(range);
+        } catch {
+          // File mẫu có thể đã thay đổi merge; bỏ qua để không chặn xuất Excel.
+        }
+      });
 
-    // Signature section
-    wsData.push([]);
-    wsData.push([
-      "", "", "", "", "", "",
-      `Tuyên Quang, ngày ${dayStr}, tháng ${monthStr}, năm ${yearStr}`,
-      "", "", ""
-    ]);
-    wsData.push([]);
-    wsData.push([
-      "", "", "", "", "", "",
-      "Phòng Đào tạo NCKH & hợp tác Quốc tế",
-      "", "", ""
-    ]);
-    for (let i = 0; i < 6; i++) {
-      wsData.push([]);
+      if (extraRows > 0) {
+        const sourceRow = worksheet.getRow(7);
+        worksheet.spliceRows(8, 0, ...Array.from({ length: extraRows }, () => []));
+
+        for (let offset = 0; offset < extraRows; offset++) {
+          const targetRow = worksheet.getRow(8 + offset);
+          targetRow.height = sourceRow.height;
+          for (let col = 1; col <= 10; col++) {
+            targetRow.getCell(col).style = cloneStyle(sourceRow.getCell(col).style);
+          }
+        }
+      }
+
+      worksheet.getCell("D1").value = `BẢNG PHÂN CÔNG GIẢNG VIÊN THAM GIA GIẢNG DẠY CÁC HỌC PHẦN \r\nTẠI CÁC LỚP, ${semesterNameUpper}`;
+      worksheet.getCell("H1").value = "Trích xuất từ hệ thống UniHubHG\r\nHệ thống quản lí sinh viên\r\nhttps://unihubhg-phhg.vercel.app/";
+
+      for (let rowIndex = 0; rowIndex < renderedDataRows; rowIndex++) {
+        const rowNumber = 4 + rowIndex;
+        const assignment = assignmentsToExport[rowIndex];
+        const row = worksheet.getRow(rowNumber);
+
+        const teacherUser = assignment ? users.find(u =>
+          (u.email && assignment.teacherId && u.email.toLowerCase() === assignment.teacherId.toLowerCase()) ||
+          (u.username && assignment.teacherId && u.username.toLowerCase() === assignment.teacherId.toLowerCase()) ||
+          (u.name && assignment.teacherName && u.name.trim().toLowerCase() === assignment.teacherName.trim().toLowerCase())
+        ) : undefined;
+
+        const teacherPassword = assignment?.teacherPassword || teacherUser?.password || (assignment ? "Abc@123" : "");
+        const rowValues = assignment ? [
+          rowIndex + 1,
+          assignment.semesterId || selectedSemesterId || "HOCKY_2_2025_2026",
+          assignment.subjectCode || "",
+          assignment.subjectName || "",
+          assignment.credits || "",
+          assignment.className || assignment.classId || "",
+          assignment.teacherId || "",
+          assignment.teacherName || "",
+          teacherPassword,
+          ""
+        ] : ["", "", "", "", "", "", "", "", "", ""];
+
+        rowValues.forEach((value, colIndex) => {
+          row.getCell(colIndex + 1).value = value;
+        });
+      }
+
+      const blankRowNumber = 4 + renderedDataRows;
+      const dateRowNumber = 5 + renderedDataRows;
+      const deptRowNumber = 7 + renderedDataRows;
+      const signRowNumber = 14 + renderedDataRows;
+
+      for (let col = 1; col <= 10; col++) {
+        worksheet.getRow(blankRowNumber).getCell(col).value = "";
+      }
+
+      worksheet.getCell(`G${dateRowNumber}`).value = `Tuyên Quang, ngày ${dayStr}, tháng ${monthStr}, năm ${yearStr}`;
+      worksheet.getCell(`G${deptRowNumber}`).value = "Phòng Đào tạo NCKH & hợp tác Quốc tế";
+      worksheet.getCell(`G${signRowNumber}`).value = "Chức danh. Họ và tên";
+      worksheet.mergeCells(`G${dateRowNumber}:I${dateRowNumber}`);
+      worksheet.mergeCells(`G${deptRowNumber}:H${deptRowNumber}`);
+      worksheet.mergeCells(`G${signRowNumber}:H${signRowNumber}`);
+
+      workbook.creator = "UniHubHG";
+      workbook.modified = now;
+      worksheet.pageSetup = {
+        ...worksheet.pageSetup,
+        orientation: "landscape",
+        paperSize: 9,
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0
+      };
+
+      const outputBuffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([outputBuffer as BlobPart], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      });
+      const downloadUrl = URL.createObjectURL(blob);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = downloadUrl;
+      downloadLink.download = `Mau_Phan_Cong_Giang_Day_${selectedSemesterId || "HOCKY_2_2025_2026"}.xlsx`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+      URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error("Export assignment Excel template failed:", error);
+      alert("Không thể xuất Excel phân công giảng dạy theo file mẫu. Vui lòng kiểm tra lại file mẫu.");
     }
-    wsData.push([
-      "", "", "", "", "", "",
-      "Chức danh. Họ và tên",
-      "", "", ""
-    ]);
-
-    const worksheet = XLSX.utils.aoa_to_sheet(wsData);
-
-    const dataLen = assignmentsToExport.length;
-    const dateRowIdx = 3 + dataLen + 1;
-    const deptRowIdx = dateRowIdx + 2;
-    const signRowIdx = deptRowIdx + 7;
-
-    worksheet["!merges"] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }, // A1:C1
-      { s: { r: 0, c: 3 }, e: { r: 1, c: 6 } }, // D1:G2
-      { s: { r: 0, c: 7 }, e: { r: 0, c: 9 } }, // H1:J1
-      { s: { r: dateRowIdx, c: 6 }, e: { r: dateRowIdx, c: 8 } },
-      { s: { r: deptRowIdx, c: 6 }, e: { r: deptRowIdx, c: 8 } },
-      { s: { r: signRowIdx, c: 6 }, e: { r: signRowIdx, c: 8 } }
-    ];
-
-    worksheet["!pageSetup"] = { orientation: "landscape", paperSize: 9 };
-
-    worksheet["!cols"] = [
-      { wch: 6 },  // STT
-      { wch: 22 }, // Mã học kỳ
-      { wch: 16 }, // Mã học phần
-      { wch: 42 }, // Tên học phần
-      { wch: 12 }, // Số tín chỉ
-      { wch: 18 }, // Lớp niên chế
-      { wch: 34 }, // Mã / Email Giảng viên
-      { wch: 30 }, // Họ và tên Giảng viên
-      { wch: 22 }, // Mật khẩu đăng nhập
-      { wch: 16 }  // Ghi chú
-    ];
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Phan_Cong_Giang_Day");
-    XLSX.writeFile(workbook, `Mau_Phan_Cong_Giang_Day_${selectedSemesterId || "HK2"}.xlsx`);
   };
 
   // Handlers for Editing Assignment
