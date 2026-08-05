@@ -48,7 +48,9 @@ import {
   ChevronDown,
   RefreshCw,
   Upload,
-  MessageSquare
+  MessageSquare,
+  FileSpreadsheet,
+  Grid
 } from "lucide-react";
 
 const AdviserIcon = ShieldAlert;
@@ -113,7 +115,9 @@ const AppContent: React.FC = () => {
     dailyAttendance,
     groupAttendances,
     sendSystemFeedback,
-    themeConfig
+    themeConfig,
+    unlockRequests,
+    gradeAppeals
   } = useUniHub();
 
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
@@ -847,10 +851,13 @@ const AppContent: React.FC = () => {
         ];
       case UserRole.TRAINING_DEPT:
         return [
-          { id: "IMPORT", label: "Nạp Điểm Học Tập", icon: UploadCloud },
-          { id: "IMPORT_CLASSES", label: "Nạp Lớp Mới", icon: FileCode },
+          { id: "IMPORT", label: "Nạp & Tổng Hợp Điểm HK", icon: FileSpreadsheet },
+          { id: "TEACHER_ASSIGNMENTS", label: "Phân Công Giảng Dạy", icon: Users },
+          { id: "UNLOCK_REQUESTS", label: "Duyệt Mở Khóa Điểm", icon: Lock },
+          { id: "GRADE_APPEALS", label: "Xử Lý Phúc Khảo", icon: Bell },
+          { id: "IMPORT_CLASSES", label: "Nạp Danh Sách SV Lớp Mới", icon: UploadCloud },
+          { id: "LIST", label: "Danh Sách Học Vụ SV", icon: Grid },
           { id: "THOI_KHOA_BIEU", label: "Thời khóa biểu lớp", icon: Clock },
-          { id: "LIST", label: "Đồng bộ rèn luyện", icon: BookOpen },
           { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
         ];
       case UserRole.FACULTY:
@@ -997,6 +1004,10 @@ const AppContent: React.FC = () => {
 
     if (currentUser.role === UserRole.TRAINING_DEPT) {
       switch (tabId) {
+        case "UNLOCK_REQUESTS":
+          return unlockRequests.filter(r => r.status === "PENDING").length;
+        case "GRADE_APPEALS":
+          return gradeAppeals.filter(a => a.status === "PENDING" || a.status === "REVIEWING").length;
         case "LIST":
           return facultyReviews.filter(fr => fr.locked && !seenFacultyReviewIds.includes(fr.facultyId)).length;
         default:
