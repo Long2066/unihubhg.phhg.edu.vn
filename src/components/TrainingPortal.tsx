@@ -2379,11 +2379,13 @@ export const TrainingPortal: React.FC = () => {
           {activeTab === "THOI_KHOA_BIEU" && (() => {
             const availableScheduleClasses = Array.from(new Set([
               ...students.map(s => s.classId),
+              ...customClasses,
+              ...teacherAssignments.map(a => a.classId),
               ...schedules.map(s => s.classId)
             ])).filter(Boolean).sort();
 
-            // Set default class if empty
-            if (!selectedScheduleClass && availableScheduleClasses.length > 0) {
+            // Set default class if empty or invalid
+            if ((!selectedScheduleClass || !availableScheduleClasses.includes(selectedScheduleClass)) && availableScheduleClasses.length > 0) {
               setSelectedScheduleClass(availableScheduleClasses[0]);
             }
 
