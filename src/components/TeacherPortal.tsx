@@ -465,9 +465,16 @@ const downloadTeacherGradeReportPdf = async (
       { text: "STT", style: "tableHeader", alignment: "center" },
       { text: "MÃ SV", style: "tableHeader" },
       { text: "HỌ VÀ TÊN", style: "tableHeader" },
+      { text: "GT", style: "tableHeader", alignment: "center" },
+      { text: "NGÀY SINH", style: "tableHeader", alignment: "center" },
       { text: "CC", style: "tableHeader", alignment: "center" },
+      { text: "TX 1", style: "tableHeader", alignment: "center" },
+      { text: "TX 2", style: "tableHeader", alignment: "center" },
+      { text: "ĐK 1", style: "tableHeader", alignment: "center" },
+      { text: "ĐK 2", style: "tableHeader", alignment: "center" },
       { text: "THI", style: "tableHeader", alignment: "center" },
       { text: "TB (10)", style: "tableHeader", alignment: "center" },
+      { text: "TB* (4)", style: "tableHeader", alignment: "center" },
       { text: "ĐIỂM CHỮ", style: "tableHeader", alignment: "center" },
       { text: "XẾP LOẠI", style: "tableHeader", alignment: "center" }
     ],
@@ -475,9 +482,16 @@ const downloadTeacherGradeReportPdf = async (
       { text: grades.length ? String(index + 1) : "-", style: "mutedMono", alignment: "center" },
       { text: pdfValue(grade.studentId), style: "bodyMonoStrong" },
       { text: pdfValue(grade.studentName), style: "bodyStrong" },
+      { text: pdfValue(grade.gender || "Nam"), style: "bodyText", alignment: "center" },
+      { text: pdfValue(grade.dob || ""), style: "bodyMono", alignment: "center" },
       { text: pdfValue(grade.cc), style: "bodyMono", alignment: "center" },
+      { text: pdfValue(grade.tx1), style: "bodyMono", alignment: "center" },
+      { text: pdfValue(grade.tx2), style: "bodyMono", alignment: "center" },
+      { text: pdfValue(grade.dk1), style: "bodyMono", alignment: "center" },
+      { text: pdfValue(grade.dk2), style: "bodyMono", alignment: "center" },
       { text: pdfValue(grade.exam), style: "blueMonoStrong", alignment: "center" },
       { text: pdfValue(grade.tb10), style: "bodyMonoStrong", alignment: "center" },
+      { text: pdfValue(grade.tb4), style: "bodyMonoStrong", alignment: "center" },
       { text: pdfValue(grade.diemChu), style: "blueMonoStrong", alignment: "center" },
       { text: pdfValue(grade.xepLoai), style: "bodyStrong", alignment: "center" }
     ])
@@ -485,13 +499,13 @@ const downloadTeacherGradeReportPdf = async (
 
   const docDefinition = {
     pageSize: "A4",
-    pageOrientation: "portrait",
-    pageMargins: [28, 30, 28, 34],
+    pageOrientation: "landscape",
+    pageMargins: [28, 25, 28, 28],
     defaultStyle: {
       font: "Roboto",
-      fontSize: 8.5,
+      fontSize: 8,
       color: "#0f172a",
-      lineHeight: 1.12
+      lineHeight: 1.1
     },
     footer: (currentPage: number, pageCount: number) => ({
       columns: [
@@ -507,7 +521,7 @@ const downloadTeacherGradeReportPdf = async (
       { text: "BÁO CÁO PHỔ ĐIỂM & BẢNG TỔNG KẾT MÔN HỌC", style: "reportTitle" },
       { text: `Môn học: ${assignment.subjectName} (${assignment.subjectCode}) - Lớp: ${assignment.classId}`, style: "subtitle" },
       {
-        canvas: [{ type: "line", x1: 0, y1: 0, x2: 539, y2: 0, lineWidth: 0.6, lineColor: "#e2e8f0" }],
+        canvas: [{ type: "line", x1: 0, y1: 0, x2: 785, y2: 0, lineWidth: 0.6, lineColor: "#e2e8f0" }],
         margin: [0, 10, 0, 12]
       },
       {
@@ -568,7 +582,7 @@ const downloadTeacherGradeReportPdf = async (
           headerRows: 1,
           dontBreakRows: true,
           keepWithHeaderRows: 1,
-          widths: [24, 72, "*", 30, 34, 42, 52, 58],
+          widths: [20, 75, "*", 22, 48, 20, 20, 20, 20, 20, 24, 28, 26, 32, 45],
           body: tableBody
         },
         layout: {
@@ -587,7 +601,7 @@ const downloadTeacherGradeReportPdf = async (
         }
       },
       {
-        canvas: [{ type: "line", x1: 0, y1: 0, x2: 539, y2: 0, lineWidth: 0.6, lineColor: "#e2e8f0" }],
+        canvas: [{ type: "line", x1: 0, y1: 0, x2: 785, y2: 0, lineWidth: 0.6, lineColor: "#e2e8f0" }],
         margin: [0, 18, 0, 10]
       },
       {
@@ -1933,14 +1947,15 @@ export const TeacherPortal: React.FC = () => {
         </div>
       )}
 
-      {/* Printable Grade Distribution Modal (A4 Standard) */}
+      {/* Printable Grade Distribution Modal (A4 Landscape Standard) */}
       {showDistributionPrintModal && activeAssignment && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 p-4 sm:p-6 flex items-center justify-center font-sans print:p-0 print:bg-white print:static print:z-auto">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col p-6 shadow-2xl space-y-4 border border-slate-200 text-left print:shadow-none print:border-none print:p-0 print:max-h-none print:w-full">
+          <style>{`@media print { @page { size: landscape; margin: 0.8cm; } }`}</style>
+          <div className="bg-white rounded-2xl max-w-6xl w-full max-h-[90vh] flex flex-col p-6 shadow-2xl space-y-4 border border-slate-200 text-left print:shadow-none print:border-none print:p-0 print:max-h-none print:w-full">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3 print:hidden flex-shrink-0">
               <div className="flex items-center gap-2">
                 <Printer className="text-indigo-600" size={18} />
-                <h3 className="text-sm font-bold text-slate-800">Báo Cáo Phổ Điểm & Bảng Tổng Kết Học Phần (A4)</h3>
+                <h3 className="text-sm font-bold text-slate-800">Báo Cáo Phổ Điểm & Bảng Tổng Kết Học Phần (A4 Ngang)</h3>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -1958,7 +1973,7 @@ export const TeacherPortal: React.FC = () => {
                   }}
                   disabled={isGeneratingPdf}
                   className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 transition-all"
-                  title="Tải trực tiếp file PDF về máy"
+                  title="Tải trực tiếp file PDF về máy (Khổ ngang A4)"
                 >
                   <Download size={14} />
                   <span>{isGeneratingPdf ? "Đang tạo PDF..." : "Tải file PDF (.pdf)"}</span>
@@ -2027,27 +2042,41 @@ export const TeacherPortal: React.FC = () => {
                 <table className="w-full text-left text-xs border-collapse border border-slate-300">
                   <thead>
                     <tr className="bg-slate-100 text-slate-800 font-bold uppercase text-[10px] border-b border-slate-300">
-                      <th className="p-2 border-r border-slate-300 text-center w-10">STT</th>
-                      <th className="p-2 border-r border-slate-300 w-32 font-mono">Mã SV</th>
-                      <th className="p-2 border-r border-slate-300">Họ và tên</th>
-                      <th className="p-2 border-r border-slate-300 text-center font-mono">CC</th>
-                      <th className="p-2 border-r border-slate-300 text-center font-mono">Thi</th>
-                      <th className="p-2 border-r border-slate-300 text-center font-mono">TB (10)</th>
-                      <th className="p-2 border-r border-slate-300 text-center font-mono">Điểm chữ</th>
-                      <th className="p-2 text-center w-24">Xếp loại</th>
+                      <th className="p-1.5 border-r border-slate-300 text-center w-8">STT</th>
+                      <th className="p-1.5 border-r border-slate-300 w-28 font-mono">Mã SV</th>
+                      <th className="p-1.5 border-r border-slate-300 min-w-[140px]">Họ và tên</th>
+                      <th className="p-1.5 border-r border-slate-300 text-center w-10">GT</th>
+                      <th className="p-1.5 border-r border-slate-300 text-center font-mono w-20">Ngày sinh</th>
+                      <th className="p-1.5 border-r border-slate-300 text-center font-mono w-10">CC</th>
+                      <th className="p-1.5 border-r border-slate-300 text-center font-mono w-10">TX1</th>
+                      <th className="p-1.5 border-r border-slate-300 text-center font-mono w-10">TX2</th>
+                      <th className="p-1.5 border-r border-slate-300 text-center font-mono w-10">ĐK1</th>
+                      <th className="p-1.5 border-r border-slate-300 text-center font-mono w-10">ĐK2</th>
+                      <th className="p-1.5 border-r border-slate-300 text-center font-mono w-12">Thi</th>
+                      <th className="p-1.5 border-r border-slate-300 text-center font-mono w-14">TB (10)</th>
+                      <th className="p-1.5 border-r border-slate-300 text-center font-mono w-12">TB* (4)</th>
+                      <th className="p-1.5 border-r border-slate-300 text-center font-mono w-14">Điểm chữ</th>
+                      <th className="p-1.5 text-center w-20">Xếp loại</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     {currentGrades.map((g, idx) => (
                       <tr key={g.studentId}>
-                        <td className="p-2 border-r border-slate-200 text-center font-mono text-slate-400">{idx + 1}</td>
-                        <td className="p-2 border-r border-slate-200 font-mono font-bold">{g.studentId}</td>
-                        <td className="p-2 border-r border-slate-200 font-bold">{g.studentName}</td>
-                        <td className="p-2 border-r border-slate-200 text-center font-mono">{g.cc || "-"}</td>
-                        <td className="p-2 border-r border-slate-200 text-center font-mono font-bold text-blue-700">{g.exam || "-"}</td>
-                        <td className="p-2 border-r border-slate-200 text-center font-mono font-black">{g.tb10 || "-"}</td>
-                        <td className="p-2 border-r border-slate-200 text-center font-mono font-bold text-blue-800">{g.diemChu || "-"}</td>
-                        <td className="p-2 text-center font-bold">{g.xepLoai || "-"}</td>
+                        <td className="p-1.5 border-r border-slate-200 text-center font-mono text-slate-400">{idx + 1}</td>
+                        <td className="p-1.5 border-r border-slate-200 font-mono font-bold whitespace-nowrap">{g.studentId}</td>
+                        <td className="p-1.5 border-r border-slate-200 font-bold whitespace-nowrap">{g.studentName}</td>
+                        <td className="p-1.5 border-r border-slate-200 text-center">{g.gender || "Nam"}</td>
+                        <td className="p-1.5 border-r border-slate-200 text-center font-mono whitespace-nowrap">{g.dob || "-"}</td>
+                        <td className="p-1.5 border-r border-slate-200 text-center font-mono">{g.cc || "-"}</td>
+                        <td className="p-1.5 border-r border-slate-200 text-center font-mono">{g.tx1 || "-"}</td>
+                        <td className="p-1.5 border-r border-slate-200 text-center font-mono">{g.tx2 || "-"}</td>
+                        <td className="p-1.5 border-r border-slate-200 text-center font-mono">{g.dk1 || "-"}</td>
+                        <td className="p-1.5 border-r border-slate-200 text-center font-mono">{g.dk2 || "-"}</td>
+                        <td className="p-1.5 border-r border-slate-200 text-center font-mono font-bold text-blue-700">{g.exam || "-"}</td>
+                        <td className="p-1.5 border-r border-slate-200 text-center font-mono font-black">{g.tb10 || "-"}</td>
+                        <td className="p-1.5 border-r border-slate-200 text-center font-mono font-bold">{g.tb4 || "-"}</td>
+                        <td className="p-1.5 border-r border-slate-200 text-center font-mono font-bold text-blue-800">{g.diemChu || "-"}</td>
+                        <td className="p-1.5 text-center font-bold whitespace-nowrap">{g.xepLoai || "-"}</td>
                       </tr>
                     ))}
                   </tbody>
