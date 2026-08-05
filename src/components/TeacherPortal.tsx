@@ -38,13 +38,14 @@ type TeacherExcelCellValue = string | number | null | undefined;
 type TeacherExcelCell = {
   col: number;
   value?: TeacherExcelCellValue;
+  formula?: string;
   style: number;
 };
 
 type TeacherExcelRow = {
   rowNumber: number;
-  height?: number;
   cells: TeacherExcelCell[];
+  height?: number;
 };
 
 const TEACHER_EXCEL_COL_COUNT = 17;
@@ -219,6 +220,12 @@ const serializeCell = (row: number, cell: TeacherExcelCell) => {
   const ref = cellRef(row, cell.col);
   const style = ` s=\"${cell.style}\"`;
   const value = cell.value;
+  const formula = cell.formula;
+
+  if (formula) {
+    const valTag = (value !== undefined && value !== null && value !== "") ? `<v>${value}</v>` : "";
+    return `<c r=\"${ref}\"${style}><f>${escapeXml(formula)}</f>${valTag}</c>`;
+  }
 
   if (value === undefined || value === null || value === "") {
     return `<c r=\"${ref}\"${style}/>`;
@@ -284,6 +291,12 @@ const createStyledTeacherSheetXml = (
   <headerFooter>
     <oddFooter>&amp;C${escapeXml(footerText)}</oddFooter>
   </headerFooter>
+  <dataValidations count="1">
+    <dataValidation type="decimal" operator="between" allowBlank="1" showInputMessage="1" showErrorMessage="1" errorTitle="Lỗi nhập điểm" error="Điểm số nhập vào phải là số từ 0.0 đến 10.0!" sqref="F3:K${lastRow}">
+      <formula1>0</formula1>
+      <formula2>10</formula2>
+    </dataValidation>
+  </dataValidations>
 </worksheet>`;
 };
 
@@ -754,6 +767,12 @@ const createTeacherGradeWorkbookBlob = (
       exportDateSerial ?? `${year}-${month}-${day}`
     ];
 
+    const r = rowNumber;
+    const formulaTb10 = `ROUND(IF(COUNT(F${r},K${r})>0, F${r}*0.1 + AVERAGE(G${r}:H${r})*0.2 + AVERAGE(I${r}:J${r})*0.2 + K${r}*0.5, 0), 1)`;
+    const formulaTb4 = `IF(L${r}>=8.5,4.0,IF(L${r}>=8.0,3.5,IF(L${r}>=7.0,3.0,IF(L${r}>=6.5,2.5,IF(L${r}>=5.5,2.0,IF(L${r}>=5.0,1.5,IF(L${r}>=4.0,1.0,0.0)))))))`;
+    const formulaDiemChu = `IF(L${r}>=8.5,"A",IF(L${r}>=7.0,"B",IF(L${r}>=5.5,"C",IF(L${r}>=4.0,"D","F"))))`;
+    const formulaXepLoai = `IF(L${r}>=9.0,"Xuất sắc",IF(L${r}>=8.0,"Giỏi",IF(L${r}>=7.0,"Khá",IF(L${r}>=5.0,"Trung bình",IF(L${r}>=4.0,"Yếu","Kém")))))`;
+
     rows.push({
       rowNumber,
       cells: values.map((value, valueIndex) => {
@@ -763,7 +782,14 @@ const createTeacherGradeWorkbookBlob = (
           : (col === 5 || col === 17) && typeof value === "number"
             ? TEACHER_EXCEL_STYLE.date
             : TEACHER_EXCEL_STYLE.center;
-        return { col, value, style };
+
+        let formula: string | undefined = undefined;
+        if (col === 12) formula = formulaTb10;
+        else if (col === 13) formula = formulaTb4;
+        else if (col === 14) formula = formulaDiemChu;
+        else if (col === 15) formula = formulaXepLoai;
+
+        return { col, value, formula, style };
       })
     });
   });
@@ -1058,14 +1084,13 @@ export const TeacherPortal: React.FC = () => {
     let diemChu = "F";
     let xepLoai = "Kém";
 
-    if (tb10 >= 9.0) { tb4 = 4.0; diemChu = "A+"; xepLoai = "Xuất sắc"; }
-    else if (tb10 >= 8.5) { tb4 = 3.8; diemChu = "A"; xepLoai = "Giỏi"; }
-    else if (tb10 >= 8.0) { tb4 = 3.5; diemChu = "A-"; xepLoai = "Giỏi"; }
-    else if (tb10 >= 7.5) { tb4 = 3.2; diemChu = "B+"; xepLoai = "Khá"; }
+    if (tb10 >= 9.0) { tb4 = 4.0; diemChu = "A"; xepLoai = "Xuất sắc"; }
+    else if (tb10 >= 8.5) { tb4 = 4.0; diemChu = "A"; xepLoai = "Giỏi"; }
+    else if (tb10 >= 8.0) { tb4 = 3.5; diemChu = "B"; xepLoai = "Giỏi"; }
     else if (tb10 >= 7.0) { tb4 = 3.0; diemChu = "B"; xepLoai = "Khá"; }
-    else if (tb10 >= 6.5) { tb4 = 2.5; diemChu = "C+"; xepLoai = "Trung bình"; }
+    else if (tb10 >= 6.5) { tb4 = 2.5; diemChu = "C"; xepLoai = "Khá"; }
     else if (tb10 >= 5.5) { tb4 = 2.0; diemChu = "C"; xepLoai = "Trung bình"; }
-    else if (tb10 >= 5.0) { tb4 = 1.5; diemChu = "D+"; xepLoai = "Trung bình"; }
+    else if (tb10 >= 5.0) { tb4 = 1.5; diemChu = "D"; xepLoai = "Trung bình"; }
     else if (tb10 >= 4.0) { tb4 = 1.0; diemChu = "D"; xepLoai = "Yếu"; }
     else { tb4 = 0.0; diemChu = "F"; xepLoai = "Kém"; }
 
@@ -1225,6 +1250,8 @@ export const TeacherPortal: React.FC = () => {
         const isNewFormat = headerRow.length <= 18 && (headerRow[5] === "CC" || headerRow[5]?.includes("CC"));
 
         const importedRows: SubjectStudentGrade[] = [];
+        const scoreSyntaxWarnings: string[] = [];
+
         for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
           const row = jsonData[i];
           if (!row || !row[1]) continue; 
@@ -1255,6 +1282,32 @@ export const TeacherPortal: React.FC = () => {
             rawExam = row[16] !== undefined ? row[16] : "";
           }
 
+          const studentNameStr = String(row[2] || "").trim() || stId;
+
+          // Check for score syntax errors (e.g. .5.5 or 8.5.5 or > 10 or < 0)
+          [
+            { val: rawCc, label: "CC" },
+            { val: rawTx1, label: "TX1" },
+            { val: rawTx2, label: "TX2" },
+            { val: rawDk1, label: "ĐK1" },
+            { val: rawDk2, label: "ĐK2" },
+            { val: rawExam, label: "Thi" }
+          ].forEach(item => {
+            if (item.val !== undefined && item.val !== null && item.val !== "" && item.val !== "-") {
+              const strVal = String(item.val).trim();
+              if (/\d+\.\d+\.\d+/.test(strVal) || /^\.\./.test(strVal)) {
+                scoreSyntaxWarnings.push(`SV ${studentNameStr} (${stId}): Ô ${item.label} bị thừa/lỗi dấu ("${strVal}")`);
+              } else {
+                const num = parseFloat(strVal.replace(",", "."));
+                if (isNaN(num)) {
+                  scoreSyntaxWarnings.push(`SV ${studentNameStr} (${stId}): Ô ${item.label} chứa ký tự lạ ("${strVal}")`);
+                } else if (num < 0 || num > 10) {
+                  scoreSyntaxWarnings.push(`SV ${studentNameStr} (${stId}): Ô ${item.label} có điểm = ${num} ngoài khoảng 0-10`);
+                }
+              }
+            }
+          });
+
           const draftItem: SubjectStudentGrade = {
             studentId: stId,
             studentName: String(row[2] || "").trim(),
@@ -1278,7 +1331,14 @@ export const TeacherPortal: React.FC = () => {
 
         if (importedRows.length > 0) {
           setCurrentGrades(importedRows);
-          alert(`Nạp thành công ${importedRows.length} sinh viên từ file Excel mẫu! Vui lòng kiểm tra và bấm "Lưu nháp" hoặc "Chốt nộp điểm".`);
+          let successMsg = `Nạp thành công ${importedRows.length} sinh viên từ file Excel mẫu! Vui lòng kiểm tra và bấm "Lưu nháp" hoặc "Chốt nộp điểm".`;
+          if (scoreSyntaxWarnings.length > 0) {
+            successMsg += `\n\n⚠️ PHÁT HIỆN ${scoreSyntaxWarnings.length} CẢNH BÁO LỖI ĐIỂM:\n` + scoreSyntaxWarnings.slice(0, 5).join("\n");
+            if (scoreSyntaxWarnings.length > 5) {
+              successMsg += `\n...và ${scoreSyntaxWarnings.length - 5} lỗi khác.`;
+            }
+          }
+          alert(successMsg);
         } else {
           alert("Không tìm thấy dữ liệu điểm sinh viên hợp lệ trong file!");
         }
