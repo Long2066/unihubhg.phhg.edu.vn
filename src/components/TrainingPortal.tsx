@@ -30,7 +30,8 @@ import {
   Search,
   Calendar,
   X,
-  Check
+  Check,
+  Copy
 } from "lucide-react";
 
 export const formatStudentId = (id: any) => {
@@ -1680,27 +1681,218 @@ export const TrainingPortal: React.FC = () => {
   };
 
   const handleOpenAddScheduleModal = () => {
-    setEditingScheduleSlot(null);
-    setScheduleModalData({
-      classId: selectedScheduleClass || "K2-GDTH A",
-      className: selectedScheduleClass || "K2-GDTH A",
+    handleOpenAddScheduleBatchModal();
+  };
+
+  // Batch Excel-like Grid State & Handlers
+  const [showScheduleBatchModal, setShowScheduleBatchModal] = useState(false);
+  const [batchGridRows, setBatchGridRows] = useState<Array<Partial<ScheduleSlot>>>([]);
+  const [batchRowErrors, setBatchRowErrors] = useState<{ [index: number]: string }>({});
+
+  const handleOpenAddScheduleBatchModal = () => {
+    const defaultClass = selectedScheduleClass || "K2-GDTH A";
+    const defaultSemId = selectedScheduleSemesterId || "HOCKY_2_2025_2026";
+    const initialRows: Array<Partial<ScheduleSlot>> = [
+      {
+        classId: defaultClass,
+        className: defaultClass,
+        subjectName: "",
+        subjectCode: "",
+        credits: 2,
+        teacherName: "",
+        dayOfWeek: 2,
+        session: "Sáng",
+        periodStart: 1,
+        periodEnd: 3,
+        room: "Phòng 201 - Nhà B",
+        semester: "II",
+        semesterId: defaultSemId,
+        weekRange: "1-15",
+        academicYear: "2025-2026",
+        studyMode: "Trực tiếp"
+      },
+      {
+        classId: defaultClass,
+        className: defaultClass,
+        subjectName: "",
+        subjectCode: "",
+        credits: 2,
+        teacherName: "",
+        dayOfWeek: 3,
+        session: "Sáng",
+        periodStart: 1,
+        periodEnd: 3,
+        room: "Phòng 201 - Nhà B",
+        semester: "II",
+        semesterId: defaultSemId,
+        weekRange: "1-15",
+        academicYear: "2025-2026",
+        studyMode: "Trực tiếp"
+      },
+      {
+        classId: defaultClass,
+        className: defaultClass,
+        subjectName: "",
+        subjectCode: "",
+        credits: 2,
+        teacherName: "",
+        dayOfWeek: 4,
+        session: "Sáng",
+        periodStart: 1,
+        periodEnd: 3,
+        room: "Phòng 201 - Nhà B",
+        semester: "II",
+        semesterId: defaultSemId,
+        weekRange: "1-15",
+        academicYear: "2025-2026",
+        studyMode: "Trực tiếp"
+      }
+    ];
+
+    setBatchGridRows(initialRows);
+    setBatchRowErrors({});
+    setShowScheduleBatchModal(true);
+  };
+
+  const handleAddBatchRow = (count: number = 1) => {
+    const defaultClass = selectedScheduleClass || "K2-GDTH A";
+    const defaultSemId = selectedScheduleSemesterId || "HOCKY_2_2025_2026";
+    const lastRow = batchGridRows[batchGridRows.length - 1];
+
+    const newRows: Array<Partial<ScheduleSlot>> = Array.from({ length: count }, (_, idx) => ({
+      classId: lastRow?.classId || defaultClass,
+      className: lastRow?.className || defaultClass,
       subjectName: "",
       subjectCode: "",
-      credits: 2,
-      teacherName: "",
-      dayOfWeek: 2,
-      session: "Sáng",
-      periodStart: 1,
-      periodEnd: 3,
-      room: "Phòng 201 - Nhà B",
-      semester: "II",
-      semesterId: selectedScheduleSemesterId || "HOCKY_2_2025_2026",
-      weekRange: "1-15",
-      academicYear: "2025-2026",
-      studyMode: "Trực tiếp"
+      credits: lastRow?.credits || 2,
+      teacherName: lastRow?.teacherName || "",
+      dayOfWeek: lastRow ? (lastRow.dayOfWeek && lastRow.dayOfWeek < 8 ? lastRow.dayOfWeek + 1 : 2) : (2 + (idx % 6)),
+      session: lastRow?.session || "Sáng",
+      periodStart: lastRow?.periodStart || 1,
+      periodEnd: lastRow?.periodEnd || 3,
+      room: lastRow?.room || "Phòng học",
+      semester: lastRow?.semester || "II",
+      semesterId: lastRow?.semesterId || defaultSemId,
+      weekRange: lastRow?.weekRange || "1-15",
+      academicYear: lastRow?.academicYear || "2025-2026",
+      studyMode: lastRow?.studyMode || "Trực tiếp"
+    }));
+
+    setBatchGridRows([...batchGridRows, ...newRows]);
+  };
+
+  const handleDuplicateBatchRow = (index: number) => {
+    const rowToClone = batchGridRows[index];
+    if (!rowToClone) return;
+    const cloned: Partial<ScheduleSlot> = {
+      ...rowToClone,
+      dayOfWeek: rowToClone.dayOfWeek && rowToClone.dayOfWeek < 8 ? rowToClone.dayOfWeek + 1 : 2
+    };
+    const updated = [...batchGridRows];
+    updated.splice(index + 1, 0, cloned);
+    setBatchGridRows(updated);
+  };
+
+  const handleRemoveBatchRow = (index: number) => {
+    if (batchGridRows.length <= 1) {
+      alert("Phải giữ lại ít nhất 1 hàng!");
+      return;
+    }
+    const updated = batchGridRows.filter((_, idx) => idx !== index);
+    setBatchGridRows(updated);
+    const newErrors = { ...batchRowErrors };
+    delete newErrors[index];
+    setBatchRowErrors(newErrors);
+  };
+
+  const handleUpdateBatchRowCell = (index: number, field: keyof ScheduleSlot, value: any) => {
+    const updated = [...batchGridRows];
+    updated[index] = {
+      ...updated[index],
+      [field]: value
+    };
+    if (field === "classId") {
+      updated[index].className = value;
+    }
+    setBatchGridRows(updated);
+    if (batchRowErrors[index]) {
+      const newErrors = { ...batchRowErrors };
+      delete newErrors[index];
+      setBatchRowErrors(newErrors);
+    }
+  };
+
+  const handleSaveScheduleBatch = () => {
+    const validRowsToSave: ScheduleSlot[] = [];
+    const errors: { [index: number]: string } = {};
+
+    batchGridRows.forEach((row, idx) => {
+      if (!row.subjectName || !row.subjectName.trim()) {
+        return; // skip blank rows
+      }
+
+      if (!row.classId || !row.classId.trim()) {
+        errors[idx] = "Thiếu tên/mã Lớp học!";
+        return;
+      }
+
+      const { startWeek, endWeek } = parseWeekRange(row.weekRange || "1-15");
+      const slot: ScheduleSlot = {
+        id: `SCH_BATCH_${Date.now()}_${idx}`,
+        classId: normalizeClassId(row.classId || "K2-GDTH A"),
+        className: normalizeClassId(row.className || row.classId || "K2-GDTH A"),
+        subjectName: row.subjectName.trim(),
+        subjectCode: row.subjectCode?.trim() || `HP_${row.subjectName.trim().replace(/\s+/g, "")}`,
+        credits: Number(row.credits) || 2,
+        teacherName: row.teacherName?.trim() || "Chưa phân công",
+        dayOfWeek: Number(row.dayOfWeek) || 2,
+        session: row.session || "Sáng",
+        periodStart: Number(row.periodStart) || 1,
+        periodEnd: Number(row.periodEnd) || 3,
+        room: row.room?.trim() || "Phòng học",
+        semester: row.semester || "II",
+        semesterId: row.semesterId || selectedScheduleSemesterId || "HOCKY_2_2025_2026",
+        weekRange: row.weekRange || "1-15",
+        startWeek,
+        endWeek,
+        academicYear: row.academicYear || "2025-2026",
+        studyMode: row.studyMode || "Trực tiếp",
+        colorHex: "#4F46E5"
+      };
+
+      // Check conflict against existing system schedules
+      const sysConflict = checkScheduleConflict(slot, schedules);
+      if (sysConflict.hasConflict) {
+        errors[idx] = sysConflict.message || "Xung đột lịch học trên hệ thống!";
+        return;
+      }
+
+      // Check conflict against other rows in the batch list
+      const batchConflict = checkScheduleConflict(slot, validRowsToSave);
+      if (batchConflict.hasConflict) {
+        errors[idx] = `Trùng lịch với một hàng khác trong bảng: ${batchConflict.message}`;
+        return;
+      }
+
+      validRowsToSave.push(slot);
     });
-    setScheduleConflictError(null);
-    setShowScheduleModal(true);
+
+    if (Object.keys(errors).length > 0) {
+      setBatchRowErrors(errors);
+      alert(`Phát hiện ${Object.keys(errors).length} hàng bị trùng lặp hoặc thiếu thông tin! Vui lòng kiểm tra các ô màu đỏ trong bảng.`);
+      return;
+    }
+
+    if (validRowsToSave.length === 0) {
+      alert("Vui lòng điền Tên môn học cho ít nhất 1 hàng trong bảng!");
+      return;
+    }
+
+    importScheduleData([...schedules, ...validRowsToSave]);
+    setShowScheduleBatchModal(false);
+    setBatchGridRows([]);
+    setBatchRowErrors({});
+    alert(`Đã lưu thành công ${validRowsToSave.length} ca học mới vào thời khóa biểu!`);
   };
 
   const handleOpenEditScheduleModal = (slot: ScheduleSlot) => {
@@ -3650,14 +3842,266 @@ export const TrainingPortal: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Điền Ca Học Trực Tiếp & Anti-duplication Engine */}
+      {/* Modal Bảng Điền Hàng Loạt Ca Học Dạng Excel */}
+      {showScheduleBatchModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] flex flex-col border border-slate-200 overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-4 border-b bg-slate-50 flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet size={20} className="text-indigo-650" />
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide">
+                    Bảng Nhập Liệu Thời Khóa Biểu Hàng Loạt (Dạng Excel)
+                  </h4>
+                  <p className="text-[11px] text-slate-500 font-normal">
+                    Thao tác nhanh, điền nhiều ca học cùng lúc và tự động đối soát chống trùng lặp lịch.
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowScheduleBatchModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Quick Action Toolbar */}
+            <div className="p-3 bg-indigo-50/50 border-b border-indigo-100 flex items-center gap-2 flex-wrap shrink-0">
+              <button 
+                onClick={() => handleAddBatchRow(1)}
+                className="px-3 py-1.5 bg-indigo-650 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer transition-all shadow-xs"
+              >
+                <Plus size={14} />
+                <span>+ Thêm 1 Hàng</span>
+              </button>
+
+              <button 
+                onClick={() => handleAddBatchRow(5)}
+                className="px-3 py-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer transition-all"
+              >
+                <Plus size={14} />
+                <span>+ Thêm 5 Hàng Trống</span>
+              </button>
+
+              <span className="text-[11px] text-slate-500 font-mono ml-auto">
+                Tổng số hàng: <strong className="text-indigo-700 font-bold">{batchGridRows.length}</strong> ca học
+              </span>
+            </div>
+
+            {/* Grid Table Container */}
+            <div className="p-4 overflow-auto flex-1 text-xs">
+              <table className="w-full text-left border-collapse min-w-[1100px]">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-300">
+                    <th className="p-2 text-center w-10">STT</th>
+                    <th className="p-2 w-32">Lớp học (*)</th>
+                    <th className="p-2 w-48">Tên môn học (*)</th>
+                    <th className="p-2 w-28">Mã HP</th>
+                    <th className="p-2 text-center w-16">Số TC</th>
+                    <th className="p-2 w-36">Giảng viên</th>
+                    <th className="p-2 text-center w-28">Thứ (*)</th>
+                    <th className="p-2 text-center w-24">Buổi</th>
+                    <th className="p-2 text-center w-20">Tiết đầu</th>
+                    <th className="p-2 text-center w-20">Tiết cuối</th>
+                    <th className="p-2 w-36">Phòng học (*)</th>
+                    <th className="p-2 text-center w-28">Tuần học (*)</th>
+                    <th className="p-2 w-28">Hình thức</th>
+                    <th className="p-2 text-center w-20">Tác vụ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {batchGridRows.map((row, idx) => {
+                    const errorMsg = batchRowErrors[idx];
+                    return (
+                      <React.Fragment key={idx}>
+                        <tr className={`hover:bg-slate-50/80 transition-colors ${errorMsg ? "bg-rose-50/70" : ""}`}>
+                          <td className="p-1.5 text-center font-bold text-slate-400">{idx + 1}</td>
+                          <td className="p-1.5">
+                            <input 
+                              type="text" 
+                              value={row.classId || ""}
+                              onChange={(e) => handleUpdateBatchRowCell(idx, "classId", e.target.value)}
+                              placeholder="VD: K2-GDTH A"
+                              className="w-full p-1.5 border border-slate-300 rounded font-bold text-indigo-700 outline-none focus:border-indigo-500 bg-white"
+                            />
+                          </td>
+                          <td className="p-1.5">
+                            <input 
+                              type="text" 
+                              value={row.subjectName || ""}
+                              onChange={(e) => handleUpdateBatchRowCell(idx, "subjectName", e.target.value)}
+                              placeholder="Tên môn học..."
+                              className="w-full p-1.5 border border-slate-300 rounded font-medium text-slate-900 outline-none focus:border-indigo-500 bg-white"
+                            />
+                          </td>
+                          <td className="p-1.5">
+                            <input 
+                              type="text" 
+                              value={row.subjectCode || ""}
+                              onChange={(e) => handleUpdateBatchRowCell(idx, "subjectCode", e.target.value)}
+                              placeholder="VD: GDTH204"
+                              className="w-full p-1.5 border border-slate-300 rounded font-mono text-slate-600 outline-none focus:border-indigo-500 bg-white"
+                            />
+                          </td>
+                          <td className="p-1.5">
+                            <input 
+                              type="number" min={1} max={10}
+                              value={row.credits || 2}
+                              onChange={(e) => handleUpdateBatchRowCell(idx, "credits", Number(e.target.value))}
+                              className="w-full p-1.5 border border-slate-300 rounded text-center font-bold outline-none focus:border-indigo-500 bg-white"
+                            />
+                          </td>
+                          <td className="p-1.5">
+                            <input 
+                              type="text" 
+                              value={row.teacherName || ""}
+                              onChange={(e) => handleUpdateBatchRowCell(idx, "teacherName", e.target.value)}
+                              placeholder="Tên giảng viên..."
+                              className="w-full p-1.5 border border-slate-300 rounded font-medium text-slate-700 outline-none focus:border-indigo-500 bg-white"
+                            />
+                          </td>
+                          <td className="p-1.5">
+                            <select 
+                              value={row.dayOfWeek || 2}
+                              onChange={(e) => handleUpdateBatchRowCell(idx, "dayOfWeek", Number(e.target.value))}
+                              className="w-full p-1.5 border border-slate-300 rounded font-bold text-slate-800 outline-none focus:border-indigo-500 bg-white"
+                            >
+                              <option value={2}>Thứ 2</option>
+                              <option value={3}>Thứ 3</option>
+                              <option value={4}>Thứ 4</option>
+                              <option value={5}>Thứ 5</option>
+                              <option value={6}>Thứ 6</option>
+                              <option value={7}>Thứ 7</option>
+                              <option value={8}>Chủ Nhật</option>
+                            </select>
+                          </td>
+                          <td className="p-1.5">
+                            <select 
+                              value={row.session || "Sáng"}
+                              onChange={(e) => handleUpdateBatchRowCell(idx, "session", e.target.value)}
+                              className="w-full p-1.5 border border-slate-300 rounded outline-none focus:border-indigo-500 bg-white font-medium"
+                            >
+                              <option value="Sáng">Sáng</option>
+                              <option value="Chiều">Chiều</option>
+                              <option value="Tối">Tối</option>
+                            </select>
+                          </td>
+                          <td className="p-1.5">
+                            <input 
+                              type="number" min={1} max={12}
+                              value={row.periodStart || 1}
+                              onChange={(e) => handleUpdateBatchRowCell(idx, "periodStart", Number(e.target.value))}
+                              className="w-full p-1.5 border border-slate-300 rounded text-center font-bold outline-none focus:border-indigo-500 bg-white"
+                            />
+                          </td>
+                          <td className="p-1.5">
+                            <input 
+                              type="number" min={1} max={12}
+                              value={row.periodEnd || 3}
+                              onChange={(e) => handleUpdateBatchRowCell(idx, "periodEnd", Number(e.target.value))}
+                              className="w-full p-1.5 border border-slate-300 rounded text-center font-bold outline-none focus:border-indigo-500 bg-white"
+                            />
+                          </td>
+                          <td className="p-1.5">
+                            <input 
+                              type="text" 
+                              value={row.room || ""}
+                              onChange={(e) => handleUpdateBatchRowCell(idx, "room", e.target.value)}
+                              placeholder="VD: Phòng 201"
+                              className="w-full p-1.5 border border-slate-300 rounded font-bold text-indigo-700 outline-none focus:border-indigo-500 bg-white"
+                            />
+                          </td>
+                          <td className="p-1.5">
+                            <input 
+                              type="text" 
+                              value={row.weekRange || "1-15"}
+                              onChange={(e) => handleUpdateBatchRowCell(idx, "weekRange", e.target.value)}
+                              placeholder="VD: 1-15"
+                              className="w-full p-1.5 border border-slate-300 rounded text-center font-bold text-indigo-700 outline-none focus:border-indigo-500 bg-white"
+                            />
+                          </td>
+                          <td className="p-1.5">
+                            <select 
+                              value={row.studyMode || "Trực tiếp"}
+                              onChange={(e) => handleUpdateBatchRowCell(idx, "studyMode", e.target.value)}
+                              className="w-full p-1.5 border border-slate-300 rounded outline-none focus:border-indigo-500 bg-white font-medium"
+                            >
+                              <option value="Trực tiếp">Trực tiếp</option>
+                              <option value="Online">Online</option>
+                            </select>
+                          </td>
+                          <td className="p-1.5 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button 
+                                onClick={() => handleDuplicateBatchRow(idx)}
+                                className="p-1 text-indigo-600 hover:bg-indigo-100 rounded transition-colors cursor-pointer"
+                                title="Nhân bản (sao chép) dòng này"
+                              >
+                                <Copy size={13} />
+                              </button>
+                              <button 
+                                onClick={() => handleRemoveBatchRow(idx)}
+                                className="p-1 text-rose-600 hover:bg-rose-100 rounded transition-colors cursor-pointer"
+                                title="Xóa dòng"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {errorMsg && (
+                          <tr>
+                            <td colSpan={14} className="p-2 bg-rose-100/80 text-rose-800 text-[11px] font-bold border-b border-rose-200">
+                              <div className="flex items-center gap-1.5 pl-4">
+                                <AlertTriangle size={14} className="shrink-0 text-rose-600" />
+                                <span>Hàng {idx + 1}: {errorMsg}</span>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t bg-slate-50 flex justify-between items-center shrink-0">
+              <span className="text-[11px] text-slate-500 italic">
+                * Lưu ý: Hệ thống sẽ tự động loại bỏ các hàng trống rỗng và kiểm tra trùng lịch (Phòng, Giảng viên, Lớp) trước khi lưu.
+              </span>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setShowScheduleBatchModal(false)}
+                  className="px-4 py-2 border border-slate-300 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button 
+                  onClick={handleSaveScheduleBatch}
+                  className="px-5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-md flex items-center gap-1.5"
+                >
+                  <Check size={14} />
+                  <span>Kiểm Tra & Lưu Tất Cả Ca Học</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Chỉnh Sửa Ca Học Đơn Lẻ */}
       {showScheduleModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 space-y-4 border border-slate-200">
             <div className="flex justify-between items-center border-b pb-3">
               <h4 className="text-base font-bold text-slate-800 flex items-center gap-2">
                 <Calendar size={18} className="text-indigo-600" />
-                {editingScheduleSlot ? "Chỉnh Sửa Ca Học" : "Thêm Ca Học Mới Trực Tiếp"}
+                Chỉnh Sửa Ca Học
               </h4>
               <button 
                 onClick={() => setShowScheduleModal(false)}
@@ -3843,7 +4287,7 @@ export const TrainingPortal: React.FC = () => {
                 className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-md flex items-center gap-1.5"
               >
                 <Check size={14} />
-                <span>{editingScheduleSlot ? "Cập Nhật Ca Học" : "Lưu Ca Học Mới"}</span>
+                <span>Cập Nhật Ca Học</span>
               </button>
             </div>
           </div>
