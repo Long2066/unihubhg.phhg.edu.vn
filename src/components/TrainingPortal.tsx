@@ -1201,7 +1201,7 @@ export const TrainingPortal: React.FC = () => {
       const noteRow = catalogSheet.addRow(["Ghi chú: [lấy từ bảng phân công giảng viên bộ môn]"]);
       noteRow.font = { name: "Times New Roman", size: 10, italic: true };
 
-      // 2. Build Per-Class Sheets
+      // 2. Build Per-Class Sheets (Formatted 100% identical to Mau_Thoi_khoa_bieu_Phan_hieu (1).xlsx)
       const daysConfig = [
         { day: 2, label: "Thứ Hai" },
         { day: 3, label: "Thứ Ba" },
@@ -1344,46 +1344,6 @@ export const TrainingPortal: React.FC = () => {
         nameCell.alignment = { vertical: "middle", horizontal: "center" };
       });
 
-      // 3. Build Flat Sheet: THỜI_KHÓA_BIỂU
-      const flatSheet = workbook.addWorksheet("THỜI_KHÓA_BIỂU");
-      flatSheet.columns = [
-        { header: "Mã lớp", key: "classId", width: 16 },
-        { header: "Tên lớp", key: "className", width: 18 },
-        { header: "Thứ", key: "dayOfWeek", width: 14 },
-        { header: "Buổi", key: "session", width: 12 },
-        { header: "Môn học", key: "subjectName", width: 32 },
-        { header: "Tiết", key: "period", width: 14 },
-        { header: "Phòng học", key: "room", width: 20 },
-        { header: "Học kỳ", key: "semester", width: 12 },
-        { header: "Tuần học (VD: 1-15)", key: "weekRange", width: 20 },
-        { header: "Năm học", key: "academicYear", width: 14 },
-        { header: "Hình thức học", key: "studyMode", width: 16 }
-      ];
-
-      const flatHeaderRow = flatSheet.getRow(1);
-      flatHeaderRow.font = { name: "Times New Roman", size: 11, bold: true };
-      flatHeaderRow.alignment = { vertical: "middle", horizontal: "center" };
-
-      const exportSchedules = targetClassId 
-        ? schedules.filter(s => normalizeClassId(s.classId) === normalizeClassId(targetClassId))
-        : schedules;
-
-      exportSchedules.forEach(s => {
-        flatSheet.addRow({
-          classId: s.classId,
-          className: s.className || s.classId,
-          dayOfWeek: s.dayOfWeek === 8 ? "Chủ Nhật" : `Thứ ${s.dayOfWeek}`,
-          session: s.session || "Sáng",
-          subjectName: s.subjectName,
-          period: `${s.periodStart}-${s.periodEnd}`,
-          room: s.room,
-          semester: s.semester || "II",
-          weekRange: s.weekRange || "1-15",
-          academicYear: s.academicYear || "2025-2026",
-          studyMode: s.studyMode || "Trực tiếp"
-        }).font = { name: "Times New Roman", size: 10 };
-      });
-
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);
@@ -1477,6 +1437,33 @@ export const TrainingPortal: React.FC = () => {
           const rawData = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1 });
           if (rawData.length === 0) return;
 
+          let sheetSemester = "II";
+          let sheetAcademicYear = "2025-2026";
+          let sheetTitleClass = normalizeClassId(sheetName);
+          let sheetWeekRange = "1-15";
+
+          // Scan top 4 rows for Title & Subtitle Metadata (Header block of Phân hiệu)
+          for (let r = 0; r < Math.min(4, rawData.length); r++) {
+            const row = rawData[r];
+            if (!row) continue;
+            row.forEach((cell: any) => {
+              if (!cell) return;
+              const cellStr = cell.toString().trim();
+              if (cellStr.toUpperCase().includes("THỜI KHÓA BIỂU")) {
+                const semMatch = cellStr.match(/HỌC KÌ\s+([I|V|X]+|\d+)/i);
+                if (semMatch) sheetSemester = semMatch[1].toUpperCase();
+                const yearMatch = cellStr.match(/NĂM HỌC\s+(\d{4}\s*-\s*\d{4})/i);
+                if (yearMatch) sheetAcademicYear = yearMatch[1];
+                const classMatch = cellStr.match(/LỚP\s+(.+)/i);
+                if (classMatch) sheetTitleClass = normalizeClassId(classMatch[1].trim());
+              }
+              if (cellStr.toLowerCase().includes("tuần:")) {
+                const weekMatch = cellStr.match(/Tuần:\s*([\d\s\-,]+)/i);
+                if (weekMatch) sheetWeekRange = weekMatch[1].trim();
+              }
+            });
+          }
+
           // Find header row containing "Môn học" or "Mã lớp"
           let headerIdx = -1;
           for (let r = 0; r < Math.min(10, rawData.length); r++) {
@@ -1509,7 +1496,7 @@ export const TrainingPortal: React.FC = () => {
 
           if (schedColIdx.subjectName === -1) return;
 
-          const fallbackClassId = normalizeClassId(sheetName);
+          const fallbackClassId = sheetTitleClass || normalizeClassId(sheetName);
 
           let currentClassId = fallbackClassId;
           let currentClassName = fallbackClassId;
@@ -1539,10 +1526,10 @@ export const TrainingPortal: React.FC = () => {
 
             const session = schedColIdx.session !== -1 && row[schedColIdx.session] ? row[schedColIdx.session]?.toString().trim() : "Sáng";
             const room = schedColIdx.room !== -1 && row[schedColIdx.room] ? row[schedColIdx.room]?.toString().trim() : "Phòng học";
-            const semester = schedColIdx.semester !== -1 && row[schedColIdx.semester] ? row[schedColIdx.semester]?.toString().trim() : "II";
-            const weekRange = schedColIdx.weekRange !== -1 && row[schedColIdx.weekRange] ? row[schedColIdx.weekRange]?.toString().trim() : "1-15";
+            const semester = schedColIdx.semester !== -1 && row[schedColIdx.semester] ? row[schedColIdx.semester]?.toString().trim() : sheetSemester;
+            const weekRange = schedColIdx.weekRange !== -1 && row[schedColIdx.weekRange] ? row[schedColIdx.weekRange]?.toString().trim() : sheetWeekRange;
             const { startWeek, endWeek } = parseWeekRange(weekRange);
-            const academicYear = schedColIdx.academicYear !== -1 && row[schedColIdx.academicYear] ? row[schedColIdx.academicYear]?.toString().trim() : "2025-2026";
+            const academicYear = schedColIdx.academicYear !== -1 && row[schedColIdx.academicYear] ? row[schedColIdx.academicYear]?.toString().trim() : sheetAcademicYear;
             const studyMode = schedColIdx.studyMode !== -1 && row[schedColIdx.studyMode] ? row[schedColIdx.studyMode]?.toString().trim() : "Trực tiếp";
 
             let periodStart = 1;
