@@ -430,10 +430,45 @@ export interface ScheduleSlot {
   periodEnd: number;     // Tiết kết thúc (e.g. 3)
   room: string;          // Phòng học (e.g. "102B")
   semester: string;      // Học kỳ (e.g. "II")
+  semesterId?: string;   // Mã học kỳ (e.g. "HOCKY_2_2025_2026")
+  weekRange?: string;    // Chuỗi tuần học (e.g. "1-15", "1-9", "10-18")
+  startWeek?: number;    // Tuần bắt đầu (e.g. 1)
+  endWeek?: number;      // Tuần kết thúc (e.g. 15)
   academicYear?: string; // Năm học (e.g. "2025-2026")
   studyMode?: string;    // Hình thức học (e.g. "Trực tiếp", "Online")
   colorHex?: string;     // Màu sắc đại diện hiển thị trên lịch tuần
 }
+
+export const parseWeekRange = (weekRangeStr?: string): { startWeek: number; endWeek: number; activeWeeks: number[] } => {
+  if (!weekRangeStr) return { startWeek: 1, endWeek: 15, activeWeeks: Array.from({ length: 15 }, (_, i) => i + 1) };
+  
+  const str = weekRangeStr.trim();
+  const rangeMatch = str.match(/(\d+)\s*-\s*(\d+)/);
+  if (rangeMatch) {
+    const start = parseInt(rangeMatch[1]);
+    const end = parseInt(rangeMatch[2]);
+    const activeWeeks: number[] = [];
+    for (let w = Math.min(start, end); w <= Math.max(start, end); w++) {
+      activeWeeks.push(w);
+    }
+    return { startWeek: start, endWeek: end, activeWeeks };
+  }
+
+  const parts = str.split(/[,;\s]+/).map(p => parseInt(p)).filter(p => !isNaN(p));
+  if (parts.length > 0) {
+    const start = Math.min(...parts);
+    const end = Math.max(...parts);
+    return { startWeek: start, endWeek: end, activeWeeks: parts };
+  }
+
+  return { startWeek: 1, endWeek: 15, activeWeeks: Array.from({ length: 15 }, (_, i) => i + 1) };
+};
+
+export const isWeekInScheduleSlot = (slot: ScheduleSlot, targetWeek: number): boolean => {
+  if (!targetWeek || targetWeek === 0) return true;
+  const { activeWeeks } = parseWeekRange(slot.weekRange);
+  return activeWeeks.includes(targetWeek);
+};
 
 export interface GroupAttendanceReport {
   id: string;

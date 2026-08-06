@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useUniHub } from "../state";
-import { STUDENT_FIELDS_META, Student, convertGoogleDriveUrlToDirectUrl } from "../types";
+import { STUDENT_FIELDS_META, Student, convertGoogleDriveUrlToDirectUrl, SEMESTER_LIST, parseWeekRange, isWeekInScheduleSlot } from "../types";
 import { 
   Award, 
   Calendar, 
@@ -235,6 +235,8 @@ export const StudentPortal: React.FC = () => {
   const [clubFeedTab, setClubFeedTab] = useState<"ALL" | "ANNOUNCEMENTS" | "ACTIVITIES">("ALL");
   const [onlyMyClubsFilter, setOnlyMyClubsFilter] = useState(false);
   const [selectedStudentScheduleClass, setSelectedStudentScheduleClass] = useState("");
+  const [selectedStudentScheduleSemesterId, setSelectedStudentScheduleSemesterId] = useState("HOCKY_2_2025_2026");
+  const [selectedStudentScheduleWeek, setSelectedStudentScheduleWeek] = useState(0);
   const [announcementKeyword, setAnnouncementKeyword] = useState("");
 
   // States for professional activity news board ticker & carousel
@@ -2486,10 +2488,12 @@ export const StudentPortal: React.FC = () => {
             const currentClassToView = selectedStudentScheduleClass || sObj?.classId || availableClasses[0] || "";
 
             const norm = (str: string) => str.toLowerCase().replace(/[-_\s]/g, "");
-            const mySchedules = schedules.filter(s => 
-              s.classId === currentClassToView || 
-              (currentClassToView && norm(s.classId) === norm(currentClassToView))
-            );
+            const mySchedules = schedules.filter(s => {
+              const matchClass = s.classId === currentClassToView || (currentClassToView && norm(s.classId) === norm(currentClassToView));
+              const matchSemester = !selectedStudentScheduleSemesterId || s.semesterId === selectedStudentScheduleSemesterId || !s.semesterId;
+              const matchWeek = selectedStudentScheduleWeek === 0 || isWeekInScheduleSlot(s, selectedStudentScheduleWeek);
+              return matchClass && matchSemester && matchWeek;
+            });
 
             const todayClasses = mySchedules
               .filter(s => s.dayOfWeek === todayVN)
@@ -2569,20 +2573,49 @@ export const StudentPortal: React.FC = () => {
                       <p className="text-[10px] text-slate-405 mt-0.5">Lịch học chính thức được cập nhật trực tiếp bởi Phòng Đào tạo phân hiệu.</p>
                     </div>
 
-                    {availableClasses.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-bold text-slate-500">Tra cứu lớp khác:</span>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-bold text-slate-500">Học kỳ:</span>
                         <select 
-                          value={currentClassToView}
-                          onChange={(e) => setSelectedStudentScheduleClass(e.target.value)}
-                          className="text-[11px] p-1 px-2 border rounded-lg bg-white outline-none cursor-pointer focus:ring-1 focus:ring-indigo-500 font-bold text-indigo-700"
+                          value={selectedStudentScheduleSemesterId}
+                          onChange={(e) => setSelectedStudentScheduleSemesterId(e.target.value)}
+                          className="text-[11px] p-1 px-2 border rounded-lg bg-white outline-none cursor-pointer focus:ring-1 focus:ring-indigo-500 font-medium text-slate-700"
                         >
-                          {availableClasses.map(c => (
-                            <option key={c} value={c}>{c}</option>
+                          {SEMESTER_LIST.map(sem => (
+                            <option key={sem.id} value={sem.id}>{sem.name}</option>
                           ))}
                         </select>
                       </div>
-                    )}
+
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-bold text-slate-500">Tuần:</span>
+                        <select 
+                          value={selectedStudentScheduleWeek}
+                          onChange={(e) => setSelectedStudentScheduleWeek(Number(e.target.value))}
+                          className="text-[11px] p-1 px-2 border rounded-lg bg-white outline-none cursor-pointer focus:ring-1 focus:ring-indigo-500 font-medium text-slate-700"
+                        >
+                          <option value={0}>Tất cả tuần (1-20)</option>
+                          {Array.from({ length: 20 }, (_, i) => i + 1).map(w => (
+                            <option key={w} value={w}>Tuần {w}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {availableClasses.length > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-bold text-slate-500">Lớp:</span>
+                          <select 
+                            value={currentClassToView}
+                            onChange={(e) => setSelectedStudentScheduleClass(e.target.value)}
+                            className="text-[11px] p-1 px-2 border rounded-lg bg-white outline-none cursor-pointer focus:ring-1 focus:ring-indigo-500 font-bold text-indigo-700"
+                          >
+                            {availableClasses.map(c => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-7 gap-3">

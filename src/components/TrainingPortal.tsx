@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useUniHub, normalizeClassId } from "../state";
-import { UserRole, Student, UserAccount, ScheduleSlot, STUDENT_FIELDS_META, SEMESTER_LIST, CourseClassAssignment, GradeAppeal, GradingRulesConfig } from "../types";
+import { UserRole, Student, UserAccount, ScheduleSlot, STUDENT_FIELDS_META, SEMESTER_LIST, CourseClassAssignment, GradeAppeal, GradingRulesConfig, parseWeekRange, isWeekInScheduleSlot } from "../types";
 import { SEED_TEACHER_ASSIGNMENTS } from "../data";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
@@ -77,6 +77,8 @@ export const TrainingPortal: React.FC = () => {
   };
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [classDetailSearchQuery, setClassDetailSearchQuery] = useState("");
+  const [selectedScheduleSemesterId, setSelectedScheduleSemesterId] = useState<string>("HOCKY_2_2025_2026");
+  const [selectedScheduleWeek, setSelectedScheduleWeek] = useState<number>(0);
 
   // Modal manual edit GPA
   const [editGpa, setEditGpa] = useState(3.0);
@@ -1188,22 +1190,15 @@ export const TrainingPortal: React.FC = () => {
           s.subjectName,
           `${s.periodStart}-${s.periodEnd}`,
           s.room,
-          s.semester,
+          s.semester || "II",
+          s.weekRange || "1-15",
           s.academicYear || "2025-2026",
           s.studyMode || "Trực tiếp"
         ])
       : [
-          ["K2GDTHA", "K2 GDTH A", "Thứ 2", "Sáng", "CSTN&XH", "1-3", "102B", "II", "2025-2026", "Trực tiếp"],
-          ["K2GDTHA", "K2 GDTH A", "Thứ 2", "Sáng", "ĐẠO ĐỨC", "4-5", "102B", "II", "2025-2026", "Trực tiếp"],
-          ["K2GDTHA", "K2 GDTH A", "Thứ 3", "Sáng", "TIẾNG ANH", "1-2", "102B", "II", "2025-2027", "Online"],
-          ["K2GDTHA", "K2 GDTH A", "Thứ 3", "Sáng", "MỸ THUẬT", "3-5", "102B", "II", "2025-2028", "Trực tiếp"],
-          ["K2GDTHA", "K2 GDTH A", "Thứ 4", "Sáng", "ÂM NHẠC", "1-2", "102B", "II", "2025-2029", "Trực tiếp"],
-          ["K2GDTHA", "K2 GDTH A", "Thứ 4", "Sáng", "TOÁN", "3-4", "102B", "II", "2025-2030", "Trực tiếp"],
-          ["K2GDTHA", "K2 GDTH A", "Thứ 5", "Sáng", "KĨ NĂNG SỐNG", "1-3", "102B", "II", "2025-2031", "Trực tiếp"],
-          ["K2GDTHA", "K2 GDTH A", "Thứ 5", "Sáng", "TIẾNG VIỆT", "4-5", "102B", "II", "2025-2032", "Trực tiếp"],
-          ["K2GDTHA", "K2 GDTH A", "Thứ 6", "Sáng", "ĐẠO ĐỨC", "1-2", "102B", "II", "2025-2033", "Trực tiếp"],
-          ["K2GDTHA", "K2 GDTH A", "Thứ 6", "Sáng", "TOÁN", "4-5", "102B", "II", "2025-2034", "Trực tiếp"],
-          ["K2GDTHA", "K2 GDTH A", "Thứ 7", "Chiều", "THỂ CHẤT", "1-5", "Sân trường", "II", "2025-2035", "Trực tiếp"]
+          ["K2-GDTH A", "K2 GDTH A", "Thứ 2", "Sáng", "CSTN&XH", "1-3", "102B", "II", "1-15", "2025-2026", "Trực tiếp"],
+          ["K2-GDTH A", "K2 GDTH A", "Thứ 3", "Sáng", "Phương pháp dạy học Toán", "1-3", "Phòng 201 - Nhà B", "II", "1-9", "2025-2026", "Trực tiếp"],
+          ["K2-GDTH A", "K2 GDTH A", "Thứ 5", "Sáng", "Tâm lý học tiểu học", "4-6", "Phòng 105 - Nhà C", "II", "10-18", "2025-2026", "Trực tiếp"]
         ];
 
     const workbook = XLSX.utils.book_new();
@@ -1223,6 +1218,7 @@ export const TrainingPortal: React.FC = () => {
       "Tiết",
       "Phòng học",
       "Học kỳ",
+      "Tuần học (VD: 1-15)",
       "Năm học",
       "Hình thức học"
     ];
@@ -1303,6 +1299,7 @@ export const TrainingPortal: React.FC = () => {
           period: scheduleHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "tiết"),
           room: scheduleHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "phòng học"),
           semester: scheduleHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "học kỳ"),
+          weekRange: scheduleHeaders.findIndex(h => h?.toString().trim().toLowerCase().includes("tuần")),
           academicYear: scheduleHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "năm học"),
           studyMode: scheduleHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "hình thức học")
         };
@@ -1343,6 +1340,8 @@ export const TrainingPortal: React.FC = () => {
           const session = schedColIdx.session !== -1 && row[schedColIdx.session] ? row[schedColIdx.session]?.toString().trim() : "Sáng";
           const room = schedColIdx.room !== -1 && row[schedColIdx.room] ? row[schedColIdx.room]?.toString().trim() : "Phòng học";
           const semester = schedColIdx.semester !== -1 && row[schedColIdx.semester] ? row[schedColIdx.semester]?.toString().trim() : "II";
+          const weekRange = schedColIdx.weekRange !== -1 && row[schedColIdx.weekRange] ? row[schedColIdx.weekRange]?.toString().trim() : "1-15";
+          const { startWeek, endWeek } = parseWeekRange(weekRange);
           const academicYear = schedColIdx.academicYear !== -1 && row[schedColIdx.academicYear] ? row[schedColIdx.academicYear]?.toString().trim() : "2025-2026";
           const studyMode = schedColIdx.studyMode !== -1 && row[schedColIdx.studyMode] ? row[schedColIdx.studyMode]?.toString().trim() : "Trực tiếp";
 
@@ -1378,6 +1377,10 @@ export const TrainingPortal: React.FC = () => {
             periodEnd,
             room,
             semester,
+            semesterId: selectedScheduleSemesterId,
+            weekRange,
+            startWeek,
+            endWeek,
             academicYear,
             studyMode,
             colorHex: fallbackColors[i % fallbackColors.length]
@@ -2387,7 +2390,12 @@ export const TrainingPortal: React.FC = () => {
               setSelectedScheduleClass(availableScheduleClasses[0]);
             }
 
-            const classSchedules = schedules.filter(s => normalizeClassId(s.classId) === selectedScheduleClass);
+            const classSchedules = schedules.filter(s => {
+              const matchClass = normalizeClassId(s.classId) === selectedScheduleClass;
+              const matchSemester = !selectedScheduleSemesterId || s.semesterId === selectedScheduleSemesterId || !s.semesterId;
+              const matchWeek = selectedScheduleWeek === 0 || isWeekInScheduleSlot(s, selectedScheduleWeek);
+              return matchClass && matchSemester && matchWeek;
+            });
 
             return (
               <div className="space-y-6 text-left animate-fade-in">
@@ -2473,6 +2481,7 @@ export const TrainingPortal: React.FC = () => {
                             <th className="p-2 text-[10px] uppercase tracking-wider font-mono text-center">Tiết cuối</th>
                             <th className="p-2 text-[10px] uppercase tracking-wider font-mono">Phòng</th>
                             <th className="p-2 text-[10px] uppercase tracking-wider font-mono">Học kỳ</th>
+                            <th className="p-2 text-[10px] uppercase tracking-wider font-mono text-center">Tuần học</th>
                             <th className="p-2 text-[10px] uppercase tracking-wider font-mono">Năm học</th>
                             <th className="p-2 text-[10px] uppercase tracking-wider font-mono">Hình thức</th>
                           </tr>
@@ -2493,6 +2502,7 @@ export const TrainingPortal: React.FC = () => {
                               <td className="p-2 text-center">{row.periodEnd}</td>
                               <td className="p-2 font-bold text-indigo-650">{row.room}</td>
                               <td className="p-2 text-slate-500">{row.semester}</td>
+                              <td className="p-2 text-center font-bold text-indigo-700">{row.weekRange || "1-15"}</td>
                               <td className="p-2 text-slate-500 font-mono text-[10.5px]">{row.academicYear || "2025-2026"}</td>
                               <td className="p-2">
                                 <span className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold ${row.studyMode === "Online" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
@@ -2508,22 +2518,51 @@ export const TrainingPortal: React.FC = () => {
                 )}
 
                 <div className="bg-white p-4 rounded-xl border border-slate-150 space-y-4">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-slate-600">Chọn lớp xem lịch biểu:</span>
-                    <select 
-                      value={selectedScheduleClass}
-                      onChange={(e) => setSelectedScheduleClass(e.target.value)}
-                      className="text-xs p-1.5 border rounded-lg bg-white outline-none cursor-pointer focus:ring-1 focus:ring-indigo-500"
-                    >
-                      {availableScheduleClasses.map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
+                  <div className="flex items-center gap-4 flex-wrap bg-slate-50/70 p-3 rounded-xl border border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-700">Học kỳ:</span>
+                      <select 
+                        value={selectedScheduleSemesterId}
+                        onChange={(e) => setSelectedScheduleSemesterId(e.target.value)}
+                        className="text-xs p-1.5 border border-slate-300 rounded-lg bg-white outline-none cursor-pointer focus:ring-1 focus:ring-indigo-500 font-medium text-slate-800"
+                      >
+                        {SEMESTER_LIST.map(sem => (
+                          <option key={sem.id} value={sem.id}>{sem.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-700">Lớp học:</span>
+                      <select 
+                        value={selectedScheduleClass}
+                        onChange={(e) => setSelectedScheduleClass(e.target.value)}
+                        className="text-xs p-1.5 border border-slate-300 rounded-lg bg-white outline-none cursor-pointer focus:ring-1 focus:ring-indigo-500 font-bold text-indigo-700"
+                      >
+                        {availableScheduleClasses.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-700">Tuần học:</span>
+                      <select 
+                        value={selectedScheduleWeek}
+                        onChange={(e) => setSelectedScheduleWeek(Number(e.target.value))}
+                        className="text-xs p-1.5 border border-slate-300 rounded-lg bg-white outline-none cursor-pointer focus:ring-1 focus:ring-indigo-500 font-medium text-slate-800"
+                      >
+                        <option value={0}>Tất cả các tuần (Tuần 1 - 20)</option>
+                        {Array.from({ length: 20 }, (_, i) => i + 1).map(w => (
+                          <option key={w} value={w}>Tuần {w}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
                   {classSchedules.length === 0 ? (
                     <div className="p-6 text-center text-slate-450 italic border border-dashed rounded-lg text-xs">
-                      Chưa có dữ liệu thời khóa biểu cho lớp này.
+                      Chưa có dữ liệu thời khóa biểu phù hợp với học kỳ, lớp và tuần học đã chọn.
                     </div>
                   ) : (
                     <div className="border rounded-lg overflow-x-auto text-[11.5px] font-mono">
@@ -2539,6 +2578,7 @@ export const TrainingPortal: React.FC = () => {
                             <th className="p-2 text-[10px] uppercase tracking-wider font-mono text-center">Ca/Tiết</th>
                             <th className="p-2 text-[10px] uppercase tracking-wider font-mono">Phòng học</th>
                             <th className="p-2 text-[10px] uppercase tracking-wider font-mono">Học kỳ</th>
+                            <th className="p-2 text-[10px] uppercase tracking-wider font-mono text-center">Tuần học</th>
                             <th className="p-2 text-[10px] uppercase tracking-wider font-mono">Năm học</th>
                             <th className="p-2 text-[10px] uppercase tracking-wider font-mono">Hình thức</th>
                             <th className="p-2 text-[10px] uppercase tracking-wider font-mono text-center">Tác vụ</th>
@@ -2556,6 +2596,7 @@ export const TrainingPortal: React.FC = () => {
                               <td className="p-2 text-center">Tiết {slot.periodStart} - {slot.periodEnd}</td>
                               <td className="p-2 font-mono text-indigo-700 font-bold">{slot.room}</td>
                               <td className="p-2 text-slate-500">{slot.semester}</td>
+                              <td className="p-2 text-center font-bold text-indigo-700">{slot.weekRange || "1-15"}</td>
                               <td className="p-2 text-slate-500 font-mono text-[10.5px]">{slot.academicYear || "2025-2026"}</td>
                               <td className="p-2">
                                 <span className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold ${slot.studyMode === "Online" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
