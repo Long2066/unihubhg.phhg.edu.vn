@@ -1184,7 +1184,7 @@ export const TrainingPortal: React.FC = () => {
         ? [targetClassId] 
         : (availableScheduleClasses.length > 0 ? availableScheduleClasses : ["K2-GDTH A"]);
 
-      // 1. Build DANH_MỤC Catalog Sheet
+      // 1. Build DANH_MỤC Catalog Sheet (Pulls REAL data from Teacher Assignments flow)
       const catalogSheet = workbook.addWorksheet("DANH_MỤC");
       catalogSheet.columns = [
         { header: "Tên học phần", key: "name", width: 35 },
@@ -1199,13 +1199,34 @@ export const TrainingPortal: React.FC = () => {
       catHeaderRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" } };
 
       const subjectsMap = new Map<string, { code: string; credits: number; teacher: string }>();
+
+      // Pull actual assignments from teacherAssignments state (or SEED_TEACHER_ASSIGNMENTS fallback)
+      const relevantAssignments = teacherAssignments.length > 0 
+        ? teacherAssignments 
+        : (SEED_TEACHER_ASSIGNMENTS || []);
+
+      relevantAssignments.forEach(a => {
+        if (!targetClassId || normalizeClassId(a.classId) === normalizeClassId(targetClassId)) {
+          if (!subjectsMap.has(a.subjectName)) {
+            subjectsMap.set(a.subjectName, {
+              code: a.subjectCode || `HP_${a.subjectName.replace(/\s+/g, "")}`,
+              credits: a.credits || 2,
+              teacher: a.teacherName || "Chưa phân công"
+            });
+          }
+        }
+      });
+
+      // Also include subjects from schedules if not already present
       schedules.forEach(s => {
-        if (!subjectsMap.has(s.subjectName)) {
-          subjectsMap.set(s.subjectName, {
-            code: s.subjectCode || "",
-            credits: s.credits || 2,
-            teacher: s.teacherName
-          });
+        if (!targetClassId || normalizeClassId(s.classId) === normalizeClassId(targetClassId)) {
+          if (!subjectsMap.has(s.subjectName)) {
+            subjectsMap.set(s.subjectName, {
+              code: s.subjectCode || "",
+              credits: s.credits || 2,
+              teacher: s.teacherName || "Chưa phân công"
+            });
+          }
         }
       });
 
@@ -1225,7 +1246,7 @@ export const TrainingPortal: React.FC = () => {
       const noteRow = catalogSheet.addRow(["Ghi chú: [lấy từ bảng phân công giảng viên bộ môn]"]);
       noteRow.font = { name: "Times New Roman", size: 10, italic: true };
 
-      // 2. Build Per-Class Sheets (Formatted 100% identical to Mau_Thoi_khoa_bieu_Phan_hieu (1).xlsx)
+      // 2. Build Per-Class Sheets (Formatted 100% according to Images 2, 3, 4, 5 & 4-week blocks)
       const daysConfig = [
         { day: 2, label: "Thứ Hai" },
         { day: 3, label: "Thứ Ba" },
@@ -1236,168 +1257,221 @@ export const TrainingPortal: React.FC = () => {
         { day: 8, label: "Chủ Nhật" }
       ];
 
+      // Date helper for formatted calendar date (DD/MM/YYYY)
+      const getFormattedDateForWeekDay = (weekNum: number, dayOfWeek: number): string => {
+        const base = new Date(2026, 7, 10); // Monday August 10, 2026
+        const dayOffset = (weekNum - 1) * 7 + (dayOfWeek - 2);
+        const targetDate = new Date(base.getTime() + dayOffset * 86400000);
+        const dd = String(targetDate.getDate()).padStart(2, "0");
+        const mm = String(targetDate.getMonth() + 1).padStart(2, "0");
+        const yyyy = targetDate.getFullYear();
+        return `${dd}/${mm}/${yyyy}`;
+      };
+
       exportClasses.forEach(clsId => {
         const sheetName = clsId.slice(0, 31);
         const sheet = workbook.addWorksheet(sheetName);
 
+        // Page Setup matching Images 2, 3, 4
+        sheet.pageSetup = {
+          orientation: "landscape",
+          paperSize: 9, // A4
+          scale: 75,
+          fitToWidth: 1,
+          fitToHeight: 0,
+          margins: {
+            top: 0.75,    // 1.9 cm
+            bottom: 0.75, // 1.9 cm
+            left: 0.71,   // 1.8 cm
+            right: 0.71,  // 1.8 cm
+            header: 0.31, // 0.8 cm
+            footer: 0.31  // 0.8 cm
+          }
+        };
+
+        sheet.headerFooter = {
+          oddFooter: `&C ${clsId}`,
+          evenFooter: `&C ${clsId}`
+        };
+
+        // 9 Columns A -> I matching Image 5
         sheet.columns = [
-          { width: 18 }, // A: Mã lớp
-          { width: 18 }, // B: Tên lớp
-          { width: 14 }, // C: Thứ
-          { width: 12 }, // D: Buổi
-          { width: 36 }, // E: Môn học
-          { width: 14 }, // F: Tiết
-          { width: 24 }, // G: Phòng học
-          { width: 18 }  // H: Hình thức học
+          { width: 16 }, // A: Mã lớp
+          { width: 16 }, // B: Tên lớp
+          { width: 12 }, // C: Thứ
+          { width: 16 }, // D: Ngày, tháng, năm
+          { width: 10 }, // E: Buổi
+          { width: 32 }, // F: Môn học
+          { width: 12 }, // G: Tiết
+          { width: 20 }, // H: Phòng học
+          { width: 16 }  // I: Hình thức học
         ];
 
-        // Set row heights explicitly for multiline titles and table rows
-        sheet.getRow(1).height = 36;
-        sheet.getRow(2).height = 22;
-        sheet.getRow(4).height = 26;
-        for (let r = 5; r <= 18; r++) {
-          sheet.getRow(r).height = 22;
-        }
-
-        // Filter slots for this class
         const clsSchedules = schedules.filter(s => normalizeClassId(s.classId) === normalizeClassId(clsId));
 
-        // Auto calculate system week label for Excel Export
-        let exportWeekLabel = "1-15";
+        // 4-Week Block grouping: Block 1 (1-4), Block 2 (5-8), Block 3 (9-12), Block 4 (13-16)...
+        const totalWeeksInSemester = 16;
+        const blocksToExport: { start: number; end: number }[] = [];
+
         if (selectedScheduleWeek && selectedScheduleWeek > 0) {
-          exportWeekLabel = `${selectedScheduleWeek}`;
-        } else if (clsSchedules.length > 0) {
-          const ranges = clsSchedules.map(s => s.weekRange).filter(Boolean);
-          if (ranges.length > 0) {
-            const firstRange = ranges[0]!;
-            if (ranges.every(r => r === firstRange)) {
-              exportWeekLabel = firstRange.toLowerCase().startsWith("tuần") ? firstRange.slice(4).trim() : firstRange;
-            } else {
-              let minStart = 999;
-              let maxEnd = 0;
-              clsSchedules.forEach(s => {
-                const parsed = parseWeekRange(s.weekRange || "1-15");
-                if (parsed.startWeek < minStart) minStart = parsed.startWeek;
-                if (parsed.endWeek > maxEnd) maxEnd = parsed.endWeek;
-              });
-              if (minStart !== 999 && maxEnd !== 0) {
-                exportWeekLabel = `${minStart}-${maxEnd}`;
-              } else {
-                exportWeekLabel = firstRange;
-              }
-            }
+          const blockStart = Math.floor((selectedScheduleWeek - 1) / 4) * 4 + 1;
+          const blockEnd = Math.min(blockStart + 3, totalWeeksInSemester);
+          blocksToExport.push({ start: blockStart, end: blockEnd });
+        } else {
+          for (let w = 1; w <= totalWeeksInSemester; w += 4) {
+            blocksToExport.push({ start: w, end: Math.min(w + 3, totalWeeksInSemester) });
           }
         }
 
-        // Row 1: Header Titles
-        sheet.mergeCells("A1:C1");
-        const a1 = sheet.getCell("A1");
-        a1.value = "PHÂN HIỆU ĐHTN TẠI HÀ GIANG\nPHÒNG ĐÀO TẠO NCKH & HTQT";
-        a1.font = { name: "Times New Roman", size: 10, bold: true };
-        a1.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+        let currentRow = 1;
 
-        sheet.mergeCells("D1:H1");
-        const d1 = sheet.getCell("D1");
-        d1.value = `THỜI KHÓA BIỂU HỌC KÌ II, NĂM HỌC 2025 - 2026\nLỚP ${clsId}`;
-        d1.font = { name: "Times New Roman", size: 11, bold: true };
-        d1.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+        blocksToExport.forEach((block, blockIdx) => {
+          if (blockIdx > 0) {
+            currentRow += 2; // Spacer between blocks
+          }
 
-        // Row 2: Subtitle
-        sheet.mergeCells("D2:H2");
-        const d2 = sheet.getCell("D2");
-        d2.value = `Tuần: ${exportWeekLabel}`;
-        d2.font = { name: "Times New Roman", size: 10, italic: true };
-        d2.alignment = { vertical: "middle", horizontal: "center" };
+          // Row 1: Header Titles
+          sheet.mergeCells(`A${currentRow}:C${currentRow}`);
+          const a1 = sheet.getCell(`A${currentRow}`);
+          a1.value = "PHÂN HIỆU ĐHTN TẠI HÀ GIANG\nPHÒNG ĐÀO TẠO NCKH & HTQT";
+          a1.font = { name: "Times New Roman", size: 10, bold: true };
+          a1.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
 
-        // Row 4: Table Headers
-        const headers = ["Mã lớp", "Tên lớp", "Thứ", "Buổi", "Môn học", "Tiết", "Phòng học", "Hình thức học"];
-        const headerRow = sheet.getRow(4);
-        headers.forEach((h, colIdx) => {
-          const cell = headerRow.getCell(colIdx + 1);
-          cell.value = h;
-          cell.font = { name: "Times New Roman", size: 11, bold: true };
-          cell.alignment = { vertical: "middle", horizontal: "center" };
-          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" } };
-          cell.border = {
-            top: { style: "thin" },
-            left: { style: "thin" },
-            bottom: { style: "thin" },
-            right: { style: "thin" }
-          };
-        });
+          sheet.mergeCells(`D${currentRow}:I${currentRow}`);
+          const d1 = sheet.getCell(`D${currentRow}`);
+          d1.value = `THỜI KHÓA BIỂU HỌC KÌ II, NĂM HỌC 2025 - 2026\nLỚP ${clsId}`;
+          d1.font = { name: "Times New Roman", size: 11, bold: true };
+          d1.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+          sheet.getRow(currentRow).height = 36;
 
-        let startRow = 5;
-        daysConfig.forEach(({ day, label }) => {
-          // Morning row
-          const morningSlot = clsSchedules.find(s => s.dayOfWeek === day && (!s.session || s.session.trim().toLowerCase() === "sáng"));
-          const morningRow = sheet.getRow(startRow);
-          morningRow.getCell(1).value = clsId;
-          morningRow.getCell(2).value = clsId;
-          morningRow.getCell(3).value = label;
-          morningRow.getCell(4).value = "Sáng";
-          morningRow.getCell(5).value = morningSlot?.subjectName || "";
-          morningRow.getCell(6).value = morningSlot ? `${morningSlot.periodStart}-${morningSlot.periodEnd}` : "";
-          morningRow.getCell(7).value = morningSlot?.room || "";
-          morningRow.getCell(8).value = morningSlot?.studyMode || (morningSlot ? "Trực tiếp" : "");
+          currentRow++;
 
-          // Afternoon row
-          const afternoonSlot = clsSchedules.find(s => s.dayOfWeek === day && s.session && s.session.trim().toLowerCase() === "chiều");
-          const afternoonRow = sheet.getRow(startRow + 1);
-          afternoonRow.getCell(1).value = clsId;
-          afternoonRow.getCell(2).value = clsId;
-          afternoonRow.getCell(3).value = label;
-          afternoonRow.getCell(4).value = "Chiều";
-          afternoonRow.getCell(5).value = afternoonSlot?.subjectName || "";
-          afternoonRow.getCell(6).value = afternoonSlot ? `${afternoonSlot.periodStart}-${afternoonSlot.periodEnd}` : "";
-          afternoonRow.getCell(7).value = afternoonSlot?.room || "";
-          afternoonRow.getCell(8).value = afternoonSlot?.studyMode || (afternoonSlot ? "Trực tiếp" : "");
+          // Row 2: Subtitle (Block Range e.g. Tuần: 1 - 4, Tuần: 5 - 8)
+          sheet.mergeCells(`D${currentRow}:I${currentRow}`);
+          const d2 = sheet.getCell(`D${currentRow}`);
+          d2.value = `Tuần: ${block.start} - ${block.end}`;
+          d2.font = { name: "Times New Roman", size: 10, italic: true };
+          d2.alignment = { vertical: "middle", horizontal: "center" };
+          sheet.getRow(currentRow).height = 22;
 
-          // Style cells & borders for these 2 rows
-          [startRow, startRow + 1].forEach(rIdx => {
-            const rowObj = sheet.getRow(rIdx);
-            for (let c = 1; c <= 8; c++) {
-              const cell = rowObj.getCell(c);
-              cell.font = { name: "Times New Roman", size: 10 };
-              cell.alignment = { 
-                vertical: "middle", 
-                horizontal: [1,2,3,4,6,8].includes(c) ? "center" : "left", 
-                wrapText: true 
-              };
+          currentRow++;
+
+          // Build weeks inside this block (e.g. week 1, 2, 3, 4)
+          for (let w = block.start; w <= block.end; w++) {
+            // Subtitle above each week table: "Tuần: X"
+            sheet.mergeCells(`D${currentRow}:I${currentRow}`);
+            const wCell = sheet.getCell(`D${currentRow}`);
+            wCell.value = `Tuần: ${w}`;
+            wCell.font = { name: "Times New Roman", size: 10, bold: true, italic: true };
+            wCell.alignment = { vertical: "middle", horizontal: "center" };
+            sheet.getRow(currentRow).height = 22;
+
+            currentRow++;
+
+            // Table Header Row
+            const headers = ["Mã lớp", "Tên lớp", "Thứ", "Ngày, tháng, năm", "Buổi", "Môn học", "Tiết", "Phòng học", "Hình thức học"];
+            const headerRow = sheet.getRow(currentRow);
+            headerRow.height = 26;
+            headers.forEach((h, colIdx) => {
+              const cell = headerRow.getCell(colIdx + 1);
+              cell.value = h;
+              cell.font = { name: "Times New Roman", size: 11, bold: true };
+              cell.alignment = { vertical: "middle", horizontal: "center" };
+              cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" } };
               cell.border = {
                 top: { style: "thin" },
                 left: { style: "thin" },
                 bottom: { style: "thin" },
                 right: { style: "thin" }
               };
-            }
-          });
+            });
 
-          // Merge Day cell (C) for Sáng/Chiều
-          sheet.mergeCells(`C${startRow}:C${startRow + 1}`);
+            const weekStartRow = currentRow + 1;
+            let currentDayRow = weekStartRow;
 
-          startRow += 2;
+            daysConfig.forEach(({ day, label }) => {
+              const formattedDate = getFormattedDateForWeekDay(w, day);
+
+              // Morning slot
+              const morningSlot = clsSchedules.find(s => s.dayOfWeek === day && (!s.session || s.session.trim().toLowerCase() === "sáng") && isWeekInScheduleSlot(s, w));
+              const morningRow = sheet.getRow(currentDayRow);
+              morningRow.height = 22;
+              morningRow.getCell(1).value = clsId;
+              morningRow.getCell(2).value = clsId;
+              morningRow.getCell(3).value = label;
+              morningRow.getCell(4).value = formattedDate;
+              morningRow.getCell(5).value = "Sáng";
+              morningRow.getCell(6).value = morningSlot?.subjectName || "";
+              morningRow.getCell(7).value = morningSlot ? `${morningSlot.periodStart}-${morningSlot.periodEnd}` : "";
+              morningRow.getCell(8).value = morningSlot?.room || "";
+              morningRow.getCell(9).value = morningSlot?.studyMode || (morningSlot ? "Trực tiếp" : "");
+
+              // Afternoon slot
+              const afternoonSlot = clsSchedules.find(s => s.dayOfWeek === day && s.session && s.session.trim().toLowerCase() === "chiều" && isWeekInScheduleSlot(s, w));
+              const afternoonRow = sheet.getRow(currentDayRow + 1);
+              afternoonRow.height = 22;
+              afternoonRow.getCell(1).value = clsId;
+              afternoonRow.getCell(2).value = clsId;
+              afternoonRow.getCell(3).value = label;
+              afternoonRow.getCell(4).value = formattedDate;
+              afternoonRow.getCell(5).value = "Chiều";
+              afternoonRow.getCell(6).value = afternoonSlot?.subjectName || "";
+              afternoonRow.getCell(7).value = afternoonSlot ? `${afternoonSlot.periodStart}-${afternoonSlot.periodEnd}` : "";
+              afternoonRow.getCell(8).value = afternoonSlot?.room || "";
+              afternoonRow.getCell(9).value = afternoonSlot?.studyMode || (afternoonSlot ? "Trực tiếp" : "");
+
+              // Style cells & borders for these 2 rows
+              [currentDayRow, currentDayRow + 1].forEach(rIdx => {
+                const rowObj = sheet.getRow(rIdx);
+                for (let c = 1; c <= 9; c++) {
+                  const cell = rowObj.getCell(c);
+                  cell.font = { name: "Times New Roman", size: 10 };
+                  cell.alignment = { 
+                    vertical: "middle", 
+                    horizontal: [1,2,3,4,5,7,9].includes(c) ? "center" : "left", 
+                    wrapText: true 
+                  };
+                  cell.border = {
+                    top: { style: "thin" },
+                    left: { style: "thin" },
+                    bottom: { style: "thin" },
+                    right: { style: "thin" }
+                  };
+                }
+              });
+
+              // Merge Day cell (C) & Date cell (D) for Sáng/Chiều
+              sheet.mergeCells(`C${currentDayRow}:C${currentDayRow + 1}`);
+              sheet.mergeCells(`D${currentDayRow}:D${currentDayRow + 1}`);
+
+              currentDayRow += 2;
+            });
+
+            const weekEndRow = currentDayRow - 1;
+
+            // Merge ClassId (A) & ClassName (B) across all day rows of this week
+            sheet.mergeCells(`A${weekStartRow}:A${weekEndRow}`);
+            sheet.mergeCells(`B${weekStartRow}:B${weekEndRow}`);
+
+            currentRow = currentDayRow + 1;
+          }
         });
 
-        // Merge ClassId (A) & ClassName (B) across all day rows (5 to 18)
-        sheet.mergeCells(`A5:A18`);
-        sheet.mergeCells(`B5:B18`);
-
-        // Signature Footer Block
-        const endRow = 19;
-        sheet.mergeCells(`F${endRow + 1}:H${endRow + 1}`);
-        const dateCell = sheet.getCell(`F${endRow + 1}`);
+        // Signature Footer Block at the end of sheet
+        sheet.mergeCells(`G${currentRow + 1}:I${currentRow + 1}`);
+        const dateCell = sheet.getCell(`G${currentRow + 1}`);
         dateCell.value = "Tuyên Quang, ngày ... tháng ... năm 2026";
         dateCell.font = { name: "Times New Roman", size: 10, italic: true };
         dateCell.alignment = { vertical: "middle", horizontal: "center" };
 
-        sheet.mergeCells(`F${endRow + 3}:H${endRow + 3}`);
-        const signCell = sheet.getCell(`F${endRow + 3}`);
+        sheet.mergeCells(`G${currentRow + 3}:I${currentRow + 3}`);
+        const signCell = sheet.getCell(`G${currentRow + 3}`);
         signCell.value = "Phòng Đào tạo NCKH & Hợp tác Quốc tế";
         signCell.font = { name: "Times New Roman", size: 11, bold: true };
         signCell.alignment = { vertical: "middle", horizontal: "center" };
 
-        sheet.mergeCells(`F${endRow + 11}:H${endRow + 11}`);
-        const nameCell = sheet.getCell(`F${endRow + 11}`);
+        sheet.mergeCells(`G${currentRow + 11}:I${currentRow + 11}`);
+        const nameCell = sheet.getCell(`G${currentRow + 11}`);
         nameCell.value = "Danh hiệu. Họ và tên";
         nameCell.font = { name: "Times New Roman", size: 10, italic: true };
         nameCell.alignment = { vertical: "middle", horizontal: "center" };
