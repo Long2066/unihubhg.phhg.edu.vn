@@ -27,7 +27,10 @@ import {
   Sliders,
   AlertTriangle,
   Send,
-  Search
+  Search,
+  Calendar,
+  X,
+  Check
 } from "lucide-react";
 
 export const formatStudentId = (id: any) => {
@@ -1597,6 +1600,176 @@ export const TrainingPortal: React.FC = () => {
     alert("Thời khóa biểu toàn trường đã được đồng bộ & khóa chính thức thành công!");
   };
 
+  // State & Handlers for Manual Schedule Entry & Anti-duplication Engine
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [editingScheduleSlot, setEditingScheduleSlot] = useState<ScheduleSlot | null>(null);
+  const [scheduleModalData, setScheduleModalData] = useState<Partial<ScheduleSlot>>({
+    classId: "K2-GDTH A",
+    className: "K2-GDTH A",
+    subjectName: "",
+    subjectCode: "",
+    credits: 2,
+    teacherName: "",
+    dayOfWeek: 2,
+    session: "Sáng",
+    periodStart: 1,
+    periodEnd: 3,
+    room: "Phòng 201 - Nhà B",
+    semester: "II",
+    semesterId: "HOCKY_2_2025_2026",
+    weekRange: "1-15",
+    academicYear: "2025-2026",
+    studyMode: "Trực tiếp"
+  });
+  const [scheduleConflictError, setScheduleConflictError] = useState<string | null>(null);
+
+  const checkScheduleConflict = (
+    newSlot: Partial<ScheduleSlot>,
+    existingSchedules: ScheduleSlot[],
+    excludeId?: string
+  ): { hasConflict: boolean; message?: string } => {
+    if (!newSlot.dayOfWeek || !newSlot.periodStart || !newSlot.periodEnd || !newSlot.weekRange) {
+      return { hasConflict: false };
+    }
+
+    const { startWeek: newStartW, endWeek: newEndW } = parseWeekRange(newSlot.weekRange || "1-15");
+    const newClassId = normalizeClassId(newSlot.classId || "");
+    const newRoom = (newSlot.room || "").trim().toLowerCase();
+    const newTeacher = (newSlot.teacherName || "").trim().toLowerCase();
+
+    for (const s of existingSchedules) {
+      if (excludeId && s.id === excludeId) continue;
+      if (newSlot.semesterId && s.semesterId && newSlot.semesterId !== s.semesterId) continue;
+
+      if (s.dayOfWeek !== Number(newSlot.dayOfWeek)) continue;
+
+      const periodOverlap = (Number(newSlot.periodStart) <= s.periodEnd && s.periodStart <= Number(newSlot.periodEnd));
+      if (!periodOverlap) continue;
+
+      const { startWeek: sStartW, endWeek: sEndW } = parseWeekRange(s.weekRange || "1-15");
+      const weekOverlap = (newStartW <= sEndW && sStartW <= newEndW);
+      if (!weekOverlap) continue;
+
+      const sClassId = normalizeClassId(s.classId);
+      const sRoom = (s.room || "").trim().toLowerCase();
+      const sTeacher = (s.teacherName || "").trim().toLowerCase();
+
+      if (newClassId && sClassId && newClassId === sClassId) {
+        return {
+          hasConflict: true,
+          message: `⚠️ Trùng lịch Lớp: Lớp ${s.classId} đã có ca học môn '${s.subjectName}' vào Thứ ${s.dayOfWeek === 8 ? "Chủ Nhật" : s.dayOfWeek} (Tiết ${s.periodStart}-${s.periodEnd}), Tuần ${s.weekRange || "1-15"}.`
+        };
+      }
+
+      if (newRoom && sRoom && newRoom === sRoom) {
+        return {
+          hasConflict: true,
+          message: `⚠️ Trùng lịch Phòng học: Phòng '${s.room}' đã được xếp cho Lớp ${s.classId} học môn '${s.subjectName}' vào Thứ ${s.dayOfWeek === 8 ? "Chủ Nhật" : s.dayOfWeek} (Tiết ${s.periodStart}-${s.periodEnd}), Tuần ${s.weekRange || "1-15"}.`
+        };
+      }
+
+      if (newTeacher && sTeacher && newTeacher === sTeacher && newTeacher !== "chưa phân công") {
+        return {
+          hasConflict: true,
+          message: `⚠️ Trùng lịch Giảng viên: Giảng viên '${s.teacherName}' đã có lịch dạy Lớp ${s.classId} môn '${s.subjectName}' vào Thứ ${s.dayOfWeek === 8 ? "Chủ Nhật" : s.dayOfWeek} (Tiết ${s.periodStart}-${s.periodEnd}), Tuần ${s.weekRange || "1-15"}.`
+        };
+      }
+    }
+
+    return { hasConflict: false };
+  };
+
+  const handleOpenAddScheduleModal = () => {
+    setEditingScheduleSlot(null);
+    setScheduleModalData({
+      classId: selectedScheduleClass || "K2-GDTH A",
+      className: selectedScheduleClass || "K2-GDTH A",
+      subjectName: "",
+      subjectCode: "",
+      credits: 2,
+      teacherName: "",
+      dayOfWeek: 2,
+      session: "Sáng",
+      periodStart: 1,
+      periodEnd: 3,
+      room: "Phòng 201 - Nhà B",
+      semester: "II",
+      semesterId: selectedScheduleSemesterId || "HOCKY_2_2025_2026",
+      weekRange: "1-15",
+      academicYear: "2025-2026",
+      studyMode: "Trực tiếp"
+    });
+    setScheduleConflictError(null);
+    setShowScheduleModal(true);
+  };
+
+  const handleOpenEditScheduleModal = (slot: ScheduleSlot) => {
+    setEditingScheduleSlot(slot);
+    setScheduleModalData({ ...slot });
+    setScheduleConflictError(null);
+    setShowScheduleModal(true);
+  };
+
+  const handleSaveScheduleModal = () => {
+    if (!scheduleModalData.subjectName?.trim()) {
+      alert("Vui lòng nhập Tên môn học!");
+      return;
+    }
+    if (!scheduleModalData.classId?.trim()) {
+      alert("Vui lòng chọn hoặc nhập Tên Lớp!");
+      return;
+    }
+
+    const { startWeek, endWeek } = parseWeekRange(scheduleModalData.weekRange || "1-15");
+    const slotToSave: ScheduleSlot = {
+      id: editingScheduleSlot ? editingScheduleSlot.id : `SCH_MANUAL_${Date.now()}`,
+      classId: normalizeClassId(scheduleModalData.classId || "K2-GDTH A"),
+      className: normalizeClassId(scheduleModalData.className || scheduleModalData.classId || "K2-GDTH A"),
+      subjectName: scheduleModalData.subjectName.trim(),
+      subjectCode: scheduleModalData.subjectCode?.trim() || `HP_${scheduleModalData.subjectName.trim().replace(/\s+/g, "")}`,
+      credits: Number(scheduleModalData.credits) || 2,
+      teacherName: scheduleModalData.teacherName?.trim() || "Chưa phân công",
+      dayOfWeek: Number(scheduleModalData.dayOfWeek) || 2,
+      session: scheduleModalData.session || "Sáng",
+      periodStart: Number(scheduleModalData.periodStart) || 1,
+      periodEnd: Number(scheduleModalData.periodEnd) || 3,
+      room: scheduleModalData.room?.trim() || "Phòng học",
+      semester: scheduleModalData.semester || "II",
+      semesterId: scheduleModalData.semesterId || selectedScheduleSemesterId,
+      weekRange: scheduleModalData.weekRange || "1-15",
+      startWeek,
+      endWeek,
+      academicYear: scheduleModalData.academicYear || "2025-2026",
+      studyMode: scheduleModalData.studyMode || "Trực tiếp",
+      colorHex: editingScheduleSlot?.colorHex || "#4F46E5"
+    };
+
+    // Run collision check
+    const conflict = checkScheduleConflict(slotToSave, schedules, editingScheduleSlot?.id);
+    if (conflict.hasConflict) {
+      setScheduleConflictError(conflict.message || "Xung đột lịch học!");
+      return;
+    }
+
+    if (editingScheduleSlot) {
+      const updatedSchedules = schedules.map(s => s.id === editingScheduleSlot.id ? slotToSave : s);
+      importScheduleData(updatedSchedules);
+    } else {
+      importScheduleData([...schedules, slotToSave]);
+    }
+
+    setShowScheduleModal(false);
+    setEditingScheduleSlot(null);
+    setScheduleConflictError(null);
+  };
+
+  const handleDeleteScheduleSlot = (id: string) => {
+    if (confirm("Bạn có chắc chắn muốn xóa ca học này khỏi thời khóa biểu không?")) {
+      const updated = schedules.filter(s => s.id !== id);
+      importScheduleData(updated);
+    }
+  };
+
   const startEdit = (studentId: string) => {
     const s = students.find(item => item.id === studentId);
     if (s) {
@@ -2598,8 +2771,19 @@ export const TrainingPortal: React.FC = () => {
                 <div className="flex flex-wrap gap-3 items-center bg-slate-50 p-4 rounded-2xl border">
                   <div>
                     <button 
-                      onClick={() => handleExportScheduleTemplate()}
+                      onClick={handleOpenAddScheduleModal}
                       className="px-3.5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                      title="Điền ca học trực tiếp trên hệ thống có kiểm tra chống trùng lặp"
+                    >
+                      <Plus size={14} />
+                      <span>Thêm Ca Học Mới</span>
+                    </button>
+                  </div>
+
+                  <div>
+                    <button 
+                      onClick={() => handleExportScheduleTemplate()}
+                      className="px-3.5 py-2 bg-slate-700 hover:bg-slate-800 text-white text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
                       title="Xuất file mẫu chứa đầy đủ các Sheet của tất cả các lớp đang có trên hệ thống"
                     >
                       <Download size={14} />
@@ -2807,17 +2991,22 @@ export const TrainingPortal: React.FC = () => {
                                 </span>
                               </td>
                               <td className="p-2 text-center">
-                                <button 
-                                  onClick={() => {
-                                    if (confirm(`Bạn có chắc chắn muốn xóa ca học ${slot.subjectName} không?`)) {
-                                      deleteScheduleSlot(slot.id);
-                                    }
-                                  }}
-                                  className="p-1 text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
-                                  title="Xóa ca học"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
+                                <div className="flex items-center justify-center gap-1">
+                                  <button 
+                                    onClick={() => handleOpenEditScheduleModal(slot)}
+                                    className="p-1 text-indigo-600 hover:bg-indigo-50 rounded transition-colors cursor-pointer"
+                                    title="Chỉnh sửa ca học"
+                                  >
+                                    <Edit size={13} />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteScheduleSlot(slot.id)}
+                                    className="p-1 text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+                                    title="Xóa ca học"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -3457,6 +3646,206 @@ export const TrainingPortal: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Điền Ca Học Trực Tiếp & Anti-duplication Engine */}
+      {showScheduleModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 space-y-4 border border-slate-200">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h4 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <Calendar size={18} className="text-indigo-600" />
+                {editingScheduleSlot ? "Chỉnh Sửa Ca Học" : "Thêm Ca Học Mới Trực Tiếp"}
+              </h4>
+              <button 
+                onClick={() => setShowScheduleModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {scheduleConflictError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-medium space-y-1 animate-shake">
+                <div className="font-bold flex items-center gap-1.5 text-rose-800">
+                  <AlertTriangle size={15} />
+                  CẢNH BÁO XUNG ĐỘT TRÙNG LỊCH:
+                </div>
+                <div>{scheduleConflictError}</div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Lớp học (*):</label>
+                <input 
+                  type="text" 
+                  value={scheduleModalData.classId || ""}
+                  onChange={(e) => setScheduleModalData({ ...scheduleModalData, classId: e.target.value, className: e.target.value })}
+                  placeholder="VD: K2-GDTH A"
+                  className="w-full p-2 border rounded-lg font-bold text-indigo-700 outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Học kỳ (*):</label>
+                <select 
+                  value={scheduleModalData.semesterId || "HOCKY_2_2025_2026"}
+                  onChange={(e) => setScheduleModalData({ ...scheduleModalData, semesterId: e.target.value })}
+                  className="w-full p-2 border rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 font-medium"
+                >
+                  {SEMESTER_LIST.map(sem => (
+                    <option key={sem.id} value={sem.id}>{sem.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="col-span-2">
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Tên môn học (*):</label>
+                <input 
+                  type="text" 
+                  value={scheduleModalData.subjectName || ""}
+                  onChange={(e) => setScheduleModalData({ ...scheduleModalData, subjectName: e.target.value })}
+                  placeholder="VD: Phương pháp dạy học Toán"
+                  className="w-full p-2 border rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Mã học phần:</label>
+                <input 
+                  type="text" 
+                  value={scheduleModalData.subjectCode || ""}
+                  onChange={(e) => setScheduleModalData({ ...scheduleModalData, subjectCode: e.target.value })}
+                  placeholder="VD: GDTH204"
+                  className="w-full p-2 border rounded-lg font-mono outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Số tín chỉ:</label>
+                <input 
+                  type="number" 
+                  min={1} max={10}
+                  value={scheduleModalData.credits || 2}
+                  onChange={(e) => setScheduleModalData({ ...scheduleModalData, credits: Number(e.target.value) })}
+                  className="w-full p-2 border rounded-lg font-bold outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Giảng viên bộ môn:</label>
+                <input 
+                  type="text" 
+                  value={scheduleModalData.teacherName || ""}
+                  onChange={(e) => setScheduleModalData({ ...scheduleModalData, teacherName: e.target.value })}
+                  placeholder="VD: ThS. Nguyễn Văn A"
+                  className="w-full p-2 border rounded-lg outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Phòng học (*):</label>
+                <input 
+                  type="text" 
+                  value={scheduleModalData.room || ""}
+                  onChange={(e) => setScheduleModalData({ ...scheduleModalData, room: e.target.value })}
+                  placeholder="VD: Phòng 201 - Nhà B"
+                  className="w-full p-2 border rounded-lg font-bold text-indigo-700 outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Thứ trong tuần (*):</label>
+                <select 
+                  value={scheduleModalData.dayOfWeek || 2}
+                  onChange={(e) => setScheduleModalData({ ...scheduleModalData, dayOfWeek: Number(e.target.value) })}
+                  className="w-full p-2 border rounded-lg font-bold outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value={2}>Thứ Hai</option>
+                  <option value={3}>Thứ Ba</option>
+                  <option value={4}>Thứ Tư</option>
+                  <option value={5}>Thứ Năm</option>
+                  <option value={6}>Thứ Sáu</option>
+                  <option value={7}>Thứ Bảy</option>
+                  <option value={8}>Chủ Nhật</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Buổi học:</label>
+                <select 
+                  value={scheduleModalData.session || "Sáng"}
+                  onChange={(e) => setScheduleModalData({ ...scheduleModalData, session: e.target.value })}
+                  className="w-full p-2 border rounded-lg outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="Sáng">Sáng</option>
+                  <option value="Chiều">Chiều</option>
+                  <option value="Tối">Tối</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Tiết bắt đầu:</label>
+                <input 
+                  type="number" min={1} max={12}
+                  value={scheduleModalData.periodStart || 1}
+                  onChange={(e) => setScheduleModalData({ ...scheduleModalData, periodStart: Number(e.target.value) })}
+                  className="w-full p-2 border rounded-lg font-bold outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Tiết kết thúc:</label>
+                <input 
+                  type="number" min={1} max={12}
+                  value={scheduleModalData.periodEnd || 3}
+                  onChange={(e) => setScheduleModalData({ ...scheduleModalData, periodEnd: Number(e.target.value) })}
+                  className="w-full p-2 border rounded-lg font-bold outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Tuần học (*):</label>
+                <input 
+                  type="text" 
+                  value={scheduleModalData.weekRange || "1-15"}
+                  onChange={(e) => setScheduleModalData({ ...scheduleModalData, weekRange: e.target.value })}
+                  placeholder="VD: 1-15, 1-9, 10-18"
+                  className="w-full p-2 border rounded-lg font-bold text-indigo-700 outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Hình thức học:</label>
+                <select 
+                  value={scheduleModalData.studyMode || "Trực tiếp"}
+                  onChange={(e) => setScheduleModalData({ ...scheduleModalData, studyMode: e.target.value })}
+                  className="w-full p-2 border rounded-lg outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="Trực tiếp">Trực tiếp</option>
+                  <option value="Online">Online</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t">
+              <button 
+                onClick={() => setShowScheduleModal(false)}
+                className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button 
+                onClick={handleSaveScheduleModal}
+                className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-md flex items-center gap-1.5"
+              >
+                <Check size={14} />
+                <span>{editingScheduleSlot ? "Cập Nhật Ca Học" : "Lưu Ca Học Mới"}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
