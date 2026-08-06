@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useUniHub, normalizeClassId } from "../state";
-import { UserRole, Student, UserAccount, ScheduleSlot, STUDENT_FIELDS_META, SEMESTER_LIST, CourseClassAssignment, GradeAppeal, GradingRulesConfig, parseWeekRange, isWeekInScheduleSlot } from "../types";
+import { UserRole, Student, UserAccount, ScheduleSlot, STUDENT_FIELDS_META, SEMESTER_LIST, CourseClassAssignment, GradeAppeal, GradingRulesConfig, parseWeekRange, isWeekInScheduleSlot, isStudentProfileComplete } from "../types";
 import { SEED_TEACHER_ASSIGNMENTS } from "../data";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
@@ -829,10 +829,10 @@ export const TrainingPortal: React.FC = () => {
           updates.push({
             id,
             name: colIdx.name !== -1 && row[colIdx.name] ? row[colIdx.name]?.toString().trim() : undefined,
-            gender: colIdx.gender !== -1 && row[colIdx.gender] ? row[colIdx.gender]?.toString().trim() : "Nam",
-            dob: colIdx.dob !== -1 && row[colIdx.dob] ? row[colIdx.dob]?.toString().trim() : "2006-01-01",
-            pob: colIdx.pob !== -1 && row[colIdx.pob] ? row[colIdx.pob]?.toString().trim() : "Hà Giang",
-            ethnicity: colIdx.ethnicity !== -1 && row[colIdx.ethnicity] ? row[colIdx.ethnicity]?.toString().trim() : "Kinh",
+            gender: colIdx.gender !== -1 && row[colIdx.gender] ? row[colIdx.gender]?.toString().trim() : undefined,
+            dob: colIdx.dob !== -1 && row[colIdx.dob] ? row[colIdx.dob]?.toString().trim() : undefined,
+            pob: colIdx.pob !== -1 && row[colIdx.pob] ? row[colIdx.pob]?.toString().trim() : undefined,
+            ethnicity: colIdx.ethnicity !== -1 && row[colIdx.ethnicity] ? row[colIdx.ethnicity]?.toString().trim() : undefined,
             idCard: colIdx.idCard !== -1 && row[colIdx.idCard] ? row[colIdx.idCard]?.toString().trim() : "",
             idCardDate: colIdx.idCardDate !== -1 && row[colIdx.idCardDate] ? row[colIdx.idCardDate]?.toString().trim() : "",
             idCardPlace: colIdx.idCardPlace !== -1 && row[colIdx.idCardPlace] ? row[colIdx.idCardPlace]?.toString().trim() : "",
@@ -2722,8 +2722,8 @@ export const TrainingPortal: React.FC = () => {
                       ...customClasses.map(c => normalizeClassId(c))
                     ])).filter(Boolean).sort().map(clsId => {
                       const classStudents = students.filter(s => s.classId === clsId);
-                      // Calculate completeness indicator
-                      const completedCount = classStudents.filter(s => s.phone && s.dob && s.gender).length;
+                      // Calculate completeness indicator using full strict profile validator
+                      const completedCount = classStudents.filter(s => isStudentProfileComplete(s)).length;
                       
                       return (
                         <div
@@ -2853,7 +2853,7 @@ export const TrainingPortal: React.FC = () => {
                         <div className="p-4 bg-white border rounded-xl flex flex-col justify-between">
                           <span className="text-[9px] uppercase font-bold text-slate-400">Hoàn thành thông tin cá nhân</span>
                           <strong className="text-xl font-mono text-slate-800">
-                            {classStudents.filter(s => s.phone && s.dob && s.gender).length} / {classStudents.length} SV
+                            {classStudents.filter(s => isStudentProfileComplete(s)).length} / {classStudents.length} SV
                           </strong>
                         </div>
                       </div>

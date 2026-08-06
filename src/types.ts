@@ -227,6 +227,39 @@ export const STUDENT_FIELDS_META: FieldMeta[] = [
   { key: "updatedAt", label: "Ngày cập nhật", category: "other", type: "text", readOnly: true }
 ];
 
+export const isStudentProfileComplete = (s: any): boolean => {
+  if (!s) return false;
+
+  // 1. Essential key fields required for a complete profile
+  const essentialKeys: string[] = [
+    "name", "gender", "dob", "pob", "ethnicity", "idCard", 
+    "phone", "permanentAddress"
+  ];
+
+  const hasAllEssentials = essentialKeys.every(k => {
+    const val = s[k];
+    if (val === undefined || val === null) return false;
+    const str = String(val).trim();
+    return str !== "" && str !== "-";
+  });
+
+  if (!hasAllEssentials) return false;
+
+  // 2. Count total filled fields out of 44
+  let filled = 0;
+  STUDENT_FIELDS_META.forEach(f => {
+    const val = s[f.key];
+    if (val !== undefined && val !== null) {
+      const str = String(val).trim();
+      if (str !== "" && str !== "-") {
+        filled++;
+      }
+    }
+  });
+
+  return filled >= 20;
+};
+
 export interface Organization {
   id: string;           // Code - e.g. "UNITECH"
   name: string;
