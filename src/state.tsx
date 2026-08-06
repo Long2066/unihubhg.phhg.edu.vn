@@ -135,6 +135,8 @@ interface UniHubContextType {
   importNewClassesExcel: (studentsToImport: Student[], usersToImport: UserAccount[]) => void;
   customClasses: string[];
   addNewClass: (className: string) => void;
+  renameClass: (oldClassId: string, newClassId: string) => void;
+  deleteClass: (classId: string) => void;
   
   // BCS / Class Actions
   approveClassScores: (classId: string) => void;
@@ -3036,6 +3038,59 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const renameClass = (oldClassId: string, newClassId: string) => {
+    if (!oldClassId.trim() || !newClassId.trim()) return;
+    const oldNorm = normalizeClassId(oldClassId);
+    const newNorm = normalizeClassId(newClassId);
+    if (oldNorm === newNorm) return;
+
+    const updatedCustom = customClasses.map(c => normalizeClassId(c) === oldNorm ? newNorm : c);
+    if (!updatedCustom.includes(newNorm)) updatedCustom.push(newNorm);
+    setCustomClasses(updatedCustom);
+    localStorage.setItem("unihub_custom_classes", JSON.stringify(updatedCustom));
+
+    const updatedStudents = students.map(s => normalizeClassId(s.classId) === oldNorm ? { ...s, classId: newNorm } : s);
+    setStudents(updatedStudents);
+    saveToStorage("unihub_students", updatedStudents);
+
+    const updatedSchedules = schedules.map(sch => normalizeClassId(sch.classId) === oldNorm ? { ...sch, classId: newNorm, className: newNorm } : sch);
+    setSchedules(updatedSchedules);
+    saveToStorage("unihub_schedules", updatedSchedules);
+
+    const updatedAssignments = teacherAssignments.map(ta => normalizeClassId(ta.classId) === oldNorm ? { ...ta, classId: newNorm } : ta);
+    setTeacherAssignments(updatedAssignments);
+    saveToStorage("unihub_teacher_assignments", updatedAssignments);
+
+    const updatedGradeSheets = subjectGradeSheets.map(sg => normalizeClassId(sg.classId) === oldNorm ? { ...sg, classId: newNorm } : sg);
+    setSubjectGradeSheets(updatedGradeSheets);
+    saveToStorage("unihub_subject_grade_sheets", updatedGradeSheets);
+  };
+
+  const deleteClass = (classId: string) => {
+    if (!classId.trim()) return;
+    const norm = normalizeClassId(classId);
+
+    const updatedCustom = customClasses.filter(c => normalizeClassId(c) !== norm);
+    setCustomClasses(updatedCustom);
+    localStorage.setItem("unihub_custom_classes", JSON.stringify(updatedCustom));
+
+    const updatedStudents = students.filter(s => normalizeClassId(s.classId) !== norm);
+    setStudents(updatedStudents);
+    saveToStorage("unihub_students", updatedStudents);
+
+    const updatedSchedules = schedules.filter(sch => normalizeClassId(sch.classId) !== norm);
+    setSchedules(updatedSchedules);
+    saveToStorage("unihub_schedules", updatedSchedules);
+
+    const updatedAssignments = teacherAssignments.filter(ta => normalizeClassId(ta.classId) !== norm);
+    setTeacherAssignments(updatedAssignments);
+    saveToStorage("unihub_teacher_assignments", updatedAssignments);
+
+    const updatedGradeSheets = subjectGradeSheets.filter(sg => normalizeClassId(sg.classId) !== norm);
+    setSubjectGradeSheets(updatedGradeSheets);
+    saveToStorage("unihub_subject_grade_sheets", updatedGradeSheets);
+  };
+
   const bulkApproveScores = (classId: string, studentIds: string[], role: UserRole) => {
     const updatedResults = results.map(res => {
       if (studentIds.includes(res.studentId)) {
@@ -3159,6 +3214,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       importNewClassesExcel,
       customClasses,
       addNewClass,
+      renameClass,
+      deleteClass,
       approveClassScores,
       toggleClassMeetingDuty,
       reportDailyAttendance,

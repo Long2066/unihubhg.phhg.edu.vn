@@ -58,6 +58,8 @@ export const TrainingPortal: React.FC = () => {
     clearSchedules,
     customClasses,
     addNewClass,
+    renameClass,
+    deleteClass,
     selectedSemesterId,
     setSelectedSemesterId,
     teacherAssignments,
@@ -83,6 +85,11 @@ export const TrainingPortal: React.FC = () => {
   const [classDetailSearchQuery, setClassDetailSearchQuery] = useState("");
   const [selectedScheduleSemesterId, setSelectedScheduleSemesterId] = useState<string>("HOCKY_2_2025_2026");
   const [selectedScheduleWeek, setSelectedScheduleWeek] = useState<number>(0);
+  const [selectedAssignmentClass, setSelectedAssignmentClass] = useState<string>("ALL");
+
+  // State Đổi Tên Lớp
+  const [editingRenameClassId, setEditingRenameClassId] = useState<string | null>(null);
+  const [renameClassNameInput, setRenameClassNameInput] = useState<string>("");
 
   // Modal manual edit GPA
   const [editGpa, setEditGpa] = useState(3.0);
@@ -351,6 +358,19 @@ export const TrainingPortal: React.FC = () => {
     });
 
     saveTeacherAssignments(updatedAssignments);
+
+    // Auto sync teacherName to matching schedule slots
+    const updatedSchedules = schedules.map(s => {
+      if (normalizeClassId(s.classId) === normalizeClassId(editAssignForm.classId) && 
+         (s.subjectCode === editAssignForm.subjectCode || s.subjectName === editAssignForm.subjectName)) {
+        return {
+          ...s,
+          teacherName: editAssignForm.teacherName.trim()
+        };
+      }
+      return s;
+    });
+    importScheduleData(updatedSchedules);
 
     addGradeAuditLog({
       action: "UPDATE_ASSIGNMENT",
@@ -1221,15 +1241,23 @@ export const TrainingPortal: React.FC = () => {
         const sheet = workbook.addWorksheet(sheetName);
 
         sheet.columns = [
-          { width: 16 }, // A: Mã lớp
+          { width: 18 }, // A: Mã lớp
           { width: 18 }, // B: Tên lớp
           { width: 14 }, // C: Thứ
           { width: 12 }, // D: Buổi
-          { width: 32 }, // E: Môn học
+          { width: 36 }, // E: Môn học
           { width: 14 }, // F: Tiết
-          { width: 22 }, // G: Phòng học
-          { width: 16 }  // H: Hình thức học
+          { width: 24 }, // G: Phòng học
+          { width: 18 }  // H: Hình thức học
         ];
+
+        // Set row heights explicitly for multiline titles and table rows
+        sheet.getRow(1).height = 36;
+        sheet.getRow(2).height = 22;
+        sheet.getRow(4).height = 26;
+        for (let r = 5; r <= 18; r++) {
+          sheet.getRow(r).height = 22;
+        }
 
         // Row 1: Header Titles
         sheet.mergeCells("A1:C1");
@@ -2273,6 +2301,22 @@ export const TrainingPortal: React.FC = () => {
                     ))}
                   </select>
 
+                  {/* Dropdown Lọc theo Lớp */}
+                  <select
+                    value={selectedAssignmentClass}
+                    onChange={(e) => setSelectedAssignmentClass(e.target.value)}
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-indigo-700 focus:outline-none cursor-pointer"
+                  >
+                    <option value="ALL">Tất cả các lớp học</option>
+                    {Array.from(new Set([
+                      ...students.map(s => normalizeClassId(s.classId)),
+                      ...customClasses.map(c => normalizeClassId(c)),
+                      ...teacherAssignments.map(a => normalizeClassId(a.classId))
+                    ])).filter(Boolean).sort().map(cls => (
+                      <option key={cls} value={cls}>Lớp {cls}</option>
+                    ))}
+                  </select>
+
                   <button
                     onClick={handleExportAssignmentSampleExcel}
                     className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-2xs"
@@ -2367,7 +2411,11 @@ export const TrainingPortal: React.FC = () => {
 
               {/* Assignments Table */}
               {(() => {
-                const currentSemAssignments = teacherAssignments.filter(a => a.semesterId === selectedSemesterId);
+                const currentSemAssignments = teacherAssignments.filter(a => {
+                  const matchSem = a.semesterId === selectedSemesterId;
+                  const matchClass = selectedAssignmentClass === "ALL" || normalizeClassId(a.classId) === normalizeClassId(selectedAssignmentClass);
+                  return matchSem && matchClass;
+                });
                 const isAllSelected = currentSemAssignments.length > 0 && currentSemAssignments.every(a => selectedAssignmentIds.includes(a.id));
 
                 return (
@@ -2681,12 +2729,39 @@ export const TrainingPortal: React.FC = () => {
                         <div
                           key={clsId}
                           onClick={() => setSelectedClassId(clsId)}
-                          className="bg-white hover:bg-slate-50/50 border border-slate-150 p-4 rounded-2xl cursor-pointer transition-all hover:shadow-md flex flex-col justify-between"
+                          className="bg-white hover:bg-slate-50/50 border border-slate-200 p-4 rounded-2xl cursor-pointer transition-all hover:shadow-md flex flex-col justify-between relative group"
                         >
                           <div>
                             <div className="flex justify-between items-start mb-2">
                               <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-150 rounded text-[9px] font-mono font-bold uppercase">LỚP HỌC</span>
-                              <span className="text-[10px] text-slate-400 font-mono">{classStudents.length} SV</span>
+                              
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-slate-400 font-mono mr-1">{classStudents.length} SV</span>
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingRenameClassId(clsId);
+                                    setRenameClassNameInput(clsId);
+                                  }}
+                                  className="p-1 bg-slate-100 hover:bg-amber-100 text-slate-500 hover:text-amber-800 rounded transition-colors"
+                                  title="Đổi tên lớp học này"
+                                >
+                                  <Edit size={12} />
+                                </button>
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (confirm(`Bạn có chắc chắn muốn xóa Lớp "${clsId}" cùng toàn bộ thông tin sinh viên, thời khóa biểu và phân công giảng dạy của lớp này không?`)) {
+                                      deleteClass(clsId);
+                                      alert(`Đã xóa thành công Lớp ${clsId}!`);
+                                    }
+                                  }}
+                                  className="p-1 bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-700 rounded transition-colors"
+                                  title="Xóa lớp học này"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
                             </div>
                             <h4 className="text-sm font-bold text-slate-900 leading-tight mb-1 truncate">{clsId}</h4>
                             <p className="text-[10px] text-slate-450">
@@ -4288,6 +4363,74 @@ export const TrainingPortal: React.FC = () => {
               >
                 <Check size={14} />
                 <span>Cập Nhật Ca Học</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Đổi Tên Lớp Học */}
+      {editingRenameClassId && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 border border-slate-200">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h4 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <Edit size={18} className="text-indigo-600" />
+                Đổi Tên Lớp Học
+              </h4>
+              <button 
+                onClick={() => setEditingRenameClassId(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Tên lớp hiện tại:</label>
+                <input 
+                  type="text" 
+                  value={editingRenameClassId}
+                  disabled
+                  className="w-full p-2 border bg-slate-100 rounded-lg font-bold text-slate-500 cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Tên lớp mới (*):</label>
+                <input 
+                  type="text" 
+                  value={renameClassNameInput}
+                  onChange={(e) => setRenameClassNameInput(e.target.value)}
+                  placeholder="VD: K2-GDTH B"
+                  className="w-full p-2 border rounded-lg font-bold text-indigo-700 outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <p className="text-[10px] text-slate-450 mt-1">
+                  * Hệ thống sẽ tự động cập nhật tên lớp mới trên toàn bộ danh sách Sinh viên, Thời khóa biểu và Kế hoạch Phân công Giảng dạy.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t">
+              <button 
+                onClick={() => setEditingRenameClassId(null)}
+                className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button 
+                onClick={() => {
+                  if (renameClassNameInput.trim() && renameClassNameInput.trim() !== editingRenameClassId) {
+                    renameClass(editingRenameClassId, renameClassNameInput.trim());
+                    alert(`Đã đổi tên lớp từ "${editingRenameClassId}" thành "${renameClassNameInput.trim()}" thành công!`);
+                    setEditingRenameClassId(null);
+                  }
+                }}
+                className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-md flex items-center gap-1.5"
+              >
+                <Check size={14} />
+                <span>Cập Nhật Tên Lớp</span>
               </button>
             </div>
           </div>
