@@ -1259,6 +1259,36 @@ export const TrainingPortal: React.FC = () => {
           sheet.getRow(r).height = 22;
         }
 
+        // Filter slots for this class
+        const clsSchedules = schedules.filter(s => normalizeClassId(s.classId) === normalizeClassId(clsId));
+
+        // Auto calculate system week label for Excel Export
+        let exportWeekLabel = "1-15";
+        if (selectedScheduleWeek && selectedScheduleWeek > 0) {
+          exportWeekLabel = `${selectedScheduleWeek}`;
+        } else if (clsSchedules.length > 0) {
+          const ranges = clsSchedules.map(s => s.weekRange).filter(Boolean);
+          if (ranges.length > 0) {
+            const firstRange = ranges[0]!;
+            if (ranges.every(r => r === firstRange)) {
+              exportWeekLabel = firstRange.toLowerCase().startsWith("tuần") ? firstRange.slice(4).trim() : firstRange;
+            } else {
+              let minStart = 999;
+              let maxEnd = 0;
+              clsSchedules.forEach(s => {
+                const parsed = parseWeekRange(s.weekRange || "1-15");
+                if (parsed.startWeek < minStart) minStart = parsed.startWeek;
+                if (parsed.endWeek > maxEnd) maxEnd = parsed.endWeek;
+              });
+              if (minStart !== 999 && maxEnd !== 0) {
+                exportWeekLabel = `${minStart}-${maxEnd}`;
+              } else {
+                exportWeekLabel = firstRange;
+              }
+            }
+          }
+        }
+
         // Row 1: Header Titles
         sheet.mergeCells("A1:C1");
         const a1 = sheet.getCell("A1");
@@ -1275,7 +1305,7 @@ export const TrainingPortal: React.FC = () => {
         // Row 2: Subtitle
         sheet.mergeCells("D2:H2");
         const d2 = sheet.getCell("D2");
-        d2.value = "Tuần: [tính theo tuần trên hệ thống]";
+        d2.value = `Tuần: ${exportWeekLabel}`;
         d2.font = { name: "Times New Roman", size: 10, italic: true };
         d2.alignment = { vertical: "middle", horizontal: "center" };
 
@@ -1295,9 +1325,6 @@ export const TrainingPortal: React.FC = () => {
             right: { style: "thin" }
           };
         });
-
-        // Filter slots for this class
-        const clsSchedules = schedules.filter(s => normalizeClassId(s.classId) === normalizeClassId(clsId));
 
         let startRow = 5;
         daysConfig.forEach(({ day, label }) => {
@@ -1359,7 +1386,7 @@ export const TrainingPortal: React.FC = () => {
         const endRow = 19;
         sheet.mergeCells(`F${endRow + 1}:H${endRow + 1}`);
         const dateCell = sheet.getCell(`F${endRow + 1}`);
-        dateCell.value = "Hà Giang, ngày ... tháng ... năm 2026";
+        dateCell.value = "Tuyên Quang, ngày ... tháng ... năm 2026";
         dateCell.font = { name: "Times New Roman", size: 10, italic: true };
         dateCell.alignment = { vertical: "middle", horizontal: "center" };
 
