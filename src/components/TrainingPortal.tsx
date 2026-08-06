@@ -1146,86 +1146,257 @@ export const TrainingPortal: React.FC = () => {
     reader.readAsBinaryString(file);
   };
 
-  const handleExportScheduleTemplate = () => {
-    // 1. Create Catalog Data from distinct subjects
-    const subjectsMap = new Map<string, { code: string; credits: number; teacher: string }>();
-    schedules.forEach(s => {
-      if (!subjectsMap.has(s.subjectName)) {
-        subjectsMap.set(s.subjectName, {
-          code: s.subjectCode || "",
-          credits: s.credits || 2,
-          teacher: s.teacherName
-        });
+  const handleExportScheduleTemplate = async (targetClassId?: string) => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "Phân hiệu ĐHTN tại Hà Giang";
+
+      const availableScheduleClasses = Array.from(new Set([
+        ...students.map(s => normalizeClassId(s.classId)),
+        ...customClasses.map(c => normalizeClassId(c))
+      ])).filter(Boolean).sort();
+
+      const exportClasses = targetClassId 
+        ? [targetClassId] 
+        : (availableScheduleClasses.length > 0 ? availableScheduleClasses : ["K2-GDTH A"]);
+
+      // 1. Build DANH_MỤC Catalog Sheet
+      const catalogSheet = workbook.addWorksheet("DANH_MỤC");
+      catalogSheet.columns = [
+        { header: "Tên học phần", key: "name", width: 35 },
+        { header: "Mã học phần", key: "code", width: 18 },
+        { header: "Số tín chỉ", key: "credits", width: 12 },
+        { header: "Giảng viên", key: "teacher", width: 28 }
+      ];
+
+      const catHeaderRow = catalogSheet.getRow(1);
+      catHeaderRow.font = { name: "Times New Roman", size: 11, bold: true };
+      catHeaderRow.alignment = { vertical: "middle", horizontal: "center" };
+      catHeaderRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" } };
+
+      const subjectsMap = new Map<string, { code: string; credits: number; teacher: string }>();
+      schedules.forEach(s => {
+        if (!subjectsMap.has(s.subjectName)) {
+          subjectsMap.set(s.subjectName, {
+            code: s.subjectCode || "",
+            credits: s.credits || 2,
+            teacher: s.teacherName
+          });
+        }
+      });
+
+      if (subjectsMap.size === 0) {
+        subjectsMap.set("Phương pháp dạy học Toán", { code: "GDTH204", credits: 3, teacher: "Cô Hoàng Thị B" });
+        subjectsMap.set("Tâm lý học tiểu học", { code: "GDTH205", credits: 2, teacher: "ThS. Trần Thị D" });
+        subjectsMap.set("Cơ sở Tự nhiên - xã hội", { code: "VPS7251", credits: 4, teacher: "ThS. Nguyễn Văn A" });
       }
-    });
 
-    const catalogData = Array.from(subjectsMap.entries()).map(([name, info]) => [
-      name,
-      info.code,
-      info.credits,
-      info.teacher
-    ]);
+      subjectsMap.forEach((info, name) => {
+        const r = catalogSheet.addRow({ name, code: info.code, credits: info.credits, teacher: info.teacher });
+        r.font = { name: "Times New Roman", size: 11 };
+        r.getCell(3).alignment = { horizontal: "center" };
+      });
 
-    if (catalogData.length === 0) {
-      catalogData.push(
-        ["CSTN&XH", "HKO4587520", 2, "TRẦN THANH BÌNH"],
-        ["ĐẠO ĐỨC", "7ELP202088", 2, "NGUYỄN MINH NGUYỆT"],
-        ["TIẾNG ANH", "FHDGY452", 3, "THANH HÀ"],
-        ["MỸ THUẬT", "258SJDUH", 2, "ĐÀM KIÊN"],
-        ["ÂM NHẠC", "DHHSJ202", 2, "THANH THỦY"],
-        ["TOÁN", "NNHB1203", 4, "HOÀNG ANH"],
-        ["KĨ NĂNG SỐNG", "SSNHG258", 2, "THƯ THẢO"],
-        ["TIẾNG VIỆT", "220MNHJK", 4, "THANH DUNG"],
-        ["THỂ CHẤT", "002MNJHU", 3, "HÙNG HOÀNG"]
-      );
-    }
+      catalogSheet.addRow([]);
+      const noteRow = catalogSheet.addRow(["Ghi chú: [lấy từ bảng phân công giảng viên bộ môn]"]);
+      noteRow.font = { name: "Times New Roman", size: 10, italic: true };
 
-    // 2. Create Schedule Data
-    const scheduleData = schedules.length > 0 
-      ? schedules.map(s => [
-          s.classId,
-          s.className || s.classId,
-          s.dayOfWeek === 8 ? "Chủ Nhật" : `Thứ ${s.dayOfWeek}`,
-          s.session || "Sáng",
-          s.subjectName,
-          `${s.periodStart}-${s.periodEnd}`,
-          s.room,
-          s.semester || "II",
-          s.weekRange || "1-15",
-          s.academicYear || "2025-2026",
-          s.studyMode || "Trực tiếp"
-        ])
-      : [
-          ["K2-GDTH A", "K2 GDTH A", "Thứ 2", "Sáng", "CSTN&XH", "1-3", "102B", "II", "1-15", "2025-2026", "Trực tiếp"],
-          ["K2-GDTH A", "K2 GDTH A", "Thứ 3", "Sáng", "Phương pháp dạy học Toán", "1-3", "Phòng 201 - Nhà B", "II", "1-9", "2025-2026", "Trực tiếp"],
-          ["K2-GDTH A", "K2 GDTH A", "Thứ 5", "Sáng", "Tâm lý học tiểu học", "4-6", "Phòng 105 - Nhà C", "II", "10-18", "2025-2026", "Trực tiếp"]
+      // 2. Build Per-Class Sheets
+      const daysConfig = [
+        { day: 2, label: "Thứ Hai" },
+        { day: 3, label: "Thứ Ba" },
+        { day: 4, label: "Thứ Tư" },
+        { day: 5, label: "Thứ Năm" },
+        { day: 6, label: "Thứ Sáu" },
+        { day: 7, label: "Thứ Bảy" },
+        { day: 8, label: "Chủ Nhật" }
+      ];
+
+      exportClasses.forEach(clsId => {
+        const sheetName = clsId.slice(0, 31);
+        const sheet = workbook.addWorksheet(sheetName);
+
+        sheet.columns = [
+          { width: 16 }, // A: Mã lớp
+          { width: 18 }, // B: Tên lớp
+          { width: 14 }, // C: Thứ
+          { width: 12 }, // D: Buổi
+          { width: 32 }, // E: Môn học
+          { width: 14 }, // F: Tiết
+          { width: 22 }, // G: Phòng học
+          { width: 16 }  // H: Hình thức học
         ];
 
-    const workbook = XLSX.utils.book_new();
+        // Row 1: Header Titles
+        sheet.mergeCells("A1:C1");
+        const a1 = sheet.getCell("A1");
+        a1.value = "PHÂN HIỆU ĐHTN TẠI HÀ GIANG\nPHÒNG ĐÀO TẠO NCKH & HTQT";
+        a1.font = { name: "Times New Roman", size: 10, bold: true };
+        a1.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
 
-    // Sheet 1: DANH_MỤC
-    const catalogHeaders = ["Tên học phần", "Mã học phần", "Số tín chỉ", "Giảng viên"];
-    const catalogSheet = XLSX.utils.aoa_to_sheet([catalogHeaders, ...catalogData]);
-    XLSX.utils.book_append_sheet(workbook, catalogSheet, "DANH_MỤC");
+        sheet.mergeCells("D1:H1");
+        const d1 = sheet.getCell("D1");
+        d1.value = `THỜI KHÓA BIỂU HỌC KÌ II, NĂM HỌC 2025 - 2026\nLỚP ${clsId}`;
+        d1.font = { name: "Times New Roman", size: 11, bold: true };
+        d1.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
 
-    // Sheet 2: THỜI_KHÓA_BIỂU
-    const scheduleHeaders = [
-      "Mã lớp",
-      "Tên lớp",
-      "Thứ",
-      "Buổi",
-      "Môn học",
-      "Tiết",
-      "Phòng học",
-      "Học kỳ",
-      "Tuần học (VD: 1-15)",
-      "Năm học",
-      "Hình thức học"
-    ];
-    const scheduleSheet = XLSX.utils.aoa_to_sheet([scheduleHeaders, ...scheduleData]);
-    XLSX.utils.book_append_sheet(workbook, scheduleSheet, "THỜI_KHÓA_BIỂU");
+        // Row 2: Subtitle
+        sheet.mergeCells("D2:H2");
+        const d2 = sheet.getCell("D2");
+        d2.value = "Tuần: [tính theo tuần trên hệ thống]";
+        d2.font = { name: "Times New Roman", size: 10, italic: true };
+        d2.alignment = { vertical: "middle", horizontal: "center" };
 
-    XLSX.writeFile(workbook, "Mau_Thoi_khoa_bieu_Phan_hieu.xlsx");
+        // Row 4: Table Headers
+        const headers = ["Mã lớp", "Tên lớp", "Thứ", "Buổi", "Môn học", "Tiết", "Phòng học", "Hình thức học"];
+        const headerRow = sheet.getRow(4);
+        headers.forEach((h, colIdx) => {
+          const cell = headerRow.getCell(colIdx + 1);
+          cell.value = h;
+          cell.font = { name: "Times New Roman", size: 11, bold: true };
+          cell.alignment = { vertical: "middle", horizontal: "center" };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" } };
+          cell.border = {
+            top: { style: "thin" },
+            left: { style: "thin" },
+            bottom: { style: "thin" },
+            right: { style: "thin" }
+          };
+        });
+
+        // Filter slots for this class
+        const clsSchedules = schedules.filter(s => normalizeClassId(s.classId) === normalizeClassId(clsId));
+
+        let startRow = 5;
+        daysConfig.forEach(({ day, label }) => {
+          // Morning row
+          const morningSlot = clsSchedules.find(s => s.dayOfWeek === day && (!s.session || s.session.trim().toLowerCase() === "sáng"));
+          const morningRow = sheet.getRow(startRow);
+          morningRow.getCell(1).value = clsId;
+          morningRow.getCell(2).value = clsId;
+          morningRow.getCell(3).value = label;
+          morningRow.getCell(4).value = "Sáng";
+          morningRow.getCell(5).value = morningSlot?.subjectName || "";
+          morningRow.getCell(6).value = morningSlot ? `${morningSlot.periodStart}-${morningSlot.periodEnd}` : "";
+          morningRow.getCell(7).value = morningSlot?.room || "";
+          morningRow.getCell(8).value = morningSlot?.studyMode || (morningSlot ? "Trực tiếp" : "");
+
+          // Afternoon row
+          const afternoonSlot = clsSchedules.find(s => s.dayOfWeek === day && s.session && s.session.trim().toLowerCase() === "chiều");
+          const afternoonRow = sheet.getRow(startRow + 1);
+          afternoonRow.getCell(1).value = clsId;
+          afternoonRow.getCell(2).value = clsId;
+          afternoonRow.getCell(3).value = label;
+          afternoonRow.getCell(4).value = "Chiều";
+          afternoonRow.getCell(5).value = afternoonSlot?.subjectName || "";
+          afternoonRow.getCell(6).value = afternoonSlot ? `${afternoonSlot.periodStart}-${afternoonSlot.periodEnd}` : "";
+          afternoonRow.getCell(7).value = afternoonSlot?.room || "";
+          afternoonRow.getCell(8).value = afternoonSlot?.studyMode || (afternoonSlot ? "Trực tiếp" : "");
+
+          // Style cells & borders for these 2 rows
+          [startRow, startRow + 1].forEach(rIdx => {
+            const rowObj = sheet.getRow(rIdx);
+            for (let c = 1; c <= 8; c++) {
+              const cell = rowObj.getCell(c);
+              cell.font = { name: "Times New Roman", size: 10 };
+              cell.alignment = { 
+                vertical: "middle", 
+                horizontal: [1,2,3,4,6,8].includes(c) ? "center" : "left", 
+                wrapText: true 
+              };
+              cell.border = {
+                top: { style: "thin" },
+                left: { style: "thin" },
+                bottom: { style: "thin" },
+                right: { style: "thin" }
+              };
+            }
+          });
+
+          // Merge Day cell (C) for Sáng/Chiều
+          sheet.mergeCells(`C${startRow}:C${startRow + 1}`);
+
+          startRow += 2;
+        });
+
+        // Merge ClassId (A) & ClassName (B) across all day rows (5 to 18)
+        sheet.mergeCells(`A5:A18`);
+        sheet.mergeCells(`B5:B18`);
+
+        // Signature Footer Block
+        const endRow = 19;
+        sheet.mergeCells(`F${endRow + 1}:H${endRow + 1}`);
+        const dateCell = sheet.getCell(`F${endRow + 1}`);
+        dateCell.value = "Hà Giang, ngày ... tháng ... năm 2026";
+        dateCell.font = { name: "Times New Roman", size: 10, italic: true };
+        dateCell.alignment = { vertical: "middle", horizontal: "center" };
+
+        sheet.mergeCells(`F${endRow + 3}:H${endRow + 3}`);
+        const signCell = sheet.getCell(`F${endRow + 3}`);
+        signCell.value = "Phòng Đào tạo NCKH & Hợp tác Quốc tế";
+        signCell.font = { name: "Times New Roman", size: 11, bold: true };
+        signCell.alignment = { vertical: "middle", horizontal: "center" };
+
+        sheet.mergeCells(`F${endRow + 11}:H${endRow + 11}`);
+        const nameCell = sheet.getCell(`F${endRow + 11}`);
+        nameCell.value = "Danh hiệu. Họ và tên";
+        nameCell.font = { name: "Times New Roman", size: 10, italic: true };
+        nameCell.alignment = { vertical: "middle", horizontal: "center" };
+      });
+
+      // 3. Build Flat Sheet: THỜI_KHÓA_BIỂU
+      const flatSheet = workbook.addWorksheet("THỜI_KHÓA_BIỂU");
+      flatSheet.columns = [
+        { header: "Mã lớp", key: "classId", width: 16 },
+        { header: "Tên lớp", key: "className", width: 18 },
+        { header: "Thứ", key: "dayOfWeek", width: 14 },
+        { header: "Buổi", key: "session", width: 12 },
+        { header: "Môn học", key: "subjectName", width: 32 },
+        { header: "Tiết", key: "period", width: 14 },
+        { header: "Phòng học", key: "room", width: 20 },
+        { header: "Học kỳ", key: "semester", width: 12 },
+        { header: "Tuần học (VD: 1-15)", key: "weekRange", width: 20 },
+        { header: "Năm học", key: "academicYear", width: 14 },
+        { header: "Hình thức học", key: "studyMode", width: 16 }
+      ];
+
+      const flatHeaderRow = flatSheet.getRow(1);
+      flatHeaderRow.font = { name: "Times New Roman", size: 11, bold: true };
+      flatHeaderRow.alignment = { vertical: "middle", horizontal: "center" };
+
+      const exportSchedules = targetClassId 
+        ? schedules.filter(s => normalizeClassId(s.classId) === normalizeClassId(targetClassId))
+        : schedules;
+
+      exportSchedules.forEach(s => {
+        flatSheet.addRow({
+          classId: s.classId,
+          className: s.className || s.classId,
+          dayOfWeek: s.dayOfWeek === 8 ? "Chủ Nhật" : `Thứ ${s.dayOfWeek}`,
+          session: s.session || "Sáng",
+          subjectName: s.subjectName,
+          period: `${s.periodStart}-${s.periodEnd}`,
+          room: s.room,
+          semester: s.semester || "II",
+          weekRange: s.weekRange || "1-15",
+          academicYear: s.academicYear || "2025-2026",
+          studyMode: s.studyMode || "Trực tiếp"
+        }).font = { name: "Times New Roman", size: 10 };
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = targetClassId 
+        ? `Mau_Thoi_khoa_bieu_${targetClassId.replace(/\s+/g, "_")}.xlsx`
+        : `Mau_Thoi_khoa_bieu_Phan_hieu_Toan_bo.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert("Lỗi khi tạo file Excel mẫu: " + err);
+    }
   };
 
   const handleImportScheduleExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1238,75 +1409,43 @@ export const TrainingPortal: React.FC = () => {
         const bstr = evt.target?.result;
         const workbook = XLSX.read(bstr, { type: "binary" });
         
-        // 1. Read sheet "DANH_MỤC"
-        const catalogSheet = workbook.Sheets["DANH_MỤC"];
-        if (!catalogSheet) {
-          alert("Không tìm thấy trang dữ liệu 'DANH_MỤC' trong file Excel!");
-          return;
-        }
-        const rawCatalog = XLSX.utils.sheet_to_json<any[]>(catalogSheet, { header: 1 });
-        const catalogHeaders = rawCatalog[0] as string[];
-        if (!catalogHeaders || catalogHeaders.length === 0) {
-          alert("Trang 'DANH_MỤC' không hợp lệ hoặc rỗng!");
-          return;
-        }
-
-        const catColIdx = {
-          subjectName: catalogHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "tên học phần"),
-          subjectCode: catalogHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "mã học phần"),
-          credits: catalogHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "số tín chỉ"),
-          teacherName: catalogHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "giảng viên")
-        };
-
+        // 1. Read sheet "DANH_MỤC" if present
         const catalogMap = new Map<string, { code: string; credits: number; teacher: string }>();
-        for (let i = 1; i < rawCatalog.length; i++) {
-          const row = rawCatalog[i];
-          if (!row || row.length === 0) continue;
-          const subjectName = row[catColIdx.subjectName]?.toString().trim();
-          if (!subjectName) continue;
+        const catalogSheet = workbook.Sheets["DANH_MỤC"];
+        if (catalogSheet) {
+          const rawCatalog = XLSX.utils.sheet_to_json<any[]>(catalogSheet, { header: 1 });
+          if (rawCatalog.length > 1) {
+            let catHeaderIdx = 0;
+            for (let i = 0; i < Math.min(5, rawCatalog.length); i++) {
+              if (rawCatalog[i] && rawCatalog[i].some((cell: any) => cell?.toString().trim().toLowerCase().includes("tên học phần"))) {
+                catHeaderIdx = i;
+                break;
+              }
+            }
+            const catalogHeaders = rawCatalog[catHeaderIdx] as string[];
+            if (catalogHeaders && catalogHeaders.length > 0) {
+              const catColIdx = {
+                subjectName: catalogHeaders.findIndex(h => h?.toString().trim().toLowerCase().includes("tên học phần")),
+                subjectCode: catalogHeaders.findIndex(h => h?.toString().trim().toLowerCase().includes("mã học phần")),
+                credits: catalogHeaders.findIndex(h => h?.toString().trim().toLowerCase().includes("tín chỉ")),
+                teacherName: catalogHeaders.findIndex(h => h?.toString().trim().toLowerCase().includes("giảng viên"))
+              };
 
-          const subjectCode = catColIdx.subjectCode !== -1 && row[catColIdx.subjectCode] ? row[catColIdx.subjectCode]?.toString().trim() : "";
-          const creditsVal = catColIdx.credits !== -1 ? Number(row[catColIdx.credits]) : NaN;
-          const credits = isNaN(creditsVal) ? 2 : creditsVal;
-          const teacherName = catColIdx.teacherName !== -1 && row[catColIdx.teacherName] ? row[catColIdx.teacherName]?.toString().trim() : "Chưa phân công";
+              for (let i = catHeaderIdx + 1; i < rawCatalog.length; i++) {
+                const row = rawCatalog[i];
+                if (!row || row.length === 0) continue;
+                const subjectName = row[catColIdx.subjectName]?.toString().trim();
+                if (!subjectName) continue;
 
-          catalogMap.set(subjectName.toLowerCase(), {
-            code: subjectCode,
-            credits: credits,
-            teacher: teacherName
-          });
-        }
+                const subjectCode = catColIdx.subjectCode !== -1 && row[catColIdx.subjectCode] ? row[catColIdx.subjectCode]?.toString().trim() : "";
+                const creditsVal = catColIdx.credits !== -1 ? Number(row[catColIdx.credits]) : NaN;
+                const credits = isNaN(creditsVal) ? 2 : creditsVal;
+                const teacherName = catColIdx.teacherName !== -1 && row[catColIdx.teacherName] ? row[catColIdx.teacherName]?.toString().trim() : "Chưa phân công";
 
-        // 2. Read sheet "THỜI_KHÓA_BIỂU"
-        const scheduleSheet = workbook.Sheets["THỜI_KHÓA_BIỂU"] || workbook.Sheets[workbook.SheetNames[0]];
-        if (!scheduleSheet) {
-          alert("Không tìm thấy trang dữ liệu 'THỜI_KHÓA_BIỂU' trong file Excel!");
-          return;
-        }
-        const rawSchedule = XLSX.utils.sheet_to_json<any[]>(scheduleSheet, { header: 1 });
-        const scheduleHeaders = rawSchedule[0] as string[];
-        if (!scheduleHeaders || scheduleHeaders.length === 0) {
-          alert("Trang 'THỜI_KHÓA_BIỂU' không hợp lệ hoặc rỗng!");
-          return;
-        }
-
-        const schedColIdx = {
-          classId: scheduleHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "mã lớp"),
-          className: scheduleHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "tên lớp"),
-          dayOfWeek: scheduleHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "thứ"),
-          session: scheduleHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "buổi"),
-          subjectName: scheduleHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "môn học"),
-          period: scheduleHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "tiết"),
-          room: scheduleHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "phòng học"),
-          semester: scheduleHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "học kỳ"),
-          weekRange: scheduleHeaders.findIndex(h => h?.toString().trim().toLowerCase().includes("tuần")),
-          academicYear: scheduleHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "năm học"),
-          studyMode: scheduleHeaders.findIndex(h => h?.toString().trim().toLowerCase() === "hình thức học")
-        };
-
-        if (schedColIdx.classId === -1 || schedColIdx.subjectName === -1) {
-          alert("Không tìm thấy các cột bắt buộc ('Mã lớp', 'Môn học') trong trang 'THỜI_KHÓA_BIỂU'!");
-          return;
+                catalogMap.set(subjectName.toLowerCase(), { code: subjectCode, credits, teacher: teacherName });
+              }
+            }
+          }
         }
 
         const parseDayOfWeek = (val: any): number => {
@@ -1326,69 +1465,132 @@ export const TrainingPortal: React.FC = () => {
 
         const updates: ScheduleSlot[] = [];
         const fallbackColors = ["#4F46E5", "#0EA5E9", "#10B981", "#F59E0B", "#EC4899", "#8B5CF6", "#EF4444"];
-        
-        for (let i = 1; i < rawSchedule.length; i++) {
-          const row = rawSchedule[i];
-          if (!row || row.length === 0) continue;
-          
-          const classId = row[schedColIdx.classId]?.toString().trim();
-          const rawSubjectName = row[schedColIdx.subjectName]?.toString().trim();
-          if (!classId || !rawSubjectName) continue;
+        let itemIndex = 0;
 
-          const className = schedColIdx.className !== -1 && row[schedColIdx.className] ? row[schedColIdx.className]?.toString().trim() : "";
-          const dayOfWeek = parseDayOfWeek(row[schedColIdx.dayOfWeek]);
-          const session = schedColIdx.session !== -1 && row[schedColIdx.session] ? row[schedColIdx.session]?.toString().trim() : "Sáng";
-          const room = schedColIdx.room !== -1 && row[schedColIdx.room] ? row[schedColIdx.room]?.toString().trim() : "Phòng học";
-          const semester = schedColIdx.semester !== -1 && row[schedColIdx.semester] ? row[schedColIdx.semester]?.toString().trim() : "II";
-          const weekRange = schedColIdx.weekRange !== -1 && row[schedColIdx.weekRange] ? row[schedColIdx.weekRange]?.toString().trim() : "1-15";
-          const { startWeek, endWeek } = parseWeekRange(weekRange);
-          const academicYear = schedColIdx.academicYear !== -1 && row[schedColIdx.academicYear] ? row[schedColIdx.academicYear]?.toString().trim() : "2025-2026";
-          const studyMode = schedColIdx.studyMode !== -1 && row[schedColIdx.studyMode] ? row[schedColIdx.studyMode]?.toString().trim() : "Trực tiếp";
+        // 2. Iterate through ALL non-catalog sheets
+        const targetSheetNames = workbook.SheetNames.filter(name => name.trim().toUpperCase() !== "DANH_MỤC");
 
-          let periodStart = 1;
-          let periodEnd = 3;
-          if (schedColIdx.period !== -1 && row[schedColIdx.period]) {
-            const periodStr = row[schedColIdx.period].toString().trim();
-            const periodMatch = periodStr.match(/(\d+)\s*-\s*(\d+)/);
-            if (periodMatch) {
-              periodStart = parseInt(periodMatch[1]);
-              periodEnd = parseInt(periodMatch[2]);
+        targetSheetNames.forEach((sheetName) => {
+          const sheet = workbook.Sheets[sheetName];
+          if (!sheet) return;
+
+          const rawData = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1 });
+          if (rawData.length === 0) return;
+
+          // Find header row containing "Môn học" or "Mã lớp"
+          let headerIdx = -1;
+          for (let r = 0; r < Math.min(10, rawData.length); r++) {
+            const row = rawData[r];
+            if (row && row.some((cell: any) => {
+              const str = cell?.toString().trim().toLowerCase() || "";
+              return str.includes("môn học") || str.includes("mã lớp");
+            })) {
+              headerIdx = r;
+              break;
             }
           }
 
-          const lookupKey = rawSubjectName.toLowerCase();
-          const meta = catalogMap.get(lookupKey) || {
-            code: `HP_${rawSubjectName.replace(/\s+/g, "")}`,
-            credits: 2,
-            teacher: "Chưa phân công"
+          if (headerIdx === -1) return;
+
+          const headers = rawData[headerIdx] as string[];
+          const schedColIdx = {
+            classId: headers.findIndex(h => h?.toString().trim().toLowerCase().includes("mã lớp")),
+            className: headers.findIndex(h => h?.toString().trim().toLowerCase().includes("tên lớp")),
+            dayOfWeek: headers.findIndex(h => h?.toString().trim().toLowerCase().includes("thứ")),
+            session: headers.findIndex(h => h?.toString().trim().toLowerCase().includes("buổi")),
+            subjectName: headers.findIndex(h => h?.toString().trim().toLowerCase().includes("môn học")),
+            period: headers.findIndex(h => h?.toString().trim().toLowerCase().includes("tiết")),
+            room: headers.findIndex(h => h?.toString().trim().toLowerCase().includes("phòng")),
+            semester: headers.findIndex(h => h?.toString().trim().toLowerCase().includes("học kỳ")),
+            weekRange: headers.findIndex(h => h?.toString().trim().toLowerCase().includes("tuần")),
+            academicYear: headers.findIndex(h => h?.toString().trim().toLowerCase().includes("năm học")),
+            studyMode: headers.findIndex(h => h?.toString().trim().toLowerCase().includes("hình thức"))
           };
 
-          updates.push({
-            id: `SCH_IMPORT_${i}_${Date.now()}`,
-            classId,
-            className,
-            subjectName: rawSubjectName,
-            subjectCode: meta.code,
-            credits: meta.credits,
-            teacherName: meta.teacher,
-            dayOfWeek,
-            session,
-            periodStart,
-            periodEnd,
-            room,
-            semester,
-            semesterId: selectedScheduleSemesterId,
-            weekRange,
-            startWeek,
-            endWeek,
-            academicYear,
-            studyMode,
-            colorHex: fallbackColors[i % fallbackColors.length]
-          });
-        }
+          if (schedColIdx.subjectName === -1) return;
+
+          const fallbackClassId = normalizeClassId(sheetName);
+
+          let currentClassId = fallbackClassId;
+          let currentClassName = fallbackClassId;
+          let currentDayOfWeek = 2;
+
+          for (let i = headerIdx + 1; i < rawData.length; i++) {
+            const row = rawData[i];
+            if (!row || row.length === 0) continue;
+
+            const rawSubjectName = schedColIdx.subjectName !== -1 && row[schedColIdx.subjectName] ? row[schedColIdx.subjectName]?.toString().trim() : "";
+            if (!rawSubjectName || rawSubjectName.toLowerCase().startsWith("danh hiệu") || rawSubjectName.toLowerCase().startsWith("phòng đào tạo") || rawSubjectName.toLowerCase().startsWith("[tỉnh")) {
+              continue; // Skip footer signature rows
+            }
+
+            if (schedColIdx.classId !== -1 && row[schedColIdx.classId]) {
+              currentClassId = normalizeClassId(row[schedColIdx.classId]?.toString().trim());
+            }
+            if (schedColIdx.className !== -1 && row[schedColIdx.className]) {
+              currentClassName = normalizeClassId(row[schedColIdx.className]?.toString().trim());
+            }
+            if (schedColIdx.dayOfWeek !== -1 && row[schedColIdx.dayOfWeek]) {
+              currentDayOfWeek = parseDayOfWeek(row[schedColIdx.dayOfWeek]);
+            }
+
+            const classIdToUse = currentClassId || fallbackClassId;
+            const classNameToUse = currentClassName || classIdToUse;
+
+            const session = schedColIdx.session !== -1 && row[schedColIdx.session] ? row[schedColIdx.session]?.toString().trim() : "Sáng";
+            const room = schedColIdx.room !== -1 && row[schedColIdx.room] ? row[schedColIdx.room]?.toString().trim() : "Phòng học";
+            const semester = schedColIdx.semester !== -1 && row[schedColIdx.semester] ? row[schedColIdx.semester]?.toString().trim() : "II";
+            const weekRange = schedColIdx.weekRange !== -1 && row[schedColIdx.weekRange] ? row[schedColIdx.weekRange]?.toString().trim() : "1-15";
+            const { startWeek, endWeek } = parseWeekRange(weekRange);
+            const academicYear = schedColIdx.academicYear !== -1 && row[schedColIdx.academicYear] ? row[schedColIdx.academicYear]?.toString().trim() : "2025-2026";
+            const studyMode = schedColIdx.studyMode !== -1 && row[schedColIdx.studyMode] ? row[schedColIdx.studyMode]?.toString().trim() : "Trực tiếp";
+
+            let periodStart = 1;
+            let periodEnd = 3;
+            if (schedColIdx.period !== -1 && row[schedColIdx.period]) {
+              const periodStr = row[schedColIdx.period].toString().trim();
+              const periodMatch = periodStr.match(/(\d+)\s*-\s*(\d+)/);
+              if (periodMatch) {
+                periodStart = parseInt(periodMatch[1]);
+                periodEnd = parseInt(periodMatch[2]);
+              }
+            }
+
+            const lookupKey = rawSubjectName.toLowerCase();
+            const meta = catalogMap.get(lookupKey) || {
+              code: `HP_${rawSubjectName.replace(/\s+/g, "")}`,
+              credits: 2,
+              teacher: "Chưa phân công"
+            };
+
+            itemIndex++;
+            updates.push({
+              id: `SCH_IMPORT_${itemIndex}_${Date.now()}`,
+              classId: classIdToUse,
+              className: classNameToUse,
+              subjectName: rawSubjectName,
+              subjectCode: meta.code,
+              credits: meta.credits,
+              teacherName: meta.teacher,
+              dayOfWeek: currentDayOfWeek,
+              session,
+              periodStart,
+              periodEnd,
+              room,
+              semester,
+              semesterId: selectedScheduleSemesterId,
+              weekRange,
+              startWeek,
+              endWeek,
+              academicYear,
+              studyMode,
+              colorHex: fallbackColors[itemIndex % fallbackColors.length]
+            });
+          }
+        });
 
         if (updates.length === 0) {
-          alert("Không tìm thấy dữ liệu thời khóa biểu nào trong tệp!");
+          alert("Không tìm thấy dữ liệu thời khóa biểu hợp lệ nào trong tệp Excel!");
           return;
         }
 
@@ -2406,16 +2608,30 @@ export const TrainingPortal: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="flex flex-wrap gap-4 items-center bg-slate-50 p-4 rounded-2xl border">
+                <div className="flex flex-wrap gap-3 items-center bg-slate-50 p-4 rounded-2xl border">
                   <div>
                     <button 
-                      onClick={handleExportScheduleTemplate}
+                      onClick={() => handleExportScheduleTemplate()}
                       className="px-3.5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                      title="Xuất file mẫu chứa đầy đủ các Sheet của tất cả các lớp đang có trên hệ thống"
                     >
                       <Download size={14} />
-                      <span>Xuất File Excel Mẫu (Template)</span>
+                      <span>Xuất Excel Mẫu (Toàn bộ lớp)</span>
                     </button>
                   </div>
+
+                  {selectedScheduleClass && (
+                    <div>
+                      <button 
+                        onClick={() => handleExportScheduleTemplate(selectedScheduleClass)}
+                        className="px-3.5 py-2 bg-emerald-650 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                        title={`Xuất file mẫu chứa đúng 1 Sheet lịch học của lớp ${selectedScheduleClass}`}
+                      >
+                        <FileSpreadsheet size={14} />
+                        <span>Xuất Excel Lớp {selectedScheduleClass}</span>
+                      </button>
+                    </div>
+                  )}
                   
                   <div className="relative cursor-pointer">
                     <input 
