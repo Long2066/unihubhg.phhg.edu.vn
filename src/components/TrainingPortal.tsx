@@ -1186,6 +1186,24 @@ export const TrainingPortal: React.FC = () => {
 
       // 1. Build DANH_MỤC Catalog Sheet (Pulls REAL data from Teacher Assignments flow)
       const catalogSheet = workbook.addWorksheet("DANH_MỤC");
+      
+      // Page Setup for DANH_MỤC sheet according to user's new images (Landscape, Letter, 115%, Left 2.8cm, Right 1.3cm)
+      catalogSheet.pageSetup = {
+        orientation: "landscape",
+        paperSize: 1 as any, // Letter
+        scale: 115,
+        fitToWidth: 1,
+        fitToHeight: 1,
+        margins: {
+          top: 0.75,    // 1.9 cm
+          bottom: 0.75, // 1.9 cm
+          left: 1.1,    // 2.8 cm
+          right: 0.51,  // 1.3 cm
+          header: 0.31, // 0.8 cm
+          footer: 0.31  // 0.8 cm
+        }
+      };
+
       catalogSheet.columns = [
         { header: "Tên học phần", key: "name", width: 35 },
         { header: "Mã học phần", key: "code", width: 18 },
@@ -1194,9 +1212,18 @@ export const TrainingPortal: React.FC = () => {
       ];
 
       const catHeaderRow = catalogSheet.getRow(1);
-      catHeaderRow.font = { name: "Times New Roman", size: 11, bold: true };
-      catHeaderRow.alignment = { vertical: "middle", horizontal: "center" };
-      catHeaderRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" } };
+      catHeaderRow.height = 24;
+      catHeaderRow.eachCell((cell) => {
+        cell.font = { name: "Times New Roman", size: 11, bold: true };
+        cell.alignment = { vertical: "middle", horizontal: "center" };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" } };
+        cell.border = {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" }
+        };
+      });
 
       const subjectsMap = new Map<string, { code: string; credits: number; teacher: string }>();
 
@@ -1272,8 +1299,24 @@ export const TrainingPortal: React.FC = () => {
 
       subjectsMap.forEach((info, name) => {
         const r = catalogSheet.addRow({ name, code: info.code, credits: info.credits, teacher: info.teacher });
+        r.height = 22;
         r.font = { name: "Times New Roman", size: 11 };
-        r.getCell(3).alignment = { horizontal: "center" };
+        
+        // Apply thin borders and formatting to each cell of DANH_MỤC table
+        for (let colIdx = 1; colIdx <= 4; colIdx++) {
+          const cell = r.getCell(colIdx);
+          cell.border = {
+            top: { style: "thin" },
+            left: { style: "thin" },
+            bottom: { style: "thin" },
+            right: { style: "thin" }
+          };
+          if (colIdx === 2 || colIdx === 3) {
+            cell.alignment = { vertical: "middle", horizontal: "center" };
+          } else {
+            cell.alignment = { vertical: "middle", horizontal: "left" };
+          }
+        }
       });
 
       catalogSheet.addRow([]);
