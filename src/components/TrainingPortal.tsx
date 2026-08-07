@@ -1200,6 +1200,40 @@ export const TrainingPortal: React.FC = () => {
 
       const subjectsMap = new Map<string, { code: string; credits: number; teacher: string }>();
 
+      // Helper: resolve teacher username/email to real full name
+      const resolveTeacherRealName = (rawName?: string) => {
+        if (!rawName || rawName.trim() === "" || rawName.trim() === "Chưa phân công") {
+          return "Chưa phân công";
+        }
+        const clean = rawName.trim();
+
+        // 1. Find exact match in users array by username, email, id, or targetId
+        const matchedUser = users.find(u => 
+          (u.username && u.username.toLowerCase() === clean.toLowerCase()) ||
+          (u.email && u.email.toLowerCase() === clean.toLowerCase()) ||
+          (u.id && u.id.toLowerCase() === clean.toLowerCase()) ||
+          (u.targetId && u.targetId.toLowerCase() === clean.toLowerCase())
+        );
+
+        if (matchedUser && matchedUser.name && matchedUser.name.trim()) {
+          return matchedUser.name.trim();
+        }
+
+        // 2. If clean is an email (e.g. gv_nguyenminhnguyet@phhg.edu.vn), extract username part and match
+        if (clean.includes("@") || clean.startsWith("gv_")) {
+          const localPart = clean.split("@")[0].replace(/^(gv_|cb_)/, "");
+          const fallbackMatch = users.find(u => 
+            (u.username && u.username.toLowerCase().includes(localPart.toLowerCase())) || 
+            (u.email && u.email.toLowerCase().includes(localPart.toLowerCase()))
+          );
+          if (fallbackMatch && fallbackMatch.name) {
+            return fallbackMatch.name.trim();
+          }
+        }
+
+        return clean;
+      };
+
       // Pull actual assignments from teacherAssignments state (or SEED_TEACHER_ASSIGNMENTS fallback)
       const relevantAssignments = teacherAssignments.length > 0 
         ? teacherAssignments 
@@ -1211,7 +1245,7 @@ export const TrainingPortal: React.FC = () => {
             subjectsMap.set(a.subjectName, {
               code: a.subjectCode || `HP_${a.subjectName.replace(/\s+/g, "")}`,
               credits: a.credits || 2,
-              teacher: a.teacherName || "Chưa phân công"
+              teacher: resolveTeacherRealName(a.teacherName)
             });
           }
         }
@@ -1224,7 +1258,7 @@ export const TrainingPortal: React.FC = () => {
             subjectsMap.set(s.subjectName, {
               code: s.subjectCode || "",
               credits: s.credits || 2,
-              teacher: s.teacherName || "Chưa phân công"
+              teacher: resolveTeacherRealName(s.teacherName)
             });
           }
         }
@@ -1272,7 +1306,7 @@ export const TrainingPortal: React.FC = () => {
         const sheetName = clsId.slice(0, 31);
         const sheet = workbook.addWorksheet(sheetName);
 
-        // Page Setup matching Images 2, 3, 4
+        // Page Setup matching Attached Image 1 & Image 2 (Landscape, 75%, Left: 3.8cm, Right: 0cm)
         sheet.pageSetup = {
           orientation: "landscape",
           paperSize: 9, // A4
@@ -1282,8 +1316,8 @@ export const TrainingPortal: React.FC = () => {
           margins: {
             top: 0.75,    // 1.9 cm
             bottom: 0.75, // 1.9 cm
-            left: 0.71,   // 1.8 cm
-            right: 0.71,  // 1.8 cm
+            left: 1.5,    // 3.8 cm
+            right: 0,     // 0 cm
             header: 0.31, // 0.8 cm
             footer: 0.31  // 0.8 cm
           }
