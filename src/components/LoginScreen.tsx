@@ -37,7 +37,7 @@ interface NewsFeedItem {
   type: "ANNOUNCEMENT" | "ACTIVITY";
 }
 
-type NavModalType = "TRAINING" | "SCHEDULE" | "DEGREE" | "GUIDE" | null;
+type NavModalType = "ABOUT" | "DEGREE" | "GUIDE" | null;
 
 export const LoginScreen: React.FC = () => {
   const { login, themeConfig, announcements, activities, organizations } = useUniHub();
@@ -253,26 +253,20 @@ export const LoginScreen: React.FC = () => {
                   TRANG CHỦ
                 </button>
                 <button 
-                  onClick={() => setActiveNavModal("TRAINING")}
-                  className="px-2 py-1 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
+                  onClick={() => setActiveNavModal("ABOUT")}
+                  className="px-2.5 py-1 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
                 >
-                  CHƯƠNG TRÌNH ĐÀO TẠO
-                </button>
-                <button 
-                  onClick={() => setActiveNavModal("SCHEDULE")}
-                  className="px-2 py-1 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
-                >
-                  LỊCH ĐĂNG KÝ
+                  GIỚI THIỆU
                 </button>
                 <button 
                   onClick={() => setActiveNavModal("DEGREE")}
-                  className="px-2 py-1 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
+                  className="px-2.5 py-1 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
                 >
                   TRA CỨU VĂN BẰNG
                 </button>
                 <button 
                   onClick={() => setActiveNavModal("GUIDE")}
-                  className="px-2 py-1 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
+                  className="px-2.5 py-1 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
                 >
                   HƯỚNG DẪN
                 </button>
@@ -367,32 +361,21 @@ export const LoginScreen: React.FC = () => {
             </div>
 
             {/* Quick Portal Feature Cards under Banner (Phẳng, Tự nhiên) */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+            <div className="grid grid-cols-3 gap-2.5 pt-1">
               <div 
-                onClick={() => setActiveNavModal("TRAINING")}
-                className="p-3 bg-white hover:bg-blue-50/60 rounded-xl border border-slate-200/80 transition-all cursor-pointer group flex flex-col items-center text-center"
+                onClick={() => setActiveNavModal("ABOUT")}
+                className="p-3 bg-white hover:bg-blue-50/60 rounded-xl border border-slate-200/80 transition-all cursor-pointer group flex flex-col items-center text-center shadow-2xs hover:shadow-xs"
               >
                 <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0c529c] flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
-                  <BookOpen size={16} />
+                  <Info size={16} />
                 </div>
-                <span className="text-xs font-bold text-slate-700 group-hover:text-[#0c529c]">Đào tạo</span>
-                <span className="text-[10px] text-slate-500">Chương trình học</span>
-              </div>
-
-              <div 
-                onClick={() => setActiveNavModal("SCHEDULE")}
-                className="p-3 bg-white hover:bg-emerald-50/60 rounded-xl border border-slate-200/80 transition-all cursor-pointer group flex flex-col items-center text-center"
-              >
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
-                  <Clock size={16} />
-                </div>
-                <span className="text-xs font-bold text-slate-700 group-hover:text-emerald-700">Lịch đăng ký</span>
-                <span className="text-[10px] text-slate-500">Học phần & thi</span>
+                <span className="text-xs font-bold text-slate-700 group-hover:text-[#0c529c]">Giới thiệu</span>
+                <span className="text-[10px] text-slate-500">Phân hiệu ĐHTN Hà Giang</span>
               </div>
 
               <div 
                 onClick={() => setActiveNavModal("DEGREE")}
-                className="p-3 bg-white hover:bg-amber-50/60 rounded-xl border border-slate-200/80 transition-all cursor-pointer group flex flex-col items-center text-center"
+                className="p-3 bg-white hover:bg-amber-50/60 rounded-xl border border-slate-200/80 transition-all cursor-pointer group flex flex-col items-center text-center shadow-2xs hover:shadow-xs"
               >
                 <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
                   <Award size={16} />
@@ -403,7 +386,7 @@ export const LoginScreen: React.FC = () => {
 
               <div 
                 onClick={() => setActiveNavModal("GUIDE")}
-                className="p-3 bg-white hover:bg-rose-50/60 rounded-xl border border-slate-200/80 transition-all cursor-pointer group flex flex-col items-center text-center"
+                className="p-3 bg-white hover:bg-rose-50/60 rounded-xl border border-slate-200/80 transition-all cursor-pointer group flex flex-col items-center text-center shadow-2xs hover:shadow-xs"
               >
                 <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
                   <HelpCircle size={16} />
@@ -797,26 +780,67 @@ export const LoginScreen: React.FC = () => {
               <span>Phân hiệu Đại học Thái Nguyên tại tỉnh Hà Giang</span>
             </div>
 
-            {activeNavModal === "TRAINING" && (
-              <div>
-                <h3 className="text-lg font-extrabold text-slate-900 mb-2">Chương trình Đào tạo</h3>
-                <p className="text-xs text-slate-600 leading-relaxed mb-4">
-                  Phân hiệu đào tạo đa ngành với các hệ chính quy, liên thông và vừa làm vừa học: Giáo dục Tiểu học, Giáo dục Mầm non, Sư phạm Tiếng Anh, Công nghệ Thông tin, Quản trị Dịch vụ Du lịch và Lữ hành, Ngôn ngữ Trung Quốc, v.v.
-                </p>
-                <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 text-xs text-[#0c529c]">
-                  Sinh viên đăng nhập vào hệ thống để tra cứu Khung chương trình đào tạo chi tiết và tiến độ tích lũy tín chỉ của lớp mình.
+            {activeNavModal === "ABOUT" && (
+              <div className="space-y-4 text-xs text-slate-700 max-h-[75vh] overflow-y-auto pr-1">
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-[#0c529c] uppercase tracking-wide border-b border-blue-100 pb-1.5 mb-2">
+                    Giới thiệu Phân hiệu Đại học Thái Nguyên tại tỉnh Hà Giang
+                  </h3>
+                  <p className="leading-relaxed text-slate-600">
+                    <strong>Phân hiệu Đại học Thái Nguyên tại tỉnh Hà Giang</strong> (tên tiếng Anh: <em>Thai Nguyen University Campus in Ha Giang - TNU HGC</em>) được thành lập theo <strong>Quyết định số 416/QĐ-BGDĐT</strong> ngày 10/02/2023 của Bộ trưởng Bộ Giáo dục và Đào tạo, là cơ sở giáo dục đại học công lập trực thuộc Đại học Thái Nguyên – Đại học Vùng trọng điểm Quốc gia.
+                  </p>
                 </div>
-              </div>
-            )}
 
-            {activeNavModal === "SCHEDULE" && (
-              <div>
-                <h3 className="text-lg font-extrabold text-slate-900 mb-2">Lịch Đăng ký Học phần & Kế hoạch Đào tạo</h3>
-                <p className="text-xs text-slate-600 leading-relaxed mb-4">
-                  Kế hoạch đăng ký học phần, lịch học, lịch thi kết thúc học phần được thông báo định kỳ theo từng học kỳ của năm học.
-                </p>
-                <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-100 text-xs text-emerald-800">
-                  Vui lòng đăng nhập tài khoản sinh viên để theo dõi lịch thi và thời hạn đăng ký học phần đúng hạn.
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-100">
+                    <h4 className="font-bold text-[#0c529c] text-xs uppercase mb-1 flex items-center gap-1.5">
+                      🎯 Sứ mạng
+                    </h4>
+                    <p className="text-[11px] leading-relaxed text-slate-600">
+                      Đào tạo nguồn nhân lực trình độ cao, chất lượng cao, đa ngành, đa lĩnh vực; nghiên cứu khoa học, chuyển giao công nghệ và hợp tác quốc tế; phục vụ trực tiếp cho sự phát triển kinh tế - xã hội, bảo đảm quốc phòng - an ninh của tỉnh Hà Giang và khu vực Trung du, Miền núi phía Bắc.
+                    </p>
+                  </div>
+                  <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-100">
+                    <h4 className="font-bold text-emerald-800 text-xs uppercase mb-1 flex items-center gap-1.5">
+                      🔭 Tầm nhìn
+                    </h4>
+                    <p className="text-[11px] leading-relaxed text-slate-600">
+                      Xây dựng Phân hiệu trở thành trung tâm đào tạo đại học, sau đại học, nghiên cứu ứng dụng khoa học công nghệ và đổi mới sáng tạo có uy tín hàng đầu tại vùng biên cương địa đầu Tổ quốc.
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-slate-900 text-xs uppercase mb-1.5">
+                    🎓 Các ngành đào tạo Đại học chính quy tiêu biểu
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
+                      <span className="font-semibold text-[#0c529c] block mb-1">📚 Khối Sư phạm & Giáo dục:</span>
+                      <ul className="list-disc pl-4 space-y-0.5 text-slate-600">
+                        <li>Giáo dục Tiểu học</li>
+                        <li>Giáo dục Mầm non</li>
+                        <li>Sư phạm Tiếng Anh</li>
+                      </ul>
+                    </div>
+                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
+                      <span className="font-semibold text-[#0c529c] block mb-1">💻 Khối Kỹ thuật, Kinh tế & Xã hội:</span>
+                      <ul className="list-disc pl-4 space-y-0.5 text-slate-600">
+                        <li>Công nghệ Thông tin</li>
+                        <li>Quản trị Dịch vụ Du lịch và Lữ hành</li>
+                        <li>Ngôn ngữ Trung Quốc</li>
+                        <li>Luật Kinh tế & Quản lý Đất đai</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-[11px] text-slate-600 space-y-1">
+                  <div className="font-bold text-slate-800 text-xs mb-1">📍 Thông tin liên hệ chính thức:</div>
+                  <div>• <strong>Địa chỉ:</strong> Tổ 16, Phường Nguyễn Trãi, Thành phố Hà Giang, Tỉnh Hà Giang</div>
+                  <div>• <strong>Điện thoại / Hotline:</strong> 0219.386.1234 — 0988.xxx.xxx</div>
+                  <div>• <strong>Email:</strong> phhagiang@tnu.edu.vn | banbientap@phhg.edu.vn</div>
+                  <div>• <strong>Cổng thông tin:</strong> phhg.tnu.edu.vn | sinhvien-phhg.tnu.edu.vn</div>
                 </div>
               </div>
             )}
