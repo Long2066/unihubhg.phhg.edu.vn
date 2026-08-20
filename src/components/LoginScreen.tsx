@@ -195,11 +195,11 @@ export const LoginScreen: React.FC = () => {
       {/* 1. TOP HEADER NAVIGATION (Sắc nét, Đúng nhận diện trường) */}
       {/* ========================================================= */}
       <header className="w-full bg-white border-b border-slate-200/80 sticky top-0 z-40 shadow-xs">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between gap-3 sm:gap-6">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex flex-col lg:flex-row items-center justify-between gap-3 lg:gap-6">
           
-          {/* Left: Brand Identity */}
-          <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1">
-            <div className="w-10 h-10 sm:w-14 sm:h-14 md:w-16 md:h-16 shrink-0 flex items-center justify-center">
+          {/* Left: Brand Identity (Màu xanh dương chuẩn nhận diện, hiển thị 100% full text không bị cắt) */}
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0 self-center lg:self-center">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 md:w-18 md:h-18 shrink-0 flex items-center justify-center">
               {themeConfig?.logoUrl ? (
                 <img 
                   src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
@@ -207,81 +207,87 @@ export const LoginScreen: React.FC = () => {
                   className="w-full h-full object-contain"
                 />
               ) : (
-                <TnuLogo size={56} className="w-10 h-10 sm:w-14 sm:h-14 md:w-16 md:h-16" />
+                <TnuLogo size={64} className="w-12 h-12 sm:w-16 sm:h-16 md:w-18 md:h-18" />
               )}
             </div>
 
-            <div className="flex flex-col min-w-0">
-              <span className="text-[11px] sm:text-xs md:text-sm font-extrabold text-[#d32f2f] uppercase tracking-wide leading-tight truncate">
+            <div className="flex flex-col">
+              <span className="text-xs sm:text-sm md:text-[15px] font-extrabold text-[#0c529c] uppercase tracking-wide whitespace-nowrap block">
                 PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI TỈNH HÀ GIANG
               </span>
-              <h1 className="text-xs sm:text-base md:text-xl font-black text-[#0c529c] uppercase tracking-wide leading-tight mt-0.5">
+              <h1 className="text-sm sm:text-base md:text-lg lg:text-xl font-black text-[#0c529c] uppercase tracking-wider whitespace-nowrap block mt-0.5">
                 {themeConfig?.loginTitle || "CỔNG THÔNG TIN SINH VIÊN"}
               </h1>
             </div>
           </div>
 
-          {/* Right: Quick Search + Nav items + Login Button */}
-          <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 shrink-0">
-            {/* Search Pill Input (Desktop) */}
-            <div className="hidden xl:flex items-center relative">
-              <input 
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search..."
-                className="w-48 lg:w-56 pl-4 pr-9 py-1.5 text-xs rounded-full border border-slate-300 focus:outline-none focus:border-[#0c529c] focus:ring-1 focus:ring-[#0c529c] transition-all bg-slate-50/50"
-              />
+          {/* Right: Search Box Centered on Top + Navigation Menu & Login Below */}
+          <div className="flex flex-col items-center lg:items-end w-full lg:w-auto gap-2 shrink-0">
+            
+            {/* Top: Centered Search Input Pill (Căn chính giữa cụm menu) */}
+            <div className="w-full flex justify-center lg:justify-center">
+              <div className="relative w-72 sm:w-80 md:w-96 max-w-full">
+                <input 
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search..."
+                  className="w-full pl-4 pr-10 py-1.5 text-xs sm:text-sm rounded-full border border-slate-300 focus:outline-none focus:border-[#0c529c] focus:ring-1 focus:ring-[#0c529c] transition-all bg-slate-50/50"
+                />
+                <button 
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#0c529c] text-white flex items-center justify-center hover:bg-blue-800 transition-colors cursor-pointer"
+                  title="Tìm kiếm"
+                >
+                  <Search size={12} />
+                </button>
+              </div>
+            </div>
+
+            {/* Bottom: Navigation Links + Red Login Button */}
+            <div className="flex items-center justify-center lg:justify-end gap-1.5 sm:gap-2.5 flex-wrap">
+              <nav className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-[13px] font-semibold text-slate-700 overflow-x-auto py-0.5">
+                <button 
+                  onClick={() => { setNewsFilter("ALL"); setSearchQuery(""); }}
+                  className="px-3 py-1 rounded-full border border-[#0c529c] text-[#0c529c] font-bold hover:bg-blue-50 transition-colors whitespace-nowrap cursor-pointer"
+                >
+                  TRANG CHỦ
+                </button>
+                <button 
+                  onClick={() => setActiveNavModal("TRAINING")}
+                  className="px-2 py-1 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
+                >
+                  CHƯƠNG TRÌNH ĐÀO TẠO
+                </button>
+                <button 
+                  onClick={() => setActiveNavModal("SCHEDULE")}
+                  className="px-2 py-1 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
+                >
+                  LỊCH ĐĂNG KÝ
+                </button>
+                <button 
+                  onClick={() => setActiveNavModal("DEGREE")}
+                  className="px-2 py-1 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
+                >
+                  TRA CỨU VĂN BẰNG
+                </button>
+                <button 
+                  onClick={() => setActiveNavModal("GUIDE")}
+                  className="px-2 py-1 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
+                >
+                  HƯỚNG DẪN
+                </button>
+              </nav>
+
+              {/* Login Red Button */}
               <button 
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#0c529c] text-white flex items-center justify-center hover:bg-blue-800 transition-colors cursor-pointer"
-                title="Tìm kiếm"
+                onClick={() => setShowLoginModal(true)}
+                className="bg-[#d32f2f] hover:bg-[#b71c1c] text-white font-bold text-xs sm:text-sm py-1.5 px-3.5 sm:py-2 sm:px-5 rounded-full shadow-sm hover:shadow-md transition-all flex items-center gap-1.5 cursor-pointer transform active:scale-95 whitespace-nowrap"
               >
-                <Search size={12} />
+                <LogIn size={15} />
+                <span>Đăng nhập</span>
               </button>
             </div>
 
-            {/* Navigation links (Desktop) */}
-            <nav className="hidden lg:flex items-center gap-1.5 text-[13px] font-semibold text-slate-700">
-              <button 
-                onClick={() => { setNewsFilter("ALL"); setSearchQuery(""); }}
-                className="px-3.5 py-1.5 rounded-full border border-[#0c529c] text-[#0c529c] font-bold hover:bg-blue-50 transition-colors cursor-pointer"
-              >
-                TRANG CHỦ
-              </button>
-              <button 
-                onClick={() => setActiveNavModal("TRAINING")}
-                className="px-2.5 py-1.5 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
-              >
-                CHƯƠNG TRÌNH ĐÀO TẠO
-              </button>
-              <button 
-                onClick={() => setActiveNavModal("SCHEDULE")}
-                className="px-2.5 py-1.5 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
-              >
-                LỊCH ĐĂNG KÝ
-              </button>
-              <button 
-                onClick={() => setActiveNavModal("DEGREE")}
-                className="px-2.5 py-1.5 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
-              >
-                TRA CỨU VĂN BẰNG
-              </button>
-              <button 
-                onClick={() => setActiveNavModal("GUIDE")}
-                className="px-2.5 py-1.5 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
-              >
-                HƯỚNG DẪN
-              </button>
-            </nav>
-
-            {/* Login Red Button */}
-            <button 
-              onClick={() => setShowLoginModal(true)}
-              className="bg-[#d32f2f] hover:bg-[#b71c1c] text-white font-bold text-xs sm:text-sm py-2 px-3.5 sm:px-5 rounded-full shadow-sm hover:shadow-md transition-all flex items-center gap-1.5 cursor-pointer transform active:scale-95"
-            >
-              <LogIn size={15} />
-              <span>Đăng nhập</span>
-            </button>
           </div>
 
         </div>
@@ -292,22 +298,6 @@ export const LoginScreen: React.FC = () => {
       {/* ========================================================= */}
       <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-6 flex-1 flex flex-col justify-start">
         
-        {/* Search for mobile */}
-        <div className="xl:hidden mb-4">
-          <div className="relative w-full">
-            <input 
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm kiếm thông báo, sự kiện..."
-              className="w-full pl-4 pr-10 py-2 text-sm rounded-full border border-slate-300 focus:outline-none focus:border-[#0c529c] bg-white shadow-xs"
-            />
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-[#0c529c] text-white flex items-center justify-center">
-              <Search size={14} />
-            </div>
-          </div>
-        </div>
-
         {/* 2-Column Responsive Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
           
