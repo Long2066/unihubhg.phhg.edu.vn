@@ -272,10 +272,10 @@ export const LoginScreen: React.FC = () => {
                 </button>
               </nav>
 
-              {/* Login Red Button */}
+              {/* Login Blue Button */}
               <button 
                 onClick={() => setShowLoginModal(true)}
-                className="bg-[#d32f2f] hover:bg-[#b71c1c] text-white font-bold text-xs sm:text-sm py-1.5 px-3.5 sm:py-2 sm:px-5 rounded-full shadow-sm hover:shadow-md transition-all flex items-center gap-1.5 cursor-pointer transform active:scale-95 whitespace-nowrap"
+                className="bg-[#0c529c] hover:bg-blue-800 text-white font-bold text-xs sm:text-sm py-1.5 px-3.5 sm:py-2 sm:px-5 rounded-full shadow-sm hover:shadow-md transition-all flex items-center gap-1.5 cursor-pointer transform active:scale-95 whitespace-nowrap"
               >
                 <LogIn size={15} />
                 <span>Đăng nhập</span>
@@ -696,7 +696,7 @@ export const LoginScreen: React.FC = () => {
               <button 
                 type="submit"
                 disabled={loading}
-                className={`w-full ${loading ? "bg-red-400 cursor-not-allowed" : "bg-[#d32f2f] hover:bg-[#b71c1c] cursor-pointer"} text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm mt-2`}
+                className={`w-full ${loading ? "bg-blue-400 cursor-not-allowed" : "bg-[#0c529c] hover:bg-blue-800 cursor-pointer"} text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm mt-2`}
               >
                 <span>{loading ? "Đang xác thực..." : "Đăng nhập ngay"}</span>
                 {!loading && <ArrowRight size={16} />}
@@ -874,7 +874,7 @@ export const LoginScreen: React.FC = () => {
             <div className="mt-5 flex justify-end">
               <button 
                 onClick={() => { setActiveNavModal(null); setShowLoginModal(true); }}
-                className="bg-[#d32f2f] hover:bg-[#b71c1c] text-white font-bold text-xs py-2 px-4 rounded-full transition-all flex items-center gap-1.5 cursor-pointer"
+                className="bg-[#0c529c] hover:bg-blue-800 text-white font-bold text-xs py-2 px-4 rounded-full transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <LogIn size={14} />
                 <span>Đăng nhập ngay</span>
