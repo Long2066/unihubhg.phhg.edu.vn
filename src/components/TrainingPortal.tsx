@@ -1674,7 +1674,11 @@ export const TrainingPortal: React.FC = () => {
             });
           }
 
-          // Find header row containing "Môn học" or "Mã lớp"
+          // ============================================================
+          // AUTO-DETECT: Flat Table vs Grid-Matrix Format
+          // ============================================================
+
+          // --- Attempt 1: Find flat-table header row containing "Môn học" or "Mã lớp" ---
           let headerIdx = -1;
           for (let r = 0; r < Math.min(10, rawData.length); r++) {
             const row = rawData[r];
@@ -1687,8 +1691,277 @@ export const TrainingPortal: React.FC = () => {
             }
           }
 
-          if (headerIdx === -1) return;
+          // --- Attempt 2: Grid-Matrix Format Detection ---
+          // If flat-table header not found, check if this sheet uses
+          // the Phân hiệu's weekly grid-matrix TKB format where columns
+          // are days of the week (Thứ 2, Thứ 3, ...) and rows are class+session+period
+          if (headerIdx === -1) {
+            // Detect grid-matrix header row: a row containing multiple "Thứ X" day columns
+            let gridHeaderIdx = -1;
+            const dayColumnMap: { colIdx: number; dayOfWeek: number; dateStr?: string }[] = [];
 
+            for (let r = 0; r < Math.min(15, rawData.length); r++) {
+              const row = rawData[r];
+              if (!row) continue;
+              const tmpDayCols: { colIdx: number; dayOfWeek: number; dateStr?: string }[] = [];
+
+              row.forEach((cell: any, colIdx: number) => {
+                if (!cell) return;
+                const cellStr = cell.toString().trim();
+                const cellLower = cellStr.toLowerCase();
+                
+                // Match patterns: "Thứ 2", "Thứ hai", "Thứ 2\n16/8", "Thứ ba (17/08/2026)"
+                const dayPatterns: { pattern: RegExp; day: number }[] = [
+                  { pattern: /thứ\s*(2|hai)/i, day: 2 },
+                  { pattern: /thứ\s*(3|ba)/i, day: 3 },
+                  { pattern: /thứ\s*(4|tư|tu)/i, day: 4 },
+                  { pattern: /thứ\s*(5|năm|nam)/i, day: 5 },
+                  { pattern: /thứ\s*(6|sáu|sau)/i, day: 6 },
+                  { pattern: /thứ\s*(7|bảy|bay)/i, day: 7 },
+                  { pattern: /chủ\s*nhật|cn/i, day: 8 }
+                ];
+
+                for (const dp of dayPatterns) {
+                  if (dp.pattern.test(cellStr)) {
+                    // Extract date if present (e.g. "Thứ 2\n16/8" or "Thứ 2 (16/08/2026)")
+                    const dateMatch = cellStr.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/);
+                    tmpDayCols.push({ colIdx, dayOfWeek: dp.day, dateStr: dateMatch?.[1] });
+                    break;
+                  }
+                }
+              });
+
+              // A valid grid header needs at least 3 day columns detected
+              if (tmpDayCols.length >= 3) {
+                gridHeaderIdx = r;
+                dayColumnMap.push(...tmpDayCols);
+                break;
+              }
+            }
+
+            if (gridHeaderIdx !== -1 && dayColumnMap.length >= 3) {
+              // Successfully detected grid-matrix format!
+              // Identify class/room column, session column, and period column
+              const gridHeaders = rawData[gridHeaderIdx] as any[];
+              
+              let classColIdx = -1;
+              let sessionColIdx = -1;
+              let periodColIdx = -1;
+              let sttColIdx = -1;
+
+              // Search for identifying columns in the header row and the row above
+              const searchRows = [gridHeaderIdx];
+              if (gridHeaderIdx > 0) searchRows.unshift(gridHeaderIdx - 1);
+
+              for (const sr of searchRows) {
+                const searchRow = rawData[sr];
+                if (!searchRow) continue;
+                searchRow.forEach((cell: any, colIdx: number) => {
+                  if (!cell) return;
+                  const cellLower = cell.toString().trim().toLowerCase();
+                  if (cellLower.includes("lớp") && !cellLower.includes("thứ") && classColIdx === -1) classColIdx = colIdx;
+                  if ((cellLower.includes("buổi") || cellLower === "sáng" || cellLower === "chiều") && sessionColIdx === -1) sessionColIdx = colIdx;
+                  if (cellLower.includes("tiết") && periodColIdx === -1) periodColIdx = colIdx;
+                  if ((cellLower === "stt" || cellLower === "tt") && sttColIdx === -1) sttColIdx = colIdx;
+                });
+              }
+
+              // If class column not explicitly found, try column 0 or 1
+              if (classColIdx === -1) {
+                const minDayCol = Math.min(...dayColumnMap.map(d => d.colIdx));
+                classColIdx = Math.max(0, minDayCol - 3); // Usually 3 cols before first day column
+              }
+
+              // Parse grid data rows
+              let currentGridClassId = "";
+              let currentGridClassName = "";
+              let currentGridRoom = "";
+              let currentGridSession = "Sáng";
+              let currentGridPeriodStart = 1;
+              let currentGridPeriodEnd = 3;
+
+              for (let i = gridHeaderIdx + 1; i < rawData.length; i++) {
+                const row = rawData[i];
+                if (!row || row.length === 0) continue;
+
+                // Check for section/block separator rows (all empty or metadata rows)
+                const nonEmptyCells = row.filter((c: any) => c !== null && c !== undefined && c.toString().trim() !== "").length;
+                if (nonEmptyCells === 0) continue;
+
+                // Skip footer/signature rows
+                const rowStr = row.map((c: any) => c?.toString().trim() || "").join(" ").toLowerCase();
+                if (rowStr.includes("danh hiệu") || rowStr.includes("phòng đào tạo") || rowStr.includes("nckh") || rowStr.includes("ký tên")) continue;
+
+                // Check for repeated header rows (another "Thứ 2" row = new week block)
+                const hasNewDayHeaders = dayColumnMap.some(dc => {
+                  const cell = row[dc.colIdx];
+                  if (!cell) return false;
+                  const cellStr = cell.toString().trim().toLowerCase();
+                  return /thứ\s*(2|hai)/i.test(cellStr) || /thứ\s*(3|ba)/i.test(cellStr);
+                });
+                if (hasNewDayHeaders) {
+                  // Update date info from new header if available
+                  dayColumnMap.forEach(dc => {
+                    const cell = row[dc.colIdx];
+                    if (cell) {
+                      const dateMatch = cell.toString().trim().match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/);
+                      if (dateMatch) dc.dateStr = dateMatch[1];
+                    }
+                  });
+                  continue;
+                }
+
+                // Extract Class + Room from class column
+                // Pattern: "K24 GDMN (A102)" or "K1 GDMN A (A103)" or "K3 GDTH C"
+                if (classColIdx !== -1 && row[classColIdx]) {
+                  const classCell = row[classColIdx].toString().trim();
+                  if (classCell && !classCell.toLowerCase().includes("stt") && !classCell.toLowerCase().includes("tiết")) {
+                    // Try to extract room from parentheses: "K24 GDMN (A102)"
+                    const classRoomMatch = classCell.match(/^(.+?)\s*\(([A-Za-z]?\d{2,4}[A-Za-z]?)\)\s*$/);
+                    if (classRoomMatch) {
+                      currentGridClassName = classRoomMatch[1].trim();
+                      currentGridClassId = normalizeClassId(currentGridClassName);
+                      currentGridRoom = classRoomMatch[2].trim();
+                    } else if (/^K\d/i.test(classCell) || /^[A-Z]\d/i.test(classCell)) {
+                      // Class name without room
+                      currentGridClassName = classCell;
+                      currentGridClassId = normalizeClassId(classCell);
+                    }
+                  }
+                }
+
+                // Extract Session (Buổi): Sáng / Chiều
+                if (sessionColIdx !== -1 && row[sessionColIdx]) {
+                  const sessionStr = row[sessionColIdx].toString().trim().toLowerCase();
+                  if (sessionStr.includes("sáng") || sessionStr.includes("sang")) {
+                    currentGridSession = "Sáng";
+                  } else if (sessionStr.includes("chiều") || sessionStr.includes("chieu")) {
+                    currentGridSession = "Chiều";
+                  }
+                }
+
+                // Extract Period (Tiết)
+                if (periodColIdx !== -1 && row[periodColIdx]) {
+                  const periodStr = row[periodColIdx].toString().trim();
+                  const periodRangeMatch = periodStr.match(/(\d+)\s*-\s*(\d+)/);
+                  if (periodRangeMatch) {
+                    currentGridPeriodStart = parseInt(periodRangeMatch[1]);
+                    currentGridPeriodEnd = parseInt(periodRangeMatch[2]);
+                  } else {
+                    const singlePeriod = parseInt(periodStr);
+                    if (!isNaN(singlePeriod) && singlePeriod >= 1 && singlePeriod <= 15) {
+                      currentGridPeriodStart = singlePeriod;
+                      currentGridPeriodEnd = singlePeriod;
+                    }
+                  }
+                }
+
+                // Skip rows that don't have a valid class context
+                if (!currentGridClassId) continue;
+
+                // Parse each day column for schedule content
+                dayColumnMap.forEach(dc => {
+                  const cellValue = row[dc.colIdx];
+                  if (!cellValue) return;
+
+                  const cellStr = cellValue.toString().trim();
+                  if (!cellStr) return;
+
+                  // Skip if cell content looks like a header/label
+                  if (/^thứ\s/i.test(cellStr) || /^stt$/i.test(cellStr) || /^tiết$/i.test(cellStr)) return;
+
+                  // Parse multi-line cell content:
+                  // Line 1: Subject name
+                  // Line 2: Teacher name (optionally prefixed with "GV:", "ThS.", "TS.", etc.)
+                  // Line 3: Room override (e.g. "C101", "A203")
+                  const lines = cellStr.split(/[\r\n]+/).map((l: string) => l.trim()).filter((l: string) => l.length > 0);
+                  
+                  if (lines.length === 0) return;
+
+                  let subjectName = lines[0];
+                  let teacherName = "Chưa phân công";
+                  let roomForSlot = currentGridRoom || "Phòng học";
+
+                  // If only 1 line, it's just the subject name
+                  if (lines.length >= 2) {
+                    // Line 2: Teacher name — strip common prefixes
+                    teacherName = lines[1]
+                      .replace(/^(GV|Giảng viên|ThS|TS|PGS|GS|CN)[.:]\s*/i, "")
+                      .trim() || "Chưa phân công";
+                  }
+
+                  if (lines.length >= 3) {
+                    // Line 3: Check if it's a room code (e.g. A102, B201, C101, P.201)
+                    const roomCandidate = lines[lines.length - 1];
+                    const roomPattern = /^[A-Za-z]?\.?\s?\d{2,4}[A-Za-z]?$/;
+                    const fullRoomPattern = /^(Phòng|P\.?)\s*\d+/i;
+                    if (roomPattern.test(roomCandidate) || fullRoomPattern.test(roomCandidate)) {
+                      roomForSlot = roomCandidate;
+                      // If there were more than 3 lines, teacher might be on line 2
+                    } else {
+                      // Line 3 might be additional teacher info or other notes, check if teacher was already set
+                      // In some formats: Subject\nTeacher\nNotes — keep as is
+                    }
+                  }
+
+                  // Also check if the second line looks like a room (no teacher provided)
+                  if (lines.length === 2) {
+                    const roomPattern = /^[A-Za-z]?\.?\s?\d{2,4}[A-Za-z]?$/;
+                    const fullRoomPattern = /^(Phòng|P\.?)\s*\d+/i;
+                    if (roomPattern.test(lines[1]) || fullRoomPattern.test(lines[1])) {
+                      roomForSlot = lines[1];
+                      teacherName = "Chưa phân công";
+                    }
+                  }
+
+                  // Lookup subject in catalog for code/credits enrichment
+                  const lookupKey = subjectName.toLowerCase();
+                  const meta = catalogMap.get(lookupKey) || {
+                    code: `HP_${subjectName.replace(/\s+/g, "")}`,
+                    credits: 2,
+                    teacher: teacherName
+                  };
+
+                  // Use teacher from catalog if import teacher is generic
+                  const finalTeacher = teacherName !== "Chưa phân công" ? teacherName : meta.teacher;
+
+                  itemIndex++;
+                  updates.push({
+                    id: `SCH_GRID_${itemIndex}_${Date.now()}`,
+                    classId: currentGridClassId,
+                    className: currentGridClassName || currentGridClassId,
+                    subjectName,
+                    subjectCode: meta.code,
+                    credits: meta.credits,
+                    teacherName: finalTeacher,
+                    dayOfWeek: dc.dayOfWeek,
+                    session: currentGridSession,
+                    periodStart: currentGridPeriodStart,
+                    periodEnd: currentGridPeriodEnd,
+                    room: roomForSlot,
+                    semester: sheetSemester,
+                    semesterId: selectedScheduleSemesterId,
+                    weekRange: sheetWeekRange,
+                    startWeek: parseWeekRange(sheetWeekRange).startWeek,
+                    endWeek: parseWeekRange(sheetWeekRange).endWeek,
+                    academicYear: sheetAcademicYear,
+                    studyMode: "Trực tiếp",
+                    colorHex: fallbackColors[itemIndex % fallbackColors.length]
+                  });
+                });
+              }
+
+              // Grid-matrix parsing done for this sheet, skip flat-table logic
+              return;
+            }
+
+            // Neither flat-table nor grid-matrix detected — skip this sheet
+            return;
+          }
+
+          // ============================================================
+          // FLAT TABLE PARSER (existing logic, only runs when headerIdx !== -1)
+          // ============================================================
           const headers = rawData[headerIdx] as string[];
           const schedColIdx = {
             classId: headers.findIndex(h => h?.toString().trim().toLowerCase().includes("mã lớp")),
@@ -3209,7 +3482,7 @@ export const TrainingPortal: React.FC = () => {
                 <div>
                   <h3 className="text-sm font-bold text-slate-800 uppercase mb-1">Quản lý Thời khóa biểu Phân hiệu</h3>
                   <p className="text-[11px] text-slate-400 leading-relaxed">
-                    Xuất file mẫu thời khóa biểu hiện tại, chỉnh sửa các ca học, sau đó tải lên (import) tệp tin Excel để đồng bộ toàn bộ lịch học của sinh viên.
+                    Xuất file mẫu thời khóa biểu hiện tại, chỉnh sửa các ca học, sau đó tải lên (import) tệp tin Excel để đồng bộ toàn bộ lịch học của sinh viên. Hệ thống <strong className="text-slate-600">tự động nhận diện</strong> cả 2 định dạng: bảng phẳng (flat table) và bảng lưới tuần (grid-matrix) của Phân hiệu.
                   </p>
                 </div>
 
@@ -3262,7 +3535,7 @@ export const TrainingPortal: React.FC = () => {
                       className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
                     >
                       <UploadCloud size={14} />
-                      <span>Tải lên Excel Thời khóa biểu</span>
+                      <span>Tải lên TKB (Auto nhận diện)</span>
                     </label>
                   </div>
 

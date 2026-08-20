@@ -1,27 +1,30 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useUniHub } from "../state";
-import { UserRole, convertGoogleDriveUrlToDirectUrl } from "../types";
+import { convertGoogleDriveUrlToDirectUrl } from "../types";
 import { TnuLogo } from "./TnuLogo";
 import { 
-  GraduationCap, 
-  Users, 
-  BookOpen, 
-  UserCheck, 
-  School, 
-  ShieldAlert, 
-  Settings, 
-  ArrowRight,
-  Info,
-  X,
   LogIn,
   MapPin,
   Mail,
   Phone,
   Newspaper,
   Calendar,
-  ExternalLink,
   Eye,
-  EyeOff
+  EyeOff,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  Info,
+  X,
+  ArrowRight,
+  BookOpen,
+  GraduationCap,
+  Award,
+  HelpCircle,
+  Clock,
+  ExternalLink,
+  ChevronDown
 } from "lucide-react";
 
 interface NewsFeedItem {
@@ -34,10 +37,10 @@ interface NewsFeedItem {
   type: "ANNOUNCEMENT" | "ACTIVITY";
 }
 
-
+type NavModalType = "TRAINING" | "SCHEDULE" | "DEGREE" | "GUIDE" | null;
 
 export const LoginScreen: React.FC = () => {
-  const { login, users, themeConfig, announcements, activities, organizations } = useUniHub();
+  const { login, themeConfig, announcements, activities, organizations } = useUniHub();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -45,46 +48,46 @@ export const LoginScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [selectedNews, setSelectedNews] = useState<NewsFeedItem | null>(null);
+  const [activeNavModal, setActiveNavModal] = useState<NavModalType>(null);
+  const [newsFilter, setNewsFilter] = useState<"ALL" | "ANNOUNCEMENT" | "ACTIVITY">("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showToast, setShowToast] = useState(true);
+
+  // Background carousel state
   const [currentBgIndex, setCurrentBgIndex] = useState(0);
-  const [isCarouselTransitioning, setIsCarouselTransitioning] = useState(true);
 
   const bgList = useMemo(() => {
     const configuredImages = themeConfig?.loginBgUrls && themeConfig.loginBgUrls.length > 0
       ? themeConfig.loginBgUrls
       : (themeConfig?.loginBgUrl ? [themeConfig.loginBgUrl] : []);
 
-    return configuredImages
+    const validUrls = configuredImages
       .filter((url): url is string => typeof url === "string" && url.trim().length > 0)
       .map(url => convertGoogleDriveUrlToDirectUrl(url));
+
+    // Fallback if none provided
+    if (validUrls.length === 0) {
+      return ["/logo.png.png"];
+    }
+    return validUrls;
   }, [themeConfig?.loginBgUrl, themeConfig?.loginBgUrls]);
 
-  const carouselSlides = bgList.length > 1 ? [...bgList, bgList[0]] : bgList;
-  const carouselSlideWidth = carouselSlides.length > 0 ? 100 / carouselSlides.length : 100;
-
-  useEffect(() => {
-    setCurrentBgIndex(0);
-    setIsCarouselTransitioning(false);
-    const frame = window.requestAnimationFrame(() => setIsCarouselTransitioning(true));
-    return () => window.cancelAnimationFrame(frame);
-  }, [bgList.length]);
-
+  // Auto slide timer
   useEffect(() => {
     if (bgList.length <= 1) return;
-    const intervalTime = (themeConfig?.bgTransitionInterval || 5) * 1000;
+    const intervalTime = (themeConfig?.bgTransitionInterval || 6) * 1000;
     const timer = setInterval(() => {
-      setCurrentBgIndex((prev) => prev + 1);
+      setCurrentBgIndex((prev) => (prev + 1) % bgList.length);
     }, intervalTime);
     return () => clearInterval(timer);
   }, [bgList.length, themeConfig?.bgTransitionInterval]);
 
-  const handleCarouselTransitionEnd = () => {
-    if (bgList.length <= 1 || currentBgIndex !== bgList.length) return;
+  const handlePrevSlide = () => {
+    setCurrentBgIndex((prev) => (prev === 0 ? bgList.length - 1 : prev - 1));
+  };
 
-    setIsCarouselTransitioning(false);
-    setCurrentBgIndex(0);
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => setIsCarouselTransitioning(true));
-    });
+  const handleNextSlide = () => {
+    setCurrentBgIndex((prev) => (prev + 1) % bgList.length);
   };
 
   const newsList = useMemo(() => {
@@ -105,7 +108,7 @@ export const LoginScreen: React.FC = () => {
         title: ann.title,
         content: ann.content || "",
         dateStr: dateStr,
-        orgName: ann.orgName || "Thông báo Phân hiệu",
+        orgName: ann.orgName || "Phân hiệu ĐHTN tại Hà Giang",
         imageUrl: convertGoogleDriveUrlToDirectUrl(ann.imageUrl),
         type: "ANNOUNCEMENT"
       });
@@ -128,13 +131,12 @@ export const LoginScreen: React.FC = () => {
           dateStr = act.dateTime;
         }
       }
-      // Dynamic orgName lookup based on act.orgId
       const matchedOrg = (organizations || []).find(o => o.id === act.orgId);
       let resolvedOrgName = matchedOrg?.name;
       if (!resolvedOrgName) {
-        if (act.orgId === "DOANTN") resolvedOrgName = "BCH Đoàn TNCS Phân hiệu Hà Giang";
-        else if (act.orgId === "HOISV") resolvedOrgName = "BCH Hội Sinh viên Phân hiệu Hà Giang";
-        else if (act.orgId === "DOAN_HOI") resolvedOrgName = "Đoàn - Hội Sinh viên Phân hiệu";
+        if (act.orgId === "DOANTN") resolvedOrgName = "Đoàn TNCS Phân hiệu Hà Giang";
+        else if (act.orgId === "HOISV") resolvedOrgName = "Hội Sinh viên Phân hiệu Hà Giang";
+        else if (act.orgId === "DOAN_HOI") resolvedOrgName = "Đoàn - Hội Sinh viên";
         else resolvedOrgName = act.orgName || "Hoạt động Phong trào";
       }
 
@@ -152,10 +154,20 @@ export const LoginScreen: React.FC = () => {
     return items;
   }, [announcements, activities, organizations]);
 
+  const filteredNews = useMemo(() => {
+    return newsList.filter(item => {
+      const matchType = newsFilter === "ALL" || item.type === newsFilter;
+      const matchSearch = searchQuery.trim() === "" || 
+        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.orgName.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchType && matchSearch;
+    });
+  }, [newsList, newsFilter, searchQuery]);
+
   const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
-      setErrorMsg("Vui lòng nhập tên đăng nhập hoặc mã số.");
+      setErrorMsg("Vui lòng nhập tên đăng nhập, email hoặc mã số.");
       return;
     }
     setLoading(true);
@@ -174,386 +186,690 @@ export const LoginScreen: React.FC = () => {
     }
   };
 
-  const hasBg = bgList.length > 0;
-
   return (
     <div 
-      className="h-screen h-dvh max-h-screen flex flex-col justify-between py-4 px-4 sm:px-8 selection:bg-indigo-500 selection:text-white relative bg-white font-sans text-slate-800 overflow-hidden max-sm:h-auto max-sm:min-h-screen max-sm:overflow-y-auto" 
-      id="unihub-login-screen"
+      className="min-h-screen flex flex-col justify-between bg-slate-50/70 font-sans text-slate-800 selection:bg-red-600 selection:text-white"
+      id="unihub-portal-landing"
     >
-      {/* 1. Top Header Navigation Bar (Transparent, Aligned Left Logo/Title & Right Login) */}
-      <header className="relative z-10 w-full max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-4 py-2 shrink-0">
-        {/* Left Side: Brand Logo Badge & Title */}
-        <div className="flex items-center gap-2 sm:gap-4 text-left min-w-0 flex-1">
-          {/* Institution Logo Badge */}
-          <div className="w-10 h-10 sm:w-18 md:w-22 sm:h-18 md:h-22 bg-white rounded-full shadow-md border border-slate-200/90 flex items-center justify-center overflow-hidden shrink-0 p-0.5">
-            {themeConfig?.logoUrl ? (
-              <img 
-                src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
-                alt="Logo" 
-                className="w-full h-full object-contain rounded-full"
-              />
-            ) : (
-              <TnuLogo size={48} />
-            )}
-          </div>
-
-          {/* Institutional Divider line */}
-          <div className="hidden md:block w-px h-12 bg-slate-200/80 shrink-0 mx-0.5"></div>
-
-          {/* Typography Header Block */}
-          <div className="flex flex-col justify-center min-w-0 flex-1">
-            {/* Top Institutional Identity Tagline (100% full text, no ellipsis) */}
-            <span className="text-[10px] sm:text-xs font-bold text-blue-950 uppercase font-sans leading-tight block">
-              PHÂN HIỆU ĐHTN TẠI HÀ GIANG
-            </span>
-
-            {/* Main Portal Title (100% full text, no ellipsis) */}
-            <h1 className="text-xs sm:text-xl md:text-3xl font-black text-slate-900 leading-tight font-sans mt-0.5">
-              {themeConfig?.loginTitle ? (
-                themeConfig.loginTitle
+      {/* ========================================================= */}
+      {/* 1. TOP HEADER NAVIGATION (Sắc nét, Đúng nhận diện trường) */}
+      {/* ========================================================= */}
+      <header className="w-full bg-white border-b border-slate-200/80 sticky top-0 z-40 shadow-xs">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between gap-3 sm:gap-6">
+          
+          {/* Left: Brand Identity */}
+          <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1">
+            <div className="w-10 h-10 sm:w-14 sm:h-14 md:w-16 md:h-16 shrink-0 flex items-center justify-center">
+              {themeConfig?.logoUrl ? (
+                <img 
+                  src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
+                  alt="Logo TNU HGC" 
+                  className="w-full h-full object-contain"
+                />
               ) : (
-                <>
-                  CỔNG THÔNG TIN <span className="text-blue-900">UNIHUBHG</span>
-                </>
+                <TnuLogo size={56} className="w-10 h-10 sm:w-14 sm:h-14 md:w-16 md:h-16" />
               )}
-            </h1>
+            </div>
 
-            {/* Subtitle */}
-            <p className="hidden md:block text-xs sm:text-sm text-slate-600 font-medium mt-0.5 leading-normal max-w-2xl font-sans">
-              {themeConfig?.loginSubtitle || "Chào mừng bạn đến với Phân hiệu ĐHTN tại Hà Giang - Tra cứu ngay thông tin của bạn"}
-            </p>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[11px] sm:text-xs md:text-sm font-extrabold text-[#d32f2f] uppercase tracking-wide leading-tight truncate">
+                PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI TỈNH HÀ GIANG
+              </span>
+              <h1 className="text-xs sm:text-base md:text-xl font-black text-[#0c529c] uppercase tracking-wide leading-tight mt-0.5">
+                {themeConfig?.loginTitle || "CỔNG THÔNG TIN SINH VIÊN"}
+              </h1>
+            </div>
           </div>
-        </div>
 
-        {/* Right Side: Quick Login Modal Trigger Button */}
-        <div className="shrink-0">
-          <button 
-            onClick={() => setShowLoginModal(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[11px] sm:text-sm py-1.5 px-2.5 sm:py-3 sm:px-7 rounded-lg sm:rounded-xl shadow-md hover:shadow-indigo-500/30 transition-all flex items-center gap-1 cursor-pointer transform hover:scale-105 active:scale-95 whitespace-nowrap"
-          >
-            <LogIn size={14} />
-            <span>Đăng nhập</span>
-          </button>
+          {/* Right: Quick Search + Nav items + Login Button */}
+          <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 shrink-0">
+            {/* Search Pill Input (Desktop) */}
+            <div className="hidden xl:flex items-center relative">
+              <input 
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search..."
+                className="w-48 lg:w-56 pl-4 pr-9 py-1.5 text-xs rounded-full border border-slate-300 focus:outline-none focus:border-[#0c529c] focus:ring-1 focus:ring-[#0c529c] transition-all bg-slate-50/50"
+              />
+              <button 
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#0c529c] text-white flex items-center justify-center hover:bg-blue-800 transition-colors cursor-pointer"
+                title="Tìm kiếm"
+              >
+                <Search size={12} />
+              </button>
+            </div>
+
+            {/* Navigation links (Desktop) */}
+            <nav className="hidden lg:flex items-center gap-1.5 text-[13px] font-semibold text-slate-700">
+              <button 
+                onClick={() => { setNewsFilter("ALL"); setSearchQuery(""); }}
+                className="px-3.5 py-1.5 rounded-full border border-[#0c529c] text-[#0c529c] font-bold hover:bg-blue-50 transition-colors cursor-pointer"
+              >
+                TRANG CHỦ
+              </button>
+              <button 
+                onClick={() => setActiveNavModal("TRAINING")}
+                className="px-2.5 py-1.5 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
+              >
+                CHƯƠNG TRÌNH ĐÀO TẠO
+              </button>
+              <button 
+                onClick={() => setActiveNavModal("SCHEDULE")}
+                className="px-2.5 py-1.5 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
+              >
+                LỊCH ĐĂNG KÝ
+              </button>
+              <button 
+                onClick={() => setActiveNavModal("DEGREE")}
+                className="px-2.5 py-1.5 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
+              >
+                TRA CỨU VĂN BẰNG
+              </button>
+              <button 
+                onClick={() => setActiveNavModal("GUIDE")}
+                className="px-2.5 py-1.5 hover:text-[#0c529c] transition-colors whitespace-nowrap cursor-pointer"
+              >
+                HƯỚNG DẪN
+              </button>
+            </nav>
+
+            {/* Login Red Button */}
+            <button 
+              onClick={() => setShowLoginModal(true)}
+              className="bg-[#d32f2f] hover:bg-[#b71c1c] text-white font-bold text-xs sm:text-sm py-2 px-3.5 sm:px-5 rounded-full shadow-sm hover:shadow-md transition-all flex items-center gap-1.5 cursor-pointer transform active:scale-95"
+            >
+              <LogIn size={15} />
+              <span>Đăng nhập</span>
+            </button>
+          </div>
+
         </div>
       </header>
 
-      {/* 2. Middle Section: Split 2-Column Desktop Layout (Left: 16:9 Banner Slider, Right: News Feed) */}
-      <main className="relative z-10 w-full max-w-7xl mx-auto my-3 flex-1 flex flex-col justify-center min-h-0 overflow-hidden max-lg:my-4 max-lg:flex-none">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-stretch h-full max-h-full min-h-0 w-full">
+      {/* ========================================================= */}
+      {/* 2. MAIN CONTENT (BỐ CỤC 2 CỘT TỰ NHIÊN - KHÔNG BÓ KHUNG) */}
+      {/* ========================================================= */}
+      <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-6 flex-1 flex flex-col justify-start">
+        
+        {/* Search for mobile */}
+        <div className="xl:hidden mb-4">
+          <div className="relative w-full">
+            <input 
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tìm kiếm thông báo, sự kiện..."
+              className="w-full pl-4 pr-10 py-2 text-sm rounded-full border border-slate-300 focus:outline-none focus:border-[#0c529c] bg-white shadow-xs"
+            />
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-[#0c529c] text-white flex items-center justify-center">
+              <Search size={14} />
+            </div>
+          </div>
+        </div>
+
+        {/* 2-Column Responsive Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
           
-          {/* Left Column (lg:col-span-7): Widescreen 16:9 Banner Slider Box */}
-          <div className="lg:col-span-7 flex flex-col justify-center min-h-0 h-full max-h-full">
-            {hasBg ? (
-              <div className="h-full max-h-full aspect-video w-auto max-w-full rounded-[24px] sm:rounded-[32px] shadow-lg border border-slate-200 relative bg-white mx-auto p-1.5 sm:p-2 max-lg:w-full max-lg:h-auto">
-                <div className="relative h-full w-full overflow-hidden rounded-[18px] sm:rounded-[24px] bg-slate-50">
-                  {/* Seamless horizontal filmstrip */}
-                  <div 
-                    className="flex flex-row h-full will-change-transform"
-                    onTransitionEnd={handleCarouselTransitionEnd}
-                    style={{ 
-                      width: `${carouselSlides.length * 100}%`,
-                      transform: `translate3d(-${currentBgIndex * carouselSlideWidth}%, 0, 0)`,
-                      transition: isCarouselTransitioning
-                        ? "transform 1400ms cubic-bezier(0.22, 1, 0.36, 1)"
-                        : "none"
-                    }}
+          {/* ------------------------------------------------------------- */}
+          {/* CỘT TRÁI (7 Cột): BANNER TOÀN CẢNH KHUÔN VIÊN TRƯỜNG SLIDER   */}
+          {/* Hiển thị tự nhiên, không đóng khung hộp dày                    */}
+          {/* ------------------------------------------------------------- */}
+          <div className="lg:col-span-7 flex flex-col gap-4">
+            
+            {/* Banner Container */}
+            <div className="relative w-full aspect-[16/10] sm:aspect-[16/9] rounded-2xl overflow-hidden shadow-sm bg-slate-900 group">
+              {/* Image Slide */}
+              <div className="relative w-full h-full">
+                {bgList.map((bgUrl, index) => (
+                  <div
+                    key={`${bgUrl}-${index}`}
+                    className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
+                      index === currentBgIndex ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
+                    }`}
                   >
-                    {carouselSlides.map((bgUrl, index) => (
-                      <img 
-                        key={`${bgUrl}-${index}`}
-                        src={bgUrl}
-                        alt={`Ảnh nền đăng nhập ${index % bgList.length + 1}`}
-                        className="h-full w-full object-contain flex-shrink-0 select-none p-0.5"
-                        style={{ 
-                          width: `${carouselSlideWidth}%`,
-                          objectPosition: "center center",
-                          imageRendering: "auto"
-                        }}
-                        draggable={false}
-                        loading={index <= 1 ? "eager" : "lazy"}
-                        decoding="async"
+                    <img 
+                      src={bgUrl} 
+                      alt={`Ảnh khuôn viên trường ${index + 1}`}
+                      className="w-full h-full object-cover select-none"
+                      loading={index === 0 ? "eager" : "lazy"}
+                    />
+                    {/* Subtle bottom gradient for readability if needed */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+                  </div>
+                ))}
+              </div>
+
+              {/* Slider Controls (Left & Right Arrows) */}
+              {bgList.length > 1 && (
+                <>
+                  <button 
+                    onClick={handlePrevSlide}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/70 hover:bg-white text-slate-800 shadow-md flex items-center justify-center backdrop-blur-xs transition-all opacity-80 group-hover:opacity-100 hover:scale-105 cursor-pointer"
+                    title="Ảnh trước"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+
+                  <button 
+                    onClick={handleNextSlide}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/70 hover:bg-white text-slate-800 shadow-md flex items-center justify-center backdrop-blur-xs transition-all opacity-80 group-hover:opacity-100 hover:scale-105 cursor-pointer"
+                    title="Ảnh tiếp theo"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+
+                  {/* Dots indicator */}
+                  <div className="absolute bottom-3 left-1/2 -translate-y-0 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/30 backdrop-blur-xs">
+                    {bgList.map((_, dotIdx) => (
+                      <button
+                        key={dotIdx}
+                        onClick={() => setCurrentBgIndex(dotIdx)}
+                        className={`transition-all rounded-full ${
+                          dotIdx === currentBgIndex ? "w-5 h-1.5 bg-white" : "w-1.5 h-1.5 bg-white/60 hover:bg-white"
+                        }`}
+                        title={`Xem ảnh ${dotIdx + 1}`}
                       />
                     ))}
                   </div>
+                </>
+              )}
+            </div>
 
-                  {/* Dark Tint & Blur Overlay */}
-                  <div 
-                    className="absolute inset-0 bg-slate-950 transition-all duration-500 z-20 pointer-events-none"
-                    style={{ 
-                      opacity: showLoginModal ? 0.6 : 0,
-                      backdropFilter: showLoginModal ? "blur(6px)" : "none",
-                      WebkitBackdropFilter: showLoginModal ? "blur(6px)" : "none"
-                    }}
-                  />
+            {/* Quick Portal Feature Cards under Banner (Phẳng, Tự nhiên) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+              <div 
+                onClick={() => setActiveNavModal("TRAINING")}
+                className="p-3 bg-white hover:bg-blue-50/60 rounded-xl border border-slate-200/80 transition-all cursor-pointer group flex flex-col items-center text-center"
+              >
+                <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0c529c] flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+                  <BookOpen size={16} />
                 </div>
+                <span className="text-xs font-bold text-slate-700 group-hover:text-[#0c529c]">Đào tạo</span>
+                <span className="text-[10px] text-slate-500">Chương trình học</span>
               </div>
-            ) : (
-              <div className="w-full aspect-[16/9] bg-slate-100 rounded-[24px] border border-slate-200 flex items-center justify-center">
-                <span className="text-slate-400 text-sm">Chưa có ảnh nền nào được tải lên.</span>
-              </div>
-            )}
-          </div>
 
-          {/* Right Column (lg:col-span-5): "Tin tức và các hoạt động phong trào" News Board */}
-          <div className="lg:col-span-5 flex flex-col min-h-0 h-full max-h-full bg-white backdrop-blur-md rounded-[24px] sm:rounded-[32px] border border-slate-200 p-4 sm:p-5 shadow-lg text-left overflow-hidden">
-            {/* Header Title */}
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100">
-                  <Newspaper size={18} />
+              <div 
+                onClick={() => setActiveNavModal("SCHEDULE")}
+                className="p-3 bg-white hover:bg-emerald-50/60 rounded-xl border border-slate-200/80 transition-all cursor-pointer group flex flex-col items-center text-center"
+              >
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+                  <Clock size={16} />
                 </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-extrabold text-[#0f172a] tracking-wide leading-tight">
-                    Tin tức và các hoạt động phong trào
-                  </h3>
-                  <span className="text-[11px] text-slate-600 font-medium">CLB, Đoàn Thanh niên, Hội Sinh viên & Phân hiệu</span>
+                <span className="text-xs font-bold text-slate-700 group-hover:text-emerald-700">Lịch đăng ký</span>
+                <span className="text-[10px] text-slate-500">Học phần & thi</span>
+              </div>
+
+              <div 
+                onClick={() => setActiveNavModal("DEGREE")}
+                className="p-3 bg-white hover:bg-amber-50/60 rounded-xl border border-slate-200/80 transition-all cursor-pointer group flex flex-col items-center text-center"
+              >
+                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+                  <Award size={16} />
                 </div>
+                <span className="text-xs font-bold text-slate-700 group-hover:text-amber-700">Tra cứu văn bằng</span>
+                <span className="text-[10px] text-slate-500">Xác thực chứng chỉ</span>
+              </div>
+
+              <div 
+                onClick={() => setActiveNavModal("GUIDE")}
+                className="p-3 bg-white hover:bg-rose-50/60 rounded-xl border border-slate-200/80 transition-all cursor-pointer group flex flex-col items-center text-center"
+              >
+                <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+                  <HelpCircle size={16} />
+                </div>
+                <span className="text-xs font-bold text-slate-700 group-hover:text-rose-700">Hướng dẫn</span>
+                <span className="text-[10px] text-slate-500">Thủ tục & hỗ trợ</span>
               </div>
             </div>
 
-            {/* News Items Scrollable List */}
-            <div className="flex-1 overflow-y-auto pr-1.5 space-y-3.5 custom-scrollbar min-h-0">
-              {newsList.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full py-12 text-center">
-                  <div className="p-4 bg-blue-50 rounded-2xl mb-4 text-blue-900 border border-blue-100">
-                    <Calendar size={36} className="text-blue-900" />
-                  </div>
-                  <p className="text-base font-bold text-[#0f172a]">Chưa có hoạt động, sự kiện diễn ra</p>
-                  <p className="text-xs text-slate-600 font-medium mt-1">Các hoạt động và sự kiện sẽ hiển thị tại đây khi được tạo mới.</p>
+          </div>
+
+          {/* ------------------------------------------------------------- */}
+          {/* CỘT PHẢI (5 Cột): BẢNG TIN TỨC & HOẠT ĐỘNG PHONG TRÀO          */}
+          {/* Dạng phẳng, phân tách thanh lịch, không đóng hộp viền xám dày   */}
+          {/* ------------------------------------------------------------- */}
+          <div className="lg:col-span-5 flex flex-col">
+            
+            {/* Header Title & Filter Tabs */}
+            <div className="pb-3 border-b border-slate-200 flex flex-col gap-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#d32f2f]" />
+                  <h2 className="text-sm sm:text-base font-extrabold text-slate-900 uppercase tracking-wide">
+                    Tin tức & Hoạt động phong trào
+                  </h2>
+                </div>
+                <span className="text-xs font-medium text-slate-400">
+                  {filteredNews.length} tin
+                </span>
+              </div>
+
+              {/* Filter Pills */}
+              <div className="flex items-center gap-1.5 text-xs font-medium">
+                <button
+                  onClick={() => setNewsFilter("ALL")}
+                  className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                    newsFilter === "ALL"
+                      ? "bg-[#0c529c] text-white font-bold"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                  }`}
+                >
+                  Tất cả
+                </button>
+                <button
+                  onClick={() => setNewsFilter("ANNOUNCEMENT")}
+                  className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                    newsFilter === "ANNOUNCEMENT"
+                      ? "bg-[#0c529c] text-white font-bold"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                  }`}
+                >
+                  Thông báo Phân hiệu
+                </button>
+                <button
+                  onClick={() => setNewsFilter("ACTIVITY")}
+                  className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                    newsFilter === "ACTIVITY"
+                      ? "bg-[#0c529c] text-white font-bold"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                  }`}
+                >
+                  Đoàn - Hội Sinh viên
+                </button>
+              </div>
+            </div>
+
+            {/* News Articles List (Thoáng đãng, phân tách nhẹ nhàng) */}
+            <div className="divide-y divide-slate-100 max-h-[460px] sm:max-h-[520px] overflow-y-auto custom-scrollbar pr-1 mt-1">
+              {filteredNews.length === 0 ? (
+                <div className="py-12 text-center text-slate-400">
+                  <Newspaper className="mx-auto mb-2 opacity-40" size={32} />
+                  <p className="text-sm font-medium">Không tìm thấy thông tin phù hợp.</p>
                 </div>
               ) : (
-                newsList.map((item) => (
-                  <div 
+                filteredNews.map((item) => (
+                  <article
                     key={item.id}
                     onClick={() => setSelectedNews(item)}
-                    className="flex items-start gap-3 p-2.5 rounded-2xl bg-slate-50 hover:bg-indigo-50 border border-slate-100 hover:border-indigo-200 transition-all cursor-pointer group"
+                    className="py-3.5 sm:py-4 flex gap-3.5 items-start hover:bg-white/90 p-2 rounded-xl transition-all cursor-pointer group"
                   >
-                    {/* News Thumbnail Image or Icon Badge (Left side of card) */}
+                    {/* Thumbnail Image */}
                     {item.imageUrl ? (
-                      <div className="w-20 sm:w-24 aspect-[4/3] rounded-xl overflow-hidden shrink-0 border border-slate-200 bg-slate-100 relative">
+                      <div className="w-24 sm:w-28 aspect-[4/3] rounded-lg overflow-hidden shrink-0 bg-slate-100 border border-slate-200/80 relative">
                         <img 
-                          src={item.imageUrl}
+                          src={item.imageUrl} 
                           alt={item.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
                         />
                       </div>
                     ) : (
-                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-blue-50 text-blue-900 border border-blue-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform mt-0.5">
+                      <div className="w-12 h-12 rounded-lg bg-blue-50 text-[#0c529c] flex items-center justify-center shrink-0 border border-blue-100 mt-0.5">
                         {item.type === "ANNOUNCEMENT" ? <Newspaper size={20} /> : <Calendar size={20} />}
                       </div>
                     )}
 
-                    {/* News Details (Right side of card) */}
-                    <div className="flex-1 min-w-0 flex flex-col justify-between h-full py-0.5">
+                    {/* Article Info */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
                       <div>
-                        <h4 className="text-xs sm:text-sm font-bold text-slate-700 group-hover:text-indigo-600 transition-colors line-clamp-2 leading-snug">
+                        {/* Tag */}
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-sm uppercase ${
+                            item.type === "ANNOUNCEMENT" 
+                              ? "bg-red-50 text-[#d32f2f] border border-red-100" 
+                              : "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                          }`}>
+                            {item.type === "ANNOUNCEMENT" ? "Thông báo" : "Hoạt động"}
+                          </span>
+                          <span className="text-[11px] text-slate-400">{item.dateStr}</span>
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-xs sm:text-sm font-bold text-slate-800 group-hover:text-[#0c529c] transition-colors line-clamp-2 leading-snug">
                           {item.title}
-                        </h4>
+                        </h3>
                       </div>
-                      <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
-                        <span className="truncate max-w-[140px] text-indigo-500 font-medium">{item.orgName}</span>
-                        <span className="shrink-0">{item.dateStr}</span>
-                      </div>
+
+                      {/* Organization Name */}
+                      <p className="text-[11px] text-slate-500 font-medium truncate mt-1.5">
+                        {item.orgName}
+                      </p>
                     </div>
-                  </div>
+                  </article>
                 ))
               )}
             </div>
+
           </div>
 
         </div>
       </main>
 
-      {/* 3. Lower Section: Contact Info & Footer (Dynamic parameters from Admin) */}
-      <footer className="relative z-10 w-full max-w-7xl mx-auto pt-3 border-t border-slate-200 flex flex-col gap-3 shrink-0">
-        {/* Contact details row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-left text-sm text-slate-700">
-          <div className="flex items-start gap-2.5">
-            <MapPin className="text-blue-700 shrink-0 mt-0.5" size={16} />
-            <div>
-              <span className="block font-bold text-[#0f172a] mb-0.5 text-xs">Địa chỉ</span>
-              <span className="text-[11px] leading-snug text-slate-800 font-semibold">{themeConfig?.contactAddress || "Tổ 10, Phường Nguyễn Trãi, Thành phố Hà Giang, Tỉnh Hà Giang"}</span>
+      {/* ========================================================= */}
+      {/* 3. FOOTER (THÔNG TIN LIÊN HỆ PHÂN HIỆU ĐHTN HÀ GIANG)       */}
+      {/* ========================================================= */}
+      <footer className="w-full bg-white border-t border-slate-200/80 mt-6 pt-5 pb-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          {/* Contact Row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-4 border-b border-slate-100 text-xs text-slate-600">
+            <div className="flex items-start gap-2.5">
+              <MapPin className="text-[#0c529c] shrink-0 mt-0.5" size={16} />
+              <div>
+                <span className="font-bold text-slate-800 block mb-0.5">Địa chỉ</span>
+                <span>{themeConfig?.contactAddress || "Tổ 10, Phường Nguyễn Trãi, TP. Hà Giang, Tỉnh Hà Giang"}</span>
+              </div>
             </div>
-          </div>
-          
-          <div className="flex items-start gap-2.5">
-            <Mail className="text-blue-700 shrink-0 mt-0.5" size={16} />
-            <div>
-              <span className="block font-bold text-[#0f172a] mb-0.5 text-xs">Email liên hệ</span>
-              <span className="text-[11px] leading-snug text-slate-800 font-semibold">{themeConfig?.contactEmail || "phhagiang@tnu.edu.vn"}</span>
+
+            <div className="flex items-start gap-2.5">
+              <Mail className="text-[#0c529c] shrink-0 mt-0.5" size={16} />
+              <div>
+                <span className="font-bold text-slate-800 block mb-0.5">Email liên hệ</span>
+                <span>{themeConfig?.contactEmail || "phhagiang@tnu.edu.vn"}</span>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2.5">
+              <Phone className="text-[#0c529c] shrink-0 mt-0.5" size={16} />
+              <div>
+                <span className="font-bold text-slate-800 block mb-0.5">Điện thoại / Hotline</span>
+                <span>{themeConfig?.contactPhone || "0219.386.1234"}</span>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-start gap-2.5">
-            <Phone className="text-blue-700 shrink-0 mt-0.5" size={16} />
+          {/* Copyright Row */}
+          <div className="pt-3 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-500">
             <div>
-              <span className="block font-bold text-[#0f172a] mb-0.5 text-xs">Điện thoại</span>
-              <span className="text-[11px] leading-snug text-slate-800 font-semibold">{themeConfig?.contactPhone || "0219.386.1234"}</span>
+              © 2026 <strong>Phân hiệu Đại học Thái Nguyên tại tỉnh Hà Giang</strong>. Cổng thông tin Sinh viên UniHubHG.
             </div>
-          </div>
-        </div>
-
-        {/* Footer legal brand line */}
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-1 text-[11px] text-slate-700 font-medium border-t border-slate-200 pt-2">
-          <div>
-            Hệ thống UniHub Rèn luyện © 2026. Phiên bản 1.0 - Phân hiệu Đại học Thái Nguyên tại Hà Giang.
-          </div>
-          <div className="font-mono text-slate-800 font-semibold">
-            Dùng chung Cơ sở dữ liệu, API & Thang điểm quy chuẩn liên thông.
+            <div className="flex items-center gap-3">
+              <span className="hover:text-[#0c529c] cursor-pointer" onClick={() => setActiveNavModal("GUIDE")}>Điều khoản sử dụng</span>
+              <span>•</span>
+              <span className="hover:text-[#0c529c] cursor-pointer" onClick={() => setActiveNavModal("GUIDE")}>Hỗ trợ kỹ thuật</span>
+            </div>
           </div>
         </div>
       </footer>
 
-      {/* Login Modal Popup */}
+      {/* ========================================================= */}
+      {/* 4. TOAST NOTIFICATION CORNER (Như trong ảnh mẫu thực tế)   */}
+      {/* ========================================================= */}
+      {showToast && (
+        <aside 
+          aria-label="Thông báo hoạt động mới"
+          className="fixed bottom-4 right-4 z-30 max-w-xs sm:max-w-sm bg-white rounded-xl shadow-lg border border-slate-200/90 p-2.5 sm:p-3 flex items-center gap-3 animate-fade-in"
+        >
+          <div className="w-10 h-10 rounded-lg bg-blue-100/80 overflow-hidden shrink-0 flex items-center justify-center text-[#0c529c]">
+            <Sparkles size={20} />
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <span className="block text-[11px] font-bold text-slate-800 truncate">
+              Hoạt động sinh viên mới nhất
+            </span>
+            <span className="block text-[10px] text-slate-500 truncate">
+              {newsList[0]?.title || "Hội thi phong trào học tập & rèn luyện Phân hiệu"}
+            </span>
+          </div>
+          <button 
+            onClick={() => setShowToast(false)}
+            className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
+            title="Đóng"
+          >
+            <X size={14} />
+          </button>
+        </aside>
+      )}
+
+      {/* ========================================================= */}
+      {/* 5. LOGIN MODAL POPUP                                      */}
+      {/* ========================================================= */}
       {showLoginModal && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/20 backdrop-blur-sm animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-xs animate-fade-in"
           onClick={() => setShowLoginModal(false)}
         >
-          {/* Modal Card */}
           <div 
-            className="bg-white w-full max-w-md rounded-3xl border border-slate-100 shadow-2xl p-6 sm:p-8 relative flex flex-col justify-between transform transition-all animate-scale-up" 
-            id="manual-login-card"
+            className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 p-6 sm:p-7 relative flex flex-col text-left" 
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Close Modal Button */}
+            {/* Close Button */}
             <button 
               onClick={() => setShowLoginModal(false)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-slate-700 transition-colors p-2 rounded-full hover:bg-slate-100 cursor-pointer"
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition-colors p-1.5 rounded-full hover:bg-slate-100 cursor-pointer"
               title="Đóng cửa sổ"
             >
               <X size={20} />
             </button>
 
-            <div>
-              <div className="mb-6 text-left">
-                <div className="inline-flex items-center gap-2 text-indigo-600 mb-1">
-                  {themeConfig?.logoUrl ? (
-                    <div className="w-7 h-7 bg-white rounded-full border border-slate-100 flex items-center justify-center overflow-hidden shrink-0">
-                        <img src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} alt="Logo" className="w-full h-full object-contain rounded-full p-0.5" />
-                    </div>
-                  ) : (
-                    <TnuLogo size={24} />
-                  )}
-                  <span className="text-xs font-mono font-bold uppercase tracking-wider">UniHub System</span>
+            {/* Modal Header */}
+            <div className="mb-5">
+              <div className="flex items-center gap-2 text-[#0c529c] mb-1.5">
+                <div className="w-8 h-8 rounded-full border border-slate-100 flex items-center justify-center overflow-hidden shrink-0">
+                  <TnuLogo size={32} />
                 </div>
-                <h2 className="text-xl font-extrabold text-slate-900">Đăng nhập tài khoản</h2>
-                <p className="text-xs text-slate-400 mt-1">Sử dụng Email hoặc Mã định danh cán bộ/sinh viên</p>
+                <div>
+                  <span className="text-[10px] font-bold text-[#d32f2f] uppercase tracking-wider block">
+                    Phân hiệu ĐHTN tại Hà Giang
+                  </span>
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#0c529c]">
+                    Cổng thông tin sinh viên
+                  </span>
+                </div>
+              </div>
+              <h2 className="text-xl font-extrabold text-slate-900 mt-2">Đăng nhập hệ thống</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Dành cho Sinh viên, Giảng viên và Cán bộ Phân hiệu</p>
+            </div>
+
+            {/* Login Form */}
+            <form onSubmit={handleManualLogin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Tên đăng nhập / Email / Mã SV / CCCD
+                </label>
+                <input 
+                  type="text" 
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setErrorMsg("");
+                  }}
+                  placeholder="Nhập mã sinh viên hoặc email..." 
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0c529c]/20 focus:border-[#0c529c] text-sm transition-all text-slate-800"
+                  autoFocus
+                />
               </div>
 
-              <form onSubmit={handleManualLogin} className="space-y-4 text-left">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Tên đăng nhập / Email / Mã sinh viên</label>
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs font-bold text-slate-700">Mật khẩu</label>
+                  <button
+                    type="button" 
+                    onClick={() => alert("Nếu quên mật khẩu hoặc đăng nhập lần đầu, vui lòng nhập số CCCD hoặc liên hệ Phòng Đào tạo & Quản lý Sinh viên.")}
+                    className="text-xs text-[#0c529c] hover:underline cursor-pointer"
+                  >
+                    Quên mật khẩu?
+                  </button>
+                </div>
+                <div className="relative">
                   <input 
-                    type="text" 
-                    value={email}
+                    type={showPassword ? "text" : "password"} 
+                    value={password}
                     onChange={(e) => {
-                      setEmail(e.target.value);
+                      setPassword(e.target.value);
                       setErrorMsg("");
                     }}
-                    placeholder="Nhập tài khoản hoặc mã số..." 
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-sm transition-all text-slate-800"
-                    autoFocus
+                    placeholder="••••••••" 
+                    className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0c529c]/20 focus:border-[#0c529c] text-sm transition-all text-slate-800"
                   />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 rounded-md cursor-pointer"
+                    title={showPassword ? "Ẩn mật khẩu" : "Xem mật khẩu"}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
-
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide">Mật khẩu</label>
-                    <span className="text-xs text-slate-400 cursor-pointer hover:text-indigo-600 transition-colors">Quên mật khẩu?</span>
-                  </div>
-                  <div className="relative">
-                    <input 
-                      type={showPassword ? "text" : "password"} 
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        setErrorMsg("");
-                      }}
-                      placeholder="••••••••" 
-                      className="w-full px-4 py-3 pr-11 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-sm transition-all text-slate-800"
-                    />
-                    <button 
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer"
-                      title={showPassword ? "Ẩn mật khẩu" : "Xem mật khẩu"}
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                </div>
-
-                {errorMsg && (
-                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-100 flex gap-2 items-start text-xs text-rose-600">
-                    <Info size={14} className="shrink-0 mt-0.5" />
-                    <span>{errorMsg}</span>
-                  </div>
-                )}
-
-                <button 
-                  type="submit"
-                  disabled={loading}
-                  className={`w-full ${loading ? "bg-indigo-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700 hover:cursor-pointer"} text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all flex items-center justify-center gap-2 text-sm mt-4`}
-                >
-                  <span>{loading ? "Đang xử lý..." : "Đăng nhập ngay"}</span>
-                  {!loading && <ArrowRight size={16} />}
-                </button>
-              </form>
-
-              {/* Official Login Assistance Note */}
-              <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-450 text-center space-y-1">
-                <p>Cán bộ/Giảng viên/Sinh viên đăng nhập bằng <strong>Email công vụ (@hg.edu.vn hoặc @phhg.edu.vn)</strong>, <strong>Mã số cán bộ/SV</strong> hoặc <strong>Số CCCD</strong>.</p>
-                <p className="text-[10px] text-slate-400 font-mono">Hỗ trợ kỹ thuật: Phòng Đào tạo & Quản lý Sinh viên Phân hiệu</p>
               </div>
+
+              {errorMsg && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-100 flex gap-2 items-start text-xs text-red-600">
+                  <Info size={14} className="shrink-0 mt-0.5" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+
+              <button 
+                type="submit"
+                disabled={loading}
+                className={`w-full ${loading ? "bg-red-400 cursor-not-allowed" : "bg-[#d32f2f] hover:bg-[#b71c1c] cursor-pointer"} text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm mt-2`}
+              >
+                <span>{loading ? "Đang xác thực..." : "Đăng nhập ngay"}</span>
+                {!loading && <ArrowRight size={16} />}
+              </button>
+            </form>
+
+            {/* Assistance note */}
+            <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-500 text-center space-y-1">
+              <p>Hỗ trợ tài khoản: <strong>Phòng Đào tạo & Quản lý Sinh viên</strong></p>
+              <p className="text-[10px] text-slate-400">Điện thoại hỗ trợ: {themeConfig?.contactPhone || "0219.386.1234"}</p>
             </div>
           </div>
         </div>
       )}
-      {/* News Detail View Modal */}
+
+      {/* ========================================================= */}
+      {/* 6. NEWS ARTICLE DETAIL MODAL                              */}
+      {/* ========================================================= */}
       {selectedNews && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in text-left"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fade-in text-left"
           onClick={() => setSelectedNews(null)}
         >
           <div 
-            className="bg-slate-900 border border-white/15 text-white w-full max-w-2xl rounded-3xl p-6 sm:p-8 relative max-h-[90vh] flex flex-col shadow-2xl animate-scale-up"
+            className="bg-white text-slate-800 w-full max-w-2xl rounded-2xl p-5 sm:p-7 relative max-h-[85vh] flex flex-col shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <button 
               onClick={() => setSelectedNews(null)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-white transition-colors p-2 rounded-full hover:bg-white/10 cursor-pointer"
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition-colors p-1.5 rounded-full hover:bg-slate-100 cursor-pointer"
             >
               <X size={20} />
             </button>
 
             <div className="overflow-y-auto pr-2 custom-scrollbar space-y-4">
-              <div className="flex items-center gap-2 text-indigo-400 text-xs font-semibold uppercase tracking-wider">
-                <Newspaper size={14} />
-                <span>{selectedNews.orgName}</span>
+              <div className="flex items-center gap-2 text-[#0c529c] text-xs font-bold uppercase tracking-wider">
+                <span className="px-2 py-0.5 rounded-sm bg-blue-50 border border-blue-100">{selectedNews.orgName}</span>
                 <span>•</span>
-                <span>{selectedNews.dateStr}</span>
+                <span className="text-slate-500">{selectedNews.dateStr}</span>
               </div>
 
-              <h2 className="text-lg sm:text-xl font-extrabold text-white leading-snug">
+              <h2 className="text-base sm:text-xl font-black text-slate-900 leading-snug">
                 {selectedNews.title}
               </h2>
 
               {selectedNews.imageUrl && (
-                <div className="w-full aspect-[16/9] max-h-64 rounded-2xl overflow-hidden border border-white/10 bg-slate-950/60 relative flex items-center justify-center">
-                  <img src={selectedNews.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-30 pointer-events-none" />
-                  <img src={selectedNews.imageUrl} alt={selectedNews.title} className="w-full h-full object-contain relative z-10" />
+                <div className="w-full aspect-[16/9] max-h-72 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 relative flex items-center justify-center">
+                  <img src={selectedNews.imageUrl} alt={selectedNews.title} className="w-full h-full object-contain" />
                 </div>
               )}
 
-              <div className="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line border-t border-white/10 pt-4">
+              <div className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line border-t border-slate-100 pt-3">
                 {selectedNews.content}
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* ========================================================= */}
+      {/* 7. NAVIGATION INFO MODALS (Chương trình đào tạo, Lịch, v.v) */}
+      {/* ========================================================= */}
+      {activeNavModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-xs animate-fade-in text-left"
+          onClick={() => setActiveNavModal(null)}
+        >
+          <div 
+            className="bg-white text-slate-800 w-full max-w-xl rounded-2xl p-5 sm:p-7 relative shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              onClick={() => setActiveNavModal(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition-colors p-1.5 rounded-full hover:bg-slate-100 cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-2 text-[#0c529c] font-bold text-xs uppercase tracking-wider mb-2">
+              <Sparkles size={16} />
+              <span>Phân hiệu Đại học Thái Nguyên tại tỉnh Hà Giang</span>
+            </div>
+
+            {activeNavModal === "TRAINING" && (
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-900 mb-2">Chương trình Đào tạo</h3>
+                <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                  Phân hiệu đào tạo đa ngành với các hệ chính quy, liên thông và vừa làm vừa học: Giáo dục Tiểu học, Giáo dục Mầm non, Sư phạm Tiếng Anh, Công nghệ Thông tin, Quản trị Dịch vụ Du lịch và Lữ hành, Ngôn ngữ Trung Quốc, v.v.
+                </p>
+                <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 text-xs text-[#0c529c]">
+                  Sinh viên đăng nhập vào hệ thống để tra cứu Khung chương trình đào tạo chi tiết và tiến độ tích lũy tín chỉ của lớp mình.
+                </div>
+              </div>
+            )}
+
+            {activeNavModal === "SCHEDULE" && (
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-900 mb-2">Lịch Đăng ký Học phần & Kế hoạch Đào tạo</h3>
+                <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                  Kế hoạch đăng ký học phần, lịch học, lịch thi kết thúc học phần được thông báo định kỳ theo từng học kỳ của năm học.
+                </p>
+                <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-100 text-xs text-emerald-800">
+                  Vui lòng đăng nhập tài khoản sinh viên để theo dõi lịch thi và thời hạn đăng ký học phần đúng hạn.
+                </div>
+              </div>
+            )}
+
+            {activeNavModal === "DEGREE" && (
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-900 mb-2">Tra cứu Văn bằng & Chứng chỉ</h3>
+                <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                  Hệ thống hỗ trợ cơ quan, doanh nghiệp và sinh viên tra cứu, xác thực thông tin văn bằng tốt nghiệp, chứng chỉ đào tạo do Phân hiệu cấp.
+                </p>
+                <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-100 text-xs text-amber-800">
+                  Để tra cứu chính thức, vui lòng liên hệ trực tiếp Phòng Đào tạo & Quản lý Sinh viên hoặc đăng nhập tài khoản cổng thông tin.
+                </div>
+              </div>
+            )}
+
+            {activeNavModal === "GUIDE" && (
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-900 mb-2">Hướng dẫn Sử dụng Cổng thông tin</h3>
+                <ul className="text-xs text-slate-600 space-y-2 list-disc pl-4 mb-4">
+                  <li><strong>Tên đăng nhập:</strong> Sử dụng Email công vụ (@hg.edu.vn / @phhg.edu.vn), Mã sinh viên hoặc số CCCD.</li>
+                  <li><strong>Mật khẩu lần đầu:</strong> Nhập số CCCD của bạn nếu chưa đổi mật khẩu.</li>
+                  <li><strong>Chức năng:</strong> Đánh giá rèn luyện trực tuyến, đăng ký tham gia sự kiện Đoàn - Hội, xem bảng điểm học tập, nộp minh chứng rèn luyện.</li>
+                </ul>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600">
+                  Hỗ trợ kỹ thuật: <strong>{themeConfig?.contactEmail || "phhagiang@tnu.edu.vn"}</strong> | Hotline: <strong>{themeConfig?.contactPhone || "0219.386.1234"}</strong>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end">
+              <button 
+                onClick={() => { setActiveNavModal(null); setShowLoginModal(true); }}
+                className="bg-[#d32f2f] hover:bg-[#b71c1c] text-white font-bold text-xs py-2 px-4 rounded-full transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <LogIn size={14} />
+                <span>Đăng nhập ngay</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
