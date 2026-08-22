@@ -430,7 +430,7 @@ export const StudentPortal: React.FC = () => {
 
   const renderProfileBanner = () => {
     return (
-      <div className="bg-white py-3 px-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="py-3 px-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100">
         <div className="flex gap-3.5 items-center">
           {sObj?.avatar ? (
             <img 
@@ -578,7 +578,7 @@ export const StudentPortal: React.FC = () => {
     const activeSlideIndex = totalSlides > 0 ? currentSlide % totalSlides : 0;
 
     return (
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md" id="student-news-board">
+      <div className="overflow-hidden flex flex-col transition-all" id="student-news-board">
         
         {/* Real-time Scrolling Ticker Banner */}
         <div className="bg-slate-900 text-white py-2.5 px-4 text-xs flex items-center justify-between gap-4 border-b border-slate-800">
@@ -840,7 +840,7 @@ export const StudentPortal: React.FC = () => {
     if (studentMemberships.length === 0) return null;
 
     return (
-      <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-3" id="club-notifications-center">
+      <div className="p-5 space-y-3 border-b border-slate-100" id="club-notifications-center">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
           <div className="p-1 px-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold font-mono">
             ✉
@@ -987,7 +987,7 @@ export const StudentPortal: React.FC = () => {
     feedItems.sort((a, b) => b.dateSort.localeCompare(a.dateSort));
 
     return (
-      <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm overflow-hidden space-y-5" id="club-portal-integrated-feed">
+      <div className="p-6 overflow-hidden space-y-5 border-b border-slate-100" id="club-portal-integrated-feed">
         {/* Module Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div className="space-y-1 text-left">
@@ -1228,7 +1228,7 @@ export const StudentPortal: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Academic Score Gauge Container */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col justify-between items-center text-center transition-all hover:shadow-md">
+        <div className="p-6 flex flex-col justify-between items-center text-center transition-all">
           <div className="w-full">
             <div className="flex justify-between items-center border-b border-slate-100/60 pb-3 mb-4">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -1424,7 +1424,7 @@ export const StudentPortal: React.FC = () => {
         </div>
 
         {/* Conduct Score Gauge Container */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col justify-between items-center text-center transition-all hover:shadow-md">
+        <div className="p-6 flex flex-col justify-between items-center text-center transition-all">
           <div className="w-full">
             <div className="flex justify-between items-center border-b border-slate-100/60 pb-3 mb-4">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -1486,7 +1486,7 @@ export const StudentPortal: React.FC = () => {
             <div className="space-y-6 animate-fade-in text-slate-800">
 
               {/* News Board container */}
-              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm overflow-hidden space-y-4">
+              <div className="p-6 overflow-hidden space-y-4 border-b border-slate-100">
                 <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="flex h-2.5 w-2.5 relative">
@@ -1510,7 +1510,7 @@ export const StudentPortal: React.FC = () => {
 
           {/* TAB 2: ĐIỂM SỐ TIẾN TRÌNH - CHỨA ĐỒNG HỒ ĐỐI XỨNG CÂN BẰNG TÍCH LŨY */}
           {activeTab === "DIEM" && (
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 animate-fade-in">
+            <div className="p-6 animate-fade-in">
               <div className="border-b border-slate-100 pb-4 mb-5">
                 <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">Tiến trình cân bằng học lực & Rèn luyện</h4>
                 <p className="text-[10px] text-slate-405 leading-relaxed mt-1">
@@ -1523,7 +1523,7 @@ export const StudentPortal: React.FC = () => {
 
           {/* DYNAMIC CONTENT CONTAINER WRAPPER FOR BACKEND DETAILED TABS */}
           {activeTab !== "TRANG_CHU" && (
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between min-h-[460px] overflow-hidden">
+            <div className="flex flex-col justify-between min-h-[460px] overflow-hidden">
               {/* Tab contents */}
               <div className="p-6 flex-1 overflow-y-auto max-h-[640px] custom-scrollbar">
           

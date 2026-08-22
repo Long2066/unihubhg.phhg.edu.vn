@@ -360,41 +360,6 @@ export const LoginScreen: React.FC = () => {
               )}
             </div>
 
-            {/* Quick Portal Feature Cards under Banner (Phẳng, Tự nhiên) */}
-            <div className="grid grid-cols-3 gap-2.5 pt-1">
-              <div 
-                onClick={() => setActiveNavModal("ABOUT")}
-                className="p-3 bg-white hover:bg-blue-50/60 rounded-xl border border-slate-200/80 transition-all cursor-pointer group flex flex-col items-center text-center shadow-2xs hover:shadow-xs"
-              >
-                <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0c529c] flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
-                  <Info size={16} />
-                </div>
-                <span className="text-xs font-bold text-slate-700 group-hover:text-[#0c529c]">Giới thiệu</span>
-                <span className="text-[10px] text-slate-500">Phân hiệu ĐHTN Hà Giang</span>
-              </div>
-
-              <div 
-                onClick={() => setActiveNavModal("DEGREE")}
-                className="p-3 bg-white hover:bg-amber-50/60 rounded-xl border border-slate-200/80 transition-all cursor-pointer group flex flex-col items-center text-center shadow-2xs hover:shadow-xs"
-              >
-                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
-                  <Award size={16} />
-                </div>
-                <span className="text-xs font-bold text-slate-700 group-hover:text-amber-700">Tra cứu văn bằng</span>
-                <span className="text-[10px] text-slate-500">Xác thực chứng chỉ</span>
-              </div>
-
-              <div 
-                onClick={() => setActiveNavModal("GUIDE")}
-                className="p-3 bg-white hover:bg-rose-50/60 rounded-xl border border-slate-200/80 transition-all cursor-pointer group flex flex-col items-center text-center shadow-2xs hover:shadow-xs"
-              >
-                <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
-                  <HelpCircle size={16} />
-                </div>
-                <span className="text-xs font-bold text-slate-700 group-hover:text-rose-700">Hướng dẫn</span>
-                <span className="text-[10px] text-slate-500">Thủ tục & hỗ trợ</span>
-              </div>
-            </div>
 
           </div>
 
