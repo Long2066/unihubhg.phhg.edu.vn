@@ -150,7 +150,15 @@ export const SEED_USERS: UserAccount[] = [
     name: "Phòng Công tác HSSV (Admin)",
     role: UserRole.ADMIN,
     email: "pcthssv@hg.edu.vn",
-    password: "password123"
+    password: "admin@123"
+  },
+  {
+    id: "U_SUPERADMIN",
+    username: "admin",
+    name: "Super Admin",
+    role: UserRole.ADMIN,
+    email: "superadmin@unihub.edu.vn",
+    password: "admin@123"
   }
 ];
 

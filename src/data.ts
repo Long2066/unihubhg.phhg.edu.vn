@@ -151,7 +151,15 @@ export const SEED_USERS: UserAccount[] = [
     name: "Phòng Công tác HSSV (Admin)",
     role: UserRole.ADMIN,
     email: "pcthssv@hg.edu.vn",
-    password: "password123"
+    password: "admin@123"
+  },
+  {
+    id: "U_SUPERADMIN",
+    username: "admin",
+    name: "Super Admin",
+    role: UserRole.ADMIN,
+    email: "superadmin@unihub.edu.vn",
+    password: "admin@123"
   }
 ];
 
@@ -218,8 +226,8 @@ export const SEED_STUDENTS: Student[] = [
   {
     id: "DTG245140202053",
     name: "Ma Văn Long",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
+    classId: "K2-GDTH A",
+    facultyId: "K-GDTH",
     email: "DTG245140202053",
     gpa: 3.42,
     creditsEarned: 18,
@@ -233,7 +241,7 @@ export const SEED_STUDENTS: Student[] = [
     idCard: "004206005165",
     idCardDate: "2022-04-12",
     idCardPlace: "Cục Cảnh sát QLHC về TTXH",
-    subjects: "Lập trình Web, Cơ sở dữ liệu, Thiết kế UI/UX",
+    subjects: "Phương pháp dạy học Toán, Phương pháp dạy học Tiếng Việt, Tâm lý học tiểu học",
     subjectGrades: "8.5, 9.0, 7.5, -, -, -, -, -",
     gpa10: 8.55,
     academicGrade: "Giỏi",
@@ -441,22 +449,22 @@ export const SEED_ORGANIZATIONS: Organization[] = [
 ];
 
 export const SEED_MEMBERS: OrganizationMember[] = [
-  // Nguyễn Văn An (DTG245140202053) inside UNITECH
+  // Ma Văn Long (DTG245140202053) inside UNITECH
   {
     id: "M_01",
     studentId: "DTG245140202053",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     orgId: "UNITECH",
     role: "THÀNH VIÊN",
     joinedDate: "2025-09-10",
     term: "2025-2026",
     status: "ACTIVE"
   },
-  // Nguyễn Văn An (DTG245140202053) inside DOANTN (BCH Đoàn Phân hiệu)
+  // Ma Văn Long (DTG245140202053) inside DOANTN (BCH Đoàn Phân hiệu)
   {
     id: "M_05",
     studentId: "DTG245140202053",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     orgId: "DOANTN",
     role: "ỦY VIÊN",
     joinedDate: "2025-09-15",
@@ -585,8 +593,8 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     id: "AT_01",
     activityId: "ACT_01",
     studentId: "DTG245140202053",
-    studentName: "Nguyễn Văn An",
-    classId: "K20-CNTT",
+    studentName: "Ma Văn Long",
+    classId: "K2-GDTH A",
     registeredAt: "2026-03-05",
     role: "MEM",
     attended: true,
@@ -619,8 +627,8 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     id: "AT_04",
     activityId: "ACT_02",
     studentId: "DTG245140202053",
-    studentName: "Nguyễn Văn An",
-    classId: "K20-CNTT",
+    studentName: "Ma Văn Long",
+    classId: "K2-GDTH A",
     registeredAt: "2026-04-10",
     role: "MEM",
     attended: true,
@@ -642,8 +650,8 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     id: "AT_06",
     activityId: "ACT_03",
     studentId: "DTG245140202053",
-    studentName: "Nguyễn Văn An",
-    classId: "K20-CNTT",
+    studentName: "Ma Văn Long",
+    classId: "K2-GDTH A",
     registeredAt: "2026-05-20",
     role: "MEM",
     attended: false,
@@ -654,8 +662,8 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     id: "AT_07",
     activityId: "ACT_04",
     studentId: "DTG245140202053",
-    studentName: "Nguyễn Văn An",
-    classId: "K20-CNTT",
+    studentName: "Ma Văn Long",
+    classId: "K2-GDTH A",
     registeredAt: "2026-05-21",
     role: "MEM",
     attended: false,
@@ -676,8 +684,8 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     id: "AT_09",
     activityId: "ACT_06",
     studentId: "DTG245140202053",
-    studentName: "Nguyễn Văn An",
-    classId: "K20-CNTT",
+    studentName: "Ma Văn Long",
+    classId: "K2-GDTH A",
     registeredAt: "2026-05-12",
     role: "MEM",
     attended: true,
@@ -700,8 +708,8 @@ export const SEED_EVIDENCE: EvidenceSubmission[] = [
   {
     id: "EV_01",
     studentId: "DTG245140202053",
-    studentName: "Nguyễn Văn An",
-    classId: "K20-CNTT",
+    studentName: "Ma Văn Long",
+    classId: "K2-GDTH A",
     criteriaId: "TC4.1",
     activityName: "Tuyên truyền hiến máu ngoài Nhà trường",
     description: "Có tham gia hỗ trợ Ban vận động hiến máu Thành phố Hà Giang vận động hiên máu nhân đạo ngày chủ nhật xanh.",
@@ -760,9 +768,9 @@ export const SEED_FACULTY_REVIEW: FacultyReviewState[] = [
 export const SEED_RESULTS: EvaluationResult[] = [
   {
     studentId: "DTG245140202053",
-    studentName: "Nguyễn Văn An",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
+    studentName: "Ma Văn Long",
+    classId: "K2-GDTH A",
+    facultyId: "K-GDTH",
     periodId: "HOCKY_2_2025_2026",
     studyPoints: 18, // GPA = 3.42 (TC1.2 +18đ)
     violationPoints: 25, // No violation

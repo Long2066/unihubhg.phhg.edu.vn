@@ -413,8 +413,8 @@ export const StudentPortal: React.FC = () => {
     
     submitEvidence({
       studentId,
-      studentName: currentUser?.name || "Nguyễn Văn An",
-      classId: sObj?.classId || "K20-CNTT",
+      studentName: currentUser?.name || "Ma Văn Long",
+      classId: sObj?.classId || "K2-GDTH A",
       criteriaId: evCriteriaId,
       activityName: evActivity,
       description: evDesc,
@@ -485,9 +485,9 @@ export const StudentPortal: React.FC = () => {
               </button>
             </div>
             <div className="text-[11px] text-slate-550 flex items-center gap-2 flex-wrap font-medium">
-              <span>Lớp quản lý: <strong className="text-slate-800">{sObj?.classId || "K20-CNTT"}</strong></span>
+              <span>Lớp quản lý: <strong className="text-slate-800">{sObj?.classId || "K2-GDTH A"}</strong></span>
               <span className="text-slate-300">•</span>
-              <span>Khoa đào tạo: <strong className="text-slate-800">{sObj?.facultyId === "K-CNTT" ? "Khoa Công nghệ Thông tin" : "Khoa Sư phạm"}</strong></span>
+              <span>Khoa đào tạo: <strong className="text-slate-800">{sObj?.facultyId === "K-CNTT" ? "Khoa Công nghệ Thông tin" : (sObj?.facultyId === "K-GDTH" || !sObj?.facultyId ? "Khoa Sư phạm" : sObj.facultyId)}</strong></span>
             </div>
           </div>
         </div>
@@ -581,7 +581,7 @@ export const StudentPortal: React.FC = () => {
       <div className="overflow-hidden flex flex-col transition-all" id="student-news-board">
         
         {/* Real-time Scrolling Ticker Banner */}
-        <div className="bg-slate-900 text-white py-2.5 px-4 text-xs flex items-center justify-between gap-4 border-b border-slate-800">
+        <div className="bg-slate-50 text-slate-700 py-2.5 px-4 text-xs flex items-center justify-between gap-4 border-b border-slate-200">
           <div className="flex items-center gap-2 shrink-0 bg-rose-600 text-white font-black text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md animate-pulse">
             <Sparkles size={11} />
             <span>TIN MỚI</span>
@@ -591,9 +591,9 @@ export const StudentPortal: React.FC = () => {
             {newsTickerItems.map((text, idx) => (
               <div 
                 key={idx} 
-                className={`absolute w-full truncate transition-all duration-700 ease-out flex items-center gap-1.5 font-bold text-slate-200 text-[11px] ${
+                className={`absolute w-full truncate transition-all duration-700 ease-out flex items-center gap-1.5 font-bold text-slate-600 text-[11px] ${
                   idx === activeTickerIndex 
-                    ? "opacity-100 translate-y-0 text-amber-300" 
+                    ? "opacity-100 translate-y-0 text-slate-800" 
                     : "opacity-0 -translate-y-4 pointer-events-none"
                 }`}
               >
@@ -606,7 +606,7 @@ export const StudentPortal: React.FC = () => {
             <button 
               type="button"
               onClick={() => setCurrentTicker((prev) => (prev - 1 + newsTickerItems.length) % newsTickerItems.length)}
-              className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded transition-colors cursor-pointer"
+              className="p-1 hover:bg-slate-200 text-slate-400 hover:text-slate-700 rounded transition-colors cursor-pointer"
               title="Quay lại"
             >
               <ChevronRight size={13} className="rotate-180" />
@@ -614,7 +614,7 @@ export const StudentPortal: React.FC = () => {
             <button 
               type="button"
               onClick={() => setCurrentTicker((prev) => (prev + 1) % newsTickerItems.length)}
-              className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded transition-colors cursor-pointer"
+              className="p-1 hover:bg-slate-200 text-slate-400 hover:text-slate-700 rounded transition-colors cursor-pointer"
               title="Tiếp theo"
             >
               <ChevronRight size={13} />
@@ -623,13 +623,13 @@ export const StudentPortal: React.FC = () => {
         </div>
 
         {/* Dynamic Interactive Event Banner Center split into 2 */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
+        <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
           
           <div className="lg:col-span-7 p-6 flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-center mb-3">
                 <span className="text-[10px] font-black uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">
-                  🔥 Sự kiện học đường nổi bật
+                  🔥 Sự kiện nổi bật
                 </span>
                 {totalSlides > 0 && (
                   <span className="text-[10px] text-slate-400 font-medium">Slide {activeSlideIndex + 1} / {totalSlides}</span>
@@ -987,7 +987,7 @@ export const StudentPortal: React.FC = () => {
     feedItems.sort((a, b) => b.dateSort.localeCompare(a.dateSort));
 
     return (
-      <div className="p-6 overflow-hidden space-y-5 border-b border-slate-100" id="club-portal-integrated-feed">
+      <div className="p-6 overflow-hidden space-y-5 border-t border-b border-slate-200" id="club-portal-integrated-feed">
         {/* Module Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div className="space-y-1 text-left">
@@ -1225,7 +1225,7 @@ export const StudentPortal: React.FC = () => {
 
   const renderSymmetricalGauges = () => {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-200">
         
         {/* Academic Score Gauge Container */}
         <div className="p-6 flex flex-col justify-between items-center text-center transition-all">
@@ -1233,9 +1233,8 @@ export const StudentPortal: React.FC = () => {
             <div className="flex justify-between items-center border-b border-slate-100/60 pb-3 mb-4">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                 <GraduationCap size={15} className="text-blue-500" />
-                <span>Điểm học tập học kỳ</span>
+                <span>Điểm học tập</span>
               </h3>
-              <span className="text-[10px] text-slate-400 font-mono italic">Thống kê từ đào tạo</span>
             </div>
             
             <div className="relative w-36 h-36 mx-auto my-4 flex items-center justify-center">
@@ -1263,7 +1262,7 @@ export const StudentPortal: React.FC = () => {
 
           <div className="w-full border-t border-slate-100 pt-4 mt-4 space-y-3 text-left text-xs text-slate-600 font-sans">
             <div className="flex justify-between items-center text-[11px] font-mono">
-              <span className="text-slate-400">Số tín chỉ tích lũy:</span>
+              <span className="text-slate-400">Số tín chỉ đã tích lũy:</span>
               <span className="font-bold text-slate-800">{currentCreditsEarned} Tín chỉ</span>
             </div>
             <div className="flex justify-between items-center text-[11px] font-mono">
@@ -1338,7 +1337,8 @@ export const StudentPortal: React.FC = () => {
 
                     return (
                       <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs mt-1 bg-white">
-                        <table className="w-full text-left text-[11px] font-sans border-collapse">
+                        <div className="overflow-x-auto">
+                        <table className="w-full text-left text-[11px] font-sans border-collapse min-w-[640px]">
                           <thead>
                             <tr className="bg-slate-100/90 border-b border-slate-200 text-slate-700 text-[9px] font-bold uppercase tracking-wider">
                               <th className="p-2 pl-3">STT</th>
@@ -1399,6 +1399,7 @@ export const StudentPortal: React.FC = () => {
                             })}
                           </tbody>
                         </table>
+                        </div>
                       </div>
                     );
                   })()}
@@ -1429,9 +1430,8 @@ export const StudentPortal: React.FC = () => {
             <div className="flex justify-between items-center border-b border-slate-100/60 pb-3 mb-4">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Award size={15} className="text-indigo-500" />
-                <span>Điểm rèn luyện đề xuất</span>
+                <span>Điểm rèn luyện</span>
               </h3>
-              <span className="text-[10px] text-slate-400 font-mono italic">Liên thông thời gian thực</span>
             </div>
             
             <div className="relative w-36 h-36 mx-auto my-4 flex items-center justify-center">
@@ -1486,20 +1486,7 @@ export const StudentPortal: React.FC = () => {
             <div className="space-y-6 animate-fade-in text-slate-800">
 
               {/* News Board container */}
-              <div className="p-6 overflow-hidden space-y-4 border-b border-slate-100">
-                <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-2.5 w-2.5 relative">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
-                    </span>
-                    <h4 className="text-xs font-black text-slate-850 uppercase tracking-wider flex items-center gap-1.5 text-slate-800">
-                      <Sparkles size={13} className="text-indigo-500 animate-pulse animate-pulse" />
-                      <span>Thông Báo Hoạt Động & Sự Kiện Hot Trong Tuần</span>
-                    </h4>
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-mono">Bảng tin học kì</span>
-                </div>
+              <div className="overflow-hidden space-y-4 border-b border-slate-100 pb-6">
                 {renderNewsBoard()}
               </div>
 
@@ -1511,11 +1498,8 @@ export const StudentPortal: React.FC = () => {
           {/* TAB 2: ĐIỂM SỐ TIẾN TRÌNH - CHỨA ĐỒNG HỒ ĐỐI XỨNG CÂN BẰNG TÍCH LŨY */}
           {activeTab === "DIEM" && (
             <div className="p-6 animate-fade-in">
-              <div className="border-b border-slate-100 pb-4 mb-5">
-                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">Tiến trình cân bằng học lực & Rèn luyện</h4>
-                <p className="text-[10px] text-slate-405 leading-relaxed mt-1">
-                  Đồng hồ đo đối xứng hiển thị tương quan đa nhiệm giữa Điểm tích lũy học tập chuyên ngành (GPA) và Kết quả rèn đức luyện tài (Điểm rèn luyện).
-                </p>
+              <div className="border-b border-slate-200 pb-4 mb-5">
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">Điểm học tập & rèn luyện</h4>
               </div>
               {renderSymmetricalGauges()}
             </div>
@@ -1529,7 +1513,7 @@ export const StudentPortal: React.FC = () => {
           
           {/* TAB: CONDUCT BREAKDOWN WITH ACCORDION (Sync with Criteria) */}
           {activeTab === "DIEM" && (
-            <div className="space-y-4">
+            <div className="space-y-4 border-t border-slate-200 pt-4">
               <div className="flex justify-between items-center mb-2">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Minh giải chi tiết quy chuẩn rèn luyện</h4>
                 <span className="text-[10px] text-slate-400 font-mono tracking-wide">Ấn để kiểm tra nguồn gốc số liệu</span>
@@ -2170,7 +2154,7 @@ export const StudentPortal: React.FC = () => {
                                           <input 
                                             type="text" 
                                             disabled
-                                            value={sObj?.classId || "K20-CNTT"}
+                                            value={sObj?.classId || "K2-GDTH A"}
                                             className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-slate-100 text-slate-450"
                                           />
                                         </div>
@@ -2742,10 +2726,10 @@ export const StudentPortal: React.FC = () => {
 
       {/* GRAND UNIHUB FOOTER */}
       <footer className="bg-slate-100 p-5 rounded-3xl border border-slate-200 mt-8 text-center flex flex-col sm:flex-row justify-between items-center text-[10px] text-slate-400 font-medium">
-        <span>Cổng thông tin tự phục vụ sinh viên UniHub Hà Giang • Thiết kế chuẩn tối giản và hiệu năng</span>
+        <span>Cổng thông tin UniHub</span>
         <span className="font-mono mt-1.5 sm:mt-0 flex items-center gap-1.5 text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-150 shadow-2xs">
           <Clock size={11} className="text-indigo-500 animate-spin" style={{ animationDuration: '8s' }} />
-          <span>Thời gian kiểm liên thông: Kì II - 2025-2026</span>
+          <span>Học kì: Kì II - 2025-2026</span>
         </span>
       </footer>
 
@@ -3201,8 +3185,8 @@ export const StudentPortal: React.FC = () => {
 
                 submitGradeAppeal({
                   studentId: sObj?.id || currentUser?.username || "DTG245140202053",
-                  studentName: sObj?.name || currentUser?.name || "Sinh viên",
-                  classId: sObj?.classId || "K20-CNTT",
+                  studentName: sObj?.name || currentUser?.name || "Ma Văn Long",
+                  classId: sObj?.classId || "K2-GDTH A",
                   semesterId: selectedSemesterId || "HOCKY_2_2025_2026",
                   subjectCode: appealModalSubject.code,
                   subjectName: appealModalSubject.name,
@@ -3294,12 +3278,12 @@ export const StudentPortal: React.FC = () => {
 
               {/* Student Personal Summary */}
               <div className="grid grid-cols-2 gap-4 text-xs font-sans">
-                <div>Họ và tên: <strong className="text-slate-900 font-bold uppercase">{sObj?.name || currentUser?.name || "Sinh viên"}</strong></div>
+                <div>Họ và tên: <strong className="text-slate-900 font-bold uppercase">{sObj?.name || currentUser?.name || "Ma Văn Long"}</strong></div>
                 <div>Mã sinh viên: <strong className="text-slate-900 font-mono font-bold">{sObj?.id || currentUser?.username || "DTG245140202053"}</strong></div>
-                <div>Ngày sinh: <strong>{sObj?.dob || "2006-05-20"}</strong></div>
+                <div>Ngày sinh: <strong>{sObj?.dob || "2006-05-14"}</strong></div>
                 <div>Giới tính: <strong>{sObj?.gender || "Nam"}</strong></div>
-                <div>Lớp hành chính: <strong>{sObj?.classId || "K20-CNTT"}</strong></div>
-                <div>Ngành đào tạo: <strong>{sObj?.trainingMajor || "Công nghệ Thông tin"}</strong></div>
+                <div>Lớp hành chính: <strong>{sObj?.classId || "K2-GDTH A"}</strong></div>
+                <div>Ngành đào tạo: <strong>{sObj?.facultyId === "K-CNTT" ? "Công nghệ Thông tin" : "Giáo dục Tiểu học"}</strong></div>
               </div>
 
               {/* Subject Grades Table */}

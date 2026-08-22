@@ -50,7 +50,8 @@ import {
   Upload,
   MessageSquare,
   FileSpreadsheet,
-  Grid
+  Grid,
+  Menu
 } from "lucide-react";
 
 const AdviserIcon = ShieldAlert;
@@ -831,13 +832,13 @@ const AppContent: React.FC = () => {
         ];
       case UserRole.STUDENT:
         return [
-          { id: "TRANG_CHU", label: "Bảng tin & Hồ sơ chính", icon: Home },
-          { id: "DIEM", label: "Tiến trình & Điểm số", icon: Award },
+          { id: "TRANG_CHU", label: "Trang chủ", icon: Home },
+          { id: "DIEM", label: "Điểm số", icon: Award },
           { id: "THOI_KHOA_BIEU", label: "Thời khóa biểu", icon: Clock },
-          { id: "HOATDONG", label: "SỰ kiện ngoại khóa", icon: Calendar },
-          { id: "CLB", label: "Câu lạc bộ của tôi", icon: Users },
-          { id: "MINHCHUNG", label: "Cấp minh chứng ngoại lệ", icon: FileText },
-          { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
+          { id: "HOATDONG", label: "Sự kiện & ngoại khóa", icon: Calendar },
+          { id: "CLB", label: "Câu lạc bộ", icon: Users },
+          { id: "MINHCHUNG", label: "Minh chứng", icon: FileText },
+          { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList }
         ];
       case UserRole.ORGANIZER:
       case UserRole.CLUB_MANAGER:
@@ -858,14 +859,14 @@ const AppContent: React.FC = () => {
           { id: "IMPORT_CLASSES", label: "Nạp Danh Sách SV Lớp Mới", icon: UploadCloud },
           { id: "LIST", label: "Danh Sách Học Vụ SV", icon: Grid },
           { id: "THOI_KHOA_BIEU", label: "Thời khóa biểu lớp", icon: Clock },
-          { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
+          { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList }
         ];
       case UserRole.FACULTY:
         return [
           { id: "STAT", label: "Theo dõi rèn luyện khoa", icon: BarChart2 },
           { id: "LOCKS", label: "Khóa dữ liệu & Ký duyệt", icon: Lock },
           { id: "EVENTS", label: "Phát động & Cộng điểm", icon: Megaphone },
-          { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
+          { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList }
         ];
       case UserRole.ADMIN:
         return [
@@ -873,7 +874,7 @@ const AppContent: React.FC = () => {
           { id: "PERIOD", label: "Quản lý Đợt đánh giá", icon: Clock },
           { id: "STATIONS", label: "Động cơ hệ thống", icon: Cpu },
           { id: "CLUBS", label: "Quản lý Tài khoản CLB", icon: Users },
-          { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
+          { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList }
         ];
       case UserRole.CLASS_MONITOR:
         if (currentUser?.isGroupLeader) {
@@ -896,11 +897,11 @@ const AppContent: React.FC = () => {
           { id: "ADVISER_DUYETDEM", label: "Thống kê & Xét duyệt lớp", icon: BookOpen },
           { id: "ADVISER_MINHCHUNG", label: "Minh chứng của lớp", icon: FileText },
           { id: "ADVISER_NOTIFICATIONS", label: "Nhật ký sĩ số & Thư từ lớp", icon: MessageSquare },
-          { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
+          { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList }
         ];
       default:
         return [
-          { id: "GIAM_SAT_SI_SO", label: "Giám sát Sĩ số", icon: ClipboardList }
+          { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList }
         ];
     }
   };
@@ -1021,151 +1022,52 @@ const AppContent: React.FC = () => {
   const sidebarTabs = getSidebarTabs();
 
   return (
-    <div className="h-screen h-dvh w-screen bg-white flex flex-row selection:bg-indigo-500 selection:text-white font-sans overflow-hidden" id="unihub-app-layout">
+    <div className="h-screen h-dvh w-screen bg-white flex flex-col selection:bg-indigo-500 selection:text-white font-sans overflow-hidden" id="unihub-app-layout">
       
-      {/* 1. DYNAMIC EXPANDABLE/COLLAPSIBLE LEFT MENU SIDEBAR */}
-      <aside 
-        className={`hidden md:flex flex-col py-5 justify-between bg-white border-r border-slate-200 sticky top-0 h-screen h-dvh z-50 shrink-0 transition-all duration-300 ease-in-out ${
-          isSidebarExpanded ? "w-[240px] px-4" : "w-[72px] items-center px-0"
-        }`}
-      >
-        <div className="flex flex-col items-center gap-6 w-full animate-fade-in">
-          {/* Logo brand and toggle line */}
-          <div className={`flex items-center ${isSidebarExpanded ? "justify-between w-full px-2" : "justify-center w-full"}`}>
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 select-none cursor-pointer transform hover:scale-105 active:scale-95 transition-all flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 overflow-hidden shrink-0" title="UniHubHG Hệ thống">
-                {themeConfig?.logoUrl ? (
-                  <img src={themeConfig.logoUrl} alt="Logo" className="w-full h-full object-cover rounded-full" />
-                ) : (
-                  <TnuLogo size={32} />
-                )}
-              </div>
-              {isSidebarExpanded && (
-                <div className="flex flex-col leading-none">
-                  <span className="text-[11px] font-black tracking-wider text-indigo-700 uppercase">UniHubHG</span>
-                  <span className="text-[8px] font-semibold text-slate-400 uppercase mt-0.5 whitespace-nowrap">PH HÀ GIANG</span>
-                </div>
-              )}
-            </div>
-            
-            {isSidebarExpanded && (
-              <button 
-                onClick={() => setIsSidebarExpanded(false)}
-                className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer transition-colors"
-                title="Thu gọn menu"
-              >
-                <ChevronLeft size={16} />
-              </button>
+      {/* 1. TOP HORIZONTAL FULL-WIDTH HEADER (Xuyên thẳng sang trái toàn màn hình) */}
+      <header className="bg-white border-b border-slate-200/80 sticky top-0 z-40 backdrop-blur-md bg-white/90 shadow-2xs shrink-0 h-16 flex items-center justify-between px-3 sm:px-5 lg:px-6 w-full">
+        
+        <div className="flex items-center gap-2.5 sm:gap-3 text-left min-w-0 flex-1 pr-2">
+          {/* Nút 3 vạch thu gọn / mở rộng menu (Hamburger Toggle Button) */}
+          <button
+            type="button"
+            onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
+            className="p-2 hover:bg-slate-100 active:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-xl cursor-pointer transition-colors shrink-0 flex items-center justify-center mr-0.5"
+            title={isSidebarExpanded ? "Thu gọn menu" : "Mở rộng menu"}
+            aria-label="Toggle Sidebar"
+          >
+            <Menu size={20} />
+          </button>
+
+          {/* Institution Logo Badge (Dynamic from Admin Page) */}
+          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-full shadow-sm border border-slate-200/90 flex items-center justify-center overflow-hidden shrink-0 p-0.5">
+            {themeConfig?.logoUrl ? (
+              <img 
+                src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
+                alt="Logo" 
+                className="w-full h-full object-contain rounded-full"
+              />
+            ) : (
+              <TnuLogo size={32} />
             )}
           </div>
 
-          {!isSidebarExpanded && (
-            <button
-              onClick={() => setIsSidebarExpanded(true)}
-              className="p-1 bg-indigo-50/50 hover:bg-indigo-100 hover:text-indigo-700 text-indigo-600 rounded-lg cursor-pointer transition-all flex items-center justify-center w-8"
-              title="Mở rộng menu"
-            >
-              <ChevronRight size={14} />
-            </button>
-          )}
-
-          <div className="w-full border-b border-slate-100 pb-1" />
-
-          {/* Dynamic Menu Icons based on active logged in Portal */}
-          <div className={`flex flex-col gap-2.5 w-full ${isSidebarExpanded ? "items-stretch px-1" : "items-center px-0"}`}>
-            {sidebarTabs.map((tab) => {
-              const TabIcon = tab.icon;
-              const isActive = activePortletTab === tab.id;
-              const badgeCount = getTabBadgeCount(tab.id);
-              
-              if (isSidebarExpanded) {
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActivePortletTab(tab.id)}
-                    className={`px-3.5 py-3 rounded-xl transition-all relative group flex items-center gap-3 cursor-pointer w-full text-left border ${
-                      isActive 
-                        ? "bg-indigo-50 text-indigo-600 border-indigo-150/80 shadow-2xs font-extrabold" 
-                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent font-medium"
-                    }`}
-                  >
-                    <TabIcon size={16} className="shrink-0" />
-                    <span className="text-xs tracking-tight truncate whitespace-nowrap transition-all duration-300">
-                      {tab.label}
-                    </span>
-                    {badgeCount > 0 && (
-                      <span className="ml-auto bg-rose-500 text-white text-[9px] font-black h-4.5 min-w-4.5 px-1 rounded-full flex items-center justify-center shadow-xs ring-1 ring-white">
-                        {badgeCount}
-                      </span>
-                    )}
-                  </button>
-                );
-              }
-
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActivePortletTab(tab.id)}
-                  className={`p-3 rounded-xl transition-all relative group flex items-center justify-center cursor-pointer border ${
-                    isActive 
-                      ? "bg-indigo-50 text-indigo-600 border-indigo-150/80 shadow-xs scale-102" 
-                      : "text-slate-405 hover:text-slate-700 hover:bg-slate-50 border-transparent"
-                  }`}
-                  title={tab.label}
-                >
-                  <TabIcon size={18} />
-                  {badgeCount > 0 && (
-                    <span className="absolute top-1 right-1 bg-rose-500 text-white text-[9px] font-black h-4.5 min-w-4.5 px-1 rounded-full flex items-center justify-center shadow-xs ring-1 ring-white animate-pulse">
-                      {badgeCount}
-                    </span>
-                  )}
-                  <span className="absolute left-[78px] bg-slate-900 border border-slate-800 text-white text-[10px] font-bold px-2 py-1.5 rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-                    {tab.label}
-                  </span>
-                </button>
-              );
-            })}
+          {/* Typography Header Block (Identical to Landing Page) */}
+          <div className="flex flex-col justify-center min-w-0 flex-1">
+            <span className="text-[10px] sm:text-xs font-bold text-blue-950 uppercase font-sans leading-tight block truncate">
+              PHÂN HIỆU ĐHTN TẠI HÀ GIANG
+            </span>
+            <h1 className="text-xs sm:text-base font-black text-slate-900 leading-tight font-sans mt-0.5 block truncate">
+              {themeConfig?.loginTitle ? (
+                themeConfig.loginTitle
+              ) : (
+                <>
+                  CỔNG THÔNG TIN <span className="text-blue-900">UNIHUBHG</span>
+                </>
+              )}
+            </h1>
           </div>
         </div>
-
-      </aside>
-
-      {/* 2. RIGHT HAND CONTENT SIDEBAR (Header sits right here, so it does NOT cut across the sidebar!) */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#f8fafc] h-screen h-dvh overflow-hidden">
-        
-        {/* Horizontal Header (Bounded beside the menu sidebar!) */}
-        <header className="bg-white border-b border-slate-200/80 sticky top-0 z-40 backdrop-blur-md bg-white/90 shadow-2xs shrink-0 h-18 flex items-center justify-between px-3.5 sm:px-6 lg:px-8">
-          
-          <div className="flex items-center gap-2.5 sm:gap-3.5 text-left min-w-0 flex-1 pr-2">
-            {/* Institution Logo Badge (Dynamic from Admin Page) */}
-            <div className="w-9 h-9 sm:w-11 sm:h-11 bg-white rounded-full shadow-sm border border-slate-200/90 flex items-center justify-center overflow-hidden shrink-0 p-0.5">
-              {themeConfig?.logoUrl ? (
-                <img 
-                  src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
-                  alt="Logo" 
-                  className="w-full h-full object-contain rounded-full"
-                />
-              ) : (
-                <TnuLogo size={36} />
-              )}
-            </div>
-
-            {/* Typography Header Block (Identical to Landing Page) */}
-            <div className="flex flex-col justify-center min-w-0 flex-1">
-              <span className="text-[10px] sm:text-xs font-bold text-blue-950 uppercase font-sans leading-tight block truncate">
-                PHÂN HIỆU ĐHTN TẠI HÀ GIANG
-              </span>
-              <h1 className="text-xs sm:text-base font-black text-slate-900 leading-tight font-sans mt-0.5 block truncate">
-                {themeConfig?.loginTitle ? (
-                  themeConfig.loginTitle
-                ) : (
-                  <>
-                    CỔNG THÔNG TIN <span className="text-blue-900">UNIHUBHG</span>
-                  </>
-                )}
-              </h1>
-            </div>
-          </div>
 
           <div className="flex items-center gap-3 font-sans">
             
@@ -1429,28 +1331,96 @@ const AppContent: React.FC = () => {
 
         </header>
 
-        {/* Scrollable container for main content and footer */}
-        <div className="flex-1 overflow-y-auto w-full flex flex-col">
-          {/* Core Main Viewport Panel */}
-          <main className="flex-1 w-full p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
-            {renderPortal()}
-          </main>
+        {/* 2. BODY CONTAINER (SIDEBAR MENU + MAIN CONTENT AREA) */}
+        <div className="flex-1 flex flex-row min-w-0 min-h-0 bg-[#f8fafc] overflow-hidden">
+          
+          {/* DYNAMIC EXPANDABLE/COLLAPSIBLE LEFT MENU SIDEBAR (Hạ xuống dưới header) */}
+          <aside 
+            className={`hidden md:flex flex-col py-3 justify-start bg-white border-r border-slate-200 h-full z-30 shrink-0 transition-all duration-300 ease-in-out ${
+              isSidebarExpanded ? "w-[240px] px-3" : "w-[72px] items-center px-0"
+            }`}
+          >
+            <div className="flex flex-col items-center w-full overflow-y-auto custom-scrollbar">
+              {/* Dynamic Menu Icons based on active logged in Portal */}
+              <div className={`flex flex-col gap-1.5 w-full ${isSidebarExpanded ? "items-stretch px-1" : "items-center px-0"}`}>
+                {sidebarTabs.map((tab) => {
+                  const TabIcon = tab.icon;
+                  const isActive = activePortletTab === tab.id;
+                  const badgeCount = getTabBadgeCount(tab.id);
+                  
+                  if (isSidebarExpanded) {
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActivePortletTab(tab.id)}
+                        className={`px-3.5 py-2.5 rounded-xl transition-all relative group flex items-center gap-3 cursor-pointer w-full text-left border ${
+                          isActive 
+                            ? "bg-indigo-50 text-indigo-600 border-indigo-150/80 shadow-2xs font-extrabold" 
+                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent font-medium"
+                        }`}
+                      >
+                        <TabIcon size={16} className="shrink-0" />
+                        <span className="text-xs tracking-tight truncate whitespace-nowrap transition-all duration-300">
+                          {tab.label}
+                        </span>
+                        {badgeCount > 0 && (
+                          <span className="ml-auto bg-rose-500 text-white text-[9px] font-black h-4.5 min-w-4.5 px-1 rounded-full flex items-center justify-center shadow-xs ring-1 ring-white">
+                            {badgeCount}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  }
 
-          {/* Clean Bottom Footer */}
-          <footer className="bg-white border-t border-slate-200 py-5 px-6 lg:px-8 text-center text-xs text-slate-450 shrink-0 pb-20 md:pb-5">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <div>
-                UniHub Rèn luyện © 2026. Công cụ quản lý tự động hoá thuộc Phân hiệu ĐHTN tại Hà Giang UniHubHG.
-              </div>
-              <div className="font-mono text-[10px] text-slate-400 flex items-center gap-1">
-                <Cpu size={12} className="text-slate-350" />
-                <span>Xử lý và tính điểm tự động từ minh chứng thực tế</span>
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActivePortletTab(tab.id)}
+                      className={`p-3 rounded-xl transition-all relative group flex items-center justify-center cursor-pointer border ${
+                        isActive 
+                          ? "bg-indigo-50 text-indigo-600 border-indigo-150/80 shadow-xs scale-102" 
+                          : "text-slate-405 hover:text-slate-700 hover:bg-slate-50 border-transparent"
+                      }`}
+                      title={tab.label}
+                    >
+                      <TabIcon size={18} />
+                      {badgeCount > 0 && (
+                        <span className="absolute top-1 right-1 bg-rose-500 text-white text-[9px] font-black h-4.5 min-w-4.5 px-1 rounded-full flex items-center justify-center shadow-xs ring-1 ring-white animate-pulse">
+                          {badgeCount}
+                        </span>
+                      )}
+                      <span className="absolute left-[78px] bg-slate-900 border border-slate-800 text-white text-[10px] font-bold px-2 py-1.5 rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                        {tab.label}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          </footer>
-        </div>
+          </aside>
 
-      </div>
+          {/* Scrollable container for main content and footer */}
+          <div className="flex-1 overflow-y-auto w-full flex flex-col min-w-0">
+            {/* Core Main Viewport Panel */}
+            <main className="flex-1 w-full p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
+              {renderPortal()}
+            </main>
+
+            {/* Clean Bottom Footer */}
+            <footer className="bg-white border-t border-slate-200 py-5 px-6 lg:px-8 text-center text-xs text-slate-450 shrink-0 pb-20 md:pb-5">
+              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                  UniHub Rèn luyện © 2026. Công cụ quản lý tự động hoá thuộc Phân hiệu ĐHTN tại Hà Giang UniHubHG.
+                </div>
+                <div className="font-mono text-[10px] text-slate-400 flex items-center gap-1">
+                  <Cpu size={12} className="text-slate-350" />
+                  <span>Xử lý và tính điểm tự động từ minh chứng thực tế</span>
+                </div>
+              </div>
+            </footer>
+          </div>
+
+        </div>
 
       {selectedAnnForModal && (
         <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in font-sans">
