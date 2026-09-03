@@ -1557,18 +1557,25 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     let targetEmail = trimmedInput;
     if (!targetEmail.includes("@")) {
+      const lowerInput = trimmedInput.toLowerCase();
+      // 1. Tìm trong danh sách users hệ thống (khớp username hoặc prefix email)
       const foundUser = users.find(u => 
-        (u.username && u.username.trim().toLowerCase() === trimmedInput.toLowerCase()) ||
-        (u.id && u.id.trim().toLowerCase() === trimmedInput.toLowerCase())
+        (u.username && u.username.trim().toLowerCase() === lowerInput) ||
+        (u.id && u.id.trim().toLowerCase() === lowerInput) ||
+        (u.email && u.email.toLowerCase().startsWith(`${lowerInput}@`))
       );
       if (foundUser && foundUser.email && foundUser.email.includes("@")) {
         targetEmail = foundUser.email;
       } else {
-        const foundStudent = students.find(s => s.id && s.id.trim().toLowerCase() === trimmedInput.toLowerCase());
+        // 2. Tìm trong danh sách sinh viên
+        const foundStudent = students.find(s => s.id && s.id.trim().toLowerCase() === lowerInput);
         if (foundStudent && foundStudent.email && foundStudent.email.includes("@")) {
           targetEmail = foundStudent.email;
+        } else if (foundStudent) {
+          targetEmail = `${lowerInput}@unihub.edu.vn`;
         } else {
-          targetEmail = `${trimmedInput}@unihub.edu.vn`;
+          // 3. Fallback cho tài khoản cán bộ/đơn vị của trường nếu gõ tắt
+          targetEmail = `${lowerInput}@hg.edu.vn`;
         }
       }
     }
@@ -1578,12 +1585,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       authCred = await signInWithEmailAndPassword(auth, targetEmail, trimmedPass);
     } catch (err: any) {
       const errorCode = err?.code || "";
-      // Cách 1: Tự động khởi tạo/kích hoạt tài khoản Firebase Auth cho sinh viên khi đăng nhập lần đầu bằng Mã SV + CCCD hợp lệ
+      // Tự động kích hoạt tài khoản Firebase Auth lần đầu cho:
+      // 1. Sinh viên (Mã SV + CCCD hợp lệ)
+      // 2. Cán bộ / Đơn vị hệ thống (Phòng Đào tạo, Khoa, GVCN, Admin, CLB...) có trong CSDL
       if (
         errorCode === "auth/invalid-credential" || 
         errorCode === "auth/user-not-found" || 
         errorCode === "auth/wrong-password"
       ) {
+        // Kiểm tra xem có phải Sinh viên đăng nhập bằng CCCD
         const foundStudent = students.find(s => 
           (s.id && s.id.trim().toLowerCase() === trimmedInput.toLowerCase()) ||
           (s.email && s.email.trim().toLowerCase() === targetEmail.toLowerCase())
@@ -1596,11 +1606,26 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           } catch (createErr: any) {
             console.warn("Không thể tự động kích hoạt tài khoản qua CCCD:", createErr?.code || createErr?.message);
           }
+        } else {
+          // Kiểm tra xem có phải tài khoản Cán bộ / Đơn vị / Phòng ban trong hệ thống users
+          const matchedUser = users.find(u => 
+            (u.email && u.email.toLowerCase() === targetEmail.toLowerCase()) || 
+            (u.username && u.username.toLowerCase() === targetEmail.toLowerCase()) ||
+            (u.username && u.username.toLowerCase() === trimmedInput.toLowerCase())
+          );
+
+          if (matchedUser && trimmedPass.length >= 6) {
+            try {
+              console.log(`Tài khoản cán bộ/đơn vị ${matchedUser.username} (${matchedUser.name}) đăng nhập lần đầu - Tiến hành khởi tạo trên Firebase Auth...`);
+              authCred = await createUserWithEmailAndPassword(auth, targetEmail, trimmedPass);
+            } catch (createErr: any) {
+              console.warn("Không thể tự động khởi tạo tài khoản cán bộ trên Firebase Auth:", createErr?.code || createErr?.message);
+            }
+          }
         }
       }
 
       if (!authCred) {
-        // A10 FIX: Log error và phân loại
         if (errorCode === "auth/invalid-credential" || errorCode === "auth/wrong-password" || errorCode === "auth/user-not-found") {
           console.warn("Đăng nhập thất bại: Sai thông tin đăng nhập", targetEmail);
         } else if (errorCode === "auth/too-many-requests") {
@@ -1655,11 +1680,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       if (!userDoc) {
-        // A6 FIX: Không tự tạo fallback user nếu không tìm thấy profile
         console.warn("Tài khoản chưa có thông tin trong cơ sở dữ liệu:", targetEmail);
         await signOut(auth).catch(() => {});
         return false;
       }
+
+      // Lưu document profile theo UID Firebase Auth để lần sau tra cứu tức thì
+      setDoc(doc(db, "users", uid), userDoc, { merge: true }).catch(() => {});
 
       const { password, ...safeUser } = userDoc as any;
       setCurrentUser(safeUser as UserAccount);
