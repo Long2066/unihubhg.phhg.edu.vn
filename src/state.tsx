@@ -203,6 +203,7 @@ interface UniHubContextType {
   addGradeAuditLog: (log: Omit<GradeAuditLog, "id" | "timestamp">) => void;
   updateGradingRules: (rules: GradingRulesConfig) => void;
   aggregateSubjectGradesToSemesterGpa: (semesterId: string) => { updatedCount: number; warningsCount: number };
+  restoreAllDataBackup: (backupData: any) => Promise<void>;
 }
 
 export const normalizeClassId = (classId: string | undefined | null): string => {
@@ -1008,16 +1009,46 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Load data from Firebase Firestore
+  // Load data from Firebase Firestore with Smart Non-Destructive Merge (Never wipe local data)
   const loadFromFirestore = async () => {
     try {
+      // Helper: Smart merge list with local storage items
+      const smartMerge = <T,>(cloudList: T[], storageKey: string, idResolver: (item: T) => string): T[] => {
+        let localList: T[] = [];
+        try {
+          const cached = localStorage.getItem(storageKey);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed)) localList = parsed;
+          }
+        } catch {}
+
+        const mergedMap = new Map<string, T>();
+        // 1. Put local items into map first
+        localList.forEach(item => {
+          const id = idResolver(item);
+          if (id) mergedMap.set(id, item);
+        });
+        // 2. Overlay cloud items (cloud has latest updates)
+        cloudList.forEach(item => {
+          const id = idResolver(item);
+          if (id) mergedMap.set(id, item);
+          else mergedMap.set(`gen_${Math.random()}`, item);
+        });
+
+        const result = Array.from(mergedMap.values());
+        localStorage.setItem(storageKey, JSON.stringify(result));
+        return result;
+      };
+
       // 1. Get Users
       const usersSnap = await getDocs(collection(db, "users"));
       if (!usersSnap.empty) {
         const list: UserAccount[] = [];
         usersSnap.forEach(d => list.push(d.data() as UserAccount));
-        setUsers(list);
-        localStorage.setItem("unihub_users", JSON.stringify(list));
+        const merged = smartMerge(list, "unihub_users", u => u.id || u.username || u.email);
+        setUsers(merged);
+        localStorage.setItem("unihub_users_backup", JSON.stringify(merged));
       }
       
       // 2. Get Students
@@ -1025,8 +1056,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!studsSnap.empty) {
         const list: Student[] = [];
         studsSnap.forEach(d => list.push(d.data() as Student));
-        setStudents(list);
-        localStorage.setItem("unihub_students", JSON.stringify(list));
+        const merged = smartMerge(list, "unihub_students", s => s.id);
+        setStudents(merged);
+        localStorage.setItem("unihub_students_backup", JSON.stringify(merged));
       }
 
       // 3. Get Organizations
@@ -1034,8 +1066,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!orgsSnap.empty) {
         const list: Organization[] = [];
         orgsSnap.forEach(d => list.push(d.data() as Organization));
-        setOrganizations(list);
-        localStorage.setItem("unihub_organizations", JSON.stringify(list));
+        const merged = smartMerge(list, "unihub_organizations", o => o.id);
+        setOrganizations(merged);
       }
 
       // 4. Get Activities
@@ -1043,8 +1075,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!actsSnap.empty) {
         const list: ExtracurricularActivity[] = [];
         actsSnap.forEach(d => list.push(d.data() as ExtracurricularActivity));
-        setActivities(list);
-        localStorage.setItem("unihub_activities", JSON.stringify(list));
+        const merged = smartMerge(list, "unihub_activities", a => a.id);
+        setActivities(merged);
       }
 
       // 5. Get Attendance
@@ -1052,8 +1084,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!attsSnap.empty) {
         const list: ActivityAttendance[] = [];
         attsSnap.forEach(d => list.push(d.data() as ActivityAttendance));
-        setAttendance(list);
-        localStorage.setItem("unihub_attendance", JSON.stringify(list));
+        const merged = smartMerge(list, "unihub_attendance", a => a.id);
+        setAttendance(merged);
       }
 
       // 6. Get Evidence
@@ -1061,8 +1093,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!evsSnap.empty) {
         const list: EvidenceSubmission[] = [];
         evsSnap.forEach(d => list.push(d.data() as EvidenceSubmission));
-        setEvidence(list);
-        localStorage.setItem("unihub_evidence", JSON.stringify(list));
+        const merged = smartMerge(list, "unihub_evidence", e => e.id);
+        setEvidence(merged);
       }
 
       // 7. Get Results
@@ -1070,8 +1102,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!resSnap.empty) {
         const list: EvaluationResult[] = [];
         resSnap.forEach(d => list.push(d.data() as EvaluationResult));
-        setResults(list);
-        localStorage.setItem("unihub_results", JSON.stringify(list));
+        const merged = smartMerge(list, "unihub_results", r => `${r.studentId}_${r.periodId}`);
+        setResults(merged);
       }
 
       // 8. Get Daily Attendance
@@ -1079,8 +1111,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!daSnap.empty) {
         const list: DailyAttendanceReport[] = [];
         daSnap.forEach(d => list.push(d.data() as DailyAttendanceReport));
-        setDailyAttendance(list);
-        localStorage.setItem("unihub_daily_attendance", JSON.stringify(list));
+        const merged = smartMerge(list, "unihub_daily_attendance", d => d.id);
+        setDailyAttendance(merged);
       }
 
       // 9. Get Members
@@ -1088,8 +1120,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!membersSnap.empty) {
         const list: OrganizationMember[] = [];
         membersSnap.forEach(d => list.push(d.data() as OrganizationMember));
-        setMembers(list);
-        localStorage.setItem("unihub_members", JSON.stringify(list));
+        const merged = smartMerge(list, "unihub_members", m => m.id);
+        setMembers(merged);
       }
 
       // 10. Get Announcements
@@ -1097,8 +1129,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!annSnap.empty) {
         const list: ClubAnnouncement[] = [];
         annSnap.forEach(d => list.push(d.data() as ClubAnnouncement));
-        setAnnouncements(list);
-        localStorage.setItem("unihub_announcements", JSON.stringify(list));
+        const merged = smartMerge(list, "unihub_announcements", a => a.id);
+        setAnnouncements(merged);
       }
 
       // 11. Get System Feedbacks
@@ -1106,8 +1138,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!sysFeedSnap.empty) {
         const list: SystemFeedback[] = [];
         sysFeedSnap.forEach(d => list.push(d.data() as SystemFeedback));
-        setSystemFeedbacks(list);
-        localStorage.setItem("unihub_system_feedbacks", JSON.stringify(list));
+        const merged = smartMerge(list, "unihub_system_feedbacks", f => f.id);
+        setSystemFeedbacks(merged);
       }
 
       // 12. Get Criteria
@@ -1116,8 +1148,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const list: PointCriteria[] = [];
         critSnap.forEach(d => list.push(d.data() as PointCriteria));
         list.sort((a, b) => a.id.localeCompare(b.id));
-        setCriteria(list);
-        localStorage.setItem("unihub_criteria", JSON.stringify(list));
+        const merged = smartMerge(list, "unihub_criteria", c => c.id);
+        setCriteria(merged);
       }
 
       // 13. Get Class Reviews
@@ -1125,8 +1157,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!crSnap.empty) {
         const list: ClassReviewState[] = [];
         crSnap.forEach(d => list.push(d.data() as ClassReviewState));
-        setClassReviews(list);
-        localStorage.setItem("unihub_class_reviews", JSON.stringify(list));
+        const merged = smartMerge(list, "unihub_class_reviews", c => c.classId);
+        setClassReviews(merged);
       }
 
       // 14. Get Faculty Reviews
@@ -1134,8 +1166,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!frSnap.empty) {
         const list: FacultyReviewState[] = [];
         frSnap.forEach(d => list.push(d.data() as FacultyReviewState));
-        setFacultyReviews(list);
-        localStorage.setItem("unihub_faculty_reviews", JSON.stringify(list));
+        const merged = smartMerge(list, "unihub_faculty_reviews", f => f.facultyId);
+        setFacultyReviews(merged);
       }
     } catch (error) {
       console.warn("Could not sync from Firestore (possibly schema rules or empty DB):", error);
@@ -2362,6 +2394,58 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Không tự set currentUser = seed user nữa. Người dùng phải đăng nhập lại.
   };
 
+  // Dedicated Safe Data Restore handler (Restores entire database from JSON or Auto-Shield)
+  const restoreAllDataBackup = async (backupData: any) => {
+    if (!backupData) return;
+
+    if (Array.isArray(backupData.students) && backupData.students.length > 0) {
+      setStudents(backupData.students);
+      saveToStorage("unihub_students", backupData.students);
+      localStorage.setItem("unihub_students_backup", JSON.stringify(backupData.students));
+    }
+    if (Array.isArray(backupData.users) && backupData.users.length > 0) {
+      setUsers(backupData.users);
+      saveToStorage("unihub_users", backupData.users);
+      localStorage.setItem("unihub_users_backup", JSON.stringify(backupData.users));
+    }
+    if (Array.isArray(backupData.teacherAssignments)) {
+      setTeacherAssignments(backupData.teacherAssignments);
+      saveToStorage("unihub_teacher_assignments", backupData.teacherAssignments);
+    }
+    if (Array.isArray(backupData.subjectGradeSheets)) {
+      setSubjectGradeSheets(backupData.subjectGradeSheets);
+      saveToStorage("unihub_subject_grade_sheets", backupData.subjectGradeSheets);
+    }
+    if (Array.isArray(backupData.schedules)) {
+      setSchedules(backupData.schedules);
+      saveToStorage("unihub_schedules", backupData.schedules);
+    }
+    if (Array.isArray(backupData.organizations)) {
+      setOrganizations(backupData.organizations);
+      saveToStorage("unihub_organizations", backupData.organizations);
+    }
+    if (Array.isArray(backupData.activities)) {
+      setActivities(backupData.activities);
+      saveToStorage("unihub_activities", backupData.activities);
+    }
+    if (Array.isArray(backupData.criteria)) {
+      setCriteria(backupData.criteria);
+      saveToStorage("unihub_criteria", backupData.criteria);
+    }
+    if (Array.isArray(backupData.classReviews)) {
+      setClassReviews(backupData.classReviews);
+      saveToStorage("unihub_class_reviews", backupData.classReviews);
+    }
+    if (Array.isArray(backupData.facultyReviews)) {
+      setFacultyReviews(backupData.facultyReviews);
+      saveToStorage("unihub_faculty_reviews", backupData.facultyReviews);
+    }
+    if (backupData.period) {
+      setPeriod(backupData.period);
+      saveToStorage("unihub_period", backupData.period);
+    }
+  };
+
   const saveGroupSettings = (
     classId: string, 
     assignments: { [studentId: string]: string }, 
@@ -3176,7 +3260,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       resolveGradeAppeal,
       addGradeAuditLog,
       updateGradingRules,
-      aggregateSubjectGradesToSemesterGpa
+      aggregateSubjectGradesToSemesterGpa,
+      restoreAllDataBackup
     }}>
       {children}
     </UniHubContext.Provider>

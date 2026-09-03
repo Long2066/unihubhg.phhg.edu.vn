@@ -31,8 +31,10 @@ import {
   Calendar,
   X,
   Check,
-  Copy
+  Copy,
+  Database
 } from "lucide-react";
+import { DataBackupRestoreModal } from "./DataBackupRestoreModal";
 
 export const formatStudentId = (id: any) => {
   const str = String(id || "").trim();
@@ -123,6 +125,7 @@ export const TrainingPortal: React.FC = () => {
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [newClassName, setNewClassName] = useState("");
   const [showAddClassModal, setShowAddClassModal] = useState(false);
+  const [showBackupModal, setShowBackupModal] = useState(false);
 
   // Grade Management Mode & Features State
   const [importMode, setImportMode] = useState<"EXCEL_DIRECT" | "AUTO_AGGREGATE">("EXCEL_DIRECT");
@@ -2494,13 +2497,23 @@ export const TrainingPortal: React.FC = () => {
           </p>
         </div>
 
-        <button 
-          onClick={toggleLearningDataLock}
-          className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg flex items-center gap-2 shadow-sm transition-all hover:cursor-pointer shrink-0"
-        >
-          <Lock size={14} />
-          <span>Khóa Sổ Toàn Phân Hiệu</span>
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+          <button 
+            onClick={() => setShowBackupModal(true)}
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg flex items-center gap-2 shadow-sm transition-all hover:cursor-pointer shrink-0"
+          >
+            <Database size={14} />
+            <span>Sao lưu & Khôi phục CSDL</span>
+          </button>
+
+          <button 
+            onClick={toggleLearningDataLock}
+            className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg flex items-center gap-2 shadow-sm transition-all hover:cursor-pointer shrink-0"
+          >
+            <Lock size={14} />
+            <span>Khóa Sổ Toàn Phân Hiệu</span>
+          </button>
+        </div>
       </div>
 
       <div className="w-full space-y-4">
@@ -4866,6 +4879,12 @@ export const TrainingPortal: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* MODAL: DATA BACKUP & RESTORE SHIELD */}
+      <DataBackupRestoreModal 
+        isOpen={showBackupModal} 
+        onClose={() => setShowBackupModal(false)} 
+      />
 
     </div>
   );

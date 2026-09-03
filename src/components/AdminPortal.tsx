@@ -24,8 +24,10 @@ import {
   Check,
   AlertTriangle,
   Plus,
-  Copy
+  Copy,
+  Database
 } from "lucide-react";
+import { DataBackupRestoreModal } from "./DataBackupRestoreModal";
 
 export const AdminPortal: React.FC = () => {
   const { 
@@ -89,6 +91,7 @@ export const AdminPortal: React.FC = () => {
   const [activeAccountTab, setActiveAccountTab] = useState<"CLUBS" | "CLASS_ACCOUNTS" | "UNIT_ACCOUNTS" | "TEACHER_ACCOUNTS" | "ALL_ACCOUNTS">("CLUBS");
   const [showClubModal, setShowClubModal] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
+  const [showBackupModal, setShowBackupModal] = useState(false);
 
   // States & actions for General Account Management
   const [selectedAccId, setSelectedAccId] = useState<string | null>(null);
@@ -1000,13 +1003,23 @@ export const AdminPortal: React.FC = () => {
           </p>
         </div>
 
-        <button 
-          onClick={handleResetData}
-          className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 hover:cursor-pointer text-white text-xs font-bold rounded-lg flex items-center gap-2 transition-all shrink-0 shadow-lg shadow-rose-900/15"
-        >
-          <RotateCcw size={14} />
-          <span>Reset Cơ sở dữ liệu gốc</span>
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+          <button 
+            onClick={() => setShowBackupModal(true)}
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 hover:cursor-pointer text-white text-xs font-bold rounded-lg flex items-center gap-2 transition-all shrink-0 shadow-lg shadow-indigo-950/20"
+          >
+            <Database size={14} />
+            <span>Sao lưu & Khôi phục CSDL</span>
+          </button>
+
+          <button 
+            onClick={handleResetData}
+            className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 hover:cursor-pointer text-white text-xs font-bold rounded-lg flex items-center gap-2 transition-all shrink-0 shadow-lg shadow-rose-900/15"
+          >
+            <RotateCcw size={14} />
+            <span>Reset Cơ sở dữ liệu gốc</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -2482,6 +2495,12 @@ export const AdminPortal: React.FC = () => {
           </div>
         );
       })()}
+
+      {/* MODAL: DATA BACKUP & RESTORE SHIELD */}
+      <DataBackupRestoreModal 
+        isOpen={showBackupModal} 
+        onClose={() => setShowBackupModal(false)} 
+      />
 
     </div>
   );
