@@ -65,7 +65,7 @@ export const TnuLogo: React.FC<TnuLogoProps> = ({ className = "w-8 h-8", size = 
       {/* Top Text along the arc */}
       <text fill="#FFFFFF" fontSize="10" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif" letterSpacing="0.4px">
         <textPath href="#topTextPath" startOffset="50%" textAnchor="middle">
-          PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI TỈNH HÀ GIANG
+          PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI HÀ GIANG
         </textPath>
       </text>
 

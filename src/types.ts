@@ -45,7 +45,6 @@ export interface UserAccount {
   role: UserRole;
   email: string;
   targetId?: string; // Links to Student ID, Organization ID, Class ID, or Faculty ID if applicable
-  password?: string;
   isGroupLeader?: boolean;
   groupInCharge?: string;
   monitorTitle?: string;
@@ -306,6 +305,7 @@ export interface ExtracurricularActivity {
   registrationOpen: boolean;
   status: "UPCOMING" | "ONGOING" | "COMPLETED"; // Completed means attendance list has been verified
   imageUrl?: string;
+  expiryDate?: string; // Customizable display expiry date
   maxParticipants?: number;
 }
 
@@ -560,7 +560,6 @@ export interface CourseClassAssignment {
   credits: number;        // e.g. 4
   teacherId: string;      // Email hoặc Mã GV được phân công (e.g. "gv_nguyenvana")
   teacherName: string;    // Họ tên Giảng viên
-  teacherPassword?: string; // Mật khẩu do Phòng Đào tạo cấp cho GV bộ môn
   status: "PENDING" | "DRAFT" | "SUBMITTED" | "LOCKED" | "UNLOCKED";
   updatedAt?: string;
 }

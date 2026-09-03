@@ -31,7 +31,6 @@ export interface UserAccount {
   role: UserRole;
   email: string;
   targetId?: string; // Links to Student ID, Organization ID, Class ID, or Faculty ID if applicable
-  password?: string;
   isGroupLeader?: boolean;
   groupInCharge?: string;
   monitorTitle?: string;
@@ -48,7 +47,6 @@ export interface CourseClassAssignment {
   credits: number;
   teacherId: string;
   teacherName: string;
-  teacherPassword?: string;
   status: "PENDING" | "DRAFT" | "SUBMITTED" | "LOCKED" | "UNLOCKED";
   submittedAt?: string;
   unlockedAt?: string;

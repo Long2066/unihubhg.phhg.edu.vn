@@ -28,8 +28,247 @@ import {
   Megaphone,
   Printer,
   QrCode,
-  AlertTriangle
+  AlertTriangle,
+  Download
 } from "lucide-react";
+
+interface PdfMakeInstance {
+  vfs?: Record<string, string>;
+  fonts?: Record<string, Record<string, string>>;
+  createPdf: (docDefinition: any) => {
+    download: (fileName?: string) => void;
+    open: () => void;
+    print: () => void;
+    getBase64: (cb: (data: string) => void) => void;
+  };
+}
+
+const configurePdfMakeForStudent = async () => {
+  const pdfMakeModule = await import("pdfmake/build/pdfmake");
+  const vfsFontsModule = await import("pdfmake/build/vfs_fonts");
+  const pdfMake = ((pdfMakeModule as any).default || pdfMakeModule) as PdfMakeInstance;
+  const vfsSource = (vfsFontsModule as any).default || vfsFontsModule;
+  pdfMake.vfs = vfsSource.pdfMake?.vfs || vfsSource.vfs || pdfMake.vfs;
+  pdfMake.fonts = {
+    Roboto: {
+      normal: "Roboto-Regular.ttf",
+      bold: "Roboto-Medium.ttf",
+      italics: "Roboto-Italic.ttf",
+      bolditalics: "Roboto-MediumItalic.ttf"
+    }
+  };
+  return pdfMake;
+};
+
+const sanitizePdfFileName = (str: string) => str.replace(/[^a-zA-Z0-9_-]/g, "_");
+
+const downloadStudentTranscriptPdf = async (
+  student: Student | null,
+  currentUser: any,
+  subjectGradeSheets: any[],
+  gpa10: string | number,
+  gpa4: string | number,
+  creditsCount: number,
+  academicGrade: string
+) => {
+  const pdfMake = await configurePdfMakeForStudent();
+  const studentId = student?.id || currentUser?.username || "DTG245140202053";
+  const studentName = student?.name || currentUser?.name || "Ma Văn Long";
+  const classId = student?.classId || "K2-GDTH A";
+  const facultyName = student?.facultyId === "K-CNTT" ? "Công nghệ Thông tin" : "Giáo dục Tiểu học";
+  const dob = student?.dob || "2006-05-14";
+  const gender = student?.gender || "Nam";
+  const now = new Date();
+
+  // Prepare table rows
+  let gradeRows: any[] = [];
+  if (subjectGradeSheets && subjectGradeSheets.length > 0) {
+    gradeRows = subjectGradeSheets.map((sheet, idx) => {
+      const match = sheet.grades?.find((g: any) => g.studentId === studentId);
+      return [
+        { text: String(idx + 1), alignment: "center", fontSize: 9 },
+        { text: sheet.subjectCode || "", alignment: "center", bold: true, fontSize: 9 },
+        { text: sheet.subjectName || "", bold: true, fontSize: 9 },
+        { text: String(sheet.credits || 0), alignment: "center", fontSize: 9 },
+        { text: match?.tb10 !== undefined && match?.tb10 !== null ? String(match.tb10) : "-", alignment: "center", bold: true, fontSize: 9 },
+        { text: match?.tb4 !== undefined && match?.tb4 !== null ? String(match.tb4) : "-", alignment: "center", bold: true, fontSize: 9 },
+        { text: match?.diemChu || "-", alignment: "center", bold: true, color: "#1d4ed8", fontSize: 9 },
+        { text: match?.xepLoai || "Đạt", alignment: "center", bold: true, fontSize: 9 }
+      ];
+    });
+  } else {
+    gradeRows = [
+      [
+        { text: "1", alignment: "center", fontSize: 9 },
+        { text: "VPS7251", alignment: "center", bold: true, fontSize: 9 },
+        { text: "Cơ sở Tự nhiên - xã hội", bold: true, fontSize: 9 },
+        { text: "4", alignment: "center", fontSize: 9 },
+        { text: "8.7", alignment: "center", bold: true, fontSize: 9 },
+        { text: "3.8", alignment: "center", bold: true, fontSize: 9 },
+        { text: "A", alignment: "center", bold: true, color: "#1d4ed8", fontSize: 9 },
+        { text: "Giỏi", alignment: "center", bold: true, fontSize: 9 }
+      ],
+      [
+        { text: "2", alignment: "center", fontSize: 9 },
+        { text: "HCP7121", alignment: "center", bold: true, fontSize: 9 },
+        { text: "Lịch sử Đảng Cộng sản VN", bold: true, fontSize: 9 },
+        { text: "2", alignment: "center", fontSize: 9 },
+        { text: "9.2", alignment: "center", bold: true, fontSize: 9 },
+        { text: "4.0", alignment: "center", bold: true, fontSize: 9 },
+        { text: "A+", alignment: "center", bold: true, color: "#1d4ed8", fontSize: 9 },
+        { text: "Xuất sắc", alignment: "center", bold: true, fontSize: 9 }
+      ]
+    ];
+  }
+
+  const docDefinition: any = {
+    pageSize: "A4",
+    pageOrientation: "portrait",
+    pageMargins: [35, 30, 35, 35],
+    defaultStyle: {
+      font: "Roboto",
+      fontSize: 9,
+      color: "#0f172a",
+      lineHeight: 1.15
+    },
+    content: [
+      // Letterhead
+      { text: "ĐẠI HỌC THÁI NGUYÊN", fontSize: 10, bold: true, alignment: "center", color: "#475569" },
+      { text: "PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI HÀ GIANG", fontSize: 12, bold: true, alignment: "center", color: "#1e3a8a", margin: [0, 2, 0, 0] },
+      { text: "PHÒNG ĐÀO TẠO & QUẢN LÝ SINH VIÊN", fontSize: 9, bold: true, alignment: "center", color: "#64748b", margin: [0, 1, 0, 8] },
+      
+      {
+        canvas: [
+          {
+            type: "line",
+            x1: 150,
+            y1: 0,
+            x2: 375,
+            y2: 0,
+            lineWidth: 1,
+            lineColor: "#cbd5e1"
+          }
+        ],
+        margin: [0, 0, 0, 10]
+      },
+
+      { text: "PHIẾU KẾT QUẢ HỌC TẬP HỌC KỲ", fontSize: 14, bold: true, alignment: "center", color: "#0f172a", margin: [0, 2, 0, 2] },
+      { text: "Học kỳ II - Năm học 2025 - 2026", italics: true, fontSize: 9, alignment: "center", color: "#64748b", margin: [0, 0, 0, 14] },
+
+      // Student info grid
+      {
+        table: {
+          widths: ["50%", "50%"],
+          body: [
+            [
+              { text: [{ text: "Họ và tên: " }, { text: studentName.toUpperCase(), bold: true }], border: [false, false, false, false], margin: [0, 2, 0, 2] },
+              { text: [{ text: "Mã sinh viên: " }, { text: studentId, bold: true }], border: [false, false, false, false], margin: [0, 2, 0, 2] }
+            ],
+            [
+              { text: [{ text: "Ngày sinh: " }, { text: dob, bold: true }], border: [false, false, false, false], margin: [0, 2, 0, 2] },
+              { text: [{ text: "Giới tính: " }, { text: gender, bold: true }], border: [false, false, false, false], margin: [0, 2, 0, 2] }
+            ],
+            [
+              { text: [{ text: "Lớp hành chính: " }, { text: classId, bold: true }], border: [false, false, false, false], margin: [0, 2, 0, 2] },
+              { text: [{ text: "Ngành đào tạo: " }, { text: facultyName, bold: true }], border: [false, false, false, false], margin: [0, 2, 0, 2] }
+            ]
+          ]
+        },
+        layout: "noBorders",
+        margin: [0, 0, 0, 12]
+      },
+
+      // Subject table
+      {
+        table: {
+          headerRows: 1,
+          widths: [24, 55, "*", 36, 48, 44, 44, 55],
+          body: [
+            [
+              { text: "STT", bold: true, alignment: "center", fillColor: "#f1f5f9", fontSize: 8.5 },
+              { text: "MÃ HP", bold: true, alignment: "center", fillColor: "#f1f5f9", fontSize: 8.5 },
+              { text: "TÊN HỌC PHẦN", bold: true, fillColor: "#f1f5f9", fontSize: 8.5 },
+              { text: "SỐ TC", bold: true, alignment: "center", fillColor: "#f1f5f9", fontSize: 8.5 },
+              { text: "TB (10)", bold: true, alignment: "center", fillColor: "#f1f5f9", fontSize: 8.5 },
+              { text: "THANG 4", bold: true, alignment: "center", fillColor: "#f1f5f9", fontSize: 8.5 },
+              { text: "ĐIỂM CHỮ", bold: true, alignment: "center", fillColor: "#f1f5f9", fontSize: 8.5 },
+              { text: "XẾP LOẠI", bold: true, alignment: "center", fillColor: "#f1f5f9", fontSize: 8.5 }
+            ],
+            ...gradeRows
+          ]
+        },
+        layout: {
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0.5,
+          hLineColor: () => "#cbd5e1",
+          vLineColor: () => "#cbd5e1",
+          paddingLeft: () => 4,
+          paddingRight: () => 4,
+          paddingTop: () => 5,
+          paddingBottom: () => 5
+        },
+        margin: [0, 0, 0, 12]
+      },
+
+      // Summary Box
+      {
+        table: {
+          widths: ["50%", "50%"],
+          body: [
+            [
+              { text: [{ text: "Điểm trung bình học kỳ (Thang 10): " }, { text: String(gpa10), bold: true }], border: [false, false, false, false] },
+              { text: [{ text: "Điểm trung bình học kỳ (Thang 4): " }, { text: String(gpa4), bold: true, color: "#1d4ed8" }], border: [false, false, false, false] }
+            ],
+            [
+              { text: [{ text: "Số tín chỉ đạt trong kỳ: " }, { text: `${creditsCount} TC`, bold: true }], border: [false, false, false, false], margin: [0, 4, 0, 0] },
+              { text: [{ text: "Xếp loại học lực: " }, { text: academicGrade, bold: true, color: "#047857" }], border: [false, false, false, false], margin: [0, 4, 0, 0] }
+            ]
+          ]
+        },
+        fillColor: "#f8fafc",
+        layout: {
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0.5,
+          hLineColor: () => "#e2e8f0",
+          vLineColor: () => "#e2e8f0",
+          paddingLeft: () => 8,
+          paddingRight: () => 8,
+          paddingTop: () => 6,
+          paddingBottom: () => 6
+        },
+        margin: [0, 0, 0, 16]
+      },
+
+      // Verification & Signatures
+      {
+        columns: [
+          {
+            width: "50%",
+            stack: [
+              { text: `Mã xác thực: UNIHUB-PHHG-${studentId}`, fontSize: 7.5, color: "#64748b" },
+              { text: "Trích xuất tự động từ Hệ thống Quản lý Điểm UniHub HG", fontSize: 7.5, color: "#94a3b8", margin: [0, 2, 0, 0] },
+              { text: `Thời gian in: ${now.toLocaleDateString("vi-VN")} ${now.toLocaleTimeString("vi-VN")}`, fontSize: 7.5, color: "#94a3b8", margin: [0, 2, 0, 0] }
+            ]
+          },
+          {
+            width: "50%",
+            stack: [
+              { text: `Hà Giang, ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`, italic: true, fontSize: 8.5, alignment: "center" },
+              { text: "TL. GIÁM ĐỐC", bold: true, fontSize: 9, alignment: "center", margin: [0, 2, 0, 0] },
+              { text: "TRƯỞNG PHÒNG ĐÀO TẠO", bold: true, fontSize: 8.5, color: "#475569", alignment: "center" },
+              { text: "", margin: [0, 25, 0, 0] },
+              { text: "Phòng Đào tạo UniHub HG", bold: true, fontSize: 9, color: "#1e3a8a", alignment: "center", decoration: "underline" }
+            ]
+          }
+        ],
+        margin: [0, 8, 0, 0]
+      }
+    ]
+  };
+
+  const fileName = `Phieu_ket_qua_hoc_tap_${sanitizePdfFileName(studentId)}.pdf`;
+  pdfMake.createPdf(docDefinition).download(fileName);
+};
 
 // Predefined historical semesters for student DTG245140202053
 const SEMESTER_HISTORY = [
@@ -143,6 +382,7 @@ export const StudentPortal: React.FC = () => {
   const [appealReason, setAppealReason] = useState<string>("");
   const [appealSuccessMsg, setAppealSuccessMsg] = useState<string>("");
   const [showTranscriptModal, setShowTranscriptModal] = useState<boolean>(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
 
   const activeTab = (activePortletTab as "TRANG_CHU" | "DIEM" | "HOATDONG" | "CLB" | "MINHCHUNG" | "THOI_KHOA_BIEU") || "TRANG_CHU";
   const setActiveTab = (tab: "TRANG_CHU" | "DIEM" | "HOATDONG" | "CLB" | "MINHCHUNG" | "THOI_KHOA_BIEU") => {
@@ -243,28 +483,12 @@ export const StudentPortal: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [currentTicker, setCurrentTicker] = useState(0);
 
-  // Automated scroll for news ticker & carousel
-  useEffect(() => {
-    const slideTimer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % 3); // 3 featured slides
-    }, 7000);
-    
-    const tickerTimer = setInterval(() => {
-      setCurrentTicker((prev) => (prev + 1) % 5); // 5 ticker items
-    }, 5000);
-    
-    return () => {
-      clearInterval(slideTimer);
-      clearInterval(tickerTimer);
-    };
-  }, []);
-
   // Sync profile editing states
   useEffect(() => {
     if (currentUser) {
       setEditName(currentUser.name);
       setEditAvatar(sObj?.avatar || "");
-      setEditPassword(currentUser.password || "password123");
+      setEditPassword("");
       
       if (sObj) {
         const fields: Partial<any> = {};
@@ -566,6 +790,22 @@ export const StudentPortal: React.FC = () => {
       };
     });
   }, [activities, organizations]);
+
+  // Automated scroll for news ticker & carousel (placed after hooks declaration to avoid TS2448)
+  useEffect(() => {
+    const slideTimer = setInterval(() => {
+      setCurrentSlide((prev) => featuredEventSlides.length > 0 ? (prev + 1) % featuredEventSlides.length : 0);
+    }, 7000);
+    
+    const tickerTimer = setInterval(() => {
+      setCurrentTicker((prev) => newsTickerItems.length > 0 ? (prev + 1) % newsTickerItems.length : 0);
+    }, 5000);
+    
+    return () => {
+      clearInterval(slideTimer);
+      clearInterval(tickerTimer);
+    };
+  }, [featuredEventSlides.length, newsTickerItems.length]);
 
   const unregisteredActivities = useMemo(() => {
     if (!activities) return [];
@@ -931,6 +1171,7 @@ export const StudentPortal: React.FC = () => {
     const studentMemberships = members.filter(m => m.studentId === studentId && m.status === "ACTIVE");
     const joinedClubIds = studentMemberships.map(m => m.orgId);
     const todayStr = new Date().toISOString().split("T")[0];
+    const normalizedAnnouncementKeyword = announcementKeyword.trim().toLowerCase();
 
     // Get active / upcoming / completed club and youth union activities
     const activeClubActs = activities.filter(act => {
@@ -945,6 +1186,12 @@ export const StudentPortal: React.FC = () => {
       
       const expiry = (act as any).expiryDate;
       if (expiry && todayStr > expiry) return false;
+
+      if (normalizedAnnouncementKeyword) {
+        const title = act.title.toLowerCase();
+        const content = (act.description || "").toLowerCase();
+        if (!title.includes(normalizedAnnouncementKeyword) && !content.includes(normalizedAnnouncementKeyword)) return false;
+      }
       
       return true;
     });
@@ -961,6 +1208,12 @@ export const StudentPortal: React.FC = () => {
       }
       
       if (ann.expiryDate && todayStr > ann.expiryDate) return false;
+
+      if (normalizedAnnouncementKeyword) {
+        const title = ann.title.toLowerCase();
+        const content = (ann.content || "").toLowerCase();
+        if (!title.includes(normalizedAnnouncementKeyword) && !content.includes(normalizedAnnouncementKeyword)) return false;
+      }
       
       return true;
     });
@@ -3241,8 +3494,8 @@ export const StudentPortal: React.FC = () => {
 
       {/* Printable Transcript Modal (A4 Standard) */}
       {showTranscriptModal && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 overflow-y-auto p-4 flex items-center justify-center">
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-8 shadow-2xl space-y-6 border border-slate-200 my-8">
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 overflow-y-auto p-4 flex items-center justify-center print:p-0 print:bg-white print:static print:z-auto print:inset-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-8 shadow-2xl space-y-6 border border-slate-200 my-8 print:shadow-none print:border-none print:p-0 print:m-0 print:w-full print:max-w-none print:rounded-none">
             <div className="flex justify-between items-center border-b border-slate-200 pb-4 print:hidden">
               <div className="flex items-center gap-2">
                 <Printer className="text-blue-600" size={20} />
@@ -3250,11 +3503,39 @@ export const StudentPortal: React.FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={async () => {
+                    setIsGeneratingPdf(true);
+                    try {
+                      await downloadStudentTranscriptPdf(
+                        sObj || null,
+                        currentUser,
+                        subjectGradeSheets,
+                        sObj?.gpa10 ? sObj.gpa10.toFixed(2) : "8.85",
+                        sObj?.gpa ? sObj.gpa.toFixed(2) : "3.85",
+                        18,
+                        sObj?.academicGrade || "Giỏi"
+                      );
+                    } catch (err) {
+                      console.error("PDF generation failed:", err);
+                      alert("Không thể tạo file PDF tự động. Vui lòng thử lại hoặc sử dụng nút In bản A4.");
+                    } finally {
+                      setIsGeneratingPdf(false);
+                    }
+                  }}
+                  disabled={isGeneratingPdf}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 transition-all"
+                  title="Tải trực tiếp file PDF về máy (Khổ dọc A4 chuẩn)"
+                >
+                  <Download size={14} />
+                  <span>{isGeneratingPdf ? "Đang tạo PDF..." : "Tải file PDF (.pdf)"}</span>
+                </button>
+                <button
                   onClick={() => window.print()}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                  title="Mở giao diện in bản A4 hoặc Lưu dạng PDF của trình duyệt"
                 >
                   <Printer size={14} />
-                  <span>In bản A4 / Lưu PDF</span>
+                  <span>In bản A4</span>
                 </button>
                 <button
                   onClick={() => setShowTranscriptModal(false)}
@@ -3266,13 +3547,13 @@ export const StudentPortal: React.FC = () => {
             </div>
 
             {/* Printable Document Sheet */}
-            <div className="p-6 bg-white border border-slate-300 rounded-xl space-y-6 font-serif text-slate-900 shadow-xs">
+            <div id="printable-student-transcript" className="printable-document-container p-6 bg-white border border-slate-300 rounded-xl space-y-6 font-serif text-slate-900 shadow-xs print:p-0 print:border-none print:shadow-none print:rounded-none">
               {/* Header */}
               <div className="text-center space-y-1 border-b border-slate-200 pb-4">
                 <div className="text-xs font-bold uppercase tracking-wide text-slate-600">ĐẠI HỌC THÁI NGUYÊN</div>
-                <div className="text-sm font-black uppercase text-blue-900">PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI TỈNH HÀ GIANG</div>
+                <div className="text-sm font-bold uppercase text-blue-900">PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI HÀ GIANG</div>
                 <div className="text-xs font-bold text-slate-500">PHÒNG ĐÀO TẠO & QUẢN LÝ SINH VIÊN</div>
-                <div className="pt-2 text-base font-black text-slate-900 tracking-wider">PHIẾU KẾT QUẢ HỌC TẬP HỌC KỲ</div>
+                <div className="pt-2 text-base font-bold text-slate-900">PHIẾU KẾT QUẢ HỌC TẬP HỌC KỲ</div>
                 <div className="text-xs font-sans text-slate-600 italic">Học kỳ II - Năm học 2025 - 2026</div>
               </div>
 

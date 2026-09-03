@@ -756,6 +756,7 @@ const AppContent: React.FC = () => {
     } else {
       switch (currentUser.role) {
         case UserRole.STUDENT:
+        case UserRole.GROUP_LEADER: // A9 FIX: Tổ trưởng dùng portal sinh viên
           portal = <StudentPortal />;
           break;
         case UserRole.ORGANIZER:
@@ -1022,25 +1023,25 @@ const AppContent: React.FC = () => {
   const sidebarTabs = getSidebarTabs();
 
   return (
-    <div className="h-screen h-dvh w-screen bg-white flex flex-col selection:bg-indigo-500 selection:text-white font-sans overflow-hidden" id="unihub-app-layout">
+    <div className="h-screen h-dvh w-full max-w-full bg-white flex flex-col selection:bg-indigo-500 selection:text-white font-sans overflow-hidden" id="unihub-app-layout">
       
       {/* 1. TOP HORIZONTAL FULL-WIDTH HEADER (Xuyên thẳng sang trái toàn màn hình) */}
-      <header className="bg-white border-b border-slate-200/80 sticky top-0 z-40 backdrop-blur-md bg-white/90 shadow-2xs shrink-0 h-16 flex items-center justify-between px-3 sm:px-5 lg:px-6 w-full">
+      <header className="bg-white border-b border-slate-200/80 sticky top-0 z-40 backdrop-blur-md bg-white/90 shadow-2xs shrink-0 h-16 flex items-center justify-between px-2.5 sm:px-5 lg:px-6 w-full gap-1.5">
         
-        <div className="flex items-center gap-2.5 sm:gap-3 text-left min-w-0 flex-1 pr-2">
+        <div className="flex items-center gap-1.5 sm:gap-3 text-left min-w-0 flex-1 overflow-hidden pr-1">
           {/* Nút 3 vạch thu gọn / mở rộng menu (Hamburger Toggle Button) */}
           <button
             type="button"
             onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
-            className="p-2 hover:bg-slate-100 active:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-xl cursor-pointer transition-colors shrink-0 flex items-center justify-center mr-0.5"
+            className="p-1.5 sm:p-2 hover:bg-slate-100 active:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-xl cursor-pointer transition-colors shrink-0 flex items-center justify-center mr-0.5"
             title={isSidebarExpanded ? "Thu gọn menu" : "Mở rộng menu"}
             aria-label="Toggle Sidebar"
           >
-            <Menu size={20} />
+            <Menu size={18} />
           </button>
 
           {/* Institution Logo Badge (Dynamic from Admin Page) */}
-          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-full shadow-sm border border-slate-200/90 flex items-center justify-center overflow-hidden shrink-0 p-0.5">
+          <div className="w-7 h-7 min-[360px]:w-8 min-[360px]:h-8 sm:w-10 sm:h-10 bg-white rounded-full shadow-sm border border-slate-200/90 flex items-center justify-center overflow-hidden shrink-0 p-0.5">
             {themeConfig?.logoUrl ? (
               <img 
                 src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
@@ -1052,12 +1053,12 @@ const AppContent: React.FC = () => {
             )}
           </div>
 
-          {/* Typography Header Block (Identical to Landing Page) */}
-          <div className="flex flex-col justify-center min-w-0 flex-1">
-            <span className="text-[10px] sm:text-xs font-bold text-blue-950 uppercase font-sans leading-tight block truncate">
-              PHÂN HIỆU ĐHTN TẠI HÀ GIANG
+          {/* Typography Header Block (Tự động co giãn vừa khít, giãn dòng cho dấu tiếng Việt rõ nét) */}
+          <div className="flex flex-col justify-center min-w-0 flex-1 overflow-hidden py-0.5">
+            <span className="text-[6.5px] min-[340px]:text-[7px] min-[370px]:text-[7.8px] min-[400px]:text-[8.5px] sm:text-xs font-bold text-blue-950 uppercase font-sans leading-normal block whitespace-nowrap">
+              PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI HÀ GIANG
             </span>
-            <h1 className="text-xs sm:text-base font-black text-slate-900 leading-tight font-sans mt-0.5 block truncate">
+            <h1 className="text-[8px] min-[340px]:text-[8.8px] min-[370px]:text-[9.8px] min-[400px]:text-[10.5px] sm:text-base font-black text-slate-900 leading-snug font-sans mt-0.5 block whitespace-nowrap">
               {themeConfig?.loginTitle ? (
                 themeConfig.loginTitle
               ) : (

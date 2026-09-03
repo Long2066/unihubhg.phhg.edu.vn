@@ -137,8 +137,7 @@ export const TrainingPortal: React.FC = () => {
     subjectName: "Cơ sở Tự nhiên - xã hội",
     credits: 4,
     teacherId: "gv_nguyenvana@phhg.edu.vn",
-    teacherName: "ThS. Nguyễn Văn A",
-    teacherPassword: "password123"
+    teacherName: "ThS. Nguyễn Văn A"
   });
 
   // Grading Rules Modal
@@ -160,8 +159,7 @@ export const TrainingPortal: React.FC = () => {
     subjectName: "",
     credits: 3,
     teacherId: "",
-    teacherName: "",
-    teacherPassword: "password123"
+    teacherName: ""
   });
 
   // Handler: Export Sample Excel for Course Assignments (lấy đúng file mẫu Excel làm template)
@@ -242,7 +240,6 @@ export const TrainingPortal: React.FC = () => {
           (u.name && assignment.teacherName && u.name.trim().toLowerCase() === assignment.teacherName.trim().toLowerCase())
         ) : undefined;
 
-        const teacherPassword = assignment?.teacherPassword || teacherUser?.password || (assignment ? "Abc@123" : "");
         const rowValues = assignment ? [
           rowIndex + 1,
           assignment.semesterId || selectedSemesterId || "HOCKY_2_2025_2026",
@@ -252,7 +249,7 @@ export const TrainingPortal: React.FC = () => {
           assignment.className || assignment.classId || "",
           assignment.teacherId || "",
           assignment.teacherName || "",
-          teacherPassword,
+          "Firebase Auth",
           ""
         ] : ["", "", "", "", "", "", "", "", "", ""];
 
@@ -331,8 +328,7 @@ export const TrainingPortal: React.FC = () => {
       subjectName: assignment.subjectName,
       credits: assignment.credits,
       teacherId: assignment.teacherId,
-      teacherName: assignment.teacherName,
-      teacherPassword: existingTeacher?.password || "password123"
+      teacherName: assignment.teacherName
     });
     setShowEditAssignmentModal(true);
   };
@@ -350,8 +346,7 @@ export const TrainingPortal: React.FC = () => {
           subjectName: editAssignForm.subjectName.trim(),
           credits: Number(editAssignForm.credits) || 3,
           teacherId: editAssignForm.teacherId.trim(),
-          teacherName: editAssignForm.teacherName.trim(),
-          teacherPassword: editAssignForm.teacherPassword.trim()
+          teacherName: editAssignForm.teacherName.trim()
         };
       }
       return a;
@@ -380,12 +375,12 @@ export const TrainingPortal: React.FC = () => {
       subjectCode: editAssignForm.subjectCode,
       classId: editAssignForm.classId,
       oldValue: "Phân công cũ",
-      newValue: `Đổi sang GV: ${editAssignForm.teacherName} (${editAssignForm.teacherId}) - MK: ${editAssignForm.teacherPassword}`
+      newValue: `Đổi sang GV: ${editAssignForm.teacherName} (${editAssignForm.teacherId})`
     });
 
     setShowEditAssignmentModal(false);
     setEditingAssignmentId("");
-    alert(`Đã điều chỉnh phân công giảng dạy và cập nhật mật khẩu cho Giảng viên thành công!`);
+    alert(`Đã điều chỉnh phân công giảng dạy cho Giảng viên thành công!`);
   };
 
   // Handlers for Assignment Deletion (Xóa từng giảng viên & Xóa hàng loạt)
@@ -502,7 +497,7 @@ export const TrainingPortal: React.FC = () => {
           }
         }
 
-        const newAssignments: (CourseClassAssignment & { teacherPassword?: string })[] = [];
+        const newAssignments: CourseClassAssignment[] = [];
         const startRow = headerIdx >= 0 ? headerIdx + 1 : 1;
 
         for (let i = startRow; i < jsonData.length; i++) {
@@ -533,7 +528,6 @@ export const TrainingPortal: React.FC = () => {
           const credits = parseInt(String(row[colMap.credits] || "2"), 10) || 2;
           const teacherId = String(row[colMap.teacherId] || "").trim();
           const teacherName = String(row[colMap.teacherName] || "").trim();
-          const teacherPassword = String(row[colMap.teacherPassword] || "Abc@123").trim();
 
           newAssignments.push({
             id: `HP_${semId}_${classId}_${subjectCode}`,
@@ -544,14 +538,13 @@ export const TrainingPortal: React.FC = () => {
             credits,
             teacherId: teacherId || "teacher",
             teacherName: teacherName || "Giảng viên",
-            teacherPassword: teacherPassword || "Abc@123",
             status: "PENDING"
           });
         }
 
         if (newAssignments.length > 0) {
           importTeacherAssignmentsExcel(newAssignments);
-          alert(`Đã nạp thành công ${newAssignments.length} phân công giảng dạy và cấp mật khẩu Giảng viên từ file Excel!`);
+          alert(`Đã nạp thành công ${newAssignments.length} phân công giảng dạy từ file Excel!`);
         } else {
           alert("Không tìm thấy dữ liệu phân công hợp lệ trong file!");
         }
@@ -568,7 +561,7 @@ export const TrainingPortal: React.FC = () => {
     e.preventDefault();
     if (!assignForm.classId || !assignForm.subjectCode || !assignForm.subjectName) return;
 
-    const newAssignment: CourseClassAssignment & { teacherPassword?: string } = {
+    const newAssignment: CourseClassAssignment = {
       id: `HP_${selectedSemesterId}_${assignForm.classId}_${assignForm.subjectCode}`,
       semesterId: selectedSemesterId,
       classId: assignForm.classId,
@@ -577,7 +570,6 @@ export const TrainingPortal: React.FC = () => {
       credits: assignForm.credits,
       teacherId: assignForm.teacherId,
       teacherName: assignForm.teacherName,
-      teacherPassword: assignForm.teacherPassword,
       status: "PENDING"
     };
 
@@ -894,7 +886,6 @@ export const TrainingPortal: React.FC = () => {
         {
           id: "U_GDTH_M",
           username: "cblk2gdtha@hg.edu.vn",
-          password: "password123",
           email: "cblk2gdtha@hg.edu.vn",
           name: "Lớp trưởng K2 GDTH A",
           role: UserRole.CLASS_MONITOR,
@@ -916,7 +907,6 @@ export const TrainingPortal: React.FC = () => {
         {
           id: "U_GDTH3_M",
           username: "cblk3gdthb@hg.edu.vn",
-          password: "password123",
           email: "cblk3gdthb@hg.edu.vn",
           name: "Lớp trưởng K3 GDTH B",
           role: UserRole.CLASS_MONITOR,
@@ -935,7 +925,7 @@ export const TrainingPortal: React.FC = () => {
     setShowClassPreview(false);
     setImportedClassStudents([]);
     setImportedClassUsers([]);
-    alert("Nhập danh mục nhiều lớp & auto-provision tài khoản BCS lớp (cblk2gdtha@hg.edu.vn / password123) thành công!");
+    alert("Nhập danh mục nhiều lớp & auto-provision tài khoản BCS lớp thành công! Vui lòng liên hệ quản trị viên hoặc sử dụng tính năng đặt lại mật khẩu để cấp quyền đăng nhập.");
   };
 
   const handleExportClassStudentsExcel = async (targetClassId: string) => {
@@ -1148,7 +1138,6 @@ export const TrainingPortal: React.FC = () => {
           parsedUsers.push({
             id: `U_STUD_${id}`,
             username: id,
-            password: idCard || "password123",
             name: name,
             role: UserRole.STUDENT,
             targetId: id,
@@ -4058,15 +4047,10 @@ export const TrainingPortal: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Mật khẩu đăng nhập của Giảng viên (*)</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Mật khẩu tài khoản (Mặc định: password123)"
-                  value={assignForm.teacherPassword}
-                  onChange={(e) => setAssignForm({ ...assignForm, teacherPassword: e.target.value })}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 font-mono text-xs font-bold"
-                />
+                <label className="block font-bold text-slate-700 mb-1">Mật khẩu tài khoản</label>
+                <p className="text-xs text-slate-500 italic bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                  Xác thực Giảng viên được quản lý bảo mật qua Firebase Auth.
+                </p>
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
@@ -4176,15 +4160,10 @@ export const TrainingPortal: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Mật khẩu đăng nhập của Giảng viên (*)</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Mật khẩu tài khoản (Mặc định: password123)"
-                  value={editAssignForm.teacherPassword}
-                  onChange={(e) => setEditAssignForm({ ...editAssignForm, teacherPassword: e.target.value })}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-slate-800 font-mono text-xs font-bold"
-                />
+                <label className="block font-bold text-slate-700 mb-1">Mật khẩu tài khoản</label>
+                <p className="text-xs text-slate-500 italic bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                  Xác thực Giảng viên được quản lý bảo mật qua Firebase Auth.
+                </p>
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">

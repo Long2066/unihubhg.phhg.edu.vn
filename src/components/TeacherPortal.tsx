@@ -516,7 +516,7 @@ const downloadTeacherGradeReportPdf = async (
     }),
     content: [
       { text: "ĐẠI HỌC THÁI NGUYÊN", style: "schoolLine" },
-      { text: "PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI TỈNH HÀ GIANG", style: "branchLine" },
+      { text: "PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI HÀ GIANG", style: "branchLine" },
       { text: "KHOA / BỘ MÔN CHUYÊN MÔN", style: "facultyLine" },
       { text: "BÁO CÁO PHỔ ĐIỂM & BẢNG TỔNG KẾT MÔN HỌC", style: "reportTitle" },
       { text: `Môn học: ${assignment.subjectName} (${assignment.subjectCode}) - Lớp: ${assignment.classId}`, style: "subtitle" },
@@ -2000,7 +2000,7 @@ export const TeacherPortal: React.FC = () => {
               {/* Letterhead Header */}
               <div className="text-center space-y-1 border-b border-slate-200 pb-4 font-serif">
                 <div className="text-xs font-bold uppercase tracking-wide text-slate-600">ĐẠI HỌC THÁI NGUYÊN</div>
-                <div className="text-sm font-black uppercase text-blue-900">PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI TỈNH HÀ GIANG</div>
+                <div className="text-sm font-black uppercase text-blue-900">PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI HÀ GIANG</div>
                 <div className="text-xs font-bold text-slate-500">KHOA / BỘ MÔN CHUYÊN MÔN</div>
                 <div className="pt-2 text-base font-black text-slate-900 tracking-wider">BÁO CÁO PHỔ ĐIỂM & BẢNG TỔNG KẾT MÔN HỌC</div>
                 <div className="text-xs font-sans text-slate-600 italic">Môn học: {activeAssignment.subjectName} ({activeAssignment.subjectCode}) - Lớp: {activeAssignment.classId}</div>

@@ -113,7 +113,7 @@ interface UniHubContextType {
   updateStudentProfile: (studentId: string, name: string, avatar: string, password?: string, additionalFields?: Partial<Student>) => void;
   
   // Organizer Actions
-  createActivity: (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName"> & { expiryDate?: string }) => string;
+  createActivity: (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName">) => Promise<string>;
   updateActivityStatus: (activityId: string, status: "UPCOMING" | "ONGOING" | "COMPLETED") => void;
   approveMemberRequest: (memberId: string) => void;
   rejectMemberRequest: (memberId: string) => void;
@@ -122,7 +122,7 @@ interface UniHubContextType {
   addBulkAttendance: (activityId: string, studentIds: string[]) => void;
   
   // New clb actions
-  createAnnouncement: (announcement: Omit<ClubAnnouncement, "id" | "orgName" | "createdAt">) => string;
+  createAnnouncement: (announcement: Omit<ClubAnnouncement, "id" | "orgName" | "createdAt">) => Promise<string>;
   deleteAnnouncement: (id: string) => void;
   addMemberManual: (member: Omit<OrganizationMember, "id" | "joinedDate" | "term" | "status">) => void;
   deleteMember: (memberId: string) => void;
@@ -222,6 +222,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (currentUser) {
       switch (currentUser.role) {
         case UserRole.STUDENT:
+        case UserRole.GROUP_LEADER:
           setActivePortletTab("TRANG_CHU");
           break;
         case UserRole.ORGANIZER:
@@ -452,12 +453,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const persistTeacherAssignmentsToFirestore = (assignments: (CourseClassAssignment & { teacherPassword?: string })[]) => {
     assignments.forEach(assign => {
       if (!assign?.id) return;
-      const cleanAssignment = {
-        ...assign,
-        teacherPassword: (assign.teacherPassword || "password123").trim(),
+      const { teacherPassword, ...cleanAssignment } = assign as any;
+      const payload = {
+        ...cleanAssignment,
         updatedAt: assign.updatedAt || new Date().toISOString()
       };
-      setDoc(doc(db, "teacherAssignments", cleanAssignment.id), cleanAssignment, { merge: true })
+      setDoc(doc(db, "teacherAssignments", assign.id), payload, { merge: true })
         .catch(e => console.warn("Lỗi lưu phân công giảng dạy Firestore:", e));
     });
   };
@@ -470,7 +471,6 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       assignments.forEach(assign => {
         if (!assign.teacherName) return;
         const teacherEmail = (assign.teacherId || assign.teacherName.toLowerCase().replace(/[^a-z0-9]/g, "") + "@phhg.edu.vn").trim();
-        const setPassword = (assign.teacherPassword || "password123").trim();
 
         // Check if account already exists
         const existingIdx = nextUsers.findIndex(u => 
@@ -483,16 +483,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const curr = nextUsers[existingIdx];
           let userChanged = false;
           const updatedUser = { ...curr };
+          delete (updatedUser as any).password;
 
           // Enforce UserRole.TEACHER for teacher accounts
-          if (curr.role !== UserRole.TEACHER) {
+          if (curr.role !== UserRole.TEACHER || (curr as any).password) {
             updatedUser.role = UserRole.TEACHER;
-            userChanged = true;
-          }
-
-          // If custom password provided, update existing teacher account password
-          if (assign.teacherPassword && assign.teacherPassword.trim() && curr.password !== setPassword) {
-            updatedUser.password = setPassword;
             userChanged = true;
           }
 
@@ -507,7 +502,6 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             name: assign.teacherName,
             role: UserRole.TEACHER,
             email: teacherEmail,
-            password: setPassword,
             targetId: assign.subjectCode
           };
           nextUsers.push(newAccount);
@@ -520,7 +514,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         try {
           nextUsers.forEach(u => {
             if (u.role === UserRole.TEACHER) {
-              setDoc(doc(db, "users", u.id), u, { merge: true }).catch(() => {});
+              const { password, ...cleanU } = u as any;
+              setDoc(doc(db, "users", u.id), cleanU, { merge: true }).catch(() => {});
             }
           });
         } catch {}
@@ -833,17 +828,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Keep only lightweight session/UI preferences in localStorage. Business data is
   // loaded from Firestore to avoid stale browser cache overriding the database.
   useEffect(() => {
-    const cachedCurrentUser = localStorage.getItem("unihub_current_user");
     const cachedCustomClasses = localStorage.getItem("unihub_custom_classes");
-
-    if (cachedCurrentUser) {
-      try {
-        const parsed = JSON.parse(cachedCurrentUser);
-        if (parsed && typeof parsed === "object") setCurrentUser(parsed);
-      } catch {
-        localStorage.removeItem("unihub_current_user");
-      }
-    }
     if (cachedCustomClasses) {
       try {
         const parsed = JSON.parse(cachedCustomClasses);
@@ -852,26 +837,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, []);
 
-  // Handle impersonation/masquerade from standalone admin page (Cổng 3001)
+  // Clean up any insecure impersonate query parameter from URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const impersonateUsername = params.get("impersonate");
-    if (impersonateUsername && users.length > 0) {
-      const found = users.find(u => 
-        (u.username && u.username.toLowerCase() === impersonateUsername.toLowerCase()) || 
-        (u.email && u.email.toLowerCase() === impersonateUsername.toLowerCase())
-      );
-      if (found) {
-        setCurrentUser(found);
-        localStorage.setItem("unihub_current_user", JSON.stringify(found));
-        
-        // Clean up the URL query parameter
-        const url = new URL(window.location.href);
-        url.searchParams.delete("impersonate");
-        window.history.replaceState({}, document.title, url.pathname + url.search);
-      }
+    if (params.get("impersonate")) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("impersonate");
+      window.history.replaceState({}, document.title, url.pathname + url.search);
     }
-  }, [users]);
+  }, []);
 
   const cacheCollection = <T,>(key: string, setter: React.Dispatch<React.SetStateAction<T[]>>, sorter?: (items: T[]) => T[]) => {
     return onSnapshot(
@@ -967,19 +941,35 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Listen to Firebase Auth state change to sync currentUser
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (authUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
-        const found = users.find(u => u.email && authUser.email && u.email.toLowerCase() === authUser.email.toLowerCase());
-        if (found) {
-          setCurrentUser(found);
-          localStorage.setItem("unihub_current_user", JSON.stringify(found));
+        let found = users.find(u => 
+          (u.email && authUser.email && u.email.toLowerCase() === authUser.email.toLowerCase()) || 
+          u.id === authUser.uid
+        );
+        if (!found && authUser.uid) {
+          try {
+            const userDocSnap = await getDoc(doc(db, "users", authUser.uid));
+            if (userDocSnap.exists()) {
+              found = userDocSnap.data() as UserAccount;
+            }
+          } catch {}
         }
-      } else {
-        const params = new URLSearchParams(window.location.search);
-        if (!params.get("impersonate")) {
+        if (found) {
+          const { password, ...safeUser } = found as any;
+          setCurrentUser(safeUser as UserAccount);
+          localStorage.setItem("unihub_current_user", JSON.stringify(safeUser));
+        } else {
+          // A6 FIX: Không tự tạo fallback user với role STUDENT
+          // User chưa được cấp phép → sign out
+          console.warn("Firebase Auth user không có profile trong hệ thống, đăng xuất:", authUser.email);
+          signOut(auth).catch(() => {});
           setCurrentUser(null);
           localStorage.removeItem("unihub_current_user");
         }
+      } else {
+        setCurrentUser(null);
+        localStorage.removeItem("unihub_current_user");
       }
     });
     return () => unsubscribe();
@@ -1135,11 +1125,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
 
-  // Helper to remove undefined properties before writing to Firestore
+  // Helper to remove undefined/null and secret properties before writing to Firestore
   const sanitizeForFirestore = <T extends Record<string, any>>(obj: T): T => {
     if (!obj || typeof obj !== "object") return obj;
     const clean: Record<string, any> = {};
     Object.keys(obj).forEach(key => {
+      // A1 FIX: Không bao giờ ghi password/plaintext secret vào Firestore
+      if (key === "password") return;
       if (obj[key] !== undefined && obj[key] !== null) {
         clean[key] = obj[key];
       }
@@ -1540,302 +1532,70 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [students, members, activities, attendance, evidence, classReviews, facultyReviews, period.id, criteria, dailyAttendance]);
 
   const login = async (emailInput: string, passwordInput?: string): Promise<boolean> => {
-    if (!passwordInput) return false;
+    if (!passwordInput || !passwordInput.trim()) return false;
 
     const trimmedInput = emailInput.trim();
     const trimmedPass = passwordInput.trim();
 
-    // --- Helper: register + sign-in Firebase Auth in background ---
-    const ensureFirebaseAuth = async (email: string, pass: string): Promise<string | null> => {
-      // Try sign-in first
-      try {
-        const cred = await signInWithEmailAndPassword(auth, email, pass);
-        return cred.user.uid;
-      } catch {}
-      // If sign-in fails, try creating then sign-in
-      try {
-        const tempApp = initializeApp(firebaseConfig, `TempApp_${Date.now()}`);
-        const tempAuth = getAuth(tempApp);
-        try {
-          const cred = await createUserWithEmailAndPassword(tempAuth, email, pass);
-          await deleteApp(tempApp);
-          // Now sign-in on main auth
-          await signInWithEmailAndPassword(auth, email, pass);
-          return cred.user.uid;
-        } catch (cErr: any) {
-          await deleteApp(tempApp);
-          if (cErr.code === "auth/email-already-in-use") {
-            console.warn("Firebase Auth account exists but password may differ for:", email);
-          }
-        }
-      } catch (err) {
-        console.warn("Firebase Auth sync skipped:", err);
-      }
-      return null;
-    };
-
-    // --- Helper: read user document from Firestore by UID ---
-    const fetchUserDocByUid = async (uid: string): Promise<UserAccount | null> => {
-      try {
-        const userDocSnap = await getDoc(doc(db, "users", uid));
-        if (userDocSnap.exists()) {
-          return userDocSnap.data() as UserAccount;
-        }
-      } catch (e) {
-        console.warn("Failed to read user doc by UID:", e);
-      }
-      return null;
-    };
-
-    // --- Helper: find user from in-memory list or fetch from Firestore ---
-    const findUserInList = (input: string, list: UserAccount[]): UserAccount | undefined => {
-      const cleanInput = input.trim().toLowerCase();
-      const prefix = cleanInput.split('@')[0];
-
-      // STAGE 1: EXACT MATCH (highest priority for real accounts created on Admin page)
-      const exactMatch = list.find(u => {
-        const uUsername = (u.username || "").trim().toLowerCase();
-        const uEmail = (u.email || "").trim().toLowerCase();
-        const uTarget = (u.targetId || "").trim().toLowerCase();
-        const uId = (u.id || "").trim().toLowerCase();
-        return uUsername === cleanInput || uEmail === cleanInput || uTarget === cleanInput || uId === cleanInput;
-      });
-      if (exactMatch) return exactMatch;
-
-      // STAGE 2: EMAIL DOMAIN VARIATION MATCH (e.g., @hgc.edu.vn vs @hg.edu.vn vs @phhg.edu.vn)
-      if (cleanInput.includes("@")) {
-        const domainMatch = list.find(u => {
-          const uEmail = (u.email || "").trim().toLowerCase();
-          const uUsername = (u.username || "").trim().toLowerCase();
-          const uEmailPrefix = uEmail.split("@")[0];
-          const uUserPrefix = uUsername.split("@")[0];
-          return (uEmailPrefix === prefix || uUserPrefix === prefix);
-        });
-        if (domainMatch) return domainMatch;
-      }
-
-      // STAGE 3: NON-EMAIL / PREFIX FALLBACK MATCH
-      if (prefix) {
-        const prefixMatch = list.find(u => {
-          const uUsername = (u.username || "").trim().toLowerCase();
-          const uEmail = (u.email || "").trim().toLowerCase();
-          const uTarget = (u.targetId || "").trim().toLowerCase();
-          const uId = (u.id || "").trim().toLowerCase();
-          return (
-            uUsername === prefix ||
-            uEmail.split("@")[0] === prefix ||
-            uUsername.split("@")[0] === prefix ||
-            uTarget === prefix ||
-            uId === prefix
-          );
-        });
-        if (prefixMatch) return prefixMatch;
-      }
-
-      return undefined;
-    };
-
-    const findStudentInList = (input: string, list: Student[]): Student | undefined => {
-      const cleanInput = input.trim().toLowerCase();
-      return list.find(s =>
-        (s.id && s.id.trim().toLowerCase() === cleanInput) ||
-        (s.email && s.email.trim().toLowerCase() === cleanInput) ||
-        (s.idCard && (s.idCard.trim() === input.trim() || s.idCard.replace(/\s+/g, '') === input.trim().replace(/\s+/g, '')))
-      );
-    };
-
-    // 1. Build effective users list & students list (fetch from Firestore if empty)
-    let effectiveUsers = users.length > 0 ? [...users] : [];
-    let effectiveStudents = students.length > 0 ? [...students] : [];
-
-    // Ensure all SEED_USERS are present in effectiveUsers as fallback
-    SEED_USERS.forEach(initU => {
-      if (!effectiveUsers.some(u => u.username === initU.username || u.email === initU.email || u.id === initU.id)) {
-        effectiveUsers.push(initU);
-      }
-    });
-
-    try {
-      const usersSnap = await getDocs(collection(db, "users"));
-      if (!usersSnap.empty) {
-        const firestoreUsers = usersSnap.docs.map(d => d.data() as UserAccount);
-        firestoreUsers.forEach(fUser => {
-          const idx = effectiveUsers.findIndex(u => 
-            u.id === fUser.id || 
-            (u.username && fUser.username && u.username.trim().toLowerCase() === fUser.username.trim().toLowerCase()) ||
-            (u.email && fUser.email && u.email.trim().toLowerCase() === fUser.email.trim().toLowerCase())
-          );
-          if (idx >= 0) effectiveUsers[idx] = fUser;
-          else effectiveUsers.push(fUser);
-        });
-        setUsers(effectiveUsers);
-      }
-    } catch {}
-
-    try {
-      const studsSnap = await getDocs(collection(db, "students"));
-      if (!studsSnap.empty) {
-        effectiveStudents = studsSnap.docs.map(d => d.data() as Student);
-        setStudents(effectiveStudents);
-      }
-    } catch {}
-
-    // 2. Find user account and student object in memory
-    let userObj = findUserInList(trimmedInput, effectiveUsers);
-    let studentObj = findStudentInList(trimmedInput, effectiveStudents);
-
-    // 3. Determine targetEmail for Firebase Auth & check if Teacher account
     let targetEmail = trimmedInput;
     if (!targetEmail.includes("@")) {
-      if (userObj && userObj.email && userObj.email.includes("@")) targetEmail = userObj.email;
-      else if (studentObj && studentObj.email && studentObj.email.includes("@")) targetEmail = studentObj.email;
-      else targetEmail = `${trimmedInput}@unihub.edu.vn`;
+      const foundUser = users.find(u => 
+        (u.username && u.username.trim().toLowerCase() === trimmedInput.toLowerCase()) ||
+        (u.id && u.id.trim().toLowerCase() === trimmedInput.toLowerCase())
+      );
+      if (foundUser && foundUser.email && foundUser.email.includes("@")) {
+        targetEmail = foundUser.email;
+      } else {
+        const foundStudent = students.find(s => s.id && s.id.trim().toLowerCase() === trimmedInput.toLowerCase());
+        if (foundStudent && foundStudent.email && foundStudent.email.includes("@")) {
+          targetEmail = foundStudent.email;
+        } else {
+          targetEmail = `${trimmedInput}@unihub.edu.vn`;
+        }
+      }
     }
 
-    const isTeacherAccount = 
-      targetEmail.toLowerCase().startsWith("gv_") ||
-      targetEmail.toLowerCase().startsWith("gv") ||
-      targetEmail.toLowerCase().includes("nguyenthilieu") ||
-      teacherAssignments.some(a => (a.teacherId || "").toLowerCase() === targetEmail.toLowerCase() || (a.teacherId || "").toLowerCase() === trimmedInput.toLowerCase());
-
-    // === TIER 1: Firebase Auth Sign-In Test (Direct Cloud Verification for accounts created on Admin Page) ===
     try {
       const authCred = await signInWithEmailAndPassword(auth, targetEmail, trimmedPass);
       if (authCred?.user?.uid) {
         const uid = authCred.user.uid;
-        // Fetch user document from Firestore by UID
-        let fetchedUserDoc = await fetchUserDocByUid(uid);
-        if (!fetchedUserDoc && userObj) fetchedUserDoc = userObj;
-        
-        if (!fetchedUserDoc) {
-          // Construct fallback user account from Firebase Auth details
-          fetchedUserDoc = {
-            id: uid,
-            username: targetEmail,
-            name: authCred.user.displayName || targetEmail.split("@")[0],
-            role: isTeacherAccount ? UserRole.TEACHER : (userObj?.role || UserRole.TRAINING_DEPT),
-            email: targetEmail,
-            password: trimmedPass
-          };
+        let userDoc: UserAccount | null = null;
+
+        try {
+          const snap = await getDoc(doc(db, "users", uid));
+          if (snap.exists()) {
+            userDoc = snap.data() as UserAccount;
+          }
+        } catch {}
+
+        if (!userDoc) {
+          userDoc = users.find(u => 
+            (u.email && u.email.toLowerCase() === targetEmail.toLowerCase()) || 
+            (u.username && u.username.toLowerCase() === targetEmail.toLowerCase())
+          ) || null;
         }
 
-        if (isTeacherAccount && fetchedUserDoc.role !== UserRole.TEACHER) {
-          fetchedUserDoc.role = UserRole.TEACHER;
+        if (!userDoc) {
+          // A6 FIX: Không tự tạo fallback user nếu không tìm thấy profile
+          console.warn("Tài khoản chưa có thông tin trong cơ sở dữ liệu:", targetEmail);
+          await signOut(auth).catch(() => {});
+          return false;
         }
 
-        setCurrentUser(fetchedUserDoc);
-        saveToStorage("unihub_current_user", fetchedUserDoc);
+        const { password, ...safeUser } = userDoc as any;
+        setCurrentUser(safeUser as UserAccount);
+        localStorage.setItem("unihub_current_user", JSON.stringify(safeUser));
         return true;
       }
-    } catch (firebaseAuthErr: any) {
-      // If Firebase Auth fails due to invalid password, continue local & Firestore targeted checks
-    }
-
-    // === TIER 2: Direct Firestore Targeted Queries (Guarantees custom emails/usernames created on Admin page match 100%) ===
-    if (!userObj || (userObj.password && userObj.password.trim() !== trimmedPass && userObj.password.trim().toLowerCase() !== trimmedPass.toLowerCase() && trimmedPass !== "password123")) {
-      try {
-        const cleanInputLower = trimmedInput.toLowerCase().trim();
-        let fUser: UserAccount | null = null;
-
-        // Query Firestore users collection by username or email
-        const qUser1 = await getDocs(query(collection(db, "users"), where("username", "==", trimmedInput.trim())));
-        if (!qUser1.empty) fUser = qUser1.docs[0].data() as UserAccount;
-
-        if (!fUser) {
-          const qUser2 = await getDocs(query(collection(db, "users"), where("email", "==", trimmedInput.trim())));
-          if (!qUser2.empty) fUser = qUser2.docs[0].data() as UserAccount;
-        }
-
-        if (!fUser) {
-          const qUser3 = await getDocs(query(collection(db, "users"), where("username", "==", cleanInputLower)));
-          if (!qUser3.empty) fUser = qUser3.docs[0].data() as UserAccount;
-        }
-
-        if (!fUser) {
-          const qUser4 = await getDocs(query(collection(db, "users"), where("email", "==", cleanInputLower)));
-          if (!qUser4.empty) fUser = qUser4.docs[0].data() as UserAccount;
-        }
-
-        if (fUser) {
-          userObj = fUser;
-        }
-      } catch (err) {
-        console.warn("Direct Firestore targeted user query skipped:", err);
-      }
-    }
-
-    // === TIER 3: Local/Firestore User Account Password Verification ===
-    if (userObj) {
-      if (isTeacherAccount && userObj.role !== UserRole.TEACHER) {
-        userObj = { ...userObj, role: UserRole.TEACHER };
-      }
-
-      const storedPassword = (userObj.password || "password123").trim();
-      const isPasswordMatch = 
-        storedPassword === trimmedPass || 
-        storedPassword.toLowerCase() === trimmedPass.toLowerCase() || 
-        trimmedPass === "password123" || 
-        trimmedPass === "admin@123" || 
-        trimmedPass === "Admin@123" || 
-        !userObj.password;
-      
-      // If user is STUDENT, also accept student.idCard (CCCD) from Training Dept
-      const isCccdMatch = studentObj && studentObj.idCard && (
-        studentObj.idCard.trim() === trimmedPass ||
-        studentObj.idCard.replace(/\s+/g, '') === trimmedPass.replace(/\s+/g, '')
-      );
-
-      if (isPasswordMatch || isCccdMatch) {
-        setCurrentUser(userObj);
-        saveToStorage("unihub_current_user", userObj);
-        ensureFirebaseAuth(targetEmail, trimmedPass);
-        return true;
-      }
-    }
-
-    // === TIER 4: Student Login Cross-Referenced with Training Dept (students collection) ===
-    if (studentObj) {
-      const isCccdMatch = studentObj.idCard && (
-        studentObj.idCard.trim() === trimmedPass ||
-        studentObj.idCard.replace(/\s+/g, '') === trimmedPass.replace(/\s+/g, '')
-      );
-      
-      if (isCccdMatch || trimmedPass === "password123") {
-        const studentUserAccount: UserAccount = userObj || {
-          id: studentObj.id,
-          username: studentObj.id,
-          name: studentObj.name,
-          role: UserRole.STUDENT,
-          email: studentObj.email || targetEmail,
-          targetId: studentObj.id,
-          password: trimmedPass
-        };
-        setCurrentUser(studentUserAccount);
-        saveToStorage("unihub_current_user", studentUserAccount);
-        ensureFirebaseAuth(targetEmail, trimmedPass);
-        return true;
-      }
-    }
-
-    // === CHECK 3: Firebase Auth Sign-In ===
-    const authUid = await ensureFirebaseAuth(targetEmail, trimmedPass);
-    if (authUid) {
-      let foundUser = await fetchUserDocByUid(authUid);
-      if (!foundUser && studentObj) {
-        foundUser = {
-          id: authUid,
-          username: studentObj.id,
-          name: studentObj.name,
-          role: UserRole.STUDENT,
-          email: targetEmail,
-          targetId: studentObj.id,
-          password: trimmedPass
-        };
-      }
-      if (foundUser) {
-        setCurrentUser(foundUser);
-        saveToStorage("unihub_current_user", foundUser);
-        return true;
+    } catch (err: any) {
+      // A10 FIX: Log error và phân loại
+      const errorCode = err?.code || "";
+      if (errorCode === "auth/invalid-credential" || errorCode === "auth/wrong-password" || errorCode === "auth/user-not-found") {
+        console.warn("Đăng nhập thất bại: Sai thông tin đăng nhập", targetEmail);
+      } else if (errorCode === "auth/too-many-requests") {
+        console.warn("Đăng nhập thất bại: Quá nhiều lần thử, tài khoản bị tạm khóa");
+      } else {
+        console.warn("Lỗi đăng nhập:", errorCode, err?.message || err);
       }
     }
 
@@ -1851,7 +1611,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error("Signout error", err);
     }
     setCurrentUser(null);
+    // B1 FIX: Xóa các cache nhạy cảm khi logout để tránh data leakage
     localStorage.removeItem("unihub_current_user");
+    localStorage.removeItem("unihub_announcements");
+    localStorage.removeItem("unihub_activities");
   };
 
   const updatePeriodStatus = (status: "ACTIVE" | "LOCKED") => {
@@ -1941,26 +1704,38 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setStudents(updatedStudents);
     saveToStorage("unihub_students", updatedStudents);
 
-    // 2. Update users credentials and name
+    // 2. Update Firebase Auth password if requested (do NOT store in user object)
+    if (password && password.trim()) {
+      try {
+        const currentAuthUser = auth.currentUser;
+        if (currentAuthUser) {
+          import("firebase/auth").then(({ updatePassword: fbUpdatePassword }) => {
+            fbUpdatePassword(currentAuthUser, password).catch(err => {
+              console.warn("Lỗi đổi mật khẩu Firebase Auth:", err);
+              alert("Không thể đổi mật khẩu. Vui lòng đăng nhập lại và thử lại.");
+            });
+          });
+        }
+      } catch (err) {
+        console.warn("Lỗi đổi mật khẩu:", err);
+      }
+    }
+
+    // 3. Update users name only (no password storage)
     const updatedUsers = users.map(u => {
       if (u.targetId === studentId || u.username === studentId || u.email === studentId || u.id === studentId) {
-        const uo = { ...u, name };
-        if (password) {
-          uo.password = password;
-        }
-        return uo;
+        const { password: _pw, ...cleanUser } = u as any;
+        return { ...cleanUser, name };
       }
       return u;
     });
     setUsers(updatedUsers);
     saveToStorage("unihub_users", updatedUsers);
 
-    // 3. Keep current user in sync
+    // 4. Keep current user in sync (no password)
     if (currentUser && (currentUser.targetId === studentId || currentUser.username === studentId || currentUser.id === studentId)) {
-      const updatedCur = { ...currentUser, name };
-      if (password) {
-        updatedCur.password = password;
-      }
+      const { password: _pw, ...cleanCur } = currentUser as any;
+      const updatedCur = { ...cleanCur, name };
       setCurrentUser(updatedCur);
       saveToStorage("unihub_current_user", updatedCur);
     }
@@ -1997,7 +1772,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // Organizer Actions
-  const createActivity = (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName"> & { expiryDate?: string }): string => {
+  const createActivity = async (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName">): Promise<string> => {
     const org = organizations.find(o => o.id === activity.orgId);
     let resolvedOrgName = org?.name;
     if (!resolvedOrgName) {
@@ -2007,21 +1782,25 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       else resolvedOrgName = "Ban Tổ chức";
     }
 
-    const newAct: ExtracurricularActivity & { expiryDate?: string } = {
+    const cleanAct = sanitizeForFirestore({
       ...activity,
       id: `ACT_NEW_${Date.now()}`,
       orgName: resolvedOrgName,
-      status: "UPCOMING"
-    };
+      status: "UPCOMING" as const
+    });
 
-    const cleanAct = sanitizeForFirestore(newAct);
+    try {
+      await setDoc(doc(db, "activities", cleanAct.id), cleanAct, { merge: true });
+    } catch (error) {
+      console.error("Lỗi lưu hoạt động Firestore:", error);
+      throw new Error("Hoạt động chưa được lưu lên CSDL. Sinh viên sẽ chưa thấy sự kiện này. Vui lòng kiểm tra quyền tài khoản Đoàn/Hội hoặc kết nối mạng rồi thử lại.");
+    }
 
-    const updated = [...activities, cleanAct as ExtracurricularActivity];
-    setActivities(updated);
-    saveToStorage("unihub_activities", updated);
-
-    // Instant permanent write to Firestore
-    setDoc(doc(db, "activities", cleanAct.id), cleanAct).catch(e => console.warn("Lỗi lưu hoạt động Firestore:", e));
+    setActivities(prev => {
+      const updated = [...prev.filter(a => a.id !== cleanAct.id), cleanAct as ExtracurricularActivity];
+      localStorage.setItem("unihub_activities", JSON.stringify(updated));
+      return updated;
+    });
 
     return cleanAct.id;
   };
@@ -2058,23 +1837,35 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // New clb actions
-  const createAnnouncement = (announcement: Omit<ClubAnnouncement, "id" | "orgName" | "createdAt">): string => {
+  const createAnnouncement = async (announcement: Omit<ClubAnnouncement, "id" | "orgName" | "createdAt">): Promise<string> => {
     const org = organizations.find(o => o.id === announcement.orgId);
-    const newAnn: ClubAnnouncement = {
+    let resolvedOrgName = org?.name;
+    if (!resolvedOrgName) {
+      if (announcement.orgId === "DOANTN") resolvedOrgName = "BCH Đoàn TNCS Phân hiệu Hà Giang";
+      else if (announcement.orgId === "HOISV") resolvedOrgName = "BCH Hội Sinh viên Phân hiệu Hà Giang";
+      else if (announcement.orgId === "DOAN_HOI") resolvedOrgName = "Đoàn - Hội Sinh viên Phân hiệu";
+      else resolvedOrgName = "Chi hội";
+    }
+
+    const cleanAnn = sanitizeForFirestore({
       ...announcement,
-      id: `ANN_NEW_${Date.now()}`,
-      orgName: org?.name || "Chi hội",
+      id: `ANN_${crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}`,
+      orgName: resolvedOrgName,
       createdAt: new Date().toISOString().split("T")[0]
-    };
+    });
 
-    const cleanAnn = sanitizeForFirestore(newAnn);
+    try {
+      await setDoc(doc(db, "announcements", cleanAnn.id), cleanAnn, { merge: true });
+    } catch (error) {
+      console.error("Lỗi lưu thông báo Firestore:", error);
+      throw new Error("Thông báo chưa được lưu lên CSDL. Sinh viên sẽ chưa thấy bản tin này. Vui lòng kiểm tra quyền tài khoản Đoàn/Hội hoặc kết nối mạng rồi thử lại.");
+    }
 
-    const updated = [cleanAnn as ClubAnnouncement, ...announcements];
-    setAnnouncements(updated);
-    saveToStorage("unihub_announcements", updated);
-
-    // Instant permanent write to Firestore
-    setDoc(doc(db, "announcements", cleanAnn.id), cleanAnn).catch(e => console.warn("Lỗi lưu thông báo Firestore:", e));
+    setAnnouncements(prev => {
+      const updated = [cleanAnn as ClubAnnouncement, ...prev.filter(a => a.id !== cleanAnn.id)];
+      localStorage.setItem("unihub_announcements", JSON.stringify(updated));
+      return updated;
+    });
 
     return cleanAnn.id;
   };
@@ -2446,6 +2237,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const resetToSeeds = () => {
+    // A11 FIX: signOut Firebase Auth trước để tránh race condition
+    signOut(auth).catch(() => {});
+    setCurrentUser(null);
+    
     localStorage.clear();
     setPeriod(SEED_PERIOD);
     setUsers(SEED_USERS);
@@ -2469,8 +2264,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       { id: "XS", name: "Tập thể Xuất sắc", minExcellentPercent: 30, maxWeakPercent: 0, description: "Tỉ lệ rèn luyện Xuất sắc & Tốt đạt từ 30% trở lên, không có sinh viên xếp loại Yếu hoặc Kém." },
       { id: "TT", name: "Tập thể Tiên tiến", minExcellentPercent: 20, maxWeakPercent: 5, description: "Tỉ lệ rèn luyện Xuất sắc & Tốt đạt từ 20% trở lên, tỉ lệ xếp loại Yếu hoặc Kém không quá 5%." }
     ]);
-    setCurrentUser(SEED_USERS[0]); // Default back to Student Nguyễn Văn An
-    saveToStorage("unihub_current_user", SEED_USERS[0]);
+    // Không tự set currentUser = seed user nữa. Người dùng phải đăng nhập lại.
   };
 
   const saveGroupSettings = (
@@ -2510,7 +2304,6 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const rawUsername = (leaderInfo.username || `totruong_${leaderInfo.studentId}`).trim();
       const safeUsername = rawUsername.includes("@") ? rawUsername.split("@")[0] : rawUsername;
       const safeEmail = `${safeUsername}@tnu-hgc.edu.vn`;
-      const passwordToSet = leaderInfo.password || "password123";
       
       updatedUsers.push({
         id: `U_GL_${leaderInfo.studentId}`,
@@ -2519,7 +2312,6 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         role: UserRole.CLASS_MONITOR,
         email: safeEmail,
         targetId: leaderInfo.studentId,
-        password: passwordToSet,
         isGroupLeader: true,
         groupInCharge: groupName
       });

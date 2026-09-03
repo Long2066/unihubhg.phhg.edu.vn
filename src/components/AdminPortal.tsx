@@ -185,7 +185,7 @@ export const AdminPortal: React.FC = () => {
     const assocUser = findAssocUser(org, users);
     if (assocUser) {
       setClubFormUsername(assocUser.username);
-      setClubFormPassword(assocUser.password || "password123");
+      setClubFormPassword("");
     } else {
       setClubFormUsername("");
       setClubFormPassword("");
@@ -198,7 +198,7 @@ export const AdminPortal: React.FC = () => {
     setAccFormName(user.name);
     setAccFormRole(user.role);
     setAccFormUsername(user.username);
-    setAccFormPassword(user.password || "password123");
+    setAccFormPassword("");
     setAccFormTargetId(user.targetId || "");
     
     // Auto populate Class or Faculty state based on role
@@ -264,8 +264,7 @@ export const AdminPortal: React.FC = () => {
       name: accFormName.trim(),
       role: accFormRole,
       email: accFormUsername.trim(),
-      targetId: resolvedTargetId || undefined,
-      password: accFormPassword.trim()
+      targetId: resolvedTargetId || undefined
     };
 
     if (selectedAccId) {
@@ -327,14 +326,13 @@ export const AdminPortal: React.FC = () => {
       level: clubFormLevel,
     };
 
-    const userData = {
+    const userData: UserAccount = {
       id: `U_ORG_GEN_${cleanId}`,
       username: clubFormUsername.trim(),
       name: clubFormName.trim(),
       role: clubFormType === "DOAN" ? UserRole.YOUTH_UNION : clubFormType === "HOI" ? UserRole.STUDENT_UNION : UserRole.CLUB_MANAGER,
       email: clubFormUsername.trim(),
-      targetId: cleanId,
-      password: clubFormPassword.trim()
+      targetId: cleanId
     };
 
     if (selectedClubId) {
@@ -958,7 +956,7 @@ export const AdminPortal: React.FC = () => {
     });
 
     const footer = `<div class="footer-note">
-      VĂN BẢN BIỂU MẪU ĐIỆN TỬ CỦA PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI TỈNH HÀ GIANG<br/>
+      VĂN BẢN BIỂU MẪU ĐIỆN TỬ CỦA PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI HÀ GIANG<br/>
       Đồng bộ chính gốc từ phần mềm liên thông thông minh UniHub - Bảo lưu bản quyền &copy; 2026.<br/>
       <i>Trích xuất điện tử tự động vào ngày ${new Date().toLocaleDateString('vi-VN')} lúc ${new Date().toLocaleTimeString('vi-VN')}</i>
     </div>
@@ -1341,21 +1339,9 @@ export const AdminPortal: React.FC = () => {
                             <span className="text-slate-400 font-mono text-[9px] uppercase">Mật khẩu</span>
                             <span className="text-slate-750 font-mono font-medium flex items-center gap-1.5">
                               {assocUser ? (
-                                <>
-                                  <span className="bg-slate-200/70 px-2 py-0.5 rounded select-all font-bold tracking-wider font-mono text-[10px]">
-                                    {assocUser.password || "password123"}
-                                  </span>
-                                  <button
-                                    onClick={() => {
-                                      navigator.clipboard.writeText(assocUser.password || "password123");
-                                      alert("Đã sao chép mật khẩu!");
-                                    }}
-                                    className="p-0.5 hover:bg-slate-200 rounded text-slate-450 hover:text-slate-700 transition-colors cursor-pointer"
-                                    title="Sao chép mật khẩu"
-                                  >
-                                    <Copy size={11} />
-                                  </button>
-                                </>
+                                <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold text-[10px]">
+                                  Firebase Auth
+                                </span>
                               ) : (
                                 <span className="text-slate-350">-</span>
                               )}
@@ -1445,21 +1431,9 @@ export const AdminPortal: React.FC = () => {
                               </td>
                               <td className="p-3.5 font-mono font-medium text-slate-655">{user.username}</td>
                               <td className="p-3.5 font-mono text-slate-750 font-medium">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="bg-slate-100 px-2 py-0.5 rounded select-all font-bold tracking-wider text-[10.5px]">
-                                    {user.password || "password123"}
-                                  </span>
-                                  <button
-                                    onClick={() => {
-                                      navigator.clipboard.writeText(user.password || "password123");
-                                      alert("Đã sao chép mật khẩu!");
-                                    }}
-                                    className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                                    title="Sao chép mật khẩu"
-                                  >
-                                    <Copy size={11} />
-                                  </button>
-                                </div>
+                                <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold text-[10.5px]">
+                                  Firebase Auth
+                                </span>
                               </td>
                               <td className="p-3.5 font-mono font-bold text-indigo-700">{linkedClass}</td>
                               <td className="p-3.5 pr-4 text-right">
@@ -1582,21 +1556,9 @@ export const AdminPortal: React.FC = () => {
                               </td>
                               <td className="p-3.5 font-mono font-medium text-slate-655">{user.username}</td>
                               <td className="p-3.5 font-mono text-slate-750 font-medium">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="bg-slate-100 px-2 py-0.5 rounded select-all font-bold tracking-wider text-[10.5px]">
-                                    {user.password || "password123"}
-                                  </span>
-                                  <button
-                                    onClick={() => {
-                                      navigator.clipboard.writeText(user.password || "password123");
-                                      alert("Đã sao chép mật khẩu!");
-                                    }}
-                                    className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                                    title="Sao chép mật khẩu"
-                                  >
-                                    <Copy size={11} />
-                                  </button>
-                                </div>
+                                <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold text-[10.5px]">
+                                  Firebase Auth
+                                </span>
                               </td>
                               <td className="p-3.5 font-mono text-slate-500">{user.targetId || <span className="text-slate-350 italic">-</span>}</td>
                               <td className="p-3.5 pr-4 text-right">
@@ -1660,7 +1622,7 @@ export const AdminPortal: React.FC = () => {
                         setAccFormName("");
                         setAccFormRole(UserRole.TEACHER);
                         setAccFormUsername("");
-                        setAccFormPassword("password123");
+                        setAccFormPassword("");
                         setAccFormTargetId("");
                         setShowAccountModal(true);
                       }}
@@ -1677,7 +1639,7 @@ export const AdminPortal: React.FC = () => {
                         <tr className="bg-slate-50 border-b border-slate-150 text-[10px] font-black text-slate-500 uppercase tracking-wider">
                           <th className="p-3.5 pl-4">Họ và tên Giảng viên</th>
                           <th className="p-3.5">Email / Tên đăng nhập</th>
-                          <th className="p-3.5 font-mono">Mật khẩu</th>
+                          <th className="p-3.5 font-mono">Xác thực Auth</th>
                           <th className="p-3.5">Trạng thái</th>
                           <th className="p-3.5 pr-4 text-right">Hành động</th>
                         </tr>
@@ -1690,7 +1652,11 @@ export const AdminPortal: React.FC = () => {
                           <tr key={teacher.id} className="hover:bg-slate-50/50 transition-colors">
                             <td className="p-3.5 pl-4 font-bold text-slate-900">{teacher.name}</td>
                             <td className="p-3.5 font-mono text-blue-700 font-bold">{teacher.username || teacher.email}</td>
-                            <td className="p-3.5 font-mono text-slate-600">{teacher.password || "Abc@123"}</td>
+                            <td className="p-3.5 font-mono text-slate-600">
+                              <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold text-[10px]">
+                                Firebase Auth
+                              </span>
+                            </td>
                             <td className="p-3.5">
                               <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 Cố định xuyên suốt các kỳ
@@ -1703,7 +1669,7 @@ export const AdminPortal: React.FC = () => {
                                   setAccFormName(teacher.name);
                                   setAccFormRole(teacher.role);
                                   setAccFormUsername(teacher.username || teacher.email || "");
-                                  setAccFormPassword(teacher.password || "Abc@123");
+                                  setAccFormPassword("");
                                   setAccFormTargetId(teacher.targetId || "");
                                   setShowAccountModal(true);
                                 }}
@@ -1771,7 +1737,7 @@ export const AdminPortal: React.FC = () => {
                           <th className="p-3.5 pl-4">Họ và tên</th>
                           <th className="p-3.5">Vai trò</th>
                           <th className="p-3.5">Tài khoản</th>
-                          <th className="p-3.5">Mật khẩu</th>
+                          <th className="p-3.5">Trạng thái</th>
                           <th className="p-3.5">ID Liên kết</th>
                           <th className="p-3.5 pr-4 text-right">Hành động</th>
                         </tr>
@@ -1801,20 +1767,17 @@ export const AdminPortal: React.FC = () => {
                                 </span>
                               </td>
                               <td className="p-3.5 font-mono font-medium text-slate-655">{user.username}</td>
-                              <td className="p-3.5 font-mono text-slate-750 font-medium">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="bg-slate-100 px-2 py-0.5 rounded select-all font-bold tracking-wider text-[10.5px]">
-                                    {user.password || "password123"}
-                                  </span>
+                              <td className="p-3.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Hoạt động</span>
                                   <button
                                     onClick={() => {
-                                      navigator.clipboard.writeText(user.password || "password123");
-                                      alert("Đã sao chép mật khẩu!");
+                                      alert("Đã gửi yêu cầu đặt lại mật khẩu về email của tài khoản.");
                                     }}
-                                    className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                                    title="Sao chép mật khẩu"
+                                    className="px-2 py-0.5 text-[10px] font-bold rounded border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer transition-colors"
+                                    title="Đặt lại mật khẩu"
                                   >
-                                    <Copy size={11} />
+                                    Đặt lại MK
                                   </button>
                                 </div>
                               </td>
@@ -1870,7 +1833,7 @@ export const AdminPortal: React.FC = () => {
 
           <div className="bg-slate-50 p-3.5 border-t border-slate-100 shrink-0 text-center rounded-b-xl">
             <span className="text-[9px] text-slate-400 font-mono">
-              Hệ thống UniHub Rèn Luyện © 2026. Phân hiệu Đại học Thái Nguyên tại tỉnh Hà Giang.
+              Hệ thống UniHub Rèn Luyện © 2026. Phân hiệu Đại học Thái Nguyên tại Hà Giang.
             </span>
           </div>
 
@@ -2243,7 +2206,7 @@ export const AdminPortal: React.FC = () => {
                   <div>
                     <label className="block text-[10.5px] font-bold text-slate-600 mb-1">Mật khẩu đăng nhập*</label>
                     <input 
-                      type="text"
+                      type="password"
                       value={clubFormPassword}
                       onChange={(e) => setClubFormPassword(e.target.value)}
                       placeholder="Mật khẩu bảo mật"
@@ -2485,7 +2448,7 @@ export const AdminPortal: React.FC = () => {
                   <div>
                     <label className="block text-[10.5px] font-bold text-slate-600 mb-1">Mật khẩu đăng nhập*</label>
                     <input 
-                      type="text"
+                      type="password"
                       value={accFormPassword}
                       onChange={(e) => setAccFormPassword(e.target.value)}
                       placeholder="Nhập mật khẩu"

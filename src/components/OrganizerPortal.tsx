@@ -69,7 +69,11 @@ export const OrganizerPortal: React.FC = () => {
   if (currentUser?.role === UserRole.YOUTH_UNION) defaultTargetId = "DOANTN";
   else if (currentUser?.role === UserRole.STUDENT_UNION) defaultTargetId = "HOISV";
 
-  const orgId = currentUser?.targetId || defaultTargetId;
+  const orgId = currentUser?.role === UserRole.YOUTH_UNION
+    ? "DOANTN"
+    : currentUser?.role === UserRole.STUDENT_UNION
+    ? "HOISV"
+    : currentUser?.targetId || defaultTargetId;
   
   const defaultOrgName = currentUser?.role === UserRole.YOUTH_UNION 
     ? "BCH Đoàn TNCS Phân hiệu Hà Giang" 
@@ -618,6 +622,27 @@ export const OrganizerPortal: React.FC = () => {
     setImportStatus(null);
     alert("Đã thêm thành công danh sách thành viên từ file Excel vào hệ thống!");
     setActiveSubTab("DS_THANHVIEN");
+  };
+
+  const isAllowedDeployUnit = (deployUnit: string) => {
+    if (currentUser?.role === UserRole.YOUTH_UNION) return deployUnit === "DOANTN" || deployUnit === "DOAN_HOI";
+    if (currentUser?.role === UserRole.STUDENT_UNION) return deployUnit === "HOISV" || deployUnit === "DOAN_HOI";
+    return deployUnit === effectiveOrgId;
+  };
+
+  const getDeployUnitError = (deployUnit: string) => {
+    if (isAllowedDeployUnit(deployUnit)) return "";
+    if (currentUser?.role === UserRole.YOUTH_UNION) {
+      return "Tài khoản Đoàn Thanh niên chỉ được đăng hoạt động dưới đơn vị BCH Đoàn Thanh niên hoặc Đoàn - Hội liên tịch.";
+    }
+    if (currentUser?.role === UserRole.STUDENT_UNION) {
+      return "Tài khoản Hội Sinh viên chỉ được đăng hoạt động dưới đơn vị BCH Hội Sinh viên hoặc Đoàn - Hội liên tịch.";
+    }
+    return "Đơn vị triển khai không khớp với tổ chức đang đăng nhập.";
+  };
+
+  const getSubmissionErrorMessage = (err: unknown, fallback: string) => {
+    return err instanceof Error && err.message ? err.message : fallback;
   };
 
   // Create Activity handler
@@ -1746,7 +1771,11 @@ export const OrganizerPortal: React.FC = () => {
                             <p className="text-[10px] text-slate-500 mt-1 font-sans line-clamp-2">{item.content}</p>
                           </div>
                           <button 
-                            onClick={() => deleteAnnouncement(item.id)}
+                            onClick={() => {
+                              if (window.confirm(`Bạn có chắc chắn muốn xóa gỡ thông báo: "${item.title}"?`)) {
+                                deleteAnnouncement(item.id);
+                              }
+                            }}
                             className="p-1 px-2.5 text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 text-[9px] font-bold rounded cursor-pointer transition-all"
                           >
                             Xóa gỡ

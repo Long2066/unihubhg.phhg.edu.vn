@@ -34,8 +34,7 @@ export const SEED_USERS: UserAccount[] = [
     username: "DTG245140202053",
     name: "Ma Văn Long",
     role: UserRole.STUDENT,
-    email: "DTG245140202053",
-    password: "004206005165",
+    email: "DTG245140202053@unihub.edu.vn",
     targetId: "DTG245140202053"
   },
   {
@@ -44,7 +43,6 @@ export const SEED_USERS: UserAccount[] = [
     name: "CLB Sáng tạo Công nghệ UniTech",
     role: UserRole.CLUB_MANAGER,
     email: "unitech@hg.edu.vn",
-    password: "password123",
     targetId: "UNITECH"
   },
   {
@@ -53,7 +51,6 @@ export const SEED_USERS: UserAccount[] = [
     name: "BCH Đoàn TNCS Phân hiệu Hà Giang",
     role: UserRole.YOUTH_UNION,
     email: "doantnphhg@hg.edu.vn",
-    password: "password123",
     targetId: "DOANTN"
   },
   {
@@ -62,7 +59,6 @@ export const SEED_USERS: UserAccount[] = [
     name: "BCH Hội Sinh viên Phân hiệu Hà Giang",
     role: UserRole.STUDENT_UNION,
     email: "hsvphhg@hg.edu.vn",
-    password: "password123",
     targetId: "HOISV"
   },
   {
@@ -71,7 +67,6 @@ export const SEED_USERS: UserAccount[] = [
     name: "Câu lạc bộ Nghiên cứu Khoa học",
     role: UserRole.CLUB_MANAGER,
     email: "clbnckh@hg.edu.vn",
-    password: "password123",
     targetId: "CLBNCKH"
   },
   {
@@ -80,7 +75,6 @@ export const SEED_USERS: UserAccount[] = [
     name: "CLB Tình nguyện Giọt hồng Hà Giang",
     role: UserRole.CLUB_MANAGER,
     email: "tinhnx@hg.edu.vn",
-    password: "password123",
     targetId: "TINHNX"
   },
   {
@@ -88,8 +82,7 @@ export const SEED_USERS: UserAccount[] = [
     username: "dtphhg@hg.edu.vn",
     name: "Trần Thị Mai",
     role: UserRole.TRAINING_DEPT,
-    email: "dtphhg@hg.edu.vn",
-    password: "password123"
+    email: "dtphhg@hg.edu.vn"
   },
   {
     id: "U_CM01",
@@ -97,7 +90,6 @@ export const SEED_USERS: UserAccount[] = [
     name: "Lâm Minh Triết",
     role: UserRole.CLASS_MONITOR,
     email: "cblk2gdtha@hg.edu.vn",
-    password: "password123",
     targetId: "K20-CNTT"
   },
   {
@@ -106,7 +98,6 @@ export const SEED_USERS: UserAccount[] = [
     name: "Hoàng Minh Đức",
     role: UserRole.ADVISER,
     email: "gvcnk2gdtha@hg.edu.vn",
-    password: "password123",
     targetId: "K20-CNTT"
   },
   {
@@ -115,7 +106,6 @@ export const SEED_USERS: UserAccount[] = [
     name: "Khoa Sư phạm",
     role: UserRole.FACULTY,
     email: "khoasp@hg.edu.vn",
-    password: "password123",
     targetId: "K-CNTT"
   },
   {
@@ -124,7 +114,6 @@ export const SEED_USERS: UserAccount[] = [
     name: "TS. Nguyễn Minh Nguyệt",
     role: UserRole.TEACHER,
     email: "gv_nguyenminhnguyet@phhg.edu.vn",
-    password: "Abc@123",
     targetId: "K2-GDTH A"
   },
   {
@@ -133,7 +122,6 @@ export const SEED_USERS: UserAccount[] = [
     name: "TS. Vũ Thanh Trà",
     role: UserRole.TEACHER,
     email: "gv_vuthanhtra@phhg.edu.vn",
-    password: "Abc@123",
     targetId: "K2-GDTH A"
   },
   {
@@ -142,7 +130,6 @@ export const SEED_USERS: UserAccount[] = [
     name: "ThS. Nguyễn Thị Liệu",
     role: UserRole.TEACHER,
     email: "gv_nguyenthilieu@phhg.edu.vn",
-    password: "Abc@123",
     targetId: "K2 - GDTH A"
   },
   {
@@ -150,16 +137,14 @@ export const SEED_USERS: UserAccount[] = [
     username: "pcthssv@hg.edu.vn",
     name: "Phòng Công tác HSSV (Admin)",
     role: UserRole.ADMIN,
-    email: "pcthssv@hg.edu.vn",
-    password: "admin@123"
+    email: "pcthssv@hg.edu.vn"
   },
   {
     id: "U_SUPERADMIN",
     username: "admin",
     name: "Super Admin",
     role: UserRole.ADMIN,
-    email: "superadmin@unihub.edu.vn",
-    password: "admin@123"
+    email: "superadmin@unihub.edu.vn"
   }
 ];
 
@@ -1075,7 +1060,6 @@ export const SEED_TEACHER_ASSIGNMENTS: CourseClassAssignment[] = [
     credits: 2,
     teacherId: "gv_nguyenminhnguyet@phhg.edu.vn",
     teacherName: "TS. Nguyễn Minh Nguyệt",
-    teacherPassword: "Abc@123",
     status: "PENDING",
     updatedAt: "2026-08-04"
   },
@@ -1090,7 +1074,6 @@ export const SEED_TEACHER_ASSIGNMENTS: CourseClassAssignment[] = [
     credits: 2,
     teacherId: "gv_nguyenminhnguyet@phhg.edu.vn",
     teacherName: "TS. Nguyễn Minh Nguyệt",
-    teacherPassword: "Abc@123",
     status: "PENDING",
     updatedAt: "2026-08-04"
   },
@@ -1105,7 +1088,6 @@ export const SEED_TEACHER_ASSIGNMENTS: CourseClassAssignment[] = [
     credits: 2,
     teacherId: "gv_vuthanhtra@phhg.edu.vn",
     teacherName: "TS. Vũ Thanh Trà",
-    teacherPassword: "Abc@123",
     status: "PENDING",
     updatedAt: "2026-08-04"
   },
@@ -1120,7 +1102,6 @@ export const SEED_TEACHER_ASSIGNMENTS: CourseClassAssignment[] = [
     credits: 4,
     teacherId: "gv_nguyenthilieu@phhg.edu.vn",
     teacherName: "ThS. Nguyễn Thị Liệu",
-    teacherPassword: "Abc@123",
     status: "PENDING",
     updatedAt: "2026-08-04"
   }

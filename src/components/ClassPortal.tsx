@@ -85,7 +85,7 @@ export const ClassPortal: React.FC = () => {
 
   // Local state replicas of class group structure for editor
   const [groupAssignments, setGroupAssignments] = useState<{ [studentId: string]: string }>({});
-  const [groupLeaders, setGroupLeaders] = useState<{ [groupName: string]: { studentId: string; username?: string; password?: string } }>({});
+  const [groupLeaders, setGroupLeaders] = useState<{ [groupName: string]: { studentId: string; username?: string } }>({});
 
   // Sync state replicas with database changes
   useEffect(() => {
@@ -99,7 +99,7 @@ export const ClassPortal: React.FC = () => {
   }, [students, classId]);
 
   useEffect(() => {
-    const initialLeaders: { [groupName: string]: { studentId: string; username?: string; password?: string } } = {};
+    const initialLeaders: { [groupName: string]: { studentId: string; username?: string } } = {};
     ["Tổ 1", "Tổ 2", "Tổ 3", "Tổ 4"].forEach(g => {
       const leaderUser = users.find(u => 
         u.role === UserRole.CLASS_MONITOR && 
@@ -110,11 +110,10 @@ export const ClassPortal: React.FC = () => {
       if (leaderUser) {
         initialLeaders[g] = {
           studentId: leaderUser.targetId || "",
-          username: leaderUser.username || "",
-          password: leaderUser.password || "123456"
+          username: leaderUser.username || ""
         };
       } else {
-        initialLeaders[g] = { studentId: "", username: "", password: "password123" };
+        initialLeaders[g] = { studentId: "", username: "" };
       }
     });
     setGroupLeaders(initialLeaders);
@@ -1263,7 +1262,7 @@ export const ClassPortal: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {["Tổ 1", "Tổ 2", "Tổ 3", "Tổ 4"].map(groupName => {
-              const currentLeader = groupLeaders[groupName] || { studentId: "", username: "", password: "password123" };
+              const currentLeader = groupLeaders[groupName] || { studentId: "", username: "" };
               const groupStudents = myClassmatesArr.filter(s => groupAssignments[s.id] === groupName);
 
               return (
@@ -1316,22 +1315,7 @@ export const ClassPortal: React.FC = () => {
                       </div>
                       <div className="space-y-1">
                         <label className="text-[9px] font-bold text-slate-455 uppercase block">Mật khẩu tài khoản</label>
-                        <input
-                          type="text"
-                          value={currentLeader.password || ""}
-                          onChange={(e) => {
-                            const pwd = e.target.value;
-                            setGroupLeaders(prev => ({
-                              ...prev,
-                              [groupName]: {
-                                ...prev[groupName],
-                                password: pwd
-                              }
-                            }));
-                          }}
-                          className="w-full p-2 border rounded-lg bg-white text-xs font-bold text-slate-700 focus:outline-indigo-500"
-                          placeholder="Mật khẩu..."
-                        />
+                        <span className="text-[10px] text-slate-500 italic block">Được quản lý bảo mật qua Firebase Auth</span>
                       </div>
                     </div>
                   )}
