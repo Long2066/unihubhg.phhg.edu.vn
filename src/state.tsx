@@ -955,12 +955,30 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             }
           } catch {}
         }
+        if (!found && authUser.email) {
+          const emailLower = authUser.email.toLowerCase();
+          const foundStudent = students.find(s => 
+            (s.email && s.email.toLowerCase() === emailLower) ||
+            `${s.id.toLowerCase()}@unihub.edu.vn` === emailLower ||
+            `${s.id.toLowerCase()}@hg.edu.vn` === emailLower
+          );
+          if (foundStudent) {
+            found = {
+              id: `U_STUD_${foundStudent.id}`,
+              username: foundStudent.id,
+              name: foundStudent.name,
+              role: UserRole.STUDENT,
+              targetId: foundStudent.id,
+              email: authUser.email
+            };
+          }
+        }
         if (found) {
           const { password, ...safeUser } = found as any;
           setCurrentUser(safeUser as UserAccount);
           localStorage.setItem("unihub_current_user", JSON.stringify(safeUser));
         } else {
-          // A6 FIX: Không tự tạo fallback user với role STUDENT
+          // A6 FIX: Không tự tạo fallback user nếu user không có danh tính trong hệ thống
           // User chưa được cấp phép → sign out
           console.warn("Firebase Auth user không có profile trong hệ thống, đăng xuất:", authUser.email);
           signOut(auth).catch(() => {});
@@ -973,7 +991,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     });
     return () => unsubscribe();
-  }, [users]);
+  }, [users, students]);
 
   // Validate Connection to Firestore on startup
   const testConnection = async () => {
@@ -1555,48 +1573,98 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
+    let authCred: any = null;
     try {
-      const authCred = await signInWithEmailAndPassword(auth, targetEmail, trimmedPass);
-      if (authCred?.user?.uid) {
-        const uid = authCred.user.uid;
-        let userDoc: UserAccount | null = null;
-
-        try {
-          const snap = await getDoc(doc(db, "users", uid));
-          if (snap.exists()) {
-            userDoc = snap.data() as UserAccount;
-          }
-        } catch {}
-
-        if (!userDoc) {
-          userDoc = users.find(u => 
-            (u.email && u.email.toLowerCase() === targetEmail.toLowerCase()) || 
-            (u.username && u.username.toLowerCase() === targetEmail.toLowerCase())
-          ) || null;
-        }
-
-        if (!userDoc) {
-          // A6 FIX: Không tự tạo fallback user nếu không tìm thấy profile
-          console.warn("Tài khoản chưa có thông tin trong cơ sở dữ liệu:", targetEmail);
-          await signOut(auth).catch(() => {});
-          return false;
-        }
-
-        const { password, ...safeUser } = userDoc as any;
-        setCurrentUser(safeUser as UserAccount);
-        localStorage.setItem("unihub_current_user", JSON.stringify(safeUser));
-        return true;
-      }
+      authCred = await signInWithEmailAndPassword(auth, targetEmail, trimmedPass);
     } catch (err: any) {
-      // A10 FIX: Log error và phân loại
       const errorCode = err?.code || "";
-      if (errorCode === "auth/invalid-credential" || errorCode === "auth/wrong-password" || errorCode === "auth/user-not-found") {
-        console.warn("Đăng nhập thất bại: Sai thông tin đăng nhập", targetEmail);
-      } else if (errorCode === "auth/too-many-requests") {
-        console.warn("Đăng nhập thất bại: Quá nhiều lần thử, tài khoản bị tạm khóa");
-      } else {
-        console.warn("Lỗi đăng nhập:", errorCode, err?.message || err);
+      // Cách 1: Tự động khởi tạo/kích hoạt tài khoản Firebase Auth cho sinh viên khi đăng nhập lần đầu bằng Mã SV + CCCD hợp lệ
+      if (
+        errorCode === "auth/invalid-credential" || 
+        errorCode === "auth/user-not-found" || 
+        errorCode === "auth/wrong-password"
+      ) {
+        const foundStudent = students.find(s => 
+          (s.id && s.id.trim().toLowerCase() === trimmedInput.toLowerCase()) ||
+          (s.email && s.email.trim().toLowerCase() === targetEmail.toLowerCase())
+        );
+
+        if (foundStudent && foundStudent.idCard && foundStudent.idCard.trim() === trimmedPass) {
+          try {
+            console.log(`Sinh viên ${foundStudent.id} đăng nhập lần đầu bằng CCCD - Tiến hành kích hoạt tài khoản Firebase Auth...`);
+            authCred = await createUserWithEmailAndPassword(auth, targetEmail, trimmedPass);
+          } catch (createErr: any) {
+            console.warn("Không thể tự động kích hoạt tài khoản qua CCCD:", createErr?.code || createErr?.message);
+          }
+        }
       }
+
+      if (!authCred) {
+        // A10 FIX: Log error và phân loại
+        if (errorCode === "auth/invalid-credential" || errorCode === "auth/wrong-password" || errorCode === "auth/user-not-found") {
+          console.warn("Đăng nhập thất bại: Sai thông tin đăng nhập", targetEmail);
+        } else if (errorCode === "auth/too-many-requests") {
+          console.warn("Đăng nhập thất bại: Quá nhiều lần thử, tài khoản bị tạm khóa");
+        } else {
+          console.warn("Lỗi đăng nhập:", errorCode, err?.message || err);
+        }
+      }
+    }
+
+    if (authCred?.user?.uid) {
+      const uid = authCred.user.uid;
+      let userDoc: UserAccount | null = null;
+
+      try {
+        const snap = await getDoc(doc(db, "users", uid));
+        if (snap.exists()) {
+          userDoc = snap.data() as UserAccount;
+        }
+      } catch {}
+
+      if (!userDoc) {
+        userDoc = users.find(u => 
+          (u.email && u.email.toLowerCase() === targetEmail.toLowerCase()) || 
+          (u.username && u.username.toLowerCase() === targetEmail.toLowerCase()) ||
+          (u.username && u.username.toLowerCase() === trimmedInput.toLowerCase())
+        ) || null;
+      }
+
+      // Nếu sinh viên nạp từ Excel chưa có record trong `users`, tự động tạo profile sinh viên an toàn
+      if (!userDoc) {
+        const foundStudent = students.find(s => 
+          (s.id && s.id.trim().toLowerCase() === trimmedInput.toLowerCase()) ||
+          (s.email && s.email.trim().toLowerCase() === targetEmail.toLowerCase())
+        );
+        if (foundStudent) {
+          userDoc = {
+            id: `U_STUD_${foundStudent.id}`,
+            username: foundStudent.id,
+            name: foundStudent.name,
+            role: UserRole.STUDENT,
+            targetId: foundStudent.id,
+            email: targetEmail
+          };
+          // Cập nhật vào danh sách users local
+          setUsers(prev => {
+            const updated = [...prev.filter(u => u.id !== userDoc!.id), userDoc!];
+            saveToStorage("unihub_users", updated);
+            return updated;
+          });
+        }
+      }
+
+      if (!userDoc) {
+        // A6 FIX: Không tự tạo fallback user nếu không tìm thấy profile
+        console.warn("Tài khoản chưa có thông tin trong cơ sở dữ liệu:", targetEmail);
+        await signOut(auth).catch(() => {});
+        return false;
+      }
+
+      const { password, ...safeUser } = userDoc as any;
+      setCurrentUser(safeUser as UserAccount);
+      localStorage.setItem("unihub_current_user", JSON.stringify(safeUser));
+      return true;
     }
 
     return false;
