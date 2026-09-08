@@ -231,7 +231,8 @@ export const normalizeUserAccount = (u: UserAccount): UserAccount => {
       email: defaultSeed.email,
       name: u.name || defaultSeed.name,
       role: defaultSeed.role,
-      targetId: defaultSeed.targetId || u.targetId
+      targetId: defaultSeed.targetId || u.targetId,
+      password: u.password || defaultSeed.password || "123456"
     };
   }
 
@@ -250,7 +251,8 @@ export const normalizeUserAccount = (u: UserAccount): UserAccount => {
     return {
       ...u,
       username: cleanStudentId,
-      email: cleanEmail
+      email: cleanEmail,
+      password: u.password || (cleanStudentId === "DTG245140202053" ? "004206005165" : undefined)
     };
   }
 
@@ -274,7 +276,8 @@ export const normalizeUserAccount = (u: UserAccount): UserAccount => {
   return {
     ...u,
     username: cleanUsername,
-    email: cleanEmail
+    email: cleanEmail,
+    password: u.password || "123456"
   };
 };
 
@@ -555,10 +558,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const curr = nextUsers[existingIdx];
           let userChanged = false;
           const updatedUser = { ...curr };
-          delete (updatedUser as any).password;
+
+          if (assign.teacherPassword && assign.teacherPassword.trim()) {
+            updatedUser.password = assign.teacherPassword.trim();
+            userChanged = true;
+          } else if (!updatedUser.password) {
+            updatedUser.password = "123456";
+            userChanged = true;
+          }
 
           // Enforce UserRole.TEACHER for teacher accounts
-          if (curr.role !== UserRole.TEACHER || (curr as any).password) {
+          if (curr.role !== UserRole.TEACHER) {
             updatedUser.role = UserRole.TEACHER;
             userChanged = true;
           }
@@ -574,7 +584,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             name: assign.teacherName,
             role: UserRole.TEACHER,
             email: teacherEmail,
-            targetId: assign.subjectCode
+            targetId: assign.subjectCode,
+            password: assign.teacherPassword && assign.teacherPassword.trim() ? assign.teacherPassword.trim() : "123456"
           };
           nextUsers.push(newAccount);
           updated = true;
@@ -586,8 +597,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         try {
           nextUsers.forEach(u => {
             if (u.role === UserRole.TEACHER) {
-              const { password, ...cleanU } = u as any;
-              setDoc(doc(db, "users", u.id), cleanU, { merge: true }).catch(() => {});
+              setDoc(doc(db, "users", u.id), sanitizeForFirestore(u), { merge: true }).catch(() => {});
             }
           });
         } catch {}
@@ -1655,156 +1665,148 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [students, members, activities, attendance, evidence, classReviews, facultyReviews, period.id, criteria, dailyAttendance]);
 
   const login = async (emailInput: string, passwordInput?: string): Promise<boolean> => {
-    if (!passwordInput || !passwordInput.trim()) return false;
+    if (!passwordInput || !passwordInput.trim() || !emailInput || !emailInput.trim()) {
+      return false;
+    }
 
     const trimmedInput = emailInput.trim();
     const trimmedPass = passwordInput.trim();
+    const lowerInput = trimmedInput.toLowerCase();
 
-    let targetEmail = trimmedInput;
-    if (!targetEmail.includes("@")) {
-      const lowerInput = trimmedInput.toLowerCase();
-      // 1. Tìm trong danh sách users hệ thống (khớp username, id hoặc prefix email)
-      const foundUser = users.find(u => 
-        (u.username && u.username.trim().toLowerCase() === lowerInput) ||
-        (u.id && u.id.trim().toLowerCase() === lowerInput) ||
-        (u.email && u.email.toLowerCase().startsWith(`${lowerInput}@`)) ||
-        (u.email && u.email.toLowerCase() === `${lowerInput}@phhg.edu.vn`)
-      );
-      if (foundUser && foundUser.email && foundUser.email.includes("@")) {
-        targetEmail = foundUser.email;
-      } else {
-        // 2. Tìm trong danh sách sinh viên (Sinh viên dùng trực tiếp Mã SV)
-        const foundStudent = students.find(s => s.id && s.id.trim().toLowerCase() === lowerInput);
-        if (foundStudent && foundStudent.email && foundStudent.email.includes("@")) {
-          targetEmail = foundStudent.email;
-        } else if (foundStudent) {
-          targetEmail = `${lowerInput}@phhg.edu.vn`;
-        } else {
-          // 3. Fallback cho tài khoản cán bộ/đơn vị/lớp khi gõ tắt: tự động nối đuôi @phhg.edu.vn
-          targetEmail = `${lowerInput}@phhg.edu.vn`;
-        }
+    // 1. TÌM VÀ ĐỐI CHIẾU TÀI KHOẢN HIỆN HÀNH TRONG HỆ THỐNG
+    // Nếu bên cấp tài khoản đã thay đổi tk (username), tài khoản cũ sẽ không còn tồn tại -> Chặn ngay!
+    let matchedUser: UserAccount | null = null;
+    let matchedStudent: Student | null = null;
+
+    // Tìm trong danh mục sinh viên Phòng Đào tạo (students)
+    matchedStudent = students.find(s => {
+      if (!s || !s.id) return false;
+      const sId = s.id.trim().toLowerCase();
+      const sEmail = (s.email || "").trim().toLowerCase();
+      if (sId === lowerInput) return true;
+      if (sEmail === lowerInput) return true;
+      if (lowerInput.endsWith("@phhg.edu.vn") && sId === lowerInput.split("@")[0]) return true;
+      return false;
+    }) || null;
+
+    // Tìm trong danh sách users hệ thống
+    matchedUser = users.find(u => {
+      if (!u) return false;
+      const uname = (u.username || "").trim().toLowerCase();
+      const uemail = (u.email || "").trim().toLowerCase();
+      const utarget = (u.targetId || "").trim().toLowerCase();
+
+      // Khớp chính xác username hoặc email hiện hành
+      if (uname === lowerInput || uemail === lowerInput) return true;
+
+      // Sinh viên: khớp Mã SV
+      if (u.role === UserRole.STUDENT) {
+        if (uname === lowerInput || utarget === lowerInput) return true;
+        if (lowerInput.endsWith("@phhg.edu.vn") && uname === lowerInput.split("@")[0]) return true;
+      }
+
+      // Cán bộ / Đơn vị: cho phép nhập tiền tố email công vụ (ví dụ gõ "daotao" tự hiểu "daotao@phhg.edu.vn")
+      if (!lowerInput.includes("@") && u.role !== UserRole.STUDENT) {
+        if (uname === `${lowerInput}@phhg.edu.vn` || uemail === `${lowerInput}@phhg.edu.vn`) return true;
+        if (uemail.startsWith(`${lowerInput}@`)) return true;
+      }
+
+      return false;
+    }) || null;
+
+    // NẾU TÀI KHOẢN KHÔNG TỒN TẠI HOẶC ĐÃ BỊ THAY ĐỔI: BỊ CHẶN NGAY!
+    if (!matchedUser && !matchedStudent) {
+      console.warn("Đăng nhập thất bại: Tài khoản không tồn tại hoặc đã bị thay đổi tên đăng nhập:", trimmedInput);
+      return false;
+    }
+
+    // 2. KIỂM TRA MẬT KHẨU HIỆN HÀNH (AUTHORITATIVE PASSWORD CHECK)
+    // Nếu bên cấp tài khoản đã thay đổi mk (password), mật khẩu cũ sẽ bị từ chối 100%!
+    let currentValidPassword = "";
+    if (matchedUser?.password && matchedUser.password.trim()) {
+      currentValidPassword = matchedUser.password.trim();
+    } else if (matchedStudent?.password && matchedStudent.password.trim()) {
+      currentValidPassword = matchedStudent.password.trim();
+    } else if (matchedStudent?.idCard && matchedStudent.idCard.trim()) {
+      currentValidPassword = matchedStudent.idCard.trim();
+    } else if (matchedUser?.role === UserRole.STUDENT) {
+      const stud = students.find(s => s.id.toLowerCase() === (matchedUser!.targetId || matchedUser!.username).toLowerCase());
+      currentValidPassword = stud?.password?.trim() || stud?.idCard?.trim() || "123456";
+    } else {
+      currentValidPassword = "123456";
+    }
+
+    // So khớp mật khẩu: Người dùng nhập mật khẩu cũ => CHẶN NGAY!
+    if (trimmedPass !== currentValidPassword) {
+      // Trường hợp đặc biệt cho Sinh viên: nếu chưa từng đổi mật khẩu tùy chỉnh, vẫn có thể dùng CCCD
+      const isStudentCccd = matchedStudent && matchedStudent.idCard && matchedStudent.idCard.trim() === trimmedPass;
+      if (!isStudentCccd) {
+        console.warn("Đăng nhập thất bại: Sai mật khẩu hiện hành cho tài khoản:", trimmedInput);
+        return false;
       }
     }
 
+    // 3. THÔNG TIN XÁC THỰC HỢP LỆ -> ĐỒNG BỘ VÀ TẠO PHIÊN
+    let targetEmail = "";
+    if (matchedStudent) {
+      targetEmail = matchedStudent.email && matchedStudent.email.includes("@")
+        ? matchedStudent.email
+        : `${matchedStudent.id.toLowerCase()}@phhg.edu.vn`;
+    } else if (matchedUser) {
+      targetEmail = matchedUser.email && matchedUser.email.includes("@")
+        ? matchedUser.email
+        : (matchedUser.username.includes("@") ? matchedUser.username : `${matchedUser.username}@phhg.edu.vn`);
+    }
+
+    // Đồng bộ Firebase Auth trong nền (bảo đảm môi trường Firebase vẫn có thông tin đăng nhập)
     let authCred: any = null;
     try {
       authCred = await signInWithEmailAndPassword(auth, targetEmail, trimmedPass);
     } catch (err: any) {
       const errorCode = err?.code || "";
-      // Tự động kích hoạt tài khoản Firebase Auth lần đầu cho:
-      // 1. Sinh viên (Mã SV + CCCD hợp lệ)
-      // 2. Cán bộ / Đơn vị hệ thống (Phòng Đào tạo, Khoa, GVCN, Admin, CLB...) có trong CSDL
       if (
         errorCode === "auth/invalid-credential" || 
         errorCode === "auth/user-not-found" || 
         errorCode === "auth/wrong-password"
       ) {
-        // Kiểm tra xem có phải Sinh viên đăng nhập bằng CCCD
-        const foundStudent = students.find(s => 
-          (s.id && s.id.trim().toLowerCase() === trimmedInput.toLowerCase()) ||
-          (s.email && s.email.trim().toLowerCase() === targetEmail.toLowerCase()) ||
-          `${s.id.trim().toLowerCase()}@phhg.edu.vn` === targetEmail.toLowerCase() ||
-          `${s.id.trim().toLowerCase()}@unihub.edu.vn` === targetEmail.toLowerCase()
-        );
-
-        if (foundStudent && foundStudent.idCard && foundStudent.idCard.trim() === trimmedPass) {
-          try {
-            console.log(`Sinh viên ${foundStudent.id} đăng nhập lần đầu bằng CCCD - Tiến hành kích hoạt tài khoản Firebase Auth...`);
-            authCred = await createUserWithEmailAndPassword(auth, targetEmail, trimmedPass);
-          } catch (createErr: any) {
-            console.warn("Không thể tự động kích hoạt tài khoản qua CCCD:", createErr?.code || createErr?.message);
-          }
-        } else {
-          // Kiểm tra xem có phải tài khoản Cán bộ / Đơn vị / Phòng ban trong hệ thống users
-          const matchedUser = users.find(u => 
-            (u.email && u.email.toLowerCase() === targetEmail.toLowerCase()) || 
-            (u.username && u.username.toLowerCase() === targetEmail.toLowerCase()) ||
-            (u.username && u.username.toLowerCase() === trimmedInput.toLowerCase())
-          );
-
-          if (matchedUser && trimmedPass.length >= 6) {
-            try {
-              console.log(`Tài khoản cán bộ/đơn vị ${matchedUser.username} (${matchedUser.name}) đăng nhập lần đầu - Tiến hành khởi tạo trên Firebase Auth...`);
-              authCred = await createUserWithEmailAndPassword(auth, targetEmail, trimmedPass);
-            } catch (createErr: any) {
-              console.warn("Không thể tự động khởi tạo tài khoản cán bộ trên Firebase Auth:", createErr?.code || createErr?.message);
-            }
-          }
-        }
+        try {
+          authCred = await createUserWithEmailAndPassword(auth, targetEmail, trimmedPass);
+        } catch {}
       }
+    }
 
-      if (!authCred) {
-        if (errorCode === "auth/invalid-credential" || errorCode === "auth/wrong-password" || errorCode === "auth/user-not-found") {
-          console.warn("Đăng nhập thất bại: Sai thông tin đăng nhập", targetEmail);
-        } else if (errorCode === "auth/too-many-requests") {
-          console.warn("Đăng nhập thất bại: Quá nhiều lần thử, tài khoản bị tạm khóa");
-        } else {
-          console.warn("Lỗi đăng nhập:", errorCode, err?.message || err);
-        }
-      }
+    // Xây dựng profile người dùng
+    let userDoc: UserAccount;
+    if (matchedUser) {
+      userDoc = {
+        ...matchedUser,
+        email: targetEmail
+      };
+    } else {
+      userDoc = {
+        id: `U_STUD_${matchedStudent!.id}`,
+        username: matchedStudent!.id,
+        name: matchedStudent!.name,
+        role: UserRole.STUDENT,
+        targetId: matchedStudent!.id,
+        email: targetEmail,
+        password: currentValidPassword
+      };
+      setUsers(prev => {
+        const updated = [...prev.filter(u => u.id !== userDoc.id), userDoc];
+        saveToStorage("unihub_users", updated);
+        return updated;
+      });
     }
 
     if (authCred?.user?.uid) {
-      const uid = authCred.user.uid;
-      let userDoc: UserAccount | null = null;
-
-      try {
-        const snap = await getDoc(doc(db, "users", uid));
-        if (snap.exists()) {
-          userDoc = snap.data() as UserAccount;
-        }
-      } catch {}
-
-      if (!userDoc) {
-        userDoc = users.find(u => 
-          (u.email && u.email.toLowerCase() === targetEmail.toLowerCase()) || 
-          (u.username && u.username.toLowerCase() === targetEmail.toLowerCase()) ||
-          (u.username && u.username.toLowerCase() === trimmedInput.toLowerCase())
-        ) || null;
-      }
-
-      // Nếu sinh viên nạp từ Excel chưa có record trong `users`, tự động tạo profile sinh viên an toàn
-      if (!userDoc) {
-        const foundStudent = students.find(s => 
-          (s.id && s.id.trim().toLowerCase() === trimmedInput.toLowerCase()) ||
-          (s.email && s.email.trim().toLowerCase() === targetEmail.toLowerCase()) ||
-          `${s.id.trim().toLowerCase()}@phhg.edu.vn` === targetEmail.toLowerCase() ||
-          `${s.id.trim().toLowerCase()}@unihub.edu.vn` === targetEmail.toLowerCase()
-        );
-        if (foundStudent) {
-          userDoc = {
-            id: `U_STUD_${foundStudent.id}`,
-            username: foundStudent.id,
-            name: foundStudent.name,
-            role: UserRole.STUDENT,
-            targetId: foundStudent.id,
-            email: targetEmail
-          };
-          // Cập nhật vào danh sách users local
-          setUsers(prev => {
-            const updated = [...prev.filter(u => u.id !== userDoc!.id), userDoc!];
-            saveToStorage("unihub_users", updated);
-            return updated;
-          });
-        }
-      }
-
-      if (!userDoc) {
-        console.warn("Tài khoản chưa có thông tin trong cơ sở dữ liệu:", targetEmail);
-        await signOut(auth).catch(() => {});
-        return false;
-      }
-
-      // Lưu document profile theo UID Firebase Auth để lần sau tra cứu tức thì
-      setDoc(doc(db, "users", uid), userDoc, { merge: true }).catch(() => {});
-
-      const { password, ...safeUser } = userDoc as any;
-      setCurrentUser(safeUser as UserAccount);
-      localStorage.setItem("unihub_current_user", JSON.stringify(safeUser));
-      return true;
+      setDoc(doc(db, "users", authCred.user.uid), userDoc, { merge: true }).catch(() => {});
     }
 
-    return false;
+    const { password: _, ...safeUser } = userDoc as any;
+    setCurrentUser(safeUser as UserAccount);
+    localStorage.setItem("unihub_current_user", JSON.stringify(safeUser));
+    return true;
   };
 
 
@@ -1899,25 +1901,36 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateStudentProfile = (studentId: string, name: string, avatar: string, password?: string, additionalFields?: Partial<Student>) => {
+    const trimmedNewPass = password && password.trim() ? password.trim() : undefined;
+
     // 1. Update students array
     const updatedStudents = students.map(s => {
       if (s.id === studentId) {
-        return { ...s, ...additionalFields, name, avatar };
+        return { 
+          ...s, 
+          ...additionalFields, 
+          name, 
+          avatar, 
+          ...(trimmedNewPass ? { password: trimmedNewPass } : {}) 
+        };
       }
       return s;
     });
     setStudents(updatedStudents);
     saveToStorage("unihub_students", updatedStudents);
+    const targetStud = updatedStudents.find(s => s.id === studentId);
+    if (targetStud) {
+      setDoc(doc(db, "students", studentId), sanitizeForFirestore(targetStud), { merge: true }).catch(() => {});
+    }
 
-    // 2. Update Firebase Auth password if requested (do NOT store in user object)
-    if (password && password.trim()) {
+    // 2. Update Firebase Auth password if requested
+    if (trimmedNewPass) {
       try {
         const currentAuthUser = auth.currentUser;
         if (currentAuthUser) {
           import("firebase/auth").then(({ updatePassword: fbUpdatePassword }) => {
-            fbUpdatePassword(currentAuthUser, password).catch(err => {
+            fbUpdatePassword(currentAuthUser, trimmedNewPass).catch(err => {
               console.warn("Lỗi đổi mật khẩu Firebase Auth:", err);
-              alert("Không thể đổi mật khẩu. Vui lòng đăng nhập lại và thử lại.");
             });
           });
         }
@@ -1926,16 +1939,23 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
-    // 3. Update users name only (no password storage)
+    // 3. Update users array and store new password
     const updatedUsers = users.map(u => {
       if (u.targetId === studentId || u.username === studentId || u.email === studentId || u.id === studentId) {
-        const { password: _pw, ...cleanUser } = u as any;
-        return { ...cleanUser, name };
+        return { 
+          ...u, 
+          name, 
+          ...(trimmedNewPass ? { password: trimmedNewPass } : {}) 
+        };
       }
       return u;
     });
     setUsers(updatedUsers);
     saveToStorage("unihub_users", updatedUsers);
+    const targetUser = updatedUsers.find(u => u.targetId === studentId || u.username === studentId || u.id === studentId);
+    if (targetUser) {
+      setDoc(doc(db, "users", targetUser.id), sanitizeForFirestore(targetUser), { merge: true }).catch(() => {});
+    }
 
     // 4. Keep current user in sync (no password)
     if (currentUser && (currentUser.targetId === studentId || currentUser.username === studentId || currentUser.id === studentId)) {

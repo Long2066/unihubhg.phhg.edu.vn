@@ -48,6 +48,7 @@ export interface UserAccount {
   isGroupLeader?: boolean;
   groupInCharge?: string;
   monitorTitle?: string;
+  password?: string;
 }
 
 export interface EvaluationPeriod {
@@ -160,6 +161,7 @@ export interface Student {
   paidTuition?: number;        // Học phí đã nộp
   debtTuition?: number;        // Học phí còn nợ
   paymentStatus?: string;      // Trạng thái thanh toán
+  password?: string;           // Mật khẩu đăng nhập tùy chỉnh (nếu khác số CCCD)
 }
 
 export interface FieldMeta {

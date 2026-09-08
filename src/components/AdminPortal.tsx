@@ -202,7 +202,7 @@ export const AdminPortal: React.FC = () => {
     const assocUser = findAssocUser(org, users);
     if (assocUser) {
       setClubFormUsername(assocUser.username);
-      setClubFormPassword("");
+      setClubFormPassword(assocUser.password || "");
     } else {
       setClubFormUsername("");
       setClubFormPassword("");
@@ -215,7 +215,7 @@ export const AdminPortal: React.FC = () => {
     setAccFormName(user.name);
     setAccFormRole(user.role);
     setAccFormUsername(user.username);
-    setAccFormPassword("");
+    setAccFormPassword(user.password || "");
     setAccFormTargetId(user.targetId || "");
     
     // Auto populate Class or Faculty state based on role
@@ -246,10 +246,13 @@ export const AdminPortal: React.FC = () => {
 
   const handleSaveAccount = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!accFormUsername.trim() || !accFormName.trim() || !accFormPassword.trim()) {
-      alert("Vui lòng nhập đầy đủ họ tên, tài khoản và mật khẩu!");
+    if (!accFormUsername.trim() || !accFormName.trim()) {
+      alert("Vui lòng nhập đầy đủ họ tên và tài khoản!");
       return;
     }
+
+    const existingUser = selectedAccId ? users.find(u => u.id === selectedAccId) : null;
+    const finalPassword = accFormPassword.trim() || (existingUser?.password || "123456");
 
     let resolvedTargetId = accFormTargetId.trim();
     let finalUsername = accFormUsername.trim();
@@ -295,12 +298,13 @@ export const AdminPortal: React.FC = () => {
       name: accFormName.trim(),
       role: accFormRole,
       email: finalEmail,
-      targetId: resolvedTargetId || undefined
+      targetId: resolvedTargetId || undefined,
+      password: finalPassword
     };
 
     if (selectedAccId) {
       updateUserAccount(selectedAccId, userData);
-      alert("Cập nhật tài khoản hệ thống thành công!");
+      alert(`Cập nhật tài khoản hệ thống thành công!\nTài khoản: ${finalUsername}\nMật khẩu: ${finalPassword}`);
     } else {
       const exists = users.some(u => u.username.toLowerCase() === finalUsername.toLowerCase());
       if (exists) {
@@ -308,7 +312,7 @@ export const AdminPortal: React.FC = () => {
         return;
       }
       createUserAccount(userData);
-      alert("Thêm tài khoản hệ thống mới thành công!");
+      alert(`Thêm tài khoản hệ thống mới thành công!\nTài khoản: ${finalUsername}\nMật khẩu: ${finalPassword}`);
     }
 
     clearAccountForm();
@@ -363,18 +367,22 @@ export const AdminPortal: React.FC = () => {
       finalClubUsername = `${finalClubUsername}@phhg.edu.vn`;
     }
 
+    const existingAssocUser = users.find(u => isOrgRole(u.role) && (u.targetId === cleanId || u.username.toLowerCase() === finalClubUsername.toLowerCase()));
+    const finalClubPassword = clubFormPassword.trim() || (existingAssocUser?.password || "123456");
+
     const userData: UserAccount = {
-      id: `U_ORG_GEN_${cleanId}`,
+      id: existingAssocUser ? existingAssocUser.id : `U_ORG_GEN_${cleanId}`,
       username: finalClubUsername,
       name: clubFormName.trim(),
       role: clubFormType === "DOAN" ? UserRole.YOUTH_UNION : clubFormType === "HOI" ? UserRole.STUDENT_UNION : UserRole.CLUB_MANAGER,
       email: finalClubUsername,
-      targetId: cleanId
+      targetId: cleanId,
+      password: finalClubPassword
     };
 
     if (selectedClubId) {
       updateClubAndAccount(selectedClubId, orgData, userData);
-      alert("Cập nhật thông tin Câu lạc bộ và tài khoản liên kết thành công!");
+      alert(`Cập nhật thông tin Câu lạc bộ và tài khoản liên kết thành công!\nTài khoản: ${finalClubUsername}\nMật khẩu: ${finalClubPassword}`);
     } else {
       const idExists = organizations.some(o => o.id.toLowerCase() === cleanId.toLowerCase());
       if (idExists) {
@@ -1400,7 +1408,7 @@ export const AdminPortal: React.FC = () => {
                             <span className="text-slate-750 font-mono font-medium flex items-center gap-1.5">
                               {assocUser ? (
                                 <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold text-[10px]">
-                                  Firebase Auth
+                                  {assocUser.password || "••••••"}
                                 </span>
                               ) : (
                                 <span className="text-slate-350">-</span>
@@ -1492,7 +1500,7 @@ export const AdminPortal: React.FC = () => {
                               <td className="p-3.5 font-mono font-medium text-slate-655">{user.username}</td>
                               <td className="p-3.5 font-mono text-slate-750 font-medium">
                                 <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold text-[10.5px]">
-                                  Firebase Auth
+                                  {user.password || (user.role === UserRole.STUDENT && studentObj?.idCard ? studentObj.idCard : "123456")}
                                 </span>
                               </td>
                               <td className="p-3.5 font-mono font-bold text-indigo-700">{linkedClass}</td>
@@ -1617,7 +1625,7 @@ export const AdminPortal: React.FC = () => {
                               <td className="p-3.5 font-mono font-medium text-slate-655">{user.username}</td>
                               <td className="p-3.5 font-mono text-slate-750 font-medium">
                                 <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold text-[10.5px]">
-                                  Firebase Auth
+                                  {user.password || "123456"}
                                 </span>
                               </td>
                               <td className="p-3.5 font-mono text-slate-500">{user.targetId || <span className="text-slate-350 italic">-</span>}</td>
@@ -1714,7 +1722,7 @@ export const AdminPortal: React.FC = () => {
                             <td className="p-3.5 font-mono text-blue-700 font-bold">{teacher.username || teacher.email}</td>
                             <td className="p-3.5 font-mono text-slate-600">
                               <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold text-[10px]">
-                                Firebase Auth
+                                {teacher.password || "123456"}
                               </span>
                             </td>
                             <td className="p-3.5">
@@ -1729,7 +1737,7 @@ export const AdminPortal: React.FC = () => {
                                   setAccFormName(teacher.name);
                                   setAccFormRole(teacher.role);
                                   setAccFormUsername(teacher.username || teacher.email || "");
-                                  setAccFormPassword("");
+                                  setAccFormPassword(teacher.password || "");
                                   setAccFormTargetId(teacher.targetId || "");
                                   setShowAccountModal(true);
                                 }}
@@ -1829,15 +1837,26 @@ export const AdminPortal: React.FC = () => {
                               <td className="p-3.5 font-mono font-medium text-slate-655">{user.username}</td>
                               <td className="p-3.5">
                                 <div className="flex items-center gap-2">
-                                  <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Hoạt động</span>
+                                  <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold font-mono text-[10px]">
+                                    {user.password || "••••••"}
+                                  </span>
                                   <button
                                     onClick={() => {
-                                      alert("Đã gửi yêu cầu đặt lại mật khẩu về email của tài khoản.");
+                                      const newPass = prompt(`Nhập mật khẩu mới cho tài khoản "${user.name}" (${user.username}):`, user.password || "123456");
+                                      if (newPass !== null) {
+                                        const trimmed = newPass.trim();
+                                        if (!trimmed) {
+                                          alert("Mật khẩu không được để trống!");
+                                          return;
+                                        }
+                                        updateUserAccount(user.id, { password: trimmed });
+                                        alert(`Đã đổi mật khẩu thành công!\nTài khoản: ${user.username}\nMật khẩu mới: ${trimmed}`);
+                                      }
                                     }}
-                                    className="px-2 py-0.5 text-[10px] font-bold rounded border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer transition-colors"
-                                    title="Đặt lại mật khẩu"
+                                    className="px-2 py-0.5 text-[10px] font-bold rounded border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer transition-colors whitespace-nowrap"
+                                    title="Đặt lại mật khẩu trực tiếp"
                                   >
-                                    Đặt lại MK
+                                    Đổi MK
                                   </button>
                                 </div>
                               </td>
