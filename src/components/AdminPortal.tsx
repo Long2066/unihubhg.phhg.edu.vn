@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useUniHub } from "../state";
 import { SEED_USERS } from "../data";
 import { UserRole, isOrgRole, UserAccount, Organization } from "../types";
@@ -25,7 +25,8 @@ import {
   AlertTriangle,
   Plus,
   Copy,
-  Database
+  Database,
+  RefreshCw
 } from "lucide-react";
 import { DataBackupRestoreModal } from "./DataBackupRestoreModal";
 
@@ -48,7 +49,8 @@ export const AdminPortal: React.FC = () => {
     setActivePortletTab,
     createUserAccount,
     updateUserAccount,
-    deleteUserAccount
+    deleteUserAccount,
+    normalizeAllAccounts
   } = useUniHub();
 
   const activeTab = (activePortletTab as "CONFIG" | "PERIOD" | "STATIONS" | "CLUBS") || "CONFIG";
@@ -104,6 +106,18 @@ export const AdminPortal: React.FC = () => {
   const [accountRoleFilter, setAccountRoleFilter] = useState<string>("ALL");
   const [selectedClassIdForForm, setSelectedClassIdForForm] = useState("");
   const [selectedFacultyIdForForm, setSelectedFacultyIdForForm] = useState("");
+
+  // Tự động chuẩn hóa tài khoản nếu phát hiện còn sót đuôi cũ hoặc sinh viên bị gán email vào username
+  useEffect(() => {
+    const hasLegacyDomain = users.some(u => 
+      (u.username && /@(hg\.edu\.vn|unihub\.edu\.vn|tnu-hgc\.edu\.vn)/i.test(u.username)) ||
+      (u.email && /@(hg\.edu\.vn|unihub\.edu\.vn|tnu-hgc\.edu\.vn)/i.test(u.email)) ||
+      (u.role === UserRole.STUDENT && u.username && u.username.includes("@"))
+    );
+    if (hasLegacyDomain) {
+      normalizeAllAccounts();
+    }
+  }, [users, normalizeAllAccounts]);
 
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
@@ -1290,26 +1304,39 @@ export const AdminPortal: React.FC = () => {
                     Tất cả tài khoản hệ thống ({users.length})
                   </button>
                 </div>
-                <button
-                  onClick={() => {
-                    if (activeAccountTab === "CLUBS") {
-                      clearClubForm();
-                      setShowClubModal(true);
-                    } else {
-                      clearAccountForm();
-                      if (activeAccountTab === "CLASS_ACCOUNTS") {
-                        setAccFormRole(UserRole.STUDENT);
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <button
+                    onClick={() => {
+                      normalizeAllAccounts();
+                      alert("Đã đồng bộ chuẩn hóa toàn bộ tài khoản sang đuôi @phhg.edu.vn thành công!");
+                    }}
+                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
+                    title="Đồng bộ cập nhật toàn bộ tài khoản sang đuôi @phhg.edu.vn"
+                  >
+                    <RefreshCw size={14} />
+                    <span>Đồng bộ đuôi @phhg.edu.vn</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (activeAccountTab === "CLUBS") {
+                        clearClubForm();
+                        setShowClubModal(true);
                       } else {
-                        setAccFormRole(UserRole.FACULTY);
+                        clearAccountForm();
+                        if (activeAccountTab === "CLASS_ACCOUNTS") {
+                          setAccFormRole(UserRole.STUDENT);
+                        } else {
+                          setAccFormRole(UserRole.FACULTY);
+                        }
+                        setShowAccountModal(true);
                       }
-                      setShowAccountModal(true);
-                    }
-                  }}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-750 text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition-all shadow-xs shrink-0 self-end sm:self-center animate-pulse-subtle"
-                >
-                  <Plus size={14} />
-                  <span>Thêm mới</span>
-                </button>
+                    }}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-750 text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition-all shadow-xs shrink-0 animate-pulse-subtle"
+                  >
+                    <Plus size={14} />
+                    <span>Thêm mới</span>
+                  </button>
+                </div>
               </div>
 
               {/* Tab 1: CLUBS */}

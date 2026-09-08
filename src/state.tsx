@@ -204,12 +204,78 @@ interface UniHubContextType {
   updateGradingRules: (rules: GradingRulesConfig) => void;
   aggregateSubjectGradesToSemesterGpa: (semesterId: string) => { updatedCount: number; warningsCount: number };
   restoreAllDataBackup: (backupData: any) => Promise<void>;
+  normalizeAllAccounts: () => void;
 }
 
 export const normalizeClassId = (classId: string | undefined | null): string => {
   if (!classId) return "";
   let str = String(classId).trim();
   return str.replace(/^(K\d+)[-_ ]+GDTH[-_ ]+([A-Z0-9]+)$/i, "$1-GDTH $2");
+};
+
+/**
+ * Hàm chuẩn hóa tài khoản hệ thống sang đuôi @phhg.edu.vn
+ * - Tài khoản hệ thống gốc trong SEED_USERS: cập nhật theo thông tin chuẩn
+ * - Sinh viên: Tên đăng nhập là Mã SV, email đuôi @phhg.edu.vn
+ * - Các tài khoản khác: bắt buộc chuẩn hóa đuôi @phhg.edu.vn
+ */
+export const normalizeUserAccount = (u: UserAccount): UserAccount => {
+  if (!u) return u;
+
+  // 1. Kiểm tra tài khoản mặc định của hệ thống trong SEED_USERS
+  const defaultSeed = SEED_USERS.find(seed => seed.id === u.id);
+  if (defaultSeed) {
+    return {
+      ...u,
+      username: defaultSeed.username,
+      email: defaultSeed.email,
+      name: u.name || defaultSeed.name,
+      role: defaultSeed.role,
+      targetId: defaultSeed.targetId || u.targetId
+    };
+  }
+
+  // 2. Sinh viên: username là Mã SV, email chuẩn hóa @phhg.edu.vn
+  if (u.role === UserRole.STUDENT) {
+    const rawUsername = (u.username || u.id || "").trim();
+    const cleanStudentId = rawUsername.includes("@") ? rawUsername.split("@")[0] : rawUsername;
+    
+    let cleanEmail = (u.email || "").trim();
+    if (cleanEmail) {
+      cleanEmail = cleanEmail.replace(/@(hg\.edu\.vn|unihub\.edu\.vn|tnu-hgc\.edu\.vn)/gi, "@phhg.edu.vn");
+    } else {
+      cleanEmail = `${cleanStudentId.toLowerCase()}@phhg.edu.vn`;
+    }
+
+    return {
+      ...u,
+      username: cleanStudentId,
+      email: cleanEmail
+    };
+  }
+
+  // 3. Cán bộ, Giảng viên, Đơn vị, Ban cán sự: chuẩn hóa đuôi @phhg.edu.vn
+  let cleanUsername = (u.username || "").trim();
+  if (cleanUsername.includes("@")) {
+    cleanUsername = cleanUsername.replace(/@(hg\.edu\.vn|unihub\.edu\.vn|tnu-hgc\.edu\.vn)/gi, "@phhg.edu.vn");
+  } else if (cleanUsername) {
+    cleanUsername = `${cleanUsername}@phhg.edu.vn`;
+  }
+
+  let cleanEmail = (u.email || "").trim();
+  if (cleanEmail.includes("@")) {
+    cleanEmail = cleanEmail.replace(/@(hg\.edu\.vn|unihub\.edu\.vn|tnu-hgc\.edu\.vn)/gi, "@phhg.edu.vn");
+  } else if (cleanEmail) {
+    cleanEmail = `${cleanEmail}@phhg.edu.vn`;
+  } else {
+    cleanEmail = cleanUsername;
+  }
+
+  return {
+    ...u,
+    username: cleanUsername,
+    email: cleanEmail
+  };
 };
 
 const UniHubContext = createContext<UniHubContextType | undefined>(undefined);
@@ -259,13 +325,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [period, setPeriod] = useState<EvaluationPeriod>(SEED_PERIOD);
   const [users, setUsers] = useState<UserAccount[]>(() => {
     const cached = localStorage.getItem("unihub_users");
+    let list: UserAccount[] = SEED_USERS;
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) list = parsed;
       } catch {}
     }
-    return SEED_USERS;
+    const normalized = list.map(normalizeUserAccount);
+    try {
+      localStorage.setItem("unihub_users", JSON.stringify(normalized));
+    } catch {}
+    return normalized;
   });
 
   const [criteria, setCriteria] = useState<PointCriteria[]>([]);
@@ -1046,10 +1117,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const usersSnap = await getDocs(collection(db, "users"));
       if (!usersSnap.empty) {
         const list: UserAccount[] = [];
-        usersSnap.forEach(d => list.push(d.data() as UserAccount));
+        usersSnap.forEach(d => list.push(normalizeUserAccount(d.data() as UserAccount)));
         const merged = smartMerge(list, "unihub_users", u => u.id || u.username || u.email);
-        setUsers(merged);
-        localStorage.setItem("unihub_users_backup", JSON.stringify(merged));
+        const normalizedMerged = merged.map(normalizeUserAccount);
+        setUsers(normalizedMerged);
+        localStorage.setItem("unihub_users_backup", JSON.stringify(normalizedMerged));
+        localStorage.setItem("unihub_users", JSON.stringify(normalizedMerged));
       }
       
       // 2. Get Students
@@ -1297,24 +1370,23 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
 
         // Check if org user accounts are missing, seed individual org users safely
-        const usersSnapCheck = await getDocs(collection(db, "users"));
-        if (usersSnapCheck.empty) {
-          console.log("Seeding baseline users...");
-          for (const u of SEED_USERS) {
-            await setDoc(doc(db, "users", u.id), u, { merge: true });
-          }
-        } else {
-          // Ensure default org accounts exist in users collection
-          const currentUsers = usersSnapCheck.docs.map(d => d.data() as UserAccount);
-          for (const orgUser of SEED_USERS.filter(u => isOrgRole(u.role))) {
-            const hasUser = currentUsers.some(u => 
-              (u.targetId && orgUser.targetId && u.targetId.toLowerCase() === orgUser.targetId.toLowerCase()) || 
-              (u.username && u.username.toLowerCase() === orgUser.username.toLowerCase())
-            );
-            if (!hasUser) {
-              await setDoc(doc(db, "users", orgUser.id), orgUser, { merge: true });
+        console.log("Đồng bộ baseline users chuẩn hóa đuôi @phhg.edu.vn lên Firestore...");
+        for (const u of SEED_USERS) {
+          await setDoc(doc(db, "users", u.id), u, { merge: true });
+        }
+
+        // Tự động quét và chuẩn hóa các tài khoản Firestore còn sót đuôi cũ (@hg.edu.vn, @unihub.edu.vn...)
+        try {
+          const usersSnapCheck = await getDocs(collection(db, "users"));
+          for (const d of usersSnapCheck.docs) {
+            const userDoc = d.data() as UserAccount;
+            const normalized = normalizeUserAccount(userDoc);
+            if (normalized.username !== userDoc.username || normalized.email !== userDoc.email) {
+              await setDoc(doc(db, "users", d.id), normalized, { merge: true });
             }
           }
+        } catch (e) {
+          console.warn("Lỗi chuẩn hóa tài khoản Firestore:", e);
         }
 
         await loadFromFirestore();
@@ -2993,6 +3065,25 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const normalizeAllAccounts = () => {
+    const updated = users.map(normalizeUserAccount);
+    setUsers(updated);
+    try {
+      localStorage.setItem("unihub_users", JSON.stringify(updated));
+      localStorage.setItem("unihub_users_backup", JSON.stringify(updated));
+    } catch {}
+    updated.forEach(u => {
+      setDoc(doc(db, "users", u.id), u, { merge: true }).catch(() => {});
+    });
+    if (currentUser) {
+      const updatedCurrent = normalizeUserAccount(currentUser);
+      setCurrentUser(updatedCurrent);
+      try {
+        localStorage.setItem("unihub_current_user", JSON.stringify(updatedCurrent));
+      } catch {}
+    }
+  };
+
   const importNewClassesExcel = (studentsToImport: Student[], usersToImport: UserAccount[]) => {
     const combinedStudents = [...students];
     studentsToImport.forEach(newStud => {
@@ -3239,6 +3330,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       createUserAccount,
       updateUserAccount,
       deleteUserAccount,
+      normalizeAllAccounts,
       
       saveGroupSettings,
       reportGroupAttendance,
