@@ -238,6 +238,9 @@ export const AdminPortal: React.FC = () => {
     }
 
     let resolvedTargetId = accFormTargetId.trim();
+    let finalUsername = accFormUsername.trim();
+    let finalEmail = accFormUsername.trim();
+
     if (accFormRole === UserRole.STUDENT) {
       const studentInTraining = students.find(s => 
         (s.id && s.id.trim().toLowerCase() === accFormUsername.trim().toLowerCase()) ||
@@ -248,7 +251,18 @@ export const AdminPortal: React.FC = () => {
         return;
       }
       resolvedTargetId = studentInTraining.id;
+      finalUsername = studentInTraining.id; // Sinh viên dùng Mã SV
+      finalEmail = studentInTraining.email && studentInTraining.email.includes("@")
+        ? studentInTraining.email
+        : `${studentInTraining.id.toLowerCase()}@phhg.edu.vn`;
+    } else {
+      // Mọi tài khoản cấp trên hệ thống (trừ sinh viên) chuẩn hóa đuôi @phhg.edu.vn
+      if (!finalUsername.includes("@")) {
+        finalUsername = `${finalUsername}@phhg.edu.vn`;
+      }
+      finalEmail = finalUsername;
     }
+
     if (!resolvedTargetId) {
       if (accFormRole === UserRole.YOUTH_UNION) resolvedTargetId = "DOANTN";
       else if (accFormRole === UserRole.STUDENT_UNION) resolvedTargetId = "HOISV";
@@ -263,10 +277,10 @@ export const AdminPortal: React.FC = () => {
 
     const userData: UserAccount = {
       id: selectedAccId || `U_GEN_${Date.now()}`,
-      username: accFormUsername.trim(),
+      username: finalUsername,
       name: accFormName.trim(),
       role: accFormRole,
-      email: accFormUsername.trim(),
+      email: finalEmail,
       targetId: resolvedTargetId || undefined
     };
 
@@ -274,7 +288,7 @@ export const AdminPortal: React.FC = () => {
       updateUserAccount(selectedAccId, userData);
       alert("Cập nhật tài khoản hệ thống thành công!");
     } else {
-      const exists = users.some(u => u.username.toLowerCase() === accFormUsername.trim().toLowerCase());
+      const exists = users.some(u => u.username.toLowerCase() === finalUsername.toLowerCase());
       if (exists) {
         alert("Tên tài khoản này đã tồn tại! Vui lòng dùng tên khác.");
         return;
@@ -289,7 +303,8 @@ export const AdminPortal: React.FC = () => {
 
   const handleDeleteAccount = (user: UserAccount) => {
     const activeUser = users.find(u => u.id === user.id);
-    if (activeUser && activeUser.username === "cthssv@hg.edu.vn") {
+    const protectedAdmins = ["cthssv@phhg.edu.vn", "cthssv@hg.edu.vn", "pcthssv@hg.edu.vn", "admin@phhg.edu.vn", "admin", "superadmin"];
+    if (activeUser && protectedAdmins.includes(activeUser.username.toLowerCase())) {
       alert("Bạn không thể xóa tài khoản của admin tổng!");
       return;
     }
@@ -329,12 +344,17 @@ export const AdminPortal: React.FC = () => {
       level: clubFormLevel,
     };
 
+    let finalClubUsername = clubFormUsername.trim();
+    if (!finalClubUsername.includes("@")) {
+      finalClubUsername = `${finalClubUsername}@phhg.edu.vn`;
+    }
+
     const userData: UserAccount = {
       id: `U_ORG_GEN_${cleanId}`,
-      username: clubFormUsername.trim(),
+      username: finalClubUsername,
       name: clubFormName.trim(),
       role: clubFormType === "DOAN" ? UserRole.YOUTH_UNION : clubFormType === "HOI" ? UserRole.STUDENT_UNION : UserRole.CLUB_MANAGER,
-      email: clubFormUsername.trim(),
+      email: finalClubUsername,
       targetId: cleanId
     };
 
@@ -348,7 +368,7 @@ export const AdminPortal: React.FC = () => {
         return;
       }
 
-      const userExists = users.some(u => u.username.toLowerCase() === clubFormUsername.trim().toLowerCase());
+      const userExists = users.some(u => u.username.toLowerCase() === finalClubUsername.toLowerCase());
       if (userExists) {
         alert("Tên tài khoản (Email đăng nhập) này đã tồn tại trong hệ thống! Vui lòng chọn một email khác.");
         return;
@@ -1545,7 +1565,7 @@ export const AdminPortal: React.FC = () => {
                           // Only include FACULTY, TRAINING_DEPT, ADMIN
                           if (u.role !== UserRole.FACULTY && u.role !== UserRole.TRAINING_DEPT && u.role !== UserRole.ADMIN) return false;
                           // Filter out the supreme admin (superadmin) from client portal view
-                          if (u.username === "superadmin" || u.email === "superadmin@unihub.edu.vn") return false;
+                          if (u.id === "U_SUPERADMIN" || u.username === "superadmin" || u.username === "admin" || u.email === "superadmin@unihub.edu.vn" || u.email === "admin@phhg.edu.vn") return false;
                           
                           if (accountRoleFilter !== "ALL" && u.role !== accountRoleFilter) return false;
                           if (accountSearch.trim()) {
@@ -1584,9 +1604,9 @@ export const AdminPortal: React.FC = () => {
                                   </button>
                                   <button
                                     onClick={() => handleDeleteAccount(user)}
-                                    disabled={user.username === "cthssv@hg.edu.vn"}
+                                    disabled={user.username === "cthssv@phhg.edu.vn" || user.username === "cthssv@hg.edu.vn" || user.username === "admin@phhg.edu.vn" || user.username === "admin"}
                                     className="p-1 text-rose-600 hover:bg-rose-50 disabled:opacity-30 disabled:hover:bg-transparent border border-rose-100 hover:border-rose-200 disabled:border-transparent rounded-lg cursor-pointer flex items-center justify-center transition-colors"
-                                    title={user.username === "cthssv@hg.edu.vn" ? "Không thể xóa admin tổng" : "Xóa tài khoản"}
+                                    title={(user.username === "cthssv@phhg.edu.vn" || user.username === "cthssv@hg.edu.vn" || user.username === "admin@phhg.edu.vn" || user.username === "admin") ? "Không thể xóa admin tổng" : "Xóa tài khoản"}
                                   >
                                     <Trash2 size={12} />
                                   </button>
@@ -1597,7 +1617,7 @@ export const AdminPortal: React.FC = () => {
                         })}
                         {users.filter(u => {
                           if (u.role !== UserRole.FACULTY && u.role !== UserRole.TRAINING_DEPT && u.role !== UserRole.ADMIN) return false;
-                          if (u.username === "superadmin" || u.email === "superadmin@unihub.edu.vn") return false;
+                          if (u.id === "U_SUPERADMIN" || u.username === "superadmin" || u.username === "admin" || u.email === "superadmin@unihub.edu.vn" || u.email === "admin@phhg.edu.vn") return false;
                           if (accountRoleFilter !== "ALL" && u.role !== accountRoleFilter) return false;
                           if (accountSearch.trim()) {
                             const q = accountSearch.toLowerCase().trim();
@@ -1757,7 +1777,7 @@ export const AdminPortal: React.FC = () => {
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {users.filter(u => {
-                          if (u.username === "superadmin" || u.email === "superadmin@unihub.edu.vn") return false;
+                          if (u.id === "U_SUPERADMIN" || u.username === "superadmin" || u.username === "admin" || u.email === "superadmin@unihub.edu.vn" || u.email === "admin@phhg.edu.vn") return false;
                           if (accountRoleFilter !== "ALL" && u.role !== accountRoleFilter) return false;
                           if (accountSearch.trim()) {
                             const q = accountSearch.toLowerCase().trim();
@@ -1805,9 +1825,9 @@ export const AdminPortal: React.FC = () => {
                                   </button>
                                   <button
                                     onClick={() => handleDeleteAccount(user)}
-                                    disabled={user.username === "cthssv@hg.edu.vn" || user.username === "pcthssv@hg.edu.vn"}
+                                    disabled={user.username === "cthssv@phhg.edu.vn" || user.username === "cthssv@hg.edu.vn" || user.username === "pcthssv@hg.edu.vn" || user.username === "admin@phhg.edu.vn" || user.username === "admin"}
                                     className="p-1 text-rose-600 hover:bg-rose-50 disabled:opacity-30 disabled:hover:bg-transparent border border-rose-100 hover:border-rose-200 disabled:border-transparent rounded-lg cursor-pointer flex items-center justify-center transition-colors"
-                                    title={(user.username === "cthssv@hg.edu.vn" || user.username === "pcthssv@hg.edu.vn") ? "Không thể xóa admin tổng" : "Xóa tài khoản"}
+                                    title={(user.username === "cthssv@phhg.edu.vn" || user.username === "cthssv@hg.edu.vn" || user.username === "pcthssv@hg.edu.vn" || user.username === "admin@phhg.edu.vn" || user.username === "admin") ? "Không thể xóa admin tổng" : "Xóa tài khoản"}
                                   >
                                     <Trash2 size={12} />
                                   </button>
@@ -1817,7 +1837,7 @@ export const AdminPortal: React.FC = () => {
                           );
                         })}
                         {users.filter(u => {
-                          if (u.username === "superadmin" || u.email === "superadmin@unihub.edu.vn") return false;
+                          if (u.id === "U_SUPERADMIN" || u.username === "superadmin" || u.username === "admin" || u.email === "superadmin@unihub.edu.vn" || u.email === "admin@phhg.edu.vn") return false;
                           if (accountRoleFilter !== "ALL" && u.role !== accountRoleFilter) return false;
                           if (accountSearch.trim()) {
                             const q = accountSearch.toLowerCase().trim();
@@ -2210,7 +2230,7 @@ export const AdminPortal: React.FC = () => {
                       type="text"
                       value={clubFormUsername}
                       onChange={(e) => setClubFormUsername(e.target.value)}
-                      placeholder="Ví dụ: clbvannghe@hg.edu.vn"
+                      placeholder="Ví dụ: clb.vannghe@phhg.edu.vn"
                       className="w-full px-3 py-1.5 border border-slate-200 font-mono bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg"
                       required
                     />
@@ -2298,19 +2318,27 @@ export const AdminPortal: React.FC = () => {
                       setAccFormRole(newRole);
                       // Clear mapping states when role changes
                       setAccFormName("");
-                      setAccFormUsername("");
                       setAccFormTargetId("");
                       setSelectedClassIdForForm("");
                       setSelectedFacultyIdForForm("");
+                      if (newRole === UserRole.TRAINING_DEPT) {
+                        setAccFormUsername("daotao@phhg.edu.vn");
+                        setAccFormName("Phòng Đào tạo & QLSV");
+                      } else if (newRole === UserRole.ADMIN) {
+                        setAccFormUsername("cthssv@phhg.edu.vn");
+                        setAccFormName("Phòng Công tác HSSV");
+                      } else {
+                        setAccFormUsername("");
+                      }
                     }}
                     className="w-full px-2.5 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg font-sans"
                   >
-                    <option value={UserRole.STUDENT}>SINH VIÊN</option>
-                    <option value={UserRole.CLASS_MONITOR}>CÁN BỘ LỚP (BCS)</option>
-                    <option value={UserRole.ADVISER}>GV CỐ VẤN (GVCN)</option>
-                    <option value={UserRole.FACULTY}>VĂN PHÒNG KHOA</option>
-                    <option value={UserRole.TRAINING_DEPT}>PHÒNG ĐÀO TẠO</option>
-                    <option value={UserRole.ADMIN}>ADMIN / PHÒNG CTHSSV</option>
+                    <option value={UserRole.STUDENT}>SINH VIÊN (DÙNG MÃ SINH VIÊN)</option>
+                    <option value={UserRole.CLASS_MONITOR}>CÁN BỘ LỚP (BCS - @phhg.edu.vn)</option>
+                    <option value={UserRole.ADVISER}>GV CỐ VẤN (GVCN - @phhg.edu.vn)</option>
+                    <option value={UserRole.FACULTY}>VĂN PHÒNG KHOA (@phhg.edu.vn)</option>
+                    <option value={UserRole.TRAINING_DEPT}>PHÒNG ĐÀO TẠO (@phhg.edu.vn)</option>
+                    <option value={UserRole.ADMIN}>ADMIN / PHÒNG CTHSSV (@phhg.edu.vn)</option>
                   </select>
                 </div>
 
@@ -2348,7 +2376,7 @@ export const AdminPortal: React.FC = () => {
                             const studentObj = students.find(s => s.id === studentId);
                             if (studentObj) {
                               setAccFormName(studentObj.name);
-                              setAccFormUsername(studentObj.email || `${studentId.toLowerCase()}@hg.edu.vn`);
+                              setAccFormUsername(studentObj.id); // Sinh viên dùng Mã SV
                               setAccFormTargetId(studentId);
                             } else {
                               setAccFormName("");
@@ -2380,6 +2408,14 @@ export const AdminPortal: React.FC = () => {
                         const cls = e.target.value;
                         setSelectedClassIdForForm(cls);
                         setAccFormTargetId(cls);
+                        const cleanCls = cls.toLowerCase().replace(/[^a-z0-9]/g, "");
+                        if (accFormRole === UserRole.CLASS_MONITOR) {
+                          setAccFormUsername(`bcs.${cleanCls}@phhg.edu.vn`);
+                          setAccFormName(`Ban Cán sự Lớp ${cls}`);
+                        } else if (accFormRole === UserRole.ADVISER) {
+                          setAccFormUsername(`gvcn.${cleanCls}@phhg.edu.vn`);
+                          setAccFormName(`Cố vấn học tập Lớp ${cls}`);
+                        }
                       }}
                       className="w-full px-2.5 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg font-sans"
                       required
@@ -2401,6 +2437,9 @@ export const AdminPortal: React.FC = () => {
                         const fac = e.target.value;
                         setSelectedFacultyIdForForm(fac);
                         setAccFormTargetId(fac);
+                        const cleanFac = fac.toLowerCase().replace(/[^a-z0-9]/g, "");
+                        setAccFormUsername(`khoa.${cleanFac}@phhg.edu.vn`);
+                        setAccFormName(`Văn phòng ${fac}`);
                       }}
                       className="w-full px-2.5 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg font-sans"
                       required
@@ -2447,12 +2486,14 @@ export const AdminPortal: React.FC = () => {
                 {/* 4. Credentials fields */}
                 <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-150 space-y-3">
                   <div>
-                    <label className="block text-[10.5px] font-bold text-slate-600 mb-1">Tài khoản đăng nhập (Email / ID)*</label>
+                    <label className="block text-[10.5px] font-bold text-slate-600 mb-1">
+                      {accFormRole === UserRole.STUDENT ? "Mã sinh viên đăng nhập*" : "Tài khoản đăng nhập (@phhg.edu.vn)*"}
+                    </label>
                     <input 
                       type="text"
                       value={accFormUsername}
                       onChange={(e) => setAccFormUsername(e.target.value)}
-                      placeholder="Ví dụ: giaovencovan@hg.edu.vn"
+                      placeholder={accFormRole === UserRole.STUDENT ? "Ví dụ: DTG245140202053" : "Ví dụ: gvcn.k2gdtha@phhg.edu.vn hoặc daotao@phhg.edu.vn"}
                       className="w-full px-3 py-1.5 border border-slate-200 font-mono bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg"
                       required
                     />

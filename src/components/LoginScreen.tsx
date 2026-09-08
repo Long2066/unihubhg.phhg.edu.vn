@@ -679,7 +679,7 @@ export const LoginScreen: React.FC = () => {
                     setEmail(e.target.value);
                     setErrorMsg("");
                   }}
-                  placeholder="Nhập mã sinh viên hoặc email..." 
+                  placeholder="Mã sinh viên (SV) hoặc Email @phhg.edu.vn..." 
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0c529c]/20 focus:border-[#0c529c] text-sm transition-all text-slate-800"
                   autoFocus
                 />
@@ -893,7 +893,7 @@ export const LoginScreen: React.FC = () => {
               <div>
                 <h3 className="text-lg font-extrabold text-slate-900 mb-2">Hướng dẫn Sử dụng Cổng thông tin</h3>
                 <ul className="text-xs text-slate-600 space-y-2 list-disc pl-4 mb-4">
-                  <li><strong>Tên đăng nhập:</strong> Sử dụng Email công vụ (@hg.edu.vn / @phhg.edu.vn), Mã sinh viên hoặc số CCCD.</li>
+                  <li><strong>Tên đăng nhập:</strong> Sử dụng Mã sinh viên (dành cho Sinh viên) hoặc Email công vụ (@phhg.edu.vn - dành cho Cán bộ, Giảng viên).</li>
                   <li><strong>Mật khẩu lần đầu:</strong> Nhập số CCCD của bạn nếu chưa đổi mật khẩu.</li>
                   <li><strong>Chức năng:</strong> Đánh giá rèn luyện trực tuyến, đăng ký tham gia sự kiện Đoàn - Hội, xem bảng điểm học tập, nộp minh chứng rèn luyện.</li>
                 </ul>

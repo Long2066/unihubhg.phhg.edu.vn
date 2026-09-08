@@ -34,117 +34,117 @@ export const SEED_USERS: UserAccount[] = [
     username: "DTG245140202053",
     name: "Ma Văn Long",
     role: UserRole.STUDENT,
-    email: "DTG245140202053@unihub.edu.vn",
+    email: "DTG245140202053@phhg.edu.vn",
     targetId: "DTG245140202053"
   },
   {
     id: "U_ORG01",
-    username: "unitech@hg.edu.vn",
+    username: "clb.unitech@phhg.edu.vn",
     name: "CLB Sáng tạo Công nghệ UniTech",
     role: UserRole.CLUB_MANAGER,
-    email: "unitech@hg.edu.vn",
+    email: "clb.unitech@phhg.edu.vn",
     targetId: "UNITECH"
   },
   {
     id: "U_ORG02",
-    username: "doantnphhg@hg.edu.vn",
+    username: "doantn@phhg.edu.vn",
     name: "BCH Đoàn TNCS Phân hiệu Hà Giang",
     role: UserRole.YOUTH_UNION,
-    email: "doantnphhg@hg.edu.vn",
+    email: "doantn@phhg.edu.vn",
     targetId: "DOANTN"
   },
   {
     id: "U_ORG03",
-    username: "hsvphhg@hg.edu.vn",
+    username: "hoisv@phhg.edu.vn",
     name: "BCH Hội Sinh viên Phân hiệu Hà Giang",
     role: UserRole.STUDENT_UNION,
-    email: "hsvphhg@hg.edu.vn",
+    email: "hoisv@phhg.edu.vn",
     targetId: "HOISV"
   },
   {
     id: "U_ORG04",
-    username: "clbnckh@hg.edu.vn",
+    username: "clb.nckh@phhg.edu.vn",
     name: "Câu lạc bộ Nghiên cứu Khoa học",
     role: UserRole.CLUB_MANAGER,
-    email: "clbnckh@hg.edu.vn",
+    email: "clb.nckh@phhg.edu.vn",
     targetId: "CLBNCKH"
   },
   {
     id: "U_ORG05",
-    username: "tinhnx@hg.edu.vn",
+    username: "clb.tinhnguyen@phhg.edu.vn",
     name: "CLB Tình nguyện Giọt hồng Hà Giang",
     role: UserRole.CLUB_MANAGER,
-    email: "tinhnx@hg.edu.vn",
+    email: "clb.tinhnguyen@phhg.edu.vn",
     targetId: "TINHNX"
   },
   {
     id: "U_TD01",
-    username: "dtphhg@hg.edu.vn",
+    username: "daotao@phhg.edu.vn",
     name: "Trần Thị Mai",
     role: UserRole.TRAINING_DEPT,
-    email: "dtphhg@hg.edu.vn"
+    email: "daotao@phhg.edu.vn"
   },
   {
     id: "U_CM01",
-    username: "cblk2gdtha@hg.edu.vn",
+    username: "bcs.k2gdtha@phhg.edu.vn",
     name: "Lâm Minh Triết",
     role: UserRole.CLASS_MONITOR,
-    email: "cblk2gdtha@hg.edu.vn",
+    email: "bcs.k2gdtha@phhg.edu.vn",
     targetId: "K20-CNTT"
   },
   {
     id: "U_ADV01",
-    username: "gvcnk2gdtha@hg.edu.vn",
+    username: "gvcn.k2gdtha@phhg.edu.vn",
     name: "Hoàng Minh Đức",
     role: UserRole.ADVISER,
-    email: "gvcnk2gdtha@hg.edu.vn",
+    email: "gvcn.k2gdtha@phhg.edu.vn",
     targetId: "K20-CNTT"
   },
   {
     id: "U_FAC01",
-    username: "khoasp@hg.edu.vn",
+    username: "khoa.sp@phhg.edu.vn",
     name: "Khoa Sư phạm",
     role: UserRole.FACULTY,
-    email: "khoasp@hg.edu.vn",
+    email: "khoa.sp@phhg.edu.vn",
     targetId: "K-CNTT"
   },
   {
     id: "U_TEA01",
-    username: "gv_nguyenminhnguyet@phhg.edu.vn",
+    username: "gv.nguyenminhnguyet@phhg.edu.vn",
     name: "TS. Nguyễn Minh Nguyệt",
     role: UserRole.TEACHER,
-    email: "gv_nguyenminhnguyet@phhg.edu.vn",
+    email: "gv.nguyenminhnguyet@phhg.edu.vn",
     targetId: "K2-GDTH A"
   },
   {
     id: "U_TEA02",
-    username: "gv_vuthanhtra@phhg.edu.vn",
+    username: "gv.vuthanhtra@phhg.edu.vn",
     name: "TS. Vũ Thanh Trà",
     role: UserRole.TEACHER,
-    email: "gv_vuthanhtra@phhg.edu.vn",
+    email: "gv.vuthanhtra@phhg.edu.vn",
     targetId: "K2-GDTH A"
   },
   {
     id: "U_TEA03",
-    username: "gv_nguyenthilieu@phhg.edu.vn",
+    username: "gv.nguyenthilieu@phhg.edu.vn",
     name: "ThS. Nguyễn Thị Liệu",
     role: UserRole.TEACHER,
-    email: "gv_nguyenthilieu@phhg.edu.vn",
+    email: "gv.nguyenthilieu@phhg.edu.vn",
     targetId: "K2 - GDTH A"
   },
   {
     id: "U_ADM01",
-    username: "pcthssv@hg.edu.vn",
+    username: "cthssv@phhg.edu.vn",
     name: "Phòng Công tác HSSV (Admin)",
     role: UserRole.ADMIN,
-    email: "pcthssv@hg.edu.vn"
+    email: "cthssv@phhg.edu.vn"
   },
   {
     id: "U_SUPERADMIN",
     username: "admin",
     name: "Super Admin",
     role: UserRole.ADMIN,
-    email: "superadmin@unihub.edu.vn"
+    email: "admin@phhg.edu.vn"
   }
 ];
 
@@ -238,7 +238,7 @@ export const SEED_STUDENTS: Student[] = [
     name: "Phan Thị Bình",
     classId: "K20-CNTT",
     facultyId: "K-CNTT",
-    email: "binhpt@unihub.edu.vn",
+    email: "binhpt@phhg.edu.vn",
     gpa: 2.15,
     creditsEarned: 15,
     learningWarning: false,
@@ -263,7 +263,7 @@ export const SEED_STUDENTS: Student[] = [
     name: "Lâm Minh Triết",
     classId: "K20-CNTT",
     facultyId: "K-CNTT",
-    email: "trietlm@unihub.edu.vn",
+    email: "trietlm@phhg.edu.vn",
     gpa: 3.82,
     creditsEarned: 20,
     learningWarning: false,
@@ -288,7 +288,7 @@ export const SEED_STUDENTS: Student[] = [
     name: "Vũ Đăng Khoa",
     classId: "K20-CNTT",
     facultyId: "K-CNTT",
-    email: "khoavd@unihub.edu.vn",
+    email: "khoavd@phhg.edu.vn",
     gpa: 1.48,
     creditsEarned: 11,
     learningWarning: true,
@@ -313,7 +313,7 @@ export const SEED_STUDENTS: Student[] = [
     name: "Hoàng Hải Nam",
     classId: "K2-GDTH A",
     facultyId: "K-GDTH",
-    email: "namhh@unihub.edu.vn",
+    email: "namhh@phhg.edu.vn",
     gpa: 3.20,
     creditsEarned: 16,
     learningWarning: false,
@@ -330,7 +330,7 @@ export const SEED_STUDENTS: Student[] = [
     name: "Đỗ Thị Huyền Anh",
     classId: "K2-GDTH A",
     facultyId: "K-GDTH",
-    email: "anhdth@unihub.edu.vn",
+    email: "anhdth@phhg.edu.vn",
     gpa: 3.60,
     creditsEarned: 18,
     learningWarning: false,
@@ -347,7 +347,7 @@ export const SEED_STUDENTS: Student[] = [
     name: "Hứa Hải Anh",
     classId: "K2-GDTH A",
     facultyId: "K-GDTH",
-    email: "anhhh@unihub.edu.vn",
+    email: "anhhh@phhg.edu.vn",
     gpa: 3.10,
     creditsEarned: 16,
     learningWarning: false,
@@ -364,7 +364,7 @@ export const SEED_STUDENTS: Student[] = [
     name: "Hoàng Thị Ngọc Ánh",
     classId: "K2-GDTH A",
     facultyId: "K-GDTH",
-    email: "anhhtn@unihub.edu.vn",
+    email: "anhhtn@phhg.edu.vn",
     gpa: 3.40,
     creditsEarned: 16,
     learningWarning: false,
@@ -381,7 +381,7 @@ export const SEED_STUDENTS: Student[] = [
     name: "Nông Văn Mạnh",
     classId: "K20-TA",
     facultyId: "K-TA",
-    email: "manhnv@unihub.edu.vn",
+    email: "manhnv@phhg.edu.vn",
     gpa: 3.10,
     creditsEarned: 19,
     learningWarning: false,

@@ -339,7 +339,7 @@ export const OrganizerPortal: React.FC = () => {
     setEditGender(m.gender || "Nam");
     setEditDob(m.dob || "");
     setEditPhone(m.phone || "");
-    setEditEmail(m.email || m.studentId.toLowerCase() + "@unihub.edu.vn");
+    setEditEmail(m.email || m.studentId.toLowerCase() + "@phhg.edu.vn");
     setEditEthnicity(m.ethnicity || "Kinh");
     setEditMajor(m.major || "Khoa học máy tính");
     setEditAttachment(m.attachmentUrl || "");
@@ -1034,7 +1034,7 @@ export const OrganizerPortal: React.FC = () => {
                           <label className="block text-[10px] font-bold text-slate-600 mb-1">Địa chỉ Email riêng</label>
                           <input 
                             type="email"
-                            placeholder="e.g thangnv.dtg@unihub.edu.vn"
+                            placeholder="e.g thangnv.dtg@phhg.edu.vn"
                             value={manualEmail}
                             onChange={(e) => setManualEmail(e.target.value)}
                             className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white text-slate-800"
@@ -1321,7 +1321,7 @@ export const OrganizerPortal: React.FC = () => {
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">Địa chỉ Email riêng</label>
                       <input 
                         type="email"
-                        placeholder="e.g thangnv.dtg@unihub.edu.vn"
+                        placeholder="e.g thangnv.dtg@phhg.edu.vn"
                         value={manualEmail}
                         onChange={(e) => setManualEmail(e.target.value)}
                         className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200"

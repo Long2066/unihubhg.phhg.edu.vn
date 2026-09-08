@@ -960,6 +960,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const emailLower = authUser.email.toLowerCase();
           const foundStudent = students.find(s => 
             (s.email && s.email.toLowerCase() === emailLower) ||
+            `${s.id.toLowerCase()}@phhg.edu.vn` === emailLower ||
             `${s.id.toLowerCase()}@unihub.edu.vn` === emailLower ||
             `${s.id.toLowerCase()}@hg.edu.vn` === emailLower
           );
@@ -1590,24 +1591,25 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let targetEmail = trimmedInput;
     if (!targetEmail.includes("@")) {
       const lowerInput = trimmedInput.toLowerCase();
-      // 1. Tìm trong danh sách users hệ thống (khớp username hoặc prefix email)
+      // 1. Tìm trong danh sách users hệ thống (khớp username, id hoặc prefix email)
       const foundUser = users.find(u => 
         (u.username && u.username.trim().toLowerCase() === lowerInput) ||
         (u.id && u.id.trim().toLowerCase() === lowerInput) ||
-        (u.email && u.email.toLowerCase().startsWith(`${lowerInput}@`))
+        (u.email && u.email.toLowerCase().startsWith(`${lowerInput}@`)) ||
+        (u.email && u.email.toLowerCase() === `${lowerInput}@phhg.edu.vn`)
       );
       if (foundUser && foundUser.email && foundUser.email.includes("@")) {
         targetEmail = foundUser.email;
       } else {
-        // 2. Tìm trong danh sách sinh viên
+        // 2. Tìm trong danh sách sinh viên (Sinh viên dùng trực tiếp Mã SV)
         const foundStudent = students.find(s => s.id && s.id.trim().toLowerCase() === lowerInput);
         if (foundStudent && foundStudent.email && foundStudent.email.includes("@")) {
           targetEmail = foundStudent.email;
         } else if (foundStudent) {
-          targetEmail = `${lowerInput}@unihub.edu.vn`;
+          targetEmail = `${lowerInput}@phhg.edu.vn`;
         } else {
-          // 3. Fallback cho tài khoản cán bộ/đơn vị của trường nếu gõ tắt
-          targetEmail = `${lowerInput}@hg.edu.vn`;
+          // 3. Fallback cho tài khoản cán bộ/đơn vị/lớp khi gõ tắt: tự động nối đuôi @phhg.edu.vn
+          targetEmail = `${lowerInput}@phhg.edu.vn`;
         }
       }
     }
@@ -1628,7 +1630,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // Kiểm tra xem có phải Sinh viên đăng nhập bằng CCCD
         const foundStudent = students.find(s => 
           (s.id && s.id.trim().toLowerCase() === trimmedInput.toLowerCase()) ||
-          (s.email && s.email.trim().toLowerCase() === targetEmail.toLowerCase())
+          (s.email && s.email.trim().toLowerCase() === targetEmail.toLowerCase()) ||
+          `${s.id.trim().toLowerCase()}@phhg.edu.vn` === targetEmail.toLowerCase() ||
+          `${s.id.trim().toLowerCase()}@unihub.edu.vn` === targetEmail.toLowerCase()
         );
 
         if (foundStudent && foundStudent.idCard && foundStudent.idCard.trim() === trimmedPass) {
@@ -1691,7 +1695,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!userDoc) {
         const foundStudent = students.find(s => 
           (s.id && s.id.trim().toLowerCase() === trimmedInput.toLowerCase()) ||
-          (s.email && s.email.trim().toLowerCase() === targetEmail.toLowerCase())
+          (s.email && s.email.trim().toLowerCase() === targetEmail.toLowerCase()) ||
+          `${s.id.trim().toLowerCase()}@phhg.edu.vn` === targetEmail.toLowerCase() ||
+          `${s.id.trim().toLowerCase()}@unihub.edu.vn` === targetEmail.toLowerCase()
         );
         if (foundStudent) {
           userDoc = {
@@ -2482,7 +2488,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       const rawUsername = (leaderInfo.username || `totruong_${leaderInfo.studentId}`).trim();
       const safeUsername = rawUsername.includes("@") ? rawUsername.split("@")[0] : rawUsername;
-      const safeEmail = `${safeUsername}@tnu-hgc.edu.vn`;
+      const safeEmail = `${safeUsername}@phhg.edu.vn`;
       
       updatedUsers.push({
         id: `U_GL_${leaderInfo.studentId}`,

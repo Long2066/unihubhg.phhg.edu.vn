@@ -372,7 +372,7 @@ export const TrainingPortal: React.FC = () => {
 
     addGradeAuditLog({
       action: "UPDATE_ASSIGNMENT",
-      userEmail: "dtphhg@hg.edu.vn",
+      userEmail: "daotao@phhg.edu.vn",
       userName: "Phòng Đào tạo",
       userRole: UserRole.TRAINING_DEPT,
       subjectCode: editAssignForm.subjectCode,
@@ -879,17 +879,17 @@ export const TrainingPortal: React.FC = () => {
       setSelectedClassFileLabel("danh_sach_lop_k2_gdth_a_goc.xlsx");
 
       dataList = [
-        { id: "GDTH001", name: "Nguyễn Thị Hoa", email: "gdth001@hg.edu.vn", classId: "K2-GDTH-A", facultyId: "K-GDTH", gpa: 3.82, creditsEarned: 20, learningWarning: false, learningStatus: "Bình thường" },
-        { id: "GDTH002", name: "Phan Văn Minh", email: "gdth002@hg.edu.vn", classId: "K2-GDTH-A", facultyId: "K-GDTH", gpa: 3.25, creditsEarned: 18, learningWarning: false, learningStatus: "Bình thường" },
-        { id: "GDTH003", name: "Lệ Thu Thảo", email: "gdth003@hg.edu.vn", classId: "K2-GDTH-A", facultyId: "K-GDTH", gpa: 2.76, creditsEarned: 15, learningWarning: false, learningStatus: "Bình thường" },
-        { id: "GDTH045", name: "Bùi Tiến Đạt", email: "gdth045@hg.edu.vn", classId: "K2-GDTH-A", facultyId: "K-GDTH", gpa: 1.45, creditsEarned: 12, learningWarning: true, learningStatus: "Bị cảnh báo" }
+        { id: "GDTH001", name: "Nguyễn Thị Hoa", email: "gdth001@phhg.edu.vn", classId: "K2-GDTH-A", facultyId: "K-GDTH", gpa: 3.82, creditsEarned: 20, learningWarning: false, learningStatus: "Bình thường" },
+        { id: "GDTH002", name: "Phan Văn Minh", email: "gdth002@phhg.edu.vn", classId: "K2-GDTH-A", facultyId: "K-GDTH", gpa: 3.25, creditsEarned: 18, learningWarning: false, learningStatus: "Bình thường" },
+        { id: "GDTH003", name: "Lệ Thu Thảo", email: "gdth003@phhg.edu.vn", classId: "K2-GDTH-A", facultyId: "K-GDTH", gpa: 2.76, creditsEarned: 15, learningWarning: false, learningStatus: "Bình thường" },
+        { id: "GDTH045", name: "Bùi Tiến Đạt", email: "gdth045@phhg.edu.vn", classId: "K2-GDTH-A", facultyId: "K-GDTH", gpa: 1.45, creditsEarned: 12, learningWarning: true, learningStatus: "Bị cảnh báo" }
       ];
 
       userList = [
         {
           id: "U_GDTH_M",
-          username: "cblk2gdtha@hg.edu.vn",
-          email: "cblk2gdtha@hg.edu.vn",
+          username: "bcs.k2gdtha@phhg.edu.vn",
+          email: "bcs.k2gdtha@phhg.edu.vn",
           name: "Lớp trưởng K2 GDTH A",
           role: UserRole.CLASS_MONITOR,
           targetId: "K2-GDTH-A"
@@ -901,16 +901,16 @@ export const TrainingPortal: React.FC = () => {
       setSelectedClassFileLabel("danh_sach_lop_k3_gdth_b_goc.xlsx");
 
       dataList = [
-        { id: "GDTH101", name: "Trần Bảo Long", email: "gdth101@hg.edu.vn", classId: "K3-GDTH-B", facultyId: "K-GDTH", gpa: 3.65, creditsEarned: 20, learningWarning: false, learningStatus: "Bình thường" },
-        { id: "GDTH102", name: "Hoàng Mỹ Duyên", email: "gdth102@hg.edu.vn", classId: "K3-GDTH-B", facultyId: "K-GDTH", gpa: 3.12, creditsEarned: 18, learningWarning: false, learningStatus: "Bình thường" },
-        { id: "GDTH103", name: "Ngô Quốc Bảo", email: "gdth103@hg.edu.vn", classId: "K3-GDTH-B", facultyId: "K-GDTH", gpa: 2.10, creditsEarned: 14, learningWarning: false, learningStatus: "Bình thường" }
+        { id: "GDTH101", name: "Trần Bảo Long", email: "gdth101@phhg.edu.vn", classId: "K3-GDTH-B", facultyId: "K-GDTH", gpa: 3.65, creditsEarned: 20, learningWarning: false, learningStatus: "Bình thường" },
+        { id: "GDTH102", name: "Hoàng Mỹ Duyên", email: "gdth102@phhg.edu.vn", classId: "K3-GDTH-B", facultyId: "K-GDTH", gpa: 3.12, creditsEarned: 18, learningWarning: false, learningStatus: "Bình thường" },
+        { id: "GDTH103", name: "Ngô Quốc Bảo", email: "gdth103@phhg.edu.vn", classId: "K3-GDTH-B", facultyId: "K-GDTH", gpa: 2.10, creditsEarned: 14, learningWarning: false, learningStatus: "Bình thường" }
       ];
 
       userList = [
         {
           id: "U_GDTH3_M",
-          username: "cblk3gdthb@hg.edu.vn",
-          email: "cblk3gdthb@hg.edu.vn",
+          username: "bcs.k3gdthb@phhg.edu.vn",
+          email: "bcs.k3gdthb@phhg.edu.vn",
           name: "Lớp trưởng K3 GDTH B",
           role: UserRole.CLASS_MONITOR,
           targetId: "K3-GDTH-B"
@@ -1113,7 +1113,7 @@ export const TrainingPortal: React.FC = () => {
             name,
             classId,
             facultyId: "K-GDTH",
-            email: `${id.toLowerCase()}@hg.edu.vn`,
+            email: `${id.toLowerCase()}@phhg.edu.vn`,
             idCard,
             creditsEarned: 0,
             gpa: 0,
