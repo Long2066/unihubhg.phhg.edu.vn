@@ -907,9 +907,70 @@ assert(
   "updateUserAccount allows demoting system root admin account"
 );
 
+// ==========================================
+// BATCH 22: Cascade Integrity Guards, Club Cleanup & Username Collision Protections
+// ==========================================
+console.log("\n--- BATCH 22: Cascade Integrity Guards, Club Cleanup & Username Collision Protections ---");
+
+assert(
+  stateContent.includes("renameClass = (oldClassId: string, newClassId: string)") &&
+  stateContent.includes("u.role === UserRole.CLASS_MONITOR || u.role === UserRole.ADVISER") &&
+  stateContent.includes("normalizeClassId(cr.classId) === oldNorm ? { ...cr, classId: newNorm } : cr") &&
+  stateContent.includes("normalizeClassId(da.classId) === oldNorm ? { ...da, classId: newNorm } : da") &&
+  stateContent.includes("normalizeClassId(ga.classId) === oldNorm ? { ...ga, classId: newNorm } : ga") &&
+  stateContent.includes("normalizeClassId(fb.toClassId) === oldNorm ? { ...fb, toClassId: newNorm } : fb"),
+  "Batch 22 Issue 1: renameClass must cascade new class ID across users, classReviews, attendances, and feedbacks",
+  "renameClass does not cascade class ID update to all related records"
+);
+
+assert(
+  stateContent.includes("deleteClass = (classId: string)") &&
+  stateContent.includes("normalizeClassId(u.targetId) === norm") &&
+  stateContent.includes("normalizeClassId(cr.classId) !== norm") &&
+  stateContent.includes("normalizeClassId(da.classId) !== norm") &&
+  stateContent.includes("normalizeClassId(ga.classId) !== norm") &&
+  stateContent.includes("normalizeClassId(fb.toClassId) !== norm"),
+  "Batch 22 Issue 2: deleteClass must cascade delete across classReviews, attendances, feedbacks, and clear user targetIds",
+  "deleteClass leaves orphaned reviews, attendances, and invalid user targetIds"
+);
+
+assert(
+  stateContent.includes("deleteClubAndAccount = (clubId: string)") &&
+  stateContent.includes("a.orgId.toLowerCase() !== clubIdClean") &&
+  stateContent.includes("!clubActIds.includes(att.activityId)") &&
+  stateContent.includes("ann.orgId.toLowerCase() !== clubIdClean") &&
+  stateContent.includes("m.orgId.toLowerCase() !== clubIdClean"),
+  "Batch 22 Issue 3: deleteClubAndAccount must cascade delete activities, attendances, announcements, and members",
+  "deleteClubAndAccount leaves orphaned activities, announcements, or members"
+);
+
+assert(
+  stateContent.includes("createUserAccount = (account: UserAccount)") &&
+  stateContent.includes("users.find(u => u.username.toLowerCase() === normUsername && u.id !== account.id)") &&
+  stateContent.includes("đã tồn tại trên hệ thống! Vui lòng chọn tên đăng nhập khác."),
+  "Batch 22 Issue 4: createUserAccount must prevent creating accounts with duplicate usernames",
+  "createUserAccount allows duplicate usernames"
+);
+
+assert(
+  stateContent.includes("updateUserAccount = (userId: string") &&
+  stateContent.includes("users.find(u => u.username.toLowerCase() === normUsername && u.id !== userId)") &&
+  stateContent.includes("đã tồn tại trên hệ thống! Vui lòng chọn tên đăng nhập khác."),
+  "Batch 22 Issue 5: updateUserAccount must prevent updating to existing username of another account",
+  "updateUserAccount allows username collision"
+);
+
+assert(
+  stateContent.includes("updateCriteriaScore = (criteriaId: string") &&
+  stateContent.includes("isNaN(newPoints) || !isFinite(newPoints)") &&
+  stateContent.includes("Math.max(0, Math.min(100, Math.round(newPoints)))"),
+  "Batch 22 Issue 6: updateCriteriaScore must validate and clamp points between 0 and 100",
+  "updateCriteriaScore does not clamp or validate newPoints"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 21 SECURITY REGRESSION TESTS PASSED (100 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 22 SECURITY & INTEGRITY REGRESSION TESTS PASSED (106 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

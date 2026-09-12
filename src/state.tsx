@@ -2987,13 +2987,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to update criteria score");
       return;
     }
+    if (isNaN(newPoints) || !isFinite(newPoints)) {
+      console.warn("Invalid points passed to updateCriteriaScore");
+      return;
+    }
+    const clampedPoints = Math.max(0, Math.min(100, Math.round(newPoints)));
     const updated = criteria.map(c => {
       if (c.id === criteriaId) {
         return {
           ...c,
           rules: c.rules.map(r => {
             if (r.id === ruleId) {
-              return { ...r, points: newPoints };
+              return { ...r, points: clampedPoints };
             }
             return r;
           })
@@ -3844,11 +3849,45 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     assocUserIds.forEach(uId => {
       deleteDoc(doc(db, "users", uId)).catch(e => console.warn("Lỗi xóa user liên kết Firestore:", e));
     });
+
+    // 4. Clean up club's activities and their attendances
+    const clubActIds = activities.filter(a => a.orgId.toLowerCase() === clubIdClean).map(a => a.id);
+    setActivities(prev => {
+      const updated = prev.filter(a => a.orgId.toLowerCase() !== clubIdClean);
+      localStorage.setItem("unihub_activities", JSON.stringify(updated));
+      return updated;
+    });
+    setAttendance(prev => {
+      const updated = prev.filter(att => !clubActIds.includes(att.activityId));
+      localStorage.setItem("unihub_attendance", JSON.stringify(updated));
+      return updated;
+    });
+
+    // 5. Clean up announcements
+    setAnnouncements(prev => {
+      const updated = prev.filter(ann => ann.orgId.toLowerCase() !== clubIdClean);
+      localStorage.setItem("unihub_announcements", JSON.stringify(updated));
+      return updated;
+    });
+
+    // 6. Clean up members
+    setMembers(prev => {
+      const updated = prev.filter(m => m.orgId.toLowerCase() !== clubIdClean);
+      localStorage.setItem("unihub_members", JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const createUserAccount = (account: UserAccount) => {
     if (!currentUser || currentUser.role !== UserRole.ADMIN) {
       console.warn("Unauthorized attempt to create user account");
+      return;
+    }
+    if (!account.username?.trim()) return;
+    const normUsername = account.username.trim().toLowerCase();
+    const existingWithSameUsername = users.find(u => u.username.toLowerCase() === normUsername && u.id !== account.id);
+    if (existingWithSameUsername) {
+      alert(`Tên đăng nhập "${account.username}" đã tồn tại trên hệ thống! Vui lòng chọn tên đăng nhập khác.`);
       return;
     }
     const clean = sanitizeForFirestore(account);
@@ -3868,6 +3907,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
     const safeAccount = { ...updatedAccount };
+    if (safeAccount.username) {
+      const normUsername = safeAccount.username.trim().toLowerCase();
+      const existingWithSameUsername = users.find(u => u.username.toLowerCase() === normUsername && u.id !== userId);
+      if (existingWithSameUsername) {
+        alert(`Tên đăng nhập "${safeAccount.username}" đã tồn tại trên hệ thống! Vui lòng chọn tên đăng nhập khác.`);
+        return;
+      }
+    }
     if (currentUser.role !== UserRole.ADMIN) {
       delete safeAccount.role;
       delete safeAccount.targetId;
@@ -4043,6 +4090,35 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedGradeSheets = subjectGradeSheets.map(sg => normalizeClassId(sg.classId) === oldNorm ? { ...sg, classId: newNorm } : sg);
     setSubjectGradeSheets(updatedGradeSheets);
     saveToStorage("unihub_subject_grade_sheets", updatedGradeSheets);
+
+    const updatedUsers = users.map(u => {
+      if ((u.role === UserRole.CLASS_MONITOR || u.role === UserRole.ADVISER) && normalizeClassId(u.targetId) === oldNorm) {
+        return { ...u, targetId: newNorm };
+      }
+      return u;
+    });
+    setUsers(updatedUsers);
+    localStorage.setItem("unihub_users", JSON.stringify(updatedUsers));
+
+    const updatedClassReviews = classReviews.map(cr => normalizeClassId(cr.classId) === oldNorm ? { ...cr, classId: newNorm } : cr);
+    setClassReviews(updatedClassReviews);
+    saveToStorage("unihub_class_reviews", updatedClassReviews);
+
+    const updatedDailyAttendance = dailyAttendance.map(da => normalizeClassId(da.classId) === oldNorm ? { ...da, classId: newNorm } : da);
+    setDailyAttendance(updatedDailyAttendance);
+    saveToStorage("unihub_daily_attendance", updatedDailyAttendance);
+
+    const updatedGroupAttendances = groupAttendances.map(ga => normalizeClassId(ga.classId) === oldNorm ? { ...ga, classId: newNorm } : ga);
+    setGroupAttendances(updatedGroupAttendances);
+    saveToStorage("unihub_group_attendance", updatedGroupAttendances);
+
+    const updatedEvidence = evidence.map(ev => normalizeClassId(ev.classId) === oldNorm ? { ...ev, classId: newNorm } : ev);
+    setEvidence(updatedEvidence);
+    saveToStorage("unihub_evidence", updatedEvidence);
+
+    const updatedFeedbacks = feedbacks.map(fb => normalizeClassId(fb.toClassId) === oldNorm ? { ...fb, toClassId: newNorm } : fb);
+    setFeedbacks(updatedFeedbacks);
+    saveToStorage("unihub_feedbacks", updatedFeedbacks);
   };
 
   const deleteClass = (classId: string) => {
@@ -4072,6 +4148,31 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedGradeSheets = subjectGradeSheets.filter(sg => normalizeClassId(sg.classId) !== norm);
     setSubjectGradeSheets(updatedGradeSheets);
     saveToStorage("unihub_subject_grade_sheets", updatedGradeSheets);
+
+    const updatedUsers = users.map(u => {
+      if ((u.role === UserRole.CLASS_MONITOR || u.role === UserRole.ADVISER) && normalizeClassId(u.targetId) === norm) {
+        return { ...u, targetId: "" };
+      }
+      return u;
+    });
+    setUsers(updatedUsers);
+    localStorage.setItem("unihub_users", JSON.stringify(updatedUsers));
+
+    const updatedClassReviews = classReviews.filter(cr => normalizeClassId(cr.classId) !== norm);
+    setClassReviews(updatedClassReviews);
+    saveToStorage("unihub_class_reviews", updatedClassReviews);
+
+    const updatedDailyAttendance = dailyAttendance.filter(da => normalizeClassId(da.classId) !== norm);
+    setDailyAttendance(updatedDailyAttendance);
+    saveToStorage("unihub_daily_attendance", updatedDailyAttendance);
+
+    const updatedGroupAttendances = groupAttendances.filter(ga => normalizeClassId(ga.classId) !== norm);
+    setGroupAttendances(updatedGroupAttendances);
+    saveToStorage("unihub_group_attendance", updatedGroupAttendances);
+
+    const updatedFeedbacks = feedbacks.filter(fb => normalizeClassId(fb.toClassId) !== norm);
+    setFeedbacks(updatedFeedbacks);
+    saveToStorage("unihub_feedbacks", updatedFeedbacks);
   };
 
   const bulkApproveScores = (classId: string, studentIds: string[], role: UserRole) => {
