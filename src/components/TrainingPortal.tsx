@@ -570,26 +570,34 @@ export const TrainingPortal: React.FC = () => {
     reader.readAsArrayBuffer(file);
   };
 
-  // Handler: Manual Save Assignment
   const handleSaveManualAssignment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!assignForm.classId || !assignForm.subjectCode || !assignForm.subjectName) return;
 
+    const assignmentId = `HP_${selectedSemesterId}_${assignForm.classId.trim()}_${assignForm.subjectCode.trim()}`;
     const newAssignment: CourseClassAssignment = {
-      id: `HP_${selectedSemesterId}_${assignForm.classId}_${assignForm.subjectCode}`,
+      id: assignmentId,
       semesterId: selectedSemesterId,
-      classId: assignForm.classId,
-      subjectCode: assignForm.subjectCode,
-      subjectName: assignForm.subjectName,
-      credits: assignForm.credits,
-      teacherId: assignForm.teacherId,
-      teacherName: assignForm.teacherName,
+      classId: assignForm.classId.trim(),
+      subjectCode: assignForm.subjectCode.trim(),
+      subjectName: assignForm.subjectName.trim(),
+      credits: Math.max(1, Math.min(20, Math.round(Number(assignForm.credits) || 3))),
+      teacherId: assignForm.teacherId.trim(),
+      teacherName: assignForm.teacherName.trim(),
       status: "PENDING"
     };
 
-    saveTeacherAssignments([...teacherAssignments, newAssignment]);
+    const existingIdx = teacherAssignments.findIndex(a => 
+      a.id === assignmentId || 
+      (a.semesterId === selectedSemesterId && normalizeClassId(a.classId) === normalizeClassId(newAssignment.classId) && a.subjectCode.trim().toUpperCase() === newAssignment.subjectCode.toUpperCase())
+    );
+    const updatedAssignments = existingIdx >= 0
+      ? teacherAssignments.map((a, idx) => idx === existingIdx ? newAssignment : a)
+      : [...teacherAssignments, newAssignment];
+
+    saveTeacherAssignments(updatedAssignments);
     setShowAddAssignmentModal(false);
-    alert("Đã thêm phân công giảng dạy mới và cấp mật khẩu Giảng viên thành công!");
+    alert("Đã thêm/cập nhật phân công giảng dạy mới và cấp tài khoản Giảng viên thành công!");
   };
 
   // Handler: Deadline Reminders

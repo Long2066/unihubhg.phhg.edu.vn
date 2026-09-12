@@ -612,10 +612,24 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to save teacher assignments");
       return;
     }
-    setTeacherAssignments(assignments);
-    localStorage.setItem("unihub_teacher_assignments", JSON.stringify(assignments));
-    persistTeacherAssignmentsToFirestore(assignments);
-    provisionTeacherAccounts(assignments);
+    const seen = new Set<string>();
+    const sanitized = (assignments || []).filter(a => {
+      if (!a || !a.classId || !a.subjectCode || !a.semesterId) return false;
+      const key = `${a.semesterId}::${normalizeClassId(a.classId)}::${a.subjectCode.trim().toUpperCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).map(a => ({
+      ...a,
+      classId: normalizeClassId(a.classId),
+      subjectCode: a.subjectCode.trim(),
+      credits: Math.max(1, Math.min(20, Math.round(Number(a.credits) || 3)))
+    }));
+
+    setTeacherAssignments(sanitized);
+    localStorage.setItem("unihub_teacher_assignments", JSON.stringify(sanitized));
+    persistTeacherAssignmentsToFirestore(sanitized);
+    provisionTeacherAccounts(sanitized);
   };
 
   const importTeacherAssignmentsExcel = (newAssignments: (CourseClassAssignment & { teacherPassword?: string })[]) => {
@@ -2971,6 +2985,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const submitAdviserAdjustment = (studentId: string, criteriaCategory: string, points: number, reason: string) => {
     if (!currentUser) return;
     if (isNaN(points) || !isFinite(points)) return;
+    const cleanReason = (reason || "").trim();
+    const cleanCategory = (criteriaCategory || "").trim();
+    if (!cleanReason || !cleanCategory) {
+      console.warn("Reason and category are required for adviser adjustment");
+      return;
+    }
     const targetStudent = students.find(s => s.id === studentId);
     if (!targetStudent) return;
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
@@ -4538,6 +4558,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const adjustStudentScoreSpecific = (studentId: string, category: string, points: number, reason: string) => {
     if (!currentUser) return;
     if (isNaN(points) || !isFinite(points)) return;
+    const cleanReason = (reason || "").trim();
+    const cleanCategory = (category || "").trim();
+    if (!cleanReason || !cleanCategory) {
+      console.warn("Reason and category are required for score adjustment");
+      return;
+    }
     const targetStudent = students.find(s => s.id === studentId);
     if (!targetStudent) return;
     const isAuthorized = currentUser.role === UserRole.ADMIN ||

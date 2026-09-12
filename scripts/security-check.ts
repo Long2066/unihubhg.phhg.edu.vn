@@ -1673,9 +1673,43 @@ assert(
   "AdviserPortal CSV export does not sanitize formula injection characters"
 );
 
+// ==========================================
+// BATCH 36: Assignment Deduplication, Reason Validation & Phantom Student Prevention
+// ==========================================
+console.log("\n--- BATCH 36: Assignment Deduplication, Reason Guard & Phantom Student Defense ---");
+
+assert(
+  stateContent.includes("const seen = new Set<string>();") &&
+  stateContent.includes("const key = `${a.semesterId}::${normalizeClassId(a.classId)}::${a.subjectCode.trim().toUpperCase()}`;") &&
+  stateContent.includes("credits: Math.max(1, Math.min(20, Math.round(Number(a.credits) || 3)))"),
+  "Batch 36 Issue 1: saveTeacherAssignments must deduplicate and sanitize assignments with credit clamping",
+  "saveTeacherAssignments allows duplicate assignments or unclamped credits"
+);
+
+assert(
+  stateContent.includes("const cleanReason = (reason || \"\").trim();\n    const cleanCategory = (criteriaCategory || \"\").trim();\n    if (!cleanReason || !cleanCategory) {") &&
+  stateContent.includes("const cleanReason = (reason || \"\").trim();\n    const cleanCategory = (category || \"\").trim();\n    if (!cleanReason || !cleanCategory) {"),
+  "Batch 36 Issue 2: Score adjustments must validate non-empty reason and criteria category",
+  "Score adjustment functions allow empty reason or category creating corrupt audit logs"
+);
+
+assert(
+  teacherPortalContent.includes("if (!missingStudent) {\n      alert(\"Tất cả sinh viên thuộc lớp này đã có trong bảng điểm!\");\n      return;\n    }") &&
+  !teacherPortalContent.includes("DTG_${Date.now().toString().slice(-6)}"),
+  "Batch 36 Issue 3: TeacherPortal must enforce class student existence and prevent phantom student generation",
+  "TeacherPortal generates phantom student accounts with arbitrary fake IDs"
+);
+
+assert(
+  trainingPortalContent.includes("const existingIdx = teacherAssignments.findIndex(a =>") &&
+  trainingPortalContent.includes("const updatedAssignments = existingIdx >= 0"),
+  "Batch 36 Issue 4: TrainingPortal manual assignment must deduplicate existing assignment rows",
+  "TrainingPortal allows duplicate assignment row generation"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 35 SECURITY & INTEGRITY REGRESSION TESTS PASSED (192 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 36 SECURITY & INTEGRITY REGRESSION TESTS PASSED (196 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

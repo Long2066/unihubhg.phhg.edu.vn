@@ -1152,10 +1152,14 @@ export const TeacherPortal: React.FC = () => {
     const classStudents = students.filter(s => s.classId === activeAssignment.classId);
     const existingIds = new Set(currentGrades.map(g => g.studentId));
     const missingStudent = classStudents.find(s => !existingIds.has(s.id));
-    const newStudentId = missingStudent ? missingStudent.id : `DTG_${Date.now().toString().slice(-6)}`;
-    const newStudentName = missingStudent ? missingStudent.name : "Sinh viên mới";
-    const newGender = missingStudent?.gender || "Nam";
-    const newDob = missingStudent?.dob || "2006-01-01";
+    if (!missingStudent) {
+      alert("Tất cả sinh viên thuộc lớp này đã có trong bảng điểm!");
+      return;
+    }
+    const newStudentId = missingStudent.id;
+    const newStudentName = missingStudent.name;
+    const newGender = missingStudent.gender || "Nam";
+    const newDob = missingStudent.dob || "2006-01-01";
     const newStudent: SubjectStudentGrade = {
       studentId: newStudentId,
       studentName: newStudentName,
