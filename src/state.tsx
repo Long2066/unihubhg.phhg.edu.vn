@@ -2451,8 +2451,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       else resolvedOrgName = "Ban Tổ chức";
     }
 
+    const cleanTitle = (activity.title || "").trim();
+    if (!cleanTitle) {
+      throw new Error("Tiêu đề hoạt động không được để trống.");
+    }
+    const safePoints = Math.max(1, Math.min(30, Math.round(Number(activity.points) || 5)));
+
     const cleanAct = sanitizeForFirestore({
       ...activity,
+      title: cleanTitle,
+      points: safePoints,
       id: `ACT_NEW_${Date.now()}`,
       orgName: resolvedOrgName,
       status: "UPCOMING" as const
@@ -2830,17 +2838,20 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    // Filter out studentIds already in attendance for this activity
-    const cleanIds = studentIds.filter(id => !attendance.some(att => att.activityId === activityId && att.studentId === id));
+    // Filter out duplicate and non-existent studentIds
+    const studentMap = new Map(students.map(s => [s.id, s]));
+    const cleanIds = Array.from(new Set(studentIds)).filter(id => 
+      studentMap.has(id) && !attendance.some(att => att.activityId === activityId && att.studentId === id)
+    );
     
     const newRecords: ActivityAttendance[] = cleanIds.map(sid => {
-      const sObj = students.find(s => s.id === sid);
+      const sObj = studentMap.get(sid)!;
       return {
         id: `AT_BLK_${Date.now()}_${sid}`,
         activityId,
         studentId: sid,
-        studentName: sObj?.name || sid,
-        classId: sObj?.classId || "",
+        studentName: sObj.name,
+        classId: sObj.classId,
         registeredAt: new Date().toISOString().split("T")[0],
         role: "MEM",
         attended: true,
@@ -3214,6 +3225,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const bulkUpdateCriteria = (newCriteria: PointCriteria[]) => {
     if (!currentUser || currentUser.role !== UserRole.ADMIN) {
       console.warn("Unauthorized attempt to bulk update criteria");
+      return;
+    }
+    if (!Array.isArray(newCriteria) || newCriteria.length === 0) {
+      console.warn("Invalid criteria array passed to bulkUpdateCriteria");
       return;
     }
     setCriteria(newCriteria);

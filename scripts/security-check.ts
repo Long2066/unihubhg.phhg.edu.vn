@@ -1739,9 +1739,36 @@ assert(
   "Schedule operations allow unnormalized classId or blank IDs"
 );
 
+// ==========================================
+// BATCH 38: Activity Title Validation, Bulk Attendance Student Existence & Criteria Array Integrity
+// ==========================================
+console.log("\n--- BATCH 38: Activity Title Validation, Bulk Attendance Existence & Criteria Integrity ---");
+
+assert(
+  stateContent.includes("const cleanTitle = (activity.title || \"\").trim();\n    if (!cleanTitle) {\n      throw new Error(\"Tiêu đề hoạt động không được để trống.\");\n    }") &&
+  stateContent.includes("const safePoints = Math.max(1, Math.min(30, Math.round(Number(activity.points) || 5)));") &&
+  stateContent.includes("points: safePoints,"),
+  "Batch 38 Issue 1: createActivity must validate non-empty title and clamp points within [1, 30]",
+  "createActivity allows blank titles or unclamped points"
+);
+
+assert(
+  stateContent.includes("const studentMap = new Map(students.map(s => [s.id, s]));") &&
+  stateContent.includes("studentMap.has(id) && !attendance.some(att => att.activityId === activityId && att.studentId === id)") &&
+  stateContent.includes("studentName: sObj.name,\n        classId: sObj.classId,"),
+  "Batch 38 Issue 2: addBulkAttendance must deduplicate student IDs and verify student existence",
+  "addBulkAttendance allows ghost student IDs without existence verification"
+);
+
+assert(
+  stateContent.includes("if (!Array.isArray(newCriteria) || newCriteria.length === 0) {\n      console.warn(\"Invalid criteria array passed to bulkUpdateCriteria\");\n      return;\n    }"),
+  "Batch 38 Issue 3: bulkUpdateCriteria must validate non-empty criteria array",
+  "bulkUpdateCriteria allows passing invalid criteria data"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 37 SECURITY & INTEGRITY REGRESSION TESTS PASSED (200 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 38 SECURITY & INTEGRITY REGRESSION TESTS PASSED (203 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
