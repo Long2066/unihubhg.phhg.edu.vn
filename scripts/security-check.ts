@@ -825,7 +825,8 @@ assert(
 
 assert(
   stateContent.includes("const safeRole = (newUser.role === UserRole.CLASS_MONITOR) ? UserRole.CLASS_MONITOR : UserRole.STUDENT;") &&
-  stateContent.includes("if (existing.role === UserRole.ADMIN || existing.role === UserRole.TRAINING_DEPT || existing.role === UserRole.TEACHER || existing.role === UserRole.FACULTY)"),
+  (stateContent.includes("if (existing.role === UserRole.ADMIN || existing.role === UserRole.TRAINING_DEPT || existing.role === UserRole.TEACHER || existing.role === UserRole.FACULTY)") ||
+   stateContent.includes("if (existing.role !== UserRole.STUDENT && existing.role !== UserRole.CLASS_MONITOR)")),
   "Batch 19 Issue 2: importNewClassesExcel must clamp imported roles to STUDENT/MONITOR and protect privileged accounts from being overwritten",
   "importNewClassesExcel allows privilege escalation or overwriting administrative accounts"
 );
@@ -1145,7 +1146,7 @@ assert(
   stateContent.includes("const sanitizeGradeNum = (val: any) =>") &&
   stateContent.includes("tx1: sanitizeGradeNum(g.tx1)") &&
   stateContent.includes("tx2: sanitizeGradeNum(g.tx2)") &&
-  stateContent.includes("thi: sanitizeGradeNum(g.thi)") &&
+  (stateContent.includes("thi: sanitizeGradeNum(g.thi)") || stateContent.includes("thi: sanitizeGradeNum((g as any).thi)")) &&
   stateContent.includes("tb10: sanitizeGradeNum(g.tb10)"),
   "Batch 26 Issue 4: saveSubjectGradeSheet must sanitize tx1, tx2, thi, and tb10 within [0, 10] range",
   "saveSubjectGradeSheet allows out-of-range or non-numeric component grades"
@@ -1167,9 +1168,93 @@ assert(
   "reviewEvidence allows youth or student union to evaluate academic criteria evidence"
 );
 
+// ==========================================
+// BATCH 27: Grade Appeal Verification, Group Structure Hardening & Academic Integrity Checks
+// ==========================================
+console.log("\n--- BATCH 27: Grade Appeal, Group Security & Profile Protection ---");
+
+assert(
+  stateContent.includes("Only students or administrators can submit grade appeals") &&
+  stateContent.includes("Vui lòng nhập lý do đề nghị phúc khảo điểm môn học!") &&
+  stateContent.includes("Bạn đã có đơn phúc khảo đang chờ xử lý cho môn học này!"),
+  "Batch 27 Issue 1: submitGradeAppeal must validate caller role, reason, and duplicate pending appeals",
+  "submitGradeAppeal allows unauthorized callers, empty reasons, or duplicate pending appeals"
+);
+
+assert(
+  stateContent.includes("diemChu: letter,") &&
+  stateContent.includes("xepLoai: rank") &&
+  !stateContent.includes("letterGrade: letter"),
+  "Batch 27 Issue 2: resolveGradeAppeal must synchronize diemChu and xepLoai properties in SubjectStudentGrade",
+  "resolveGradeAppeal sets incorrect letterGrade property leaving diemChu and xepLoai stale"
+);
+
+assert(
+  stateContent.includes("cc: sanitizeGradeNum(g.cc)") &&
+  stateContent.includes("dk1: sanitizeGradeNum(g.dk1)") &&
+  stateContent.includes("dk2: sanitizeGradeNum(g.dk2)") &&
+  stateContent.includes("tb4: safeTb4"),
+  "Batch 27 Issue 3: saveSubjectGradeSheet must sanitize all grade components (cc, dk1, dk2, tb4)",
+  "saveSubjectGradeSheet does not sanitize full component grade structure"
+);
+
+assert(
+  stateContent.includes("const targetOrg = organizations.find(o => o.id === orgId);") &&
+  stateContent.includes("Attempt to join non-existent organization:"),
+  "Batch 27 Issue 4: joinOrganizationRequest must verify that target organization exists",
+  "joinOrganizationRequest allows creating membership requests for non-existent organizations"
+);
+
+assert(
+  stateContent.includes("delete (safeFields as any).id;") &&
+  stateContent.includes("delete safeFields.groupName;"),
+  "Batch 27 Issue 5: updateStudentProfile must strip id and groupName for non-admins",
+  "updateStudentProfile allows modifying student id or groupName"
+);
+
+assert(
+  stateContent.includes("const isAllLocked = students.length > 0 && students.every(s => s.learningDataLocked);") &&
+  stateContent.includes("const nextLockState = !isAllLocked;") &&
+  stateContent.includes("learningDataLocked: nextLockState"),
+  "Batch 27 Issue 6: toggleLearningDataLock must toggle both lock and unlock states",
+  "toggleLearningDataLock only sets learningDataLocked to true and cannot unlock"
+);
+
+assert(
+  stateContent.includes("if (!studentObj || studentObj.classId !== classId) return;"),
+  "Batch 27 Issue 7: saveGroupSettings must enforce that assigned group leader belongs to target class",
+  "saveGroupSettings allows appointing students from other classes as group leaders"
+);
+
+assert(
+  stateContent.includes("const groupStudents = students.filter(s => s.classId === reportData.classId && s.groupName === reportData.groupName);") &&
+  stateContent.includes("const presentCount = Math.max(0, totalStudents - absentCount);"),
+  "Batch 27 Issue 8: reportGroupAttendance must filter absentees by group and clamp attendance counts",
+  "reportGroupAttendance allows absentees from outside group or negative present counts"
+);
+
+assert(
+  stateContent.includes("classStudentIds.has(abs.studentId) && !seenStudentIds.has(abs.studentId)"),
+  "Batch 27 Issue 9: aggregateGroupAttendancesToDaily must isolate absentees to class members",
+  "aggregateGroupAttendancesToDaily includes foreign student absentees"
+);
+
+assert(
+  stateContent.includes("const validTargetIds = Array.from(new Set(targetStudentIds.filter(sid => classStudentIds.has(sid))));"),
+  "Batch 27 Issue 10: sendGroupReminder must restrict reminder targets strictly to class students",
+  "sendGroupReminder sends reminders to students outside target class"
+);
+
+assert(
+  stateContent.includes("const cleanId = (newStud.id || \"\").trim();") &&
+  stateContent.includes("if (existing.role !== UserRole.STUDENT && existing.role !== UserRole.CLASS_MONITOR)"),
+  "Batch 27 Issue 11: importNewClassesExcel must validate student ID and protect all non-student accounts",
+  "importNewClassesExcel allows blank student IDs or overwriting organizational accounts"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 26 SECURITY & INTEGRITY REGRESSION TESTS PASSED (130 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 27 SECURITY & INTEGRITY REGRESSION TESTS PASSED (141 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
