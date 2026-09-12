@@ -2973,9 +2973,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         };
 
         const isCurrent = targetSemesterId === "HOCKY_2_2025_2026";
+        const { id: _ignoreId, classId: _ignoreClass, name: _ignoreName, facultyId: _ignoreFaculty, ...academicFields } = item;
         return {
           ...s,
-          ...item,
+          ...academicFields,
+          id: s.id,
+          name: s.name,
+          classId: s.classId,
+          facultyId: s.facultyId,
           academicDataByPeriod: updatedAcademicData,
           ...(isCurrent ? {
             gpa: safeGpa,
@@ -4520,10 +4525,21 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
     const combinedStudents = [...students];
+    const newClassNames = new Set<string>();
+
     studentsToImport.forEach(newStud => {
       const cleanId = (newStud.id || "").trim();
       if (!cleanId) return;
-      const cleanStud = { ...newStud, id: cleanId };
+      const cleanName = (newStud.name || "").trim();
+      if (!cleanName) return;
+      const normClass = normalizeClassId(newStud.classId);
+      if (normClass) newClassNames.add(normClass);
+      const cleanStud: Student = { 
+        ...newStud, 
+        id: cleanId, 
+        name: cleanName,
+        classId: normClass
+      };
       const existingIdx = combinedStudents.findIndex(s => s.id === cleanId);
       if (existingIdx !== -1) {
         combinedStudents[existingIdx] = { ...combinedStudents[existingIdx], ...cleanStud };
@@ -4534,10 +4550,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const combinedUsers = [...users];
     usersToImport.forEach(newUser => {
+      const cleanUsername = (newUser.username || "").trim();
+      if (!cleanUsername) return;
       // Security: clamp role to STUDENT or CLASS_MONITOR; never allow importing administrative accounts
       const safeRole = (newUser.role === UserRole.CLASS_MONITOR) ? UserRole.CLASS_MONITOR : UserRole.STUDENT;
       const cleanUser: UserAccount = {
         ...newUser,
+        username: cleanUsername,
+        targetId: normalizeClassId(newUser.targetId),
         role: safeRole
       };
 
@@ -4558,6 +4578,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     });
 
+    if (newClassNames.size > 0) {
+      setCustomClasses(prev => {
+        const existingNorm = new Set(prev.map(c => normalizeClassId(c)));
+        const toAdd = Array.from(newClassNames).filter(c => !existingNorm.has(c));
+        if (toAdd.length === 0) return prev;
+        const updated = [...prev, ...toAdd];
+        localStorage.setItem("unihub_custom_classes", JSON.stringify(updated));
+        return updated;
+      });
+    }
+
     setStudents(combinedStudents);
     setUsers(combinedUsers);
     saveToStorage("unihub_students", combinedStudents);
@@ -4570,8 +4601,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
     if (!className.trim()) return;
-    const normalized = className.trim();
-    if (!customClasses.includes(normalized)) {
+    const normalized = normalizeClassId(className.trim());
+    if (!customClasses.some(c => normalizeClassId(c) === normalized)) {
       const updated = [...customClasses, normalized];
       setCustomClasses(updated);
       localStorage.setItem("unihub_custom_classes", JSON.stringify(updated));

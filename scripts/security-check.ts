@@ -2126,9 +2126,41 @@ assert(
   "renameClass or deleteClass leaves orphaned members, attendances, or unupdated results"
 );
 
+// ==========================================
+// BATCH 48: Academic Import Identity Defense, New Classes Excel Sanitization & Custom Classes Registration
+// ==========================================
+console.log("\n--- BATCH 48: Academic Import Identity Defense, New Classes Sanitization & Class Registry ---");
+
+assert(
+  stateContent.includes("const { id: _ignoreId, classId: _ignoreClass, name: _ignoreName, facultyId: _ignoreFaculty, ...academicFields } = item;\n        return {\n          ...s,\n          ...academicFields,\n          id: s.id,\n          name: s.name,\n          classId: s.classId,\n          facultyId: s.facultyId,"),
+  "Batch 48 Issue 1: importAcademicData must preserve student identity and prevent overwriting core attributes",
+  "importAcademicData allows overwriting student id, name, classId, or facultyId"
+);
+
+assert(
+  stateContent.includes("const cleanName = (newStud.name || \"\").trim();\n      if (!cleanName) return;\n      const normClass = normalizeClassId(newStud.classId);") &&
+  stateContent.includes("const cleanUsername = (newUser.username || \"\").trim();\n      if (!cleanUsername) return;\n      // Security: clamp role to STUDENT or CLASS_MONITOR; never allow importing administrative accounts") &&
+  stateContent.includes("targetId: normalizeClassId(newUser.targetId),"),
+  "Batch 48 Issue 2: importNewClassesExcel must normalize classId, require clean names/usernames, and normalize targetId",
+  "importNewClassesExcel allows blank names, unnormalized classIds, or unnormalized targetIds"
+);
+
+assert(
+  stateContent.includes("const normalized = normalizeClassId(className.trim());\n    if (!customClasses.some(c => normalizeClassId(c) === normalized)) {") &&
+  stateContent.includes("if (newClassNames.size > 0) {\n      setCustomClasses(prev => {"),
+  "Batch 48 Issue 3: addNewClass and importNewClassesExcel must deduplicate customClasses using normalizeClassId",
+  "Custom classes can be duplicated across casing variants or fail to auto-register on Excel import"
+);
+
+assert(
+  trainingPortalContent.includes("const matchClass = normalizeClassId(s.classId) === normalizeClassId(selectedScheduleClass);"),
+  "Batch 48 Issue 4: TrainingPortal schedule class filtering must use normalized class ID comparison",
+  "TrainingPortal schedule class filter uses raw string equality"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 47 SECURITY & INTEGRITY REGRESSION TESTS PASSED (248 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 48 SECURITY & INTEGRITY REGRESSION TESTS PASSED (252 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

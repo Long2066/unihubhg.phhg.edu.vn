@@ -3535,7 +3535,7 @@ export const TrainingPortal: React.FC = () => {
             }
 
             const classSchedules = schedules.filter(s => {
-              const matchClass = normalizeClassId(s.classId) === selectedScheduleClass;
+              const matchClass = normalizeClassId(s.classId) === normalizeClassId(selectedScheduleClass);
               const matchSemester = !selectedScheduleSemesterId || s.semesterId === selectedScheduleSemesterId || !s.semesterId;
               const matchWeek = selectedScheduleWeek === 0 || isWeekInScheduleSlot(s, selectedScheduleWeek);
               return matchClass && matchSemester && matchWeek;
