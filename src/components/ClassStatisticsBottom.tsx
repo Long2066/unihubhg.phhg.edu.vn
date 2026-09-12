@@ -64,8 +64,9 @@ export const ClassStatisticsBottom: React.FC = () => {
 
   const overallRate = totalStudsSum > 0 ? Math.round((presentCountSum / totalStudsSum) * 100) : 100;
 
-  // Let's assume today is "2026-05-24" based on system states/seed data date
-  const todayStr = "2026-05-24";
+  // Dynamic today date calculation with fallback for seed data
+  const actualToday = new Date().toISOString().split("T")[0];
+  const todayStr = dailyAttendance.some(da => da.date === actualToday) ? actualToday : (dailyAttendance[0]?.date || "2026-05-24");
   const reportedCidsToday = dailyAttendance.filter(da => da.date === todayStr).map(da => normalizeClassId(da.classId));
   const normTargetClassId = normalizeClassId(targetClassId);
   const missingCidsToday = (isClassScoped && targetClassId)

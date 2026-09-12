@@ -2519,9 +2519,52 @@ assert(
   "Missing sheetId or actor on types, unvalidated member role, or uncaught student map type in state"
 );
 
+// ==========================================
+// BATCH 58: Backup Completeness, Class Monitor Reminders, Dynamic Live Attendance & Grade Appeal Portals
+// ==========================================
+console.log("\n--- BATCH 58: Backup Completeness, Monitor Reminders, Live Attendance & Appeal Portals ---");
+
+assert(
+  dataBackupRestoreModalContent.includes("customClasses,") &&
+  dataBackupRestoreModalContent.includes("gradeAppeals,") &&
+  dataBackupRestoreModalContent.includes("gradeAuditLogs,") &&
+  stateContent.includes("if (Array.isArray(backupData.gradeAuditLogs)) {\n      setGradeAuditLogs(backupData.gradeAuditLogs);"),
+  "Batch 58 Issue 1: DataBackupRestoreModal must export customClasses, appeals, audit logs and state must restore them",
+  "DataBackupRestoreModal omits essential database collections or state skips audit log restoration"
+);
+
+assert(
+  stateContent.includes("const userClass = students.find(s => s.id === currentUser.targetId || s.username === currentUser.username || s.email === currentUser.email)?.classId;") &&
+  stateContent.includes("(userClass && (userClass === classId || normalizeClassId(userClass) === normClassId))"),
+  "Batch 58 Issue 2: sendGroupReminder must support linked student class matching for CLASS_MONITOR role",
+  "sendGroupReminder blocks class monitors whose targetId is their student ID"
+);
+
+assert(
+  classStatisticsBottomContent.includes("const actualToday = new Date().toISOString().split(\"T\")[0];") &&
+  classStatisticsBottomContent.includes("dailyAttendance.some(da => da.date === actualToday) ? actualToday :"),
+  "Batch 58 Issue 3: ClassStatisticsBottom must calculate dynamic todayStr with fallback to prevent attendance date mismatches",
+  "ClassStatisticsBottom uses hardcoded date string ignoring real-time attendance reports"
+);
+
+assert(
+  studentPortalContent.includes("const myAppeals = gradeAppeals.filter(a => a.studentId === sObj?.id);") &&
+  studentPortalContent.includes("Đơn Phúc Khảo Đã Gửi"),
+  "Batch 58 Issue 4: StudentPortal must render student's submitted grade appeals history with real-time status badges",
+  "StudentPortal does not display submitted grade appeals to students"
+);
+
+assert(
+  teacherPortalContent.includes("const teacherAppeals = useMemo(() => {") &&
+  teacherPortalContent.includes("activePortalTab === \"APPEALS\"") &&
+  teacherPortalContent.includes("selectedAppealToResolve"),
+  "Batch 58 Issue 5: TeacherPortal must render appeals management tab and modal to resolve student grade appeals",
+  "TeacherPortal misses appeals tab view or appeal resolution modal"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 57 SECURITY & INTEGRITY REGRESSION TESTS PASSED (293 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 58 SECURITY & INTEGRITY REGRESSION TESTS PASSED (298 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
@@ -2529,5 +2572,6 @@ if (failures === 0) {
   console.log("=========================================\n");
   process.exit(1);
 }
+
 
 

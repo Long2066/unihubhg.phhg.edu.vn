@@ -32,6 +32,10 @@ export const DataBackupRestoreModal: React.FC<DataBackupRestoreModalProps> = ({ 
     systemFeedbacks,
     gradingRules,
     period,
+    customClasses,
+    gradeAppeals,
+    unlockRequests,
+    gradeAuditLogs,
     restoreAllDataBackup
   } = useUniHub();
 
@@ -70,7 +74,9 @@ export const DataBackupRestoreModal: React.FC<DataBackupRestoreModalProps> = ({ 
           version: "2.0.0",
           exportedAt: new Date().toISOString(),
           totalStudents: students.length,
-          totalUsers: users.length
+          totalUsers: users.length,
+          totalClasses: customClasses.length,
+          totalAppeals: gradeAppeals.length
         },
         data: {
           students,
@@ -93,7 +99,11 @@ export const DataBackupRestoreModal: React.FC<DataBackupRestoreModalProps> = ({ 
           groupAttendances,
           systemFeedbacks,
           gradingRules,
-          period
+          period,
+          customClasses,
+          gradeAppeals,
+          unlockRequests,
+          gradeAuditLogs
         }
       };
 

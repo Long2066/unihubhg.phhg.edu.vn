@@ -5,7 +5,8 @@ import {
   SubjectGradeSheet, 
   SubjectStudentGrade, 
   SEMESTER_LIST,
-  UserRole 
+  UserRole,
+  GradeAppeal 
 } from "../types";
 import { 
   BookOpen, 
@@ -30,7 +31,8 @@ import {
   Clock,
   Send,
   Calendar,
-  Plus
+  Plus,
+  X
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -945,6 +947,19 @@ export const TeacherPortal: React.FC = () => {
     });
   }, [teacherAssignments, currentUser, selectedSemester]);
 
+  const [selectedAppealToResolve, setSelectedAppealToResolve] = useState<GradeAppeal | null>(null);
+  const [appealNewGrade, setAppealNewGrade] = useState<string>("");
+  const [appealResponseText, setAppealResponseText] = useState<string>("");
+  const [appealActionType, setAppealActionType] = useState<"UPDATED" | "REJECTED">("UPDATED");
+
+  const teacherAppeals = useMemo(() => {
+    if (!currentUser) return [];
+    const mySubjectCodes = new Set(myAssignments.map(a => a.subjectCode.toUpperCase()));
+    return gradeAppeals.filter(a => mySubjectCodes.has(a.subjectCode.toUpperCase()));
+  }, [gradeAppeals, myAssignments, currentUser]);
+
+  const pendingTeacherAppealsCount = teacherAppeals.filter(a => a.status === "PENDING" || a.status === "REVIEWING").length;
+
   // Set default selected assignment when semester or assignments change
   React.useEffect(() => {
     if (myAssignments.length > 0 && !myAssignments.find(a => a.id === selectedAssignmentId)) {
@@ -1520,7 +1535,41 @@ export const TeacherPortal: React.FC = () => {
         </div>
       )}
 
-      {/* Main Grid: Class selector on left, Gradebook on right */}
+      {/* Sub-tabs: Nhập Điểm vs Đơn Phúc Khảo */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+        <button
+          type="button"
+          onClick={() => setActivePortalTab("GRADES")}
+          className={`px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer ${
+            activePortalTab === "GRADES"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+          }`}
+        >
+          <BookOpen size={15} />
+          <span>Sổ Điểm Học Phần</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActivePortalTab("APPEALS")}
+          className={`px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer relative ${
+            activePortalTab === "APPEALS"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+          }`}
+        >
+          <HelpCircle size={15} />
+          <span>Đơn Phúc Khảo Môn Học</span>
+          {pendingTeacherAppealsCount > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 bg-rose-500 text-white text-[9px] font-black rounded-full">
+              {pendingTeacherAppealsCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activePortalTab === "GRADES" && (
+      /* Main Grid: Class selector on left, Gradebook on right */
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         
         {/* Left Column: Assigned Classes List */}
@@ -1925,6 +1974,221 @@ export const TeacherPortal: React.FC = () => {
           )}
         </div>
       </div>
+      )}
+
+      {/* APPEALS TAB: List and Process Grade Appeals */}
+      {activePortalTab === "APPEALS" && (
+        <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
+          <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+            <div>
+              <h3 className="text-sm font-black uppercase text-slate-800 tracking-wider flex items-center gap-2">
+                <HelpCircle size={18} className="text-blue-600" />
+                <span>Danh Sách Đơn Phúc Khảo Điểm Học Phần ({teacherAppeals.length})</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Các đơn phúc khảo bài thi/điểm môn do sinh viên nộp cho các học phần bạn giảng dạy.
+              </p>
+            </div>
+            {pendingTeacherAppealsCount > 0 && (
+              <span className="px-3 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-bold">
+                {pendingTeacherAppealsCount} đơn chờ xử lý
+              </span>
+            )}
+          </div>
+
+          {teacherAppeals.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl space-y-2">
+              <CheckCircle2 size={32} className="mx-auto text-emerald-500" />
+              <p className="font-bold text-slate-600">Không có đơn phúc khảo nào cần xử lý</p>
+              <p className="text-[11px] text-slate-400">Sinh viên chưa gửi đơn khiếu nại hoặc tất cả các đơn đã được giải quyết.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {teacherAppeals.map(appeal => (
+                <div key={appeal.id} className="p-4 bg-slate-50/50 rounded-2xl border border-slate-200 hover:border-slate-300 transition-all space-y-3">
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-slate-900 text-sm">{appeal.studentName}</span>
+                        <span className="text-xs font-mono text-slate-500 font-bold">({appeal.studentId})</span>
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        Lớp: <strong className="text-slate-800">{appeal.classId}</strong> • Môn: <strong className="text-blue-700">{appeal.subjectName}</strong> ({appeal.subjectCode})
+                      </div>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase shrink-0 ${
+                      appeal.status === "UPDATED"
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        : appeal.status === "REJECTED"
+                        ? "bg-rose-50 text-rose-700 border border-rose-200"
+                        : "bg-amber-50 text-amber-700 border border-amber-200 animate-pulse"
+                    }`}>
+                      {appeal.status === "UPDATED" ? "✓ ĐÃ CẬP NHẬT" : appeal.status === "REJECTED" ? "✗ TỪ CHỐI" : "⏳ CHỜ XỬ LÝ"}
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-xl border border-slate-200/80 text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Điểm tổng kết đã công bố:</span>
+                      <strong className="font-mono text-slate-800 font-black">{appeal.originalGrade}</strong>
+                    </div>
+                    {appeal.newGrade && (
+                      <div className="flex justify-between text-emerald-700 font-bold">
+                        <span>Điểm mới sau phúc khảo:</span>
+                        <strong className="font-mono">{appeal.newGrade}</strong>
+                      </div>
+                    )}
+                    <div className="text-slate-700 pt-1 border-t border-slate-100">
+                      <span className="font-bold text-slate-500 block text-[10px] uppercase">Lý do phúc khảo của SV:</span>
+                      <p className="italic text-slate-600 mt-0.5">{appeal.reason}</p>
+                    </div>
+                    {appeal.response && (
+                      <div className="text-indigo-800 pt-1 border-t border-slate-100">
+                        <span className="font-bold text-indigo-600 block text-[10px] uppercase">Ý kiến phản hồi của Giảng viên:</span>
+                        <p className="mt-0.5">{appeal.response}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono pt-1">
+                    <span>Nộp lúc: {appeal.requestedAt}</span>
+                    {appeal.status === "PENDING" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedAppealToResolve(appeal);
+                          setAppealActionType("UPDATED");
+                          setAppealNewGrade(appeal.originalGrade);
+                          setAppealResponseText("");
+                        }}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg cursor-pointer transition-colors shadow-2xs"
+                      >
+                        Xử lý đơn
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Resolve Appeal Modal */}
+      {selectedAppealToResolve && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-scale-up text-sans">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                <HelpCircle className="text-blue-600" size={18} />
+                <span>Giải Quyết Đơn Phúc Khảo</span>
+              </h3>
+              <button onClick={() => setSelectedAppealToResolve(null)} className="text-slate-400 hover:text-slate-600">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
+              <div>Sinh viên: <strong className="text-slate-900">{selectedAppealToResolve.studentName}</strong> ({selectedAppealToResolve.studentId})</div>
+              <div>Học phần: <strong className="text-slate-900">{selectedAppealToResolve.subjectName}</strong> ({selectedAppealToResolve.subjectCode})</div>
+              <div>Lớp: <strong className="text-slate-900">{selectedAppealToResolve.classId}</strong></div>
+              <div>Điểm hiện tại: <strong className="text-blue-700 font-mono font-black">{selectedAppealToResolve.originalGrade}</strong></div>
+              <p className="text-slate-500 italic mt-1">Lý do: {selectedAppealToResolve.reason}</p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Quyết định xử lý</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAppealActionType("UPDATED")}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                      appealActionType === "UPDATED"
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    Cập nhật điểm mới
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAppealActionType("REJECTED")}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                      appealActionType === "REJECTED"
+                        ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    Từ chối phúc khảo
+                  </button>
+                </div>
+              </div>
+
+              {appealActionType === "UPDATED" && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Điểm mới hệ 10 [0 - 10] (*)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="10"
+                    value={appealNewGrade}
+                    onChange={(e) => setAppealNewGrade(e.target.value)}
+                    placeholder="VD: 8.5"
+                    className="w-full p-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Ý kiến phản hồi cho sinh viên (*)</label>
+                <textarea
+                  rows={2}
+                  value={appealResponseText}
+                  onChange={(e) => setAppealResponseText(e.target.value)}
+                  placeholder={appealActionType === "UPDATED" ? "VD: Đã rà soát lại bài thi kết thúc học phần, điểm thi thực tế là 8.5..." : "VD: Bài thi đã chấm đúng thang điểm, giữ nguyên kết quả..."}
+                  className="w-full p-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSelectedAppealToResolve(null)}
+                className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (appealActionType === "UPDATED") {
+                    const parsed = parseFloat(appealNewGrade);
+                    if (Number.isNaN(parsed) || parsed < 0 || parsed > 10) {
+                      alert("Vui lòng nhập điểm mới hợp lệ từ 0 đến 10.");
+                      return;
+                    }
+                    resolveGradeAppeal(selectedAppealToResolve.id, "UPDATED", String(parsed), appealResponseText.trim() || "Giảng viên đã duyệt cập nhật điểm phúc khảo.");
+                  } else {
+                    resolveGradeAppeal(selectedAppealToResolve.id, "REJECTED", undefined, appealResponseText.trim() || "Không chấp thuận thay đổi điểm sau khi rà soát.");
+                  }
+                  alert("Đã hoàn tất xử lý đơn phúc khảo!");
+                  setSelectedAppealToResolve(null);
+                  setAppealNewGrade("");
+                  setAppealResponseText("");
+                }}
+                className={`px-4 py-2 text-white text-xs font-bold rounded-xl cursor-pointer ${
+                  appealActionType === "UPDATED" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"
+                }`}
+              >
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Unlock Request Modal */}
       {showUnlockModal && (

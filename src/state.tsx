@@ -3527,6 +3527,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setUnlockRequests(backupData.unlockRequests);
       saveToStorage("unihub_unlock_requests", backupData.unlockRequests);
     }
+    if (Array.isArray(backupData.gradeAuditLogs)) {
+      setGradeAuditLogs(backupData.gradeAuditLogs);
+      saveToStorage("unihub_grade_audit_logs", backupData.gradeAuditLogs);
+    }
     if (backupData.gradingRules) {
       setGradingRules(backupData.gradingRules);
       localStorage.setItem("unihub_grading_rules", JSON.stringify(backupData.gradingRules));
@@ -3944,9 +3948,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!cleanClassId) return;
     const normClassId = normalizeClassId(cleanClassId);
 
+    const userClass = students.find(s => s.id === currentUser.targetId || s.username === currentUser.username || s.email === currentUser.email)?.classId;
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
       (currentUser.role === UserRole.ADVISER && currentUser.targetId && (currentUser.targetId === classId || normalizeClassId(currentUser.targetId) === normClassId)) ||
-      (currentUser.role === UserRole.CLASS_MONITOR && currentUser.targetId && (currentUser.targetId === classId || normalizeClassId(currentUser.targetId) === normClassId));
+      (currentUser.role === UserRole.CLASS_MONITOR && (
+        (currentUser.targetId && (currentUser.targetId === classId || normalizeClassId(currentUser.targetId) === normClassId)) ||
+        (userClass && (userClass === classId || normalizeClassId(userClass) === normClassId))
+      ));
     if (!isAuthorized) {
       console.warn("Unauthorized attempt to send group reminder");
       return;

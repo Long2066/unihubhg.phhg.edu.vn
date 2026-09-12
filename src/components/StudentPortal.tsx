@@ -1639,6 +1639,59 @@ export const StudentPortal: React.FC = () => {
                 <div className="col-span-2">Xếp loại: <strong className="text-slate-850 font-bold">{sObj?.academicGrade || "Chưa cập nhật"}</strong></div>
                 {sObj?.notes && <div className="col-span-2 text-[10.5px]">Ghi chú: <span className="text-slate-500 italic">{sObj.notes}</span></div>}
                 {sObj?.updatedAt && <div className="col-span-2 text-[9px] text-slate-400 font-mono">Ngày cập nhật: {sObj.updatedAt}</div>}
+                
+                {/* Lịch sử đơn phúc khảo của sinh viên */}
+                {(() => {
+                  const myAppeals = gradeAppeals.filter(a => a.studentId === sObj?.id);
+                  if (myAppeals.length === 0) return null;
+                  return (
+                    <div className="col-span-2 mt-2 pt-2 border-t border-slate-200/80 space-y-2 text-left">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-indigo-700 tracking-wider flex items-center gap-1">
+                          <HelpCircle size={12} />
+                          <span>Đơn Phúc Khảo Đã Gửi ({myAppeals.length})</span>
+                        </span>
+                      </div>
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                        {myAppeals.map(appeal => (
+                          <div key={appeal.id} className="p-2.5 bg-white rounded-xl border border-slate-200 text-xs flex flex-col gap-1 shadow-2xs">
+                            <div className="flex justify-between items-start gap-2">
+                              <div>
+                                <span className="font-extrabold text-slate-900">{appeal.subjectName}</span>
+                                <span className="text-[10px] font-mono text-slate-400 ml-1">({appeal.subjectCode})</span>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase shrink-0 ${
+                                appeal.status === "UPDATED"
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : appeal.status === "REJECTED"
+                                  ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                  : "bg-amber-50 text-amber-700 border border-amber-200"
+                              }`}>
+                                {appeal.status === "UPDATED" ? "✓ ĐÃ CẬP NHẬT" : appeal.status === "REJECTED" ? "✗ TỪ CHỐI" : "⏳ CHỜ XỬ LÝ"}
+                              </span>
+                            </div>
+                            <div className="text-[10.5px] text-slate-600">
+                              <span>Điểm gốc: <strong className="text-slate-800 font-mono">{appeal.originalGrade}</strong></span>
+                              {appeal.newGrade && (
+                                <span className="ml-2 text-emerald-600 font-bold">➔ Điểm mới: <strong className="font-mono">{appeal.newGrade}</strong></span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-500 italic bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                              Lý do: {appeal.reason}
+                            </p>
+                            {appeal.response && (
+                              <p className="text-[10px] text-indigo-700 font-semibold bg-indigo-50/50 p-1.5 rounded-lg border border-indigo-100">
+                                Phản hồi: {appeal.response}
+                              </p>
+                            )}
+                            <span className="text-[9px] text-slate-400 font-mono">Gửi lúc: {appeal.requestedAt}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div className="col-span-2 pt-2 border-t border-slate-100 flex justify-end">
                   <button
                     type="button"
