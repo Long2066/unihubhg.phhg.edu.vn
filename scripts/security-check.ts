@@ -1579,9 +1579,49 @@ assert(
   "TrainingPortal contains hardcoded K2-GDTH A fallback for schedules"
 );
 
+// ==========================================
+// BATCH 33: Full Database Restore Completeness, Period Isolation, Member Validation & Sheet Existence
+// ==========================================
+console.log("\n--- BATCH 33: Backup Completeness, Period Isolation, Member Validation & Sheet Integrity ---");
+
+assert(
+  stateContent.includes("if (Array.isArray(backupData.results)) {\n      setResults(backupData.results);\n      saveToStorage(\"unihub_results\", backupData.results);\n    }") &&
+  stateContent.includes("if (Array.isArray(backupData.evidence)) {\n      setEvidence(backupData.evidence);\n      saveToStorage(\"unihub_evidence\", backupData.evidence);\n    }") &&
+  stateContent.includes("if (Array.isArray(backupData.members)) {\n      setMembers(backupData.members);\n      saveToStorage(\"unihub_members\", backupData.members);\n    }") &&
+  stateContent.includes("if (Array.isArray(backupData.dailyAttendance)) {\n      setDailyAttendance(backupData.dailyAttendance);\n      saveToStorage(\"unihub_daily_attendance\", backupData.dailyAttendance);\n    }") &&
+  stateContent.includes("if (Array.isArray(backupData.groupAttendances)) {\n      setGroupAttendances(backupData.groupAttendances);\n      saveToStorage(\"unihub_group_attendances\", backupData.groupAttendances);\n    }") &&
+  stateContent.includes("if (backupData.gradingRules) {\n      setGradingRules(backupData.gradingRules);\n      localStorage.setItem(\"unihub_grading_rules\", JSON.stringify(backupData.gradingRules));\n    }"),
+  "Batch 33 Issue 1: restoreAllDataBackup must restore full database tables and configurations",
+  "restoreAllDataBackup drops conduct results, evidence, members, attendance, or grading rules"
+);
+
+assert(
+  stateContent.includes("submitAdviserAdjustment = (studentId: string, criteriaCategory: string, points: number, reason: string)") &&
+  stateContent.includes("if (res.studentId === studentId && (!period?.id || res.periodId === period.id))"),
+  "Batch 33 Issue 2: submitAdviserAdjustment must scope score adjustment strictly to current period",
+  "submitAdviserAdjustment modifies historical evaluation results across past periods"
+);
+
+assert(
+  stateContent.includes("addMemberManual = (member: Omit<OrganizationMember, \"id\" | \"joinedDate\" | \"term\" | \"status\">) => {") &&
+  stateContent.includes("const cleanStudentId = (member.studentId || \"\").trim();") &&
+  stateContent.includes("const targetStudent = students.find(s => s.id === cleanStudentId);") &&
+  stateContent.includes("if (!targetStudent) {\n      console.warn(\"Cannot add member: student not found in students directory\");"),
+  "Batch 33 Issue 3: addMemberManual must verify that student exists in students directory",
+  "addMemberManual allows adding phantom or arbitrary non-student accounts"
+);
+
+assert(
+  stateContent.includes("requestGradeUnlock = (req: Omit<GradeUnlockRequest, \"id\" | \"requestedAt\" | \"status\">) => {") &&
+  stateContent.includes("const sheet = subjectGradeSheets.find(s => s.id === req.sheetId);") &&
+  stateContent.includes("if (!sheet) {\n      console.warn(\"Cannot request grade unlock: grade sheet not found\");"),
+  "Batch 33 Issue 4: requestGradeUnlock must verify that target subject grade sheet exists",
+  "requestGradeUnlock allows requesting unlock for non-existent sheets"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 32 SECURITY & INTEGRITY REGRESSION TESTS PASSED (182 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 33 SECURITY & INTEGRITY REGRESSION TESTS PASSED (186 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

@@ -921,9 +921,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("A pending unlock request already exists for this grade sheet");
       return;
     }
+    const sheet = subjectGradeSheets.find(s => s.id === req.sheetId);
+    if (!sheet) {
+      console.warn("Cannot request grade unlock: grade sheet not found");
+      return;
+    }
     if (currentUser.role === UserRole.TEACHER) {
-      const sheet = subjectGradeSheets.find(s => s.id === req.sheetId);
-      const tid = (sheet?.teacherId || req.teacherId || "").toLowerCase();
+      const tid = (sheet.teacherId || req.teacherId || "").toLowerCase();
       const match = (currentUser.email && tid === currentUser.email.toLowerCase()) ||
                     (currentUser.id && tid === currentUser.id.toLowerCase()) ||
                     (currentUser.username && tid === currentUser.username.toLowerCase()) ||
@@ -2533,6 +2537,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to add member to another organization");
       return;
     }
+    const cleanStudentId = (member.studentId || "").trim();
+    if (!cleanStudentId) return;
+    const targetStudent = students.find(s => s.id === cleanStudentId);
+    if (!targetStudent) {
+      console.warn("Cannot add member: student not found in students directory");
+      return;
+    }
     const isDuplicate = members.some(m => m.orgId === member.orgId && m.studentId === member.studentId);
     if (isDuplicate) {
       console.warn("Student is already a member of this organization");
@@ -2540,6 +2551,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     const newMember: OrganizationMember = {
       ...member,
+      studentId: cleanStudentId,
+      studentName: member.studentName?.trim() || targetStudent.name,
+      classId: member.classId?.trim() || targetStudent.classId,
       id: `M_NEW_${Date.now()}`,
       joinedDate: new Date().toISOString().split("T")[0],
       term: "2025-2026",
@@ -2925,7 +2939,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     // Adjust result's logs and save
     const updatedResults = results.map(res => {
-      if (res.studentId === studentId) {
+      if (res.studentId === studentId && (!period?.id || res.periodId === period.id)) {
         const timestampNow = new Date().toISOString().split("T")[0];
         
         // Push adjustment log
@@ -3209,6 +3223,38 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (Array.isArray(backupData.facultyReviews)) {
       setFacultyReviews(backupData.facultyReviews);
       saveToStorage("unihub_faculty_reviews", backupData.facultyReviews);
+    }
+    if (Array.isArray(backupData.results)) {
+      setResults(backupData.results);
+      saveToStorage("unihub_results", backupData.results);
+    }
+    if (Array.isArray(backupData.evidence)) {
+      setEvidence(backupData.evidence);
+      saveToStorage("unihub_evidence", backupData.evidence);
+    }
+    if (Array.isArray(backupData.members)) {
+      setMembers(backupData.members);
+      saveToStorage("unihub_members", backupData.members);
+    }
+    if (Array.isArray(backupData.attendance)) {
+      setAttendance(backupData.attendance);
+      saveToStorage("unihub_attendance", backupData.attendance);
+    }
+    if (Array.isArray(backupData.dailyAttendance)) {
+      setDailyAttendance(backupData.dailyAttendance);
+      saveToStorage("unihub_daily_attendance", backupData.dailyAttendance);
+    }
+    if (Array.isArray(backupData.groupAttendances)) {
+      setGroupAttendances(backupData.groupAttendances);
+      saveToStorage("unihub_group_attendances", backupData.groupAttendances);
+    }
+    if (Array.isArray(backupData.announcements)) {
+      setAnnouncements(backupData.announcements);
+      saveToStorage("unihub_announcements", backupData.announcements);
+    }
+    if (backupData.gradingRules) {
+      setGradingRules(backupData.gradingRules);
+      localStorage.setItem("unihub_grading_rules", JSON.stringify(backupData.gradingRules));
     }
     if (backupData.period) {
       setPeriod(backupData.period);
