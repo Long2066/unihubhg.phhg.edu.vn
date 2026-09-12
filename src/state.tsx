@@ -980,12 +980,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const req = unlockRequests.find(r => r.id === requestId);
     if (!req) return;
+    if (req.status !== "PENDING") {
+      console.warn("Unlock request has already been processed");
+      return;
+    }
     if (currentUser.role === UserRole.FACULTY) {
       if (!currentUser.targetId) {
         console.warn("Unauthorized attempt by unassigned faculty to approve unlock request");
         return;
       }
-      const isFacultyClass = students.some(s => s.classId === req.classId && s.facultyId === currentUser.targetId);
+      const isFacultyClass = students.some(s => s.classId === req.classId && s.facultyId === currentUser.targetId) ||
+        students.some(s => normalizeClassId(s.classId) === normalizeClassId(req.classId) && s.facultyId === currentUser.targetId);
       if (!isFacultyClass) {
         console.warn("Unauthorized attempt by faculty to approve unlock request for another faculty");
         return;
@@ -1014,12 +1019,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const req = unlockRequests.find(r => r.id === requestId);
     if (!req) return;
+    if (req.status !== "PENDING") {
+      console.warn("Unlock request has already been processed");
+      return;
+    }
     if (currentUser.role === UserRole.FACULTY) {
       if (!currentUser.targetId) {
         console.warn("Unauthorized attempt by unassigned faculty to reject unlock request");
         return;
       }
-      const isFacultyClass = students.some(s => s.classId === req.classId && s.facultyId === currentUser.targetId);
+      const isFacultyClass = students.some(s => s.classId === req.classId && s.facultyId === currentUser.targetId) ||
+        students.some(s => normalizeClassId(s.classId) === normalizeClassId(req.classId) && s.facultyId === currentUser.targetId);
       if (!isFacultyClass) {
         console.warn("Unauthorized attempt by faculty to reject unlock request for another faculty");
         return;
@@ -1102,6 +1112,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     const appeal = gradeAppeals.find(a => a.id === appealId);
     if (!appeal) return;
+    if (appeal.status !== "PENDING") {
+      console.warn("Grade appeal has already been resolved");
+      return;
+    }
 
     if (currentUser.role === UserRole.TEACHER) {
       const sheet = subjectGradeSheets.find(s => s.id === appeal.sheetId || s.subjectCode === appeal.subjectCode);
@@ -2229,7 +2243,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     const rawUrl = (data.proofUrl || "").trim();
-    if (/^(javascript|vbscript):/i.test(rawUrl) || rawUrl.startsWith("//")) {
+    if (/^(javascript|vbscript):/i.test(rawUrl) || rawUrl.startsWith("//") || /^data:(text\/html|application\/)/i.test(rawUrl)) {
       console.warn("Rejected unsafe proofUrl:", rawUrl);
       return;
     }

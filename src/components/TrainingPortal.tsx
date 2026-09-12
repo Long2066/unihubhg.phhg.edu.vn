@@ -4368,7 +4368,12 @@ export const TrainingPortal: React.FC = () => {
 
             <form onSubmit={(e) => {
               e.preventDefault();
-              resolveGradeAppeal(selectedAppealForResponse.id, "UPDATED", appealNewGrade, appealResponseText);
+              const parsedNewGrade = parseFloat(appealNewGrade.trim().replace(",", "."));
+              if (isNaN(parsedNewGrade) || parsedNewGrade < 0 || parsedNewGrade > 10) {
+                alert("Điểm mới sau điều chỉnh phải là số hợp lệ từ 0 đến 10!");
+                return;
+              }
+              resolveGradeAppeal(selectedAppealForResponse.id, "UPDATED", String(parsedNewGrade), appealResponseText);
               setSelectedAppealForResponse(null);
               alert("Đã cập nhật điểm phúc khảo thành công!");
             }} className="space-y-3 text-xs">

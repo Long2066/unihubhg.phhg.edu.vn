@@ -1993,9 +1993,44 @@ assert(
   "updateActivityStatus verifies absent students when activity completes"
 );
 
+// ==========================================
+// BATCH 44: Unlock Request Lifecycle, Grade Appeal Safety, ProofUrl Scheme Defense & Modal Clamping
+// ==========================================
+console.log("\n--- BATCH 44: Unlock Request Lifecycle, Grade Appeal Safety, ProofUrl Scheme Defense & Modal Clamping ---");
+
+assert(
+  stateContent.includes("if (req.status !== \"PENDING\") {\n      console.warn(\"Unlock request has already been processed\");"),
+  "Batch 44 Issue 1: approveUnlockRequest and rejectUnlockRequest must verify PENDING request status",
+  "approveUnlockRequest or rejectUnlockRequest re-processes resolved requests"
+);
+
+assert(
+  stateContent.includes("normalizeClassId(s.classId) === normalizeClassId(req.classId) && s.facultyId === currentUser.targetId"),
+  "Batch 44 Issue 2: approveUnlockRequest and rejectUnlockRequest must support normalized class IDs for faculty",
+  "approveUnlockRequest or rejectUnlockRequest fails on case-variant class IDs for faculty review"
+);
+
+assert(
+  stateContent.includes("if (appeal.status !== \"PENDING\") {\n      console.warn(\"Grade appeal has already been resolved\");"),
+  "Batch 44 Issue 3: resolveGradeAppeal must verify PENDING appeal status before resolving",
+  "resolveGradeAppeal allows re-resolving already processed grade appeals"
+);
+
+assert(
+  stateContent.includes("/^data:(text\\/html|application\\/)/i.test(rawUrl)"),
+  "Batch 44 Issue 4: submitEvidence must reject dangerous data:text/html and data:application URLs",
+  "submitEvidence allows dangerous data scheme URL injections"
+);
+
+assert(
+  trainingPortalContent.includes("if (isNaN(parsedNewGrade) || parsedNewGrade < 0 || parsedNewGrade > 10) {\n                alert(\"Điểm mới sau điều chỉnh phải là số hợp lệ từ 0 đến 10!\");"),
+  "Batch 44 Issue 5: TrainingPortal appeal response modal must validate new grade in [0, 10]",
+  "TrainingPortal allows submitting non-numeric or out-of-range appeal new grades"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 43 SECURITY & INTEGRITY REGRESSION TESTS PASSED (231 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 44 SECURITY & INTEGRITY REGRESSION TESTS PASSED (236 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
