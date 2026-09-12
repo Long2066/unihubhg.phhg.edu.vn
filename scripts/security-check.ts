@@ -2094,9 +2094,41 @@ assert(
   "Portals use raw classId comparisons or hardcoded class fallbacks"
 );
 
+// ==========================================
+// BATCH 47: Class Score Approvals Normalization, Admin Score Sync & Rename/Delete Cascade Completeness
+// ==========================================
+console.log("\n--- BATCH 47: Class Score Approvals Normalization, Admin Score Sync & Rename/Delete Cascade ---");
+
+assert(
+  stateContent.includes("approveClassScores = (classId: string) => {\n    if (!currentUser || !classId) return;\n    const cleanClassId = classId.trim();\n    if (!cleanClassId) return;\n    const normClassId = normalizeClassId(cleanClassId);") &&
+  stateContent.includes("approveAdviserScores = (classId: string, comment: string) => {\n    if (!currentUser || !classId) return;\n    const cleanClassId = classId.trim();\n    if (!cleanClassId) return;\n    const normClassId = normalizeClassId(cleanClassId);"),
+  "Batch 47 Issue 1: approveClassScores and approveAdviserScores must sanitize and normalize classId",
+  "approveClassScores or approveAdviserScores allows unnormalized classId or bypasses scope"
+);
+
+assert(
+  stateContent.includes("approveFacultyScores = (classId: string, comment: string) => {\n    if (!currentUser || !classId) return;\n    const cleanClassId = classId.trim();\n    if (!cleanClassId) return;\n    const normClassId = normalizeClassId(cleanClassId);") &&
+  stateContent.includes("const classStudentIds = students.filter(s => s.classId === classId || normalizeClassId(s.classId) === normClassId).map(s => s.id);"),
+  "Batch 47 Issue 2: approveFacultyScores and approveAdminScores must normalize classId and synchronize all class student results",
+  "approveFacultyScores or approveAdminScores ignores unnormalized classId variants"
+);
+
+assert(
+  stateContent.includes("if (currentUser.targetId && targetFb.toClassId && targetFb.toClassId !== currentUser.targetId && normalizeClassId(targetFb.toClassId) !== normalizeClassId(currentUser.targetId)) {"),
+  "Batch 47 Issue 3: resolveFeedback must support normalized class IDs across class boundaries",
+  "resolveFeedback blocks authorized users due to raw classId casing or whitespace"
+);
+
+assert(
+  stateContent.includes("const updatedResults = results.map(r => normalizeClassId(r.classId) === oldNorm ? { ...r, classId: newNorm } : r);\n    setResults(updatedResults);\n    saveToStorage(\"unihub_results\", updatedResults);\n\n    const updatedMembers = members.map(m => normalizeClassId(m.classId) === oldNorm ? { ...m, classId: newNorm } : m);\n    setMembers(updatedMembers);\n    saveToStorage(\"unihub_members\", updatedMembers);") &&
+  stateContent.includes("const updatedMembers = members.filter(m => !deletedStudentIds.has(m.studentId) && normalizeClassId(m.classId) !== norm);\n    setMembers(updatedMembers);\n    saveToStorage(\"unihub_members\", updatedMembers);\n\n    const updatedAttendance = attendance.filter(a => !deletedStudentIds.has(a.studentId));\n    setAttendance(updatedAttendance);\n    saveToStorage(\"unihub_attendance\", updatedAttendance);"),
+  "Batch 47 Issue 4: renameClass and deleteClass must cascade updates to results, members, and attendance",
+  "renameClass or deleteClass leaves orphaned members, attendances, or unupdated results"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 46 SECURITY & INTEGRITY REGRESSION TESTS PASSED (244 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 47 SECURITY & INTEGRITY REGRESSION TESTS PASSED (248 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

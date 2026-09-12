@@ -3011,29 +3011,32 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // BCS / Class Actions
   const approveClassScores = (classId: string) => {
     if (!currentUser || !classId) return;
+    const cleanClassId = classId.trim();
+    if (!cleanClassId) return;
+    const normClassId = normalizeClassId(cleanClassId);
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
-      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === classId) ||
-      (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId);
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && (currentUser.targetId === classId || normalizeClassId(currentUser.targetId) === normClassId)) ||
+      (currentUser.role === UserRole.ADVISER && (currentUser.targetId === classId || normalizeClassId(currentUser.targetId) === normClassId));
     if (!isAuthorized) {
       console.warn("Unauthorized attempt to approve class scores");
       return;
     }
 
     // Check if class review exists
-    const exists = classReviews.some(cr => cr.classId === classId);
+    const exists = classReviews.some(cr => cr.classId === classId || normalizeClassId(cr.classId) === normClassId);
     let updated: ClassReviewState[];
     
     if (exists) {
       updated = classReviews.map(cr => {
-        if (cr.classId === classId) {
-          return { ...cr, representativeApproved: true, representativeApprovedAt: new Date().toISOString().split("T")[0] };
+        if (cr.classId === classId || normalizeClassId(cr.classId) === normClassId) {
+          return { ...cr, classId: normClassId, representativeApproved: true, representativeApprovedAt: new Date().toISOString().split("T")[0] };
         }
         return cr;
       });
     } else {
       updated = [
         ...classReviews,
-        { classId, representativeApproved: true, representativeApprovedAt: new Date().toISOString().split("T")[0], adviserApproved: false }
+        { classId: normClassId, representativeApproved: true, representativeApprovedAt: new Date().toISOString().split("T")[0], adviserApproved: false }
       ];
     }
 
@@ -3048,22 +3051,26 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // GVCN Actions
   const approveAdviserScores = (classId: string, comment: string) => {
     if (!currentUser || !classId) return;
+    const cleanClassId = classId.trim();
+    if (!cleanClassId) return;
+    const normClassId = normalizeClassId(cleanClassId);
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
-      (currentUser.role === UserRole.FACULTY && currentUser.targetId && students.some(s => s.classId === classId && s.facultyId === currentUser.targetId)) ||
-      (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId);
+      (currentUser.role === UserRole.FACULTY && currentUser.targetId && (students.some(s => s.classId === classId && s.facultyId === currentUser.targetId) || students.some(s => normalizeClassId(s.classId) === normClassId && s.facultyId === currentUser.targetId))) ||
+      (currentUser.role === UserRole.ADVISER && (currentUser.targetId === classId || normalizeClassId(currentUser.targetId) === normClassId));
     if (!isAuthorized) {
       console.warn("Unauthorized attempt to approve adviser scores");
       return;
     }
 
-    const exists = classReviews.some(cr => cr.classId === classId);
+    const exists = classReviews.some(cr => cr.classId === classId || normalizeClassId(cr.classId) === normClassId);
     let updated: ClassReviewState[];
 
     if (exists) {
       updated = classReviews.map(cr => {
-        if (cr.classId === classId) {
+        if (cr.classId === classId || normalizeClassId(cr.classId) === normClassId) {
           return { 
             ...cr, 
+            classId: normClassId,
             adviserApproved: true, 
             adviserApprovedAt: new Date().toISOString().split("T")[0], 
             adviserComment: comment
@@ -3075,7 +3082,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       updated = [
         ...classReviews,
         { 
-          classId, 
+          classId: normClassId, 
           representativeApproved: true, 
           representativeApprovedAt: new Date().toISOString().split("T")[0], 
           adviserApproved: true, 
@@ -4048,7 +4055,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.warn("Unauthorized attempt by unassigned user to resolve feedback");
         return;
       }
-      if (currentUser.targetId && targetFb.toClassId && targetFb.toClassId !== currentUser.targetId) {
+      if (currentUser.targetId && targetFb.toClassId && targetFb.toClassId !== currentUser.targetId && normalizeClassId(targetFb.toClassId) !== normalizeClassId(currentUser.targetId)) {
         console.warn("Unauthorized attempt to resolve feedback for another class");
         return;
       }
@@ -4093,7 +4100,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const importGroupCriteria = (criteriaList: GroupEvaluationCriteria[]) => {
-    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.ADVISER && currentUser.role !== UserRole.CLASS_MONITOR)) {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY)) {
       console.warn("Unauthorized attempt to import group criteria");
       return;
     }
@@ -4103,20 +4110,24 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const approveFacultyScores = (classId: string, comment: string) => {
     if (!currentUser || !classId) return;
+    const cleanClassId = classId.trim();
+    if (!cleanClassId) return;
+    const normClassId = normalizeClassId(cleanClassId);
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
-      (currentUser.role === UserRole.FACULTY && currentUser.targetId && students.some(s => s.classId === classId && s.facultyId === currentUser.targetId));
+      (currentUser.role === UserRole.FACULTY && currentUser.targetId && (students.some(s => s.classId === classId && s.facultyId === currentUser.targetId) || students.some(s => normalizeClassId(s.classId) === normClassId && s.facultyId === currentUser.targetId)));
     if (!isAuthorized) {
       console.warn("Unauthorized attempt to approve faculty scores");
       return;
     }
 
-    const exists = classReviews.some(cr => cr.classId === classId);
+    const exists = classReviews.some(cr => cr.classId === classId || normalizeClassId(cr.classId) === normClassId);
     let updated: ClassReviewState[];
     if (exists) {
       updated = classReviews.map(cr => {
-        if (cr.classId === classId) {
+        if (cr.classId === classId || normalizeClassId(cr.classId) === normClassId) {
           return { 
             ...cr, 
+            classId: normClassId,
             facultyApproved: true, 
             facultyApprovedAt: new Date().toISOString().split("T")[0], 
             facultyComment: comment 
@@ -4128,7 +4139,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       updated = [
         ...classReviews,
         { 
-          classId, 
+          classId: normClassId, 
           representativeApproved: true, 
           adviserApproved: true, 
           facultyApproved: true, 
@@ -4146,14 +4157,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to approve admin scores");
       return;
     }
+    const cleanClassId = classId.trim();
+    if (!cleanClassId) return;
+    const normClassId = normalizeClassId(cleanClassId);
 
-    const exists = classReviews.some(cr => cr.classId === classId);
+    const exists = classReviews.some(cr => cr.classId === classId || normalizeClassId(cr.classId) === normClassId);
     let updated: ClassReviewState[];
     if (exists) {
       updated = classReviews.map(cr => {
-        if (cr.classId === classId) {
+        if (cr.classId === classId || normalizeClassId(cr.classId) === normClassId) {
           return { 
             ...cr, 
+            classId: normClassId,
             adminApproved: true, 
             adminApprovedAt: new Date().toISOString().split("T")[0],
             adminComment: comment 
@@ -4165,7 +4180,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       updated = [
         ...classReviews,
         { 
-          classId, 
+          classId: normClassId, 
           representativeApproved: true, 
           adviserApproved: true, 
           facultyApproved: true, 
@@ -4178,7 +4193,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setClassReviews(updated);
     saveToStorage("unihub_class_reviews", updated);
 
-    const classStudentIds = students.filter(s => s.classId === classId).map(s => s.id);
+    const classStudentIds = students.filter(s => s.classId === classId || normalizeClassId(s.classId) === normClassId).map(s => s.id);
     const updatedResults = results.map(res => {
       if (classStudentIds.includes(res.studentId)) {
         return {
@@ -4630,6 +4645,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedGradeAppeals = gradeAppeals.map(ga => normalizeClassId(ga.classId) === oldNorm ? { ...ga, classId: newNorm } : ga);
     setGradeAppeals(updatedGradeAppeals);
     localStorage.setItem("unihub_grade_appeals", JSON.stringify(updatedGradeAppeals));
+
+    const updatedResults = results.map(r => normalizeClassId(r.classId) === oldNorm ? { ...r, classId: newNorm } : r);
+    setResults(updatedResults);
+    saveToStorage("unihub_results", updatedResults);
+
+    const updatedMembers = members.map(m => normalizeClassId(m.classId) === oldNorm ? { ...m, classId: newNorm } : m);
+    setMembers(updatedMembers);
+    saveToStorage("unihub_members", updatedMembers);
   };
 
   const deleteClass = (classId: string) => {
@@ -4701,6 +4724,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedEvidence = evidence.filter(ev => normalizeClassId(ev.classId) !== norm && !deletedStudentIds.has(ev.studentId));
     setEvidence(updatedEvidence);
     saveToStorage("unihub_evidence", updatedEvidence);
+
+    const updatedMembers = members.filter(m => !deletedStudentIds.has(m.studentId) && normalizeClassId(m.classId) !== norm);
+    setMembers(updatedMembers);
+    saveToStorage("unihub_members", updatedMembers);
+
+    const updatedAttendance = attendance.filter(a => !deletedStudentIds.has(a.studentId));
+    setAttendance(updatedAttendance);
+    saveToStorage("unihub_attendance", updatedAttendance);
   };
 
   const bulkApproveScores = (classId: string, studentIds: string[], role: UserRole) => {
