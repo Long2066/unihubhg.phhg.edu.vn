@@ -63,6 +63,26 @@ export const ClassPortal: React.FC = () => {
   const classId = currentUser?.isGroupLeader 
     ? (students.find(s => s.id === currentUser.targetId)?.classId || "") 
     : (currentUser?.targetId || students.find(s => s.email === currentUser?.email || s.id === currentUser?.username)?.classId || "");
+
+  if (currentUser && currentUser.role !== UserRole.CLASS_MONITOR && currentUser.role !== UserRole.ADMIN) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
+        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-800">Không có quyền truy cập</h3>
+        <p className="text-slate-500 text-sm mt-1">Bạn không có quyền quản lý lớp học hoặc tổ chức ban cán sự lớp.</p>
+      </div>
+    );
+  }
+
+  if (currentUser?.role === UserRole.CLASS_MONITOR && !classId) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
+        <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-800">Chưa được phân công Lớp quản lý</h3>
+        <p className="text-slate-500 text-sm mt-1">Tài khoản cán sự của bạn chưa được liên kết với mã lớp nào. Vui lòng liên hệ Phòng Đào tạo hoặc Quản trị viên.</p>
+      </div>
+    );
+  }
   
   // Get classmates
   const myClassmatesArr = students.filter(s => s.classId === classId);

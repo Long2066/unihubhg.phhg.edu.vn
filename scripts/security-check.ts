@@ -53,6 +53,10 @@ const adminPortalPath = path.join(rootDir, "src", "components", "AdminPortal.tsx
 const adminPortalContent = fs.readFileSync(adminPortalPath, "utf-8");
 const facultyPortalPath = path.join(rootDir, "src", "components", "FacultyPortal.tsx");
 const facultyPortalContent = fs.readFileSync(facultyPortalPath, "utf-8");
+const rootAppPath = path.join(rootDir, "src", "App.tsx");
+const rootAppContent = fs.readFileSync(rootAppPath, "utf-8");
+const classStatisticsBottomPath = path.join(rootDir, "src", "components", "ClassStatisticsBottom.tsx");
+const classStatisticsBottomContent = fs.readFileSync(classStatisticsBottomPath, "utf-8");
 
 // =========================================================
 // BATCH 1 CHECKS
@@ -1035,9 +1039,85 @@ assert(
   "approveAdminScores does not synchronize evaluation result status to APPROVED_ADMIN"
 );
 
+// ==========================================
+// BATCH 25: Comprehensive Portal Role Authorization Guards & PII Fallback Sanitization
+// ==========================================
+console.log("\n--- BATCH 25: Portal Authorization Guards & PII Fallback Sanitization ---");
+
+assert(
+  !rootAppContent.includes('const studentId = currentUser.targetId || "DTG245140202053";') &&
+  !rootAppContent.includes('const orgId = currentUser.targetId || "UNITECH";'),
+  "Batch 25 Issue 1: App.tsx badge counter must not fallback to hardcoded student or club IDs",
+  "App.tsx getTabBadgeCount contains hardcoded DTG245140202053 or UNITECH fallback"
+);
+
+assert(
+  !classStatisticsBottomContent.includes('currentUser.targetId || "K20-CNTT"') &&
+  classStatisticsBottomContent.includes("isClassScoped") &&
+  classStatisticsBottomContent.includes("UserRole.ADVISER") &&
+  classStatisticsBottomContent.includes("UserRole.STUDENT"),
+  "Batch 25 Issue 2: ClassStatisticsBottom must eliminate K20-CNTT fallback and scope attendance by role",
+  "ClassStatisticsBottom still contains hardcoded K20-CNTT fallback or fails to scope Adviser/Student"
+);
+
+assert(
+  classStatisticsBottomContent.includes("Tài khoản chưa được gán vào lớp học"),
+  "Batch 25 Issue 3: ClassStatisticsBottom must show unassigned notice when scoped role has no target class",
+  "ClassStatisticsBottom does not guard against scoped users with no class assignment"
+);
+
+assert(
+  organizerPortalContent.includes("!([UserRole.ORGANIZER, UserRole.CLUB_MANAGER, UserRole.YOUTH_UNION, UserRole.STUDENT_UNION, UserRole.ADMIN] as UserRole[]).includes(currentUser.role)") &&
+  organizerPortalContent.includes("Bạn không có quyền quản trị Đoàn Thanh niên, Hội Sinh viên hoặc Câu lạc bộ."),
+  "Batch 25 Issue 4: OrganizerPortal must enforce role authorization guard",
+  "OrganizerPortal allows unauthorized roles to view and manage club operations"
+);
+
+assert(
+  organizerPortalContent.includes("classIdx") &&
+  !organizerPortalContent.includes('cleanStudentId.substring(0, 3) === "DTG" ? "K20-CNTT" : "K21-KT"'),
+  "Batch 25 Issue 5: OrganizerPortal Excel import must read class column and not assign fake K20-CNTT fallback",
+  "OrganizerPortal Excel import still assigns fake K20-CNTT / K21-KT classes"
+);
+
+assert(
+  trainingPortalContent.includes("currentUser.role !== UserRole.TRAINING_DEPT && currentUser.role !== UserRole.ADMIN") &&
+  trainingPortalContent.includes("Bạn không có quyền quản lý học vụ của Phòng Đào tạo."),
+  "Batch 25 Issue 6: TrainingPortal must enforce role authorization guard for TRAINING_DEPT/ADMIN",
+  "TrainingPortal allows unauthorized roles to access training administration"
+);
+
+assert(
+  trainingPortalContent.includes("stdLong?.name || \"Ma Văn Long\"") &&
+  !trainingPortalContent.includes('name: "Nguyễn Văn An",\n        gpa: 3.52,'),
+  "Batch 25 Issue 7: TrainingPortal mock excel upload must preserve existing student identity",
+  "TrainingPortal mock upload overwrites DTG245140202053 with fake student name Nguyễn Văn An"
+);
+
+assert(
+  adminPortalContent.includes("currentUser.role !== UserRole.ADMIN") &&
+  adminPortalContent.includes("Bạn không có quyền quản trị hệ thống (Chỉ dành riêng cho Quản trị viên cấp cao)."),
+  "Batch 25 Issue 8: AdminPortal must enforce role authorization guard for ADMIN",
+  "AdminPortal allows non-admin users to view system administration controls"
+);
+
+assert(
+  classPortalContent.includes("currentUser.role !== UserRole.CLASS_MONITOR && currentUser.role !== UserRole.ADMIN") &&
+  classPortalContent.includes("Chưa được phân công Lớp quản lý"),
+  "Batch 25 Issue 9: ClassPortal must enforce role authorization guard and check for unassigned class",
+  "ClassPortal lacks role authorization guard or unassigned class protection"
+);
+
+assert(
+  adviserPortalContent.includes("currentUser.role !== UserRole.ADVISER && currentUser.role !== UserRole.ADMIN") &&
+  adviserPortalContent.includes("Chưa được phân công Lớp chủ nhiệm"),
+  "Batch 25 Issue 10: AdviserPortal must enforce role authorization guard and check for unassigned class",
+  "AdviserPortal lacks role authorization guard or unassigned class protection"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 24 SECURITY & INTEGRITY REGRESSION TESTS PASSED (114 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 25 SECURITY & INTEGRITY REGRESSION TESTS PASSED (124 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
@@ -1045,3 +1125,4 @@ if (failures === 0) {
   console.log("=========================================\n");
   process.exit(1);
 }
+

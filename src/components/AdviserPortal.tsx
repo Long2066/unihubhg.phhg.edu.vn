@@ -8,6 +8,7 @@ import {
   Check, 
   X, 
   AlertTriangle, 
+  AlertCircle,
   FileText, 
   CornerDownRight, 
   PlusCircle, 
@@ -49,6 +50,26 @@ export const AdviserPortal: React.FC = () => {
   } = useUniHub();
 
   const classId = currentUser?.targetId || "";
+
+  if (currentUser && currentUser.role !== UserRole.ADVISER && currentUser.role !== UserRole.ADMIN) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
+        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-800">Không có quyền truy cập</h3>
+        <p className="text-slate-500 text-sm mt-1">Bạn không có quyền truy cập vào cổng quản lý Cố vấn học tập / GVCN.</p>
+      </div>
+    );
+  }
+
+  if (currentUser?.role === UserRole.ADVISER && !classId) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
+        <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-800">Chưa được phân công Lớp chủ nhiệm</h3>
+        <p className="text-slate-500 text-sm mt-1">Tài khoản GVCN / Cố vấn chưa được gán mã lớp phụ trách. Vui lòng liên hệ Phòng Đào tạo hoặc Quản trị viên.</p>
+      </div>
+    );
+  }
 
   // Filter class reviews
   const classReviewInfo = classReviews.find(cr => cr.classId === classId);

@@ -60,6 +60,16 @@ export const OrganizerPortal: React.FC = () => {
     setActivePortletTab
   } = useUniHub();
 
+  if (currentUser && !([UserRole.ORGANIZER, UserRole.CLUB_MANAGER, UserRole.YOUTH_UNION, UserRole.STUDENT_UNION, UserRole.ADMIN] as UserRole[]).includes(currentUser.role)) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
+        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-800">Không có quyền truy cập</h3>
+        <p className="text-slate-500 text-sm mt-1">Bạn không có quyền quản trị Đoàn Thanh niên, Hội Sinh viên hoặc Câu lạc bộ.</p>
+      </div>
+    );
+  }
+
   const activeSubTab = (activePortletTab as "DS_THANHVIEN" | "THEM_HUY_THANHVIEN" | "TAO_HOATDONG" | "TAO_THONGBAO" | "QUANLY_DIEMDANH") || "DS_THANHVIEN";
   const setActiveSubTab = (tab: "DS_THANHVIEN" | "THEM_HUY_THANHVIEN" | "TAO_HOATDONG" | "TAO_THONGBAO" | "QUANLY_DIEMDANH") => {
     setActivePortletTab(tab);
@@ -501,6 +511,7 @@ export const OrganizerPortal: React.FC = () => {
         // Dynamic column index mapping based on header row
         let studentIdIdx = -1;
         let nameIdx = -1;
+        let classIdx = -1;
         let genderIdx = -1;
         let dobIdx = -1;
         let ethnicityIdx = -1;
@@ -520,6 +531,8 @@ export const OrganizerPortal: React.FC = () => {
               studentIdIdx = idx;
             } else if (s.includes("họ và tên") || s.includes("họ tên") || s.includes("tên") || s.includes("name") || s.includes("full name")) {
               nameIdx = idx;
+            } else if (s.includes("lớp") || s.includes("class")) {
+              classIdx = idx;
             } else if (s.includes("giới tính") || s.includes("giới") || s.includes("gender") || s.includes("sex")) {
               genderIdx = idx;
             } else if (s.includes("ngày sinh") || s.includes("năm sinh") || s.includes("dob") || s.includes("date of birth") || s.includes("birth")) {
@@ -565,7 +578,7 @@ export const OrganizerPortal: React.FC = () => {
 
           if (isValidStudentId) {
             const studentObj = students.find(s => s.id === cleanStudentId || s.username === cleanStudentId);
-            const csvClassId = studentObj ? studentObj.classId : (cleanStudentId.substring(0, 3) === "DTG" ? "K20-CNTT" : "K21-KT");
+            const csvClassId = cleanText(getColValRaw(row, classIdx, -1)) || (studentObj ? studentObj.classId : "");
 
             const formatDate = (val: any) => {
               if (!val) return "";

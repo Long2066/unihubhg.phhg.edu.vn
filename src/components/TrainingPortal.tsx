@@ -80,6 +80,16 @@ export const TrainingPortal: React.FC = () => {
     addGradeAuditLog
   } = useUniHub();
 
+  if (currentUser && currentUser.role !== UserRole.TRAINING_DEPT && currentUser.role !== UserRole.ADMIN) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
+        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-800">Không có quyền truy cập</h3>
+        <p className="text-slate-500 text-sm mt-1">Bạn không có quyền quản lý học vụ của Phòng Đào tạo.</p>
+      </div>
+    );
+  }
+
   const activeTab = (activePortletTab as "IMPORT" | "TEACHER_ASSIGNMENTS" | "UNLOCK_REQUESTS" | "GRADE_APPEALS" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU") || "IMPORT";
   const setActiveTab = (tab: "IMPORT" | "TEACHER_ASSIGNMENTS" | "UNLOCK_REQUESTS" | "GRADE_APPEALS" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU") => {
     setActivePortletTab(tab);
@@ -614,22 +624,26 @@ export const TrainingPortal: React.FC = () => {
   };
 
   const handleMockExcelUpload = () => {
+    const stdLong = students.find(s => s.id === "DTG245140202053");
+    const stdBinh = students.find(s => s.id === "SV20CN02");
+    const stdKhoa = students.find(s => s.id === "SV20CN04");
+
     const updates = [
       { 
         id: "DTG245140202053", 
-        name: "Nguyễn Văn An",
+        name: stdLong?.name || "Ma Văn Long",
         gpa: 3.52, 
         gpa10: 8.8,
         creditsEarned: 21, 
         learningWarning: false, 
         learningStatus: "Bình thường",
-        gender: "Nam",
-        dob: "2006-05-14",
-        pob: "Vị Xuyên, Hà Giang",
-        ethnicity: "Kinh",
-        idCard: "001206009876",
-        idCardDate: "2022-04-12",
-        idCardPlace: "Cục Cảnh sát QLHC về TTXH",
+        gender: stdLong?.gender || "Nam",
+        dob: stdLong?.dob || "2006-05-14",
+        pob: stdLong?.pob || "Vị Xuyên, Hà Giang",
+        ethnicity: stdLong?.ethnicity || "Kinh",
+        idCard: stdLong?.idCard || "001206009876",
+        idCardDate: stdLong?.idCardDate || "2022-04-12",
+        idCardPlace: stdLong?.idCardPlace || "Cục Cảnh sát QLHC về TTXH",
         subjects: "Lập trình Web, Cơ sở dữ liệu, Cấu trúc dữ liệu",
         subjectGrades: "8.5, 9.0, 8.8, -, -, -, -, -",
         academicGrade: "Giỏi",
@@ -638,19 +652,19 @@ export const TrainingPortal: React.FC = () => {
       },
       { 
         id: "SV20CN02", 
-        name: "Phan Thị Bình",
+        name: stdBinh?.name || "Phan Thị Bình",
         gpa: 2.85, 
         gpa10: 7.1,
         creditsEarned: 18, 
         learningWarning: false, 
         learningStatus: "Bình thường",
-        gender: "Nữ",
-        dob: "2006-08-22",
-        pob: "Yên Minh, Hà Giang",
-        ethnicity: "Tày",
-        idCard: "001206005544",
-        idCardDate: "2022-09-18",
-        idCardPlace: "Cục Cảnh sát QLHC về TTXH",
+        gender: stdBinh?.gender || "Nữ",
+        dob: stdBinh?.dob || "2006-08-22",
+        pob: stdBinh?.pob || "Yên Minh, Hà Giang",
+        ethnicity: stdBinh?.ethnicity || "Tày",
+        idCard: stdBinh?.idCard || "001206005544",
+        idCardDate: stdBinh?.idCardDate || "2022-09-18",
+        idCardPlace: stdBinh?.idCardPlace || "Cục Cảnh sát QLHC về TTXH",
         subjects: "Lập trình Web, Cơ sở dữ liệu, Thiết kế UI/UX",
         subjectGrades: "7.5, 6.8, 7.0, -, -, -, -, -",
         academicGrade: "Khá",
@@ -659,19 +673,19 @@ export const TrainingPortal: React.FC = () => {
       },
       { 
         id: "SV20CN04", 
-        name: "Vũ Đăng Khoa",
+        name: stdKhoa?.name || "Vũ Đăng Khoa",
         gpa: 1.82, 
         gpa10: 4.5,
         creditsEarned: 13, 
         learningWarning: true, 
         learningStatus: "Bị cảnh báo",
-        gender: "Nam",
-        dob: "2006-03-01",
-        pob: "Bắc Quang, Hà Giang",
-        ethnicity: "Kinh",
-        idCard: "001206001122",
-        idCardDate: "2021-12-05",
-        idCardPlace: "Công an tỉnh Hà Giang",
+        gender: stdKhoa?.gender || "Nam",
+        dob: stdKhoa?.dob || "2006-03-01",
+        pob: stdKhoa?.pob || "Bắc Quang, Hà Giang",
+        ethnicity: stdKhoa?.ethnicity || "Kinh",
+        idCard: stdKhoa?.idCard || "001206001122",
+        idCardDate: stdKhoa?.idCardDate || "2021-12-05",
+        idCardPlace: stdKhoa?.idCardPlace || "Công an tỉnh Hà Giang",
         subjects: "Cơ sở dữ liệu, Toán rời rạc",
         subjectGrades: "4.0, 5.0, -, -, -, -, -, -",
         academicGrade: "Yếu",

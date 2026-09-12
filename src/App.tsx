@@ -590,8 +590,8 @@ const AppContent: React.FC = () => {
       }
     } else if (isOrgRole(currentUser.role)) {
       if (activePortletTab === "DS_THANHVIEN") {
-        const orgId = currentUser.targetId || "UNITECH";
-        const pendingMemberIds = members.filter(m => m.orgId === orgId && m.status === "PENDING").map(m => m.id);
+        const orgId = currentUser.targetId || (currentUser.role === UserRole.YOUTH_UNION ? "DOANTN" : currentUser.role === UserRole.STUDENT_UNION ? "HOISV" : "");
+        const pendingMemberIds = orgId ? members.filter(m => m.orgId === orgId && m.status === "PENDING").map(m => m.id) : [];
         const newSeenIds = Array.from(new Set([...seenPendingMemberIds, ...pendingMemberIds]));
         if (newSeenIds.length !== seenPendingMemberIds.length) {
           saveSeenPendingMemberIds(newSeenIds);
@@ -911,7 +911,7 @@ const AppContent: React.FC = () => {
     if (!currentUser) return 0;
     
     if (currentUser.role === UserRole.STUDENT) {
-      const studentId = currentUser.targetId || "DTG245140202053";
+      const studentId = currentUser.targetId || (currentUser.role === UserRole.STUDENT ? currentUser.username : "") || "";
       switch (tabId) {
         case "TRANG_CHU":
           // Unread notifications linking to TRANG_CHU or welcome
@@ -924,7 +924,7 @@ const AppContent: React.FC = () => {
           return activities.filter(a => 
             a.status === "UPCOMING" && 
             a.registrationOpen && 
-            !attendance.some(att => att.activityId === a.id && att.studentId === studentId) &&
+            (studentId ? !attendance.some(att => att.activityId === a.id && att.studentId === studentId) : true) &&
             !seenActivityIds.includes(a.id)
           ).length;
         case "CLB":
@@ -932,21 +932,21 @@ const AppContent: React.FC = () => {
           return notifications.filter(n => !n.isRead && n.linkTab === "CLB").length;
         case "MINHCHUNG":
           // Count of rejected evidence submissions that the student has not seen yet
-          return evidence.filter(ev => 
+          return studentId ? evidence.filter(ev => 
             ev.studentId === studentId && 
             ev.status === "REJECTED" &&
             !seenRejectedEvidenceIds.includes(ev.id)
-          ).length;
+          ).length : 0;
         default:
           return 0;
       }
     }
     
     if (isOrgRole(currentUser.role)) {
-      const orgId = currentUser.targetId || "UNITECH";
+      const orgId = currentUser.targetId || (currentUser.role === UserRole.YOUTH_UNION ? "DOANTN" : currentUser.role === UserRole.STUDENT_UNION ? "HOISV" : "");
       switch (tabId) {
         case "DS_THANHVIEN":
-          return members.filter(m => m.orgId === orgId && m.status === "PENDING" && !seenPendingMemberIds.includes(m.id)).length;
+          return orgId ? members.filter(m => m.orgId === orgId && m.status === "PENDING" && !seenPendingMemberIds.includes(m.id)).length : 0;
         default:
           return 0;
       }

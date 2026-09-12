@@ -19,20 +19,33 @@ export const ClassStatisticsBottom: React.FC = () => {
     dailyAttendance 
   } = useUniHub();
 
-  const isClassMonitor = currentUser?.role === UserRole.CLASS_MONITOR;
-  const monitorClassId = currentUser?.targetId || "";
+  const isClassScoped = currentUser?.role === UserRole.CLASS_MONITOR || currentUser?.role === UserRole.ADVISER || currentUser?.role === UserRole.STUDENT;
+  const targetClassId = currentUser?.role === UserRole.STUDENT
+    ? (students.find(s => s.id === (currentUser.targetId || currentUser.username))?.classId || "")
+    : (currentUser?.targetId || "");
 
   const [filterClass, setFilterClass] = useState(() => {
-    return currentUser?.role === UserRole.CLASS_MONITOR ? (currentUser.targetId || "K20-CNTT") : "ALL";
+    return isClassScoped && targetClassId ? targetClassId : "ALL";
   });
   const [filterDate, setFilterDate] = useState("");
 
+  if (isClassScoped && !targetClassId) {
+    return (
+      <div className="bg-white mt-2 rounded-2xl border border-slate-200/80 shadow-md p-8 max-w-7xl mx-auto text-center" id="class-statistics-bottom">
+        <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+        <h3 className="text-base font-bold text-slate-800">Tài khoản chưa được gán vào lớp học</h3>
+        <p className="text-xs text-slate-500 mt-1">Bạn chưa được phân công lớp phụ trách hoặc chưa được gán vào danh sách sinh viên của lớp nào.</p>
+      </div>
+    );
+  }
+
   // Group students dynamically to find all unique classes across UniHub
   const classes = Array.from(new Set(students.map(s => s.classId)));
+  const effectiveClass = (isClassScoped && targetClassId) ? targetClassId : filterClass;
 
   // Filtered attendance reports
   const filteredReports = dailyAttendance.filter(da => {
-    const classMatches = filterClass === "ALL" || da.classId.toLowerCase() === filterClass.toLowerCase();
+    const classMatches = effectiveClass === "ALL" || da.classId.toLowerCase() === effectiveClass.toLowerCase();
     const dateMatches = !filterDate || da.date === filterDate;
     return classMatches && dateMatches;
   });
@@ -53,7 +66,9 @@ export const ClassStatisticsBottom: React.FC = () => {
   // Let's assume today is "2026-05-24" based on system states/seed data date
   const todayStr = "2026-05-24";
   const reportedCidsToday = dailyAttendance.filter(da => da.date === todayStr).map(da => da.classId);
-  const missingCidsToday = classes.filter(cid => !reportedCidsToday.includes(cid));
+  const missingCidsToday = (isClassScoped && targetClassId)
+    ? (reportedCidsToday.includes(targetClassId) ? [] : [targetClassId])
+    : classes.filter(cid => !reportedCidsToday.includes(cid));
 
   return (
     <div className="bg-white mt-2 rounded-2xl border border-slate-200/80 shadow-md p-6 max-w-7xl mx-auto space-y-6" id="class-statistics-bottom">
@@ -66,14 +81,14 @@ export const ClassStatisticsBottom: React.FC = () => {
           </div>
           <div>
             <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
-              <span>{isClassMonitor ? `Giám Sát Sĩ Số Lớp ${monitorClassId}` : "Trung Tâm Giám Sát Sĩ Số Toàn Phân Hiệu"}</span>
+              <span>{isClassScoped && targetClassId ? `Giám Sát Sĩ Số Lớp ${targetClassId}` : "Trung Tâm Giám Sát Sĩ Số Toàn Phân Hiệu"}</span>
               <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-bold font-mono border border-emerald-200">
                 Live Monitor
               </span>
             </h3>
             <p className="text-xs text-slate-500 mt-1 font-sans">
-              {isClassMonitor 
-                ? `Theo dõi và rà soát tình hình nộp sĩ số, chuyên cần, nghỉ có phép hoặc vắng không phép theo thời gian thực của lớp ${monitorClassId}.`
+              {isClassScoped && targetClassId 
+                ? `Theo dõi và rà soát tình hình nộp sĩ số, chuyên cần, nghỉ có phép hoặc vắng không phép theo thời gian thực của lớp ${targetClassId}.`
                 : "Theo dõi và rà soát tình hình nộp sĩ số, chuyên cần, nghỉ có học hoặc vắng không phép theo thời gian thực của tất cả cụm lớp khoa trực thuộc."}
             </p>
           </div>
@@ -88,13 +103,13 @@ export const ClassStatisticsBottom: React.FC = () => {
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <select
-              value={filterClass}
+              value={effectiveClass}
               onChange={(e) => setFilterClass(e.target.value)}
-              disabled={isClassMonitor}
+              disabled={isClassScoped && !!targetClassId}
               className="w-full text-xs pl-9 pr-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-805 font-bold uppercase focus:outline-indigo-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
             >
-              {isClassMonitor ? (
-                <option value={monitorClassId}>Lớp {monitorClassId}</option>
+              {isClassScoped && targetClassId ? (
+                <option value={targetClassId}>Lớp {targetClassId}</option>
               ) : (
                 <>
                   <option value="ALL">-- Tất Cả Các Lớp ({classes.length}) --</option>
@@ -120,10 +135,10 @@ export const ClassStatisticsBottom: React.FC = () => {
         </div>
 
         <div className="md:col-span-3 flex justify-end self-end">
-          {(!isClassMonitor && filterClass !== "ALL") || filterDate ? (
+          {(!isClassScoped && effectiveClass !== "ALL") || filterDate ? (
             <button
               onClick={() => {
-                if (!isClassMonitor) setFilterClass("ALL");
+                if (!isClassScoped) setFilterClass("ALL");
                 setFilterDate("");
               }}
               className="w-full py-1.8 border bg-white border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
@@ -163,26 +178,26 @@ export const ClassStatisticsBottom: React.FC = () => {
 
         <div className="bg-slate-50/50 border border-slate-150 p-4 rounded-xl text-center flex flex-col justify-center space-y-1">
           <span className="text-[9px] font-bold text-slate-450 uppercase block">
-            {isClassMonitor ? "Trạng thái nộp sĩ số lớp" : "Trạng thái ngày hiện hành"}
+            {isClassScoped && targetClassId ? "Trạng thái nộp sĩ số lớp" : "Trạng thái ngày hiện hành"}
           </span>
           <span className="text-xs font-sans font-black text-indigo-900 block">
             Ngày {todayStr}
           </span>
           <span className="text-[9px] font-mono text-slate-500 block leading-tight mt-0.5">
-            {isClassMonitor 
-              ? (reportedCidsToday.includes(monitorClassId) ? "Đã nộp báo cáo sĩ số" : "Chưa nộp báo cáo sĩ số")
+            {isClassScoped && targetClassId 
+              ? (reportedCidsToday.includes(targetClassId) ? "Đã nộp báo cáo sĩ số" : "Chưa nộp báo cáo sĩ số")
               : (missingCidsToday.length === 0 ? "100% Các lớp đã nộp" : `Còn ${missingCidsToday.length} lớp chưa nộp sĩ số`)}
           </span>
         </div>
       </div>
 
       {/* ALERT BOX FOR MISSING SUBMISSIONS TODAY */}
-      {isClassMonitor ? (
-        missingCidsToday.includes(monitorClassId) && (
+      {isClassScoped && targetClassId ? (
+        missingCidsToday.includes(targetClassId) && (
           <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 flex items-center gap-2 font-sans">
             <AlertTriangle size={15} className="text-amber-600 shrink-0" />
             <div>
-              <span className="font-bold">Nhắc nhở nộp sĩ số:</span> Lớp <span className="font-mono font-bold">{monitorClassId}</span> của bạn chưa nộp báo cáo sĩ số ngày <span className="font-mono font-bold">{todayStr}</span>. Vui lòng hoàn thành báo cáo sĩ số ngày.
+              <span className="font-bold">Nhắc nhở nộp sĩ số:</span> Lớp <span className="font-mono font-bold">{targetClassId}</span> của bạn chưa nộp báo cáo sĩ số ngày <span className="font-mono font-bold">{todayStr}</span>. Vui lòng hoàn thành báo cáo sĩ số ngày.
             </div>
           </div>
         )
