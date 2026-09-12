@@ -556,8 +556,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           let userChanged = false;
           const updatedUser = { ...curr };
 
-          // Enforce UserRole.TEACHER for teacher accounts
-          if (curr.role !== UserRole.TEACHER) {
+          // Enforce UserRole.TEACHER for non-admin/non-training accounts
+          if (curr.role === UserRole.ADMIN || curr.role === UserRole.TRAINING_DEPT) {
+            // Keep administrative privileges intact
+          } else if (curr.role !== UserRole.TEACHER) {
             updatedUser.role = UserRole.TEACHER;
             userChanged = true;
           }
@@ -663,7 +665,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const aggregateSubjectGradesToSemesterGpa = (semesterId: string) => {
-    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT && currentUser.role !== UserRole.TEACHER)) {
       console.warn("Unauthorized attempt to aggregate grades");
       return { updatedCount: 0, warningsCount: 0 };
     }
@@ -931,7 +933,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const req = unlockRequests.find(r => r.id === requestId);
     if (!req) return;
-    if (currentUser.role === UserRole.FACULTY && currentUser.targetId) {
+    if (currentUser.role === UserRole.FACULTY) {
+      if (!currentUser.targetId) {
+        console.warn("Unauthorized attempt by unassigned faculty to approve unlock request");
+        return;
+      }
       const isFacultyClass = students.some(s => s.classId === req.classId && s.facultyId === currentUser.targetId);
       if (!isFacultyClass) {
         console.warn("Unauthorized attempt by faculty to approve unlock request for another faculty");
@@ -961,7 +967,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const req = unlockRequests.find(r => r.id === requestId);
     if (!req) return;
-    if (currentUser.role === UserRole.FACULTY && currentUser.targetId) {
+    if (currentUser.role === UserRole.FACULTY) {
+      if (!currentUser.targetId) {
+        console.warn("Unauthorized attempt by unassigned faculty to reject unlock request");
+        return;
+      }
       const isFacultyClass = students.some(s => s.classId === req.classId && s.facultyId === currentUser.targetId);
       if (!isFacultyClass) {
         console.warn("Unauthorized attempt by faculty to reject unlock request for another faculty");
@@ -1708,15 +1718,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const maxTC3 = criteria.find(c => c.id === "TC3")?.maxScore || 30;
       
       // Active membership points
-      const isCLBMember = members.some(m => m.studentId === student.id && m.orgId === "UNITECH" && m.status === "ACTIVE");
-      const isGiotHongMember = members.some(m => m.studentId === student.id && m.orgId === "TINHNX" && m.status === "ACTIVE");
-      
-      if (isCLBMember || isGiotHongMember) {
+      const activeMemberships = members.filter(m => m.studentId === student.id && m.status === "ACTIVE");
+      if (activeMemberships.length > 0) {
         const activeOrgPt = getRulePoints("TC3", "TC3.3", 10);
         extracurricularPoints += activeOrgPt;
-        const orgNames = members
-          .filter(m => m.studentId === student.id && m.status === "ACTIVE")
-          .map(m => organizations.find(o => o.id === m.orgId)?.name || "Tổ chức")
+        const orgNames = activeMemberships
+          .map(m => organizations.find(o => o.id === m.orgId)?.name || m.orgId)
           .join(", ");
         logs.push({ criteriaId: "TC3.3", points: activeOrgPt, reason: `Là thành viên tích cực: ${orgNames}`, source: "CLB_ATTENDANCE", timestamp: timestampNow });
       }
@@ -1788,7 +1795,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const maxTC5 = criteria.find(c => c.id === "TC5")?.maxScore || 10;
       
       // Class monitor bonus
-      const isMonitor = student.id === "SV20CN03" || student.id === "SV20NL01"; // Triết and Mạnh are monitors
+      const isMonitor = users.some(u => u.role === UserRole.CLASS_MONITOR && (u.username === student.id || u.targetId === student.classId)) || student.id === "SV20CN03" || student.id === "SV20NL01";
       if (isMonitor) {
         const monitorPt = getRulePoints("TC5", "TC5.1", 10);
         achievementPoints += monitorPt;
@@ -2058,11 +2065,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Student Actions
   const registerForActivity = (activityId: string, studentId: string) => {
     if (!currentUser) return;
-    const effectiveStudentId = currentUser.role === UserRole.STUDENT
-      ? (currentUser.targetId || currentUser.username)
-      : studentId;
+    const effectiveStudentId = currentUser.role === UserRole.ADMIN
+      ? (studentId || currentUser.targetId || currentUser.username)
+      : (currentUser.targetId || currentUser.username);
 
-    if (currentUser.role === UserRole.STUDENT && currentUser.targetId && currentUser.targetId !== studentId) {
+    if (currentUser.role !== UserRole.ADMIN && studentId && effectiveStudentId !== studentId) {
       console.warn("Unauthorized attempt to register another student for activity");
       return;
     }
@@ -2110,11 +2117,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const submitEvidence = (data: Omit<EvidenceSubmission, "id" | "submittedAt" | "status">) => {
     if (!currentUser) return;
-    const effectiveStudentId = currentUser.role === UserRole.STUDENT
-      ? (currentUser.targetId || currentUser.username)
-      : (data.studentId || currentUser.targetId || "");
+    const effectiveStudentId = currentUser.role === UserRole.ADMIN
+      ? (data.studentId || currentUser.targetId || currentUser.username)
+      : (currentUser.targetId || currentUser.username);
 
-    if (currentUser.role === UserRole.STUDENT && currentUser.targetId && data.studentId && currentUser.targetId !== data.studentId) {
+    if (currentUser.role !== UserRole.ADMIN && data.studentId && effectiveStudentId !== data.studentId) {
       console.warn("Unauthorized attempt to submit evidence for another student");
       return;
     }
@@ -2142,11 +2149,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const joinOrganizationRequest = (studentId: string, orgId: string, details?: Partial<OrganizationMember>) => {
     if (!currentUser) return;
-    const effectiveStudentId = currentUser.role === UserRole.STUDENT
-      ? (currentUser.targetId || currentUser.username)
-      : studentId;
+    const effectiveStudentId = currentUser.role === UserRole.ADMIN
+      ? (studentId || currentUser.targetId || currentUser.username)
+      : (currentUser.targetId || currentUser.username);
 
-    if (currentUser.role === UserRole.STUDENT && currentUser.targetId && currentUser.targetId !== studentId) {
+    if (currentUser.role !== UserRole.ADMIN && studentId && effectiveStudentId !== studentId) {
       console.warn("Unauthorized attempt to join organization for another student");
       return;
     }
@@ -2721,10 +2728,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const item = excelData.find(item => item.id === s.id);
       if (item) {
         const currentAcademicData = s.academicDataByPeriod || {};
+        const safeGpa = typeof item.gpa === "number" ? Math.max(0, Math.min(4, Math.round(item.gpa * 100) / 100)) : item.gpa;
+        const safeGpa10 = typeof item.gpa10 === "number" ? Math.max(0, Math.min(10, Math.round(item.gpa10 * 10) / 10)) : item.gpa10;
+        const safeCredits = typeof item.creditsEarned === "number" ? Math.max(0, Math.round(item.creditsEarned)) : item.creditsEarned;
         const newSemesterData = {
-          gpa: item.gpa,
-          gpa10: item.gpa10,
-          creditsEarned: item.creditsEarned,
+          gpa: safeGpa,
+          gpa10: safeGpa10,
+          creditsEarned: safeCredits,
           learningWarning: item.learningWarning,
           learningStatus: item.learningStatus,
           subjectGrades: item.subjectGrades,
@@ -2744,9 +2754,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           ...item,
           academicDataByPeriod: updatedAcademicData,
           ...(isCurrent ? {
-            gpa: item.gpa,
-            gpa10: item.gpa10,
-            creditsEarned: item.creditsEarned,
+            gpa: safeGpa,
+            gpa10: safeGpa10,
+            creditsEarned: safeCredits,
             learningWarning: item.learningWarning,
             learningStatus: item.learningStatus,
             subjectGrades: item.subjectGrades,
@@ -4224,6 +4234,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedFeedbacks = feedbacks.map(fb => normalizeClassId(fb.toClassId) === oldNorm ? { ...fb, toClassId: newNorm } : fb);
     setFeedbacks(updatedFeedbacks);
     saveToStorage("unihub_feedbacks", updatedFeedbacks);
+
+    const updatedUnlockRequests = unlockRequests.map(ur => normalizeClassId(ur.classId) === oldNorm ? { ...ur, classId: newNorm } : ur);
+    setUnlockRequests(updatedUnlockRequests);
+    localStorage.setItem("unihub_unlock_requests", JSON.stringify(updatedUnlockRequests));
+
+    const updatedGradeAppeals = gradeAppeals.map(ga => normalizeClassId(ga.classId) === oldNorm ? { ...ga, classId: newNorm } : ga);
+    setGradeAppeals(updatedGradeAppeals);
+    localStorage.setItem("unihub_grade_appeals", JSON.stringify(updatedGradeAppeals));
   };
 
   const deleteClass = (classId: string) => {
@@ -4238,9 +4256,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCustomClasses(updatedCustom);
     localStorage.setItem("unihub_custom_classes", JSON.stringify(updatedCustom));
 
+    const deletedStudentIds = new Set(students.filter(s => normalizeClassId(s.classId) === norm).map(s => s.id));
     const updatedStudents = students.filter(s => normalizeClassId(s.classId) !== norm);
     setStudents(updatedStudents);
     saveToStorage("unihub_students", updatedStudents);
+
+    const updatedResults = results.filter(r => !deletedStudentIds.has(r.studentId));
+    setResults(updatedResults);
+    saveToStorage("unihub_results", updatedResults);
 
     const updatedSchedules = schedules.filter(sch => normalizeClassId(sch.classId) !== norm);
     setSchedules(updatedSchedules);
@@ -4278,6 +4301,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedFeedbacks = feedbacks.filter(fb => normalizeClassId(fb.toClassId) !== norm);
     setFeedbacks(updatedFeedbacks);
     saveToStorage("unihub_feedbacks", updatedFeedbacks);
+
+    const updatedUnlockRequests = unlockRequests.filter(ur => normalizeClassId(ur.classId) !== norm);
+    setUnlockRequests(updatedUnlockRequests);
+    localStorage.setItem("unihub_unlock_requests", JSON.stringify(updatedUnlockRequests));
+
+    const updatedGradeAppeals = gradeAppeals.filter(ga => normalizeClassId(ga.classId) !== norm);
+    setGradeAppeals(updatedGradeAppeals);
+    localStorage.setItem("unihub_grade_appeals", JSON.stringify(updatedGradeAppeals));
   };
 
   const bulkApproveScores = (classId: string, studentIds: string[], role: UserRole) => {

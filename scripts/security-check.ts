@@ -1252,9 +1252,86 @@ assert(
   "importNewClassesExcel allows blank student IDs or overwriting organizational accounts"
 );
 
+// ==========================================
+// BATCH 28: Administrative Account Protection, Portal Role Boundaries, Dynamic Conduct Points & Cascade Integrity
+// ==========================================
+console.log("\n--- BATCH 28: Privilege Protection, Role Guards, Dynamic Points & Cascade Integrity ---");
+
+assert(
+  stateContent.includes("if (curr.role === UserRole.ADMIN || curr.role === UserRole.TRAINING_DEPT)") &&
+  stateContent.includes("// Keep administrative privileges intact") &&
+  stateContent.includes("else if (curr.role !== UserRole.TEACHER)"),
+  "Batch 28 Issue 1: provisionTeacherAccounts must protect ADMIN and TRAINING_DEPT accounts from role demotion",
+  "provisionTeacherAccounts demotes administrative accounts to TEACHER"
+);
+
+assert(
+  stateContent.includes("if (currentUser.role === UserRole.FACULTY) {\n      if (!currentUser.targetId) {\n        console.warn(\"Unauthorized attempt by unassigned faculty to approve unlock request\");") &&
+  stateContent.includes("if (currentUser.role === UserRole.FACULTY) {\n      if (!currentUser.targetId) {\n        console.warn(\"Unauthorized attempt by unassigned faculty to reject unlock request\");"),
+  "Batch 28 Issue 2: approveUnlockRequest and rejectUnlockRequest must strictly verify faculty targetId",
+  "approveUnlockRequest or rejectUnlockRequest allows unassigned faculty to bypass class boundary check"
+);
+
+assert(
+  stateContent.includes("currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT && currentUser.role !== UserRole.TEACHER") &&
+  stateContent.includes("const aggregateSubjectGradesToSemesterGpa = (semesterId: string) =>"),
+  "Batch 28 Issue 3: aggregateSubjectGradesToSemesterGpa must permit TEACHER role for grade appeal recalculation",
+  "aggregateSubjectGradesToSemesterGpa blocks TEACHER role preventing appeal GPA recalculation"
+);
+
+assert(
+  studentPortalContent.includes("currentUser.role !== UserRole.STUDENT && currentUser.role !== UserRole.CLASS_MONITOR && currentUser.role !== UserRole.ADMIN") &&
+  studentPortalContent.includes("Không có quyền truy cập Cổng Sinh viên"),
+  "Batch 28 Issue 4: StudentPortal must enforce role authorization guard for STUDENT, CLASS_MONITOR, and ADMIN",
+  "StudentPortal lacks role authorization guard"
+);
+
+assert(
+  dataBackupRestoreModalContent.includes("if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT))") &&
+  dataBackupRestoreModalContent.includes("Chỉ Quản trị viên hệ thống (Admin) hoặc Phòng Đào tạo mới có quyền xuất bản sao lưu CSDL."),
+  "Batch 28 Issue 5: DataBackupRestoreModal must restrict export and modal access strictly to ADMIN and TRAINING_DEPT",
+  "DataBackupRestoreModal allows unauthorized roles to export full database backup"
+);
+
+assert(
+  stateContent.includes("registerForActivity = (activityId: string, studentId: string)") &&
+  stateContent.includes("currentUser.role !== UserRole.ADMIN && studentId && effectiveStudentId !== studentId") &&
+  stateContent.includes("submitEvidence = (data: Omit<EvidenceSubmission") &&
+  stateContent.includes("currentUser.role !== UserRole.ADMIN && data.studentId && effectiveStudentId !== data.studentId") &&
+  stateContent.includes("joinOrganizationRequest = (studentId: string, orgId: string") &&
+  stateContent.includes("currentUser.role !== UserRole.ADMIN && studentId && effectiveStudentId !== studentId"),
+  "Batch 28 Issue 6: Student actions must prevent student ID impersonation by non-admins",
+  "Student actions allow class monitors or other non-admins to impersonate other student IDs"
+);
+
+assert(
+  stateContent.includes("const activeMemberships = members.filter(m => m.studentId === student.id && m.status === \"ACTIVE\");") &&
+  stateContent.includes("const isMonitor = users.some(u => u.role === UserRole.CLASS_MONITOR && (u.username === student.id || u.targetId === student.classId))"),
+  "Batch 28 Issue 7: computeConductPoints must dynamically evaluate active club memberships and monitor accounts",
+  "computeConductPoints contains hardcoded club IDs or hardcoded monitor student IDs"
+);
+
+assert(
+  stateContent.includes("const updatedUnlockRequests = unlockRequests.map(ur => normalizeClassId(ur.classId) === oldNorm ? { ...ur, classId: newNorm } : ur);") &&
+  stateContent.includes("const updatedGradeAppeals = gradeAppeals.map(ga => normalizeClassId(ga.classId) === oldNorm ? { ...ga, classId: newNorm } : ga);") &&
+  stateContent.includes("const updatedResults = results.filter(r => !deletedStudentIds.has(r.studentId));") &&
+  stateContent.includes("const updatedUnlockRequests = unlockRequests.filter(ur => normalizeClassId(ur.classId) !== norm);") &&
+  stateContent.includes("const updatedGradeAppeals = gradeAppeals.filter(ga => normalizeClassId(ga.classId) !== norm);"),
+  "Batch 28 Issue 8: renameClass and deleteClass must cascade unlockRequests, gradeAppeals, and results",
+  "Class rename or delete leaves orphaned unlock requests, grade appeals, or conduct results"
+);
+
+assert(
+  stateContent.includes("const safeGpa = typeof item.gpa === \"number\" ? Math.max(0, Math.min(4, Math.round(item.gpa * 100) / 100)) : item.gpa;") &&
+  stateContent.includes("const safeGpa10 = typeof item.gpa10 === \"number\" ? Math.max(0, Math.min(10, Math.round(item.gpa10 * 10) / 10)) : item.gpa10;") &&
+  stateContent.includes("const safeCredits = typeof item.creditsEarned === \"number\" ? Math.max(0, Math.round(item.creditsEarned)) : item.creditsEarned;"),
+  "Batch 28 Issue 9: importAcademicData must sanitize and clamp gpa, gpa10, and creditsEarned",
+  "importAcademicData allows unvalidated or out-of-range academic grades"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 27 SECURITY & INTEGRITY REGRESSION TESTS PASSED (141 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 28 SECURITY & INTEGRITY REGRESSION TESTS PASSED (150 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

@@ -42,8 +42,27 @@ export const DataBackupRestoreModal: React.FC<DataBackupRestoreModalProps> = ({ 
 
   if (!isOpen) return null;
 
+  if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+    return (
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in text-sans">
+        <div className="bg-white rounded-2xl border border-rose-200 shadow-2xl max-w-md w-full p-6 text-center space-y-4">
+          <div className="w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center mx-auto text-rose-600">
+            <AlertTriangle size={24} />
+          </div>
+          <h3 className="text-base font-bold text-slate-800">Không có quyền truy cập Sao lưu CSDL</h3>
+          <p className="text-xs text-slate-500">Chức năng sao lưu và khôi phục CSDL chỉ dành cho Quản trị viên (Admin) và Cán bộ Phòng Đào tạo.</p>
+          <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer">Đóng</button>
+        </div>
+      </div>
+    );
+  }
+
   // 1. Export JSON backup of entire database
   const handleExportBackup = () => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      alert("Chỉ Quản trị viên hệ thống (Admin) hoặc Phòng Đào tạo mới có quyền xuất bản sao lưu CSDL.");
+      return;
+    }
     try {
       const backupPayload = {
         metadata: {

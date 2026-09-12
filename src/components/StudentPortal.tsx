@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useUniHub } from "../state";
-import { STUDENT_FIELDS_META, Student, convertGoogleDriveUrlToDirectUrl, SEMESTER_LIST, parseWeekRange, isWeekInScheduleSlot } from "../types";
+import { STUDENT_FIELDS_META, Student, convertGoogleDriveUrlToDirectUrl, SEMESTER_LIST, parseWeekRange, isWeekInScheduleSlot, UserRole } from "../types";
 import { 
   Award, 
   Calendar, 
@@ -1705,6 +1705,22 @@ export const StudentPortal: React.FC = () => {
       </div>
     );
   };
+
+  if (!currentUser || (currentUser.role !== UserRole.STUDENT && currentUser.role !== UserRole.CLASS_MONITOR && currentUser.role !== UserRole.ADMIN)) {
+    return (
+      <div className="p-8 max-w-4xl mx-auto font-sans">
+        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center space-y-3 shadow-xs">
+          <div className="w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center mx-auto text-rose-700">
+            <AlertTriangle size={24} />
+          </div>
+          <h3 className="text-base font-bold text-rose-900">Không có quyền truy cập Cổng Sinh viên</h3>
+          <p className="text-xs text-rose-800 leading-relaxed max-w-md mx-auto">
+            Cổng thông tin này dành riêng cho Sinh viên, Ban cán sự lớp và Quản trị viên hệ thống.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!studentId) {
     return (
