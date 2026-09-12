@@ -1474,7 +1474,7 @@ export default function App() {
         const resultData: EvaluationResult = {
           studentId: student.id,
           studentName: student.name,
-          classId: student.classId,
+          classId: normalizeClassId(student.classId),
           facultyId: student.facultyId,
           periodId: "HOCKY_2_2025_2026",
           studyPoints,
@@ -1742,7 +1742,7 @@ export default function App() {
     const sourceAssignments = teacherAssignments.length > 0 ? teacherAssignments : SEED_TEACHER_ASSIGNMENTS;
     return sourceAssignments
       .filter(assignment => doesAssignmentBelongToTeacher(assignment, teacher))
-      .sort((a, b) => `${a.semesterId}_${a.classId}_${a.subjectCode}`.localeCompare(`${b.semesterId}_${b.classId}_${b.subjectCode}`));
+      .sort((a, b) => `${a.semesterId}_${normalizeClassId(a.classId)}_${a.subjectCode}`.localeCompare(`${b.semesterId}_${normalizeClassId(b.classId)}_${b.subjectCode}`));
   };
 
   const filteredDbRows = useMemo(() => {

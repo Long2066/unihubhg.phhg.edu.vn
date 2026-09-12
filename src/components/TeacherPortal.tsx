@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useUniHub } from "../state";
+import { useUniHub, normalizeClassId } from "../state";
 import { 
   CourseClassAssignment, 
   SubjectGradeSheet, 
@@ -1161,7 +1161,7 @@ export const TeacherPortal: React.FC = () => {
 
   const handleAddNewStudentToSheet = () => {
     if (isLocked || !activeAssignment) return;
-    const classStudents = students.filter(s => s.classId === activeAssignment.classId);
+    const classStudents = students.filter(s => normalizeClassId(s.classId) === normalizeClassId(activeAssignment.classId));
     const existingIds = new Set(currentGrades.map(g => g.studentId));
     const missingStudent = classStudents.find(s => !existingIds.has(s.id));
     if (!missingStudent) {
@@ -1543,7 +1543,7 @@ export const TeacherPortal: React.FC = () => {
                 {myAssignments.map((assignment) => {
                   const sheet = subjectGradeSheets.find(s => 
                     s.semesterId === assignment.semesterId &&
-                    s.classId === assignment.classId &&
+                    normalizeClassId(s.classId) === normalizeClassId(assignment.classId) &&
                     s.subjectCode === assignment.subjectCode
                   );
                   const isCurrent = assignment.id === selectedAssignmentId;

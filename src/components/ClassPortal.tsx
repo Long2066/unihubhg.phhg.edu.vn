@@ -60,9 +60,9 @@ export const ClassPortal: React.FC = () => {
     selectedSemesterId
   } = useUniHub();
 
-  const classId = currentUser?.isGroupLeader 
+  const classId = normalizeClassId(currentUser?.isGroupLeader 
     ? (students.find(s => s.id === currentUser.targetId)?.classId || "") 
-    : (currentUser?.targetId || students.find(s => s.email === currentUser?.email || s.id === currentUser?.username)?.classId || "");
+    : (currentUser?.targetId || students.find(s => s.email === currentUser?.email || s.id === currentUser?.username)?.classId || ""));
 
   if (currentUser && currentUser.role !== UserRole.CLASS_MONITOR && currentUser.role !== UserRole.ADMIN) {
     return (
@@ -1750,13 +1750,13 @@ export const ClassPortal: React.FC = () => {
                         const achEl = document.getElementById("gl-achievement-pt") as HTMLInputElement | null;
                         const commentEl = document.getElementById("gl-comment") as HTMLInputElement | null;
 
-                        const study = parseInt(studyEl?.value || "0") || 0;
-                        const vio = parseInt(vioEl?.value || "0") || 0;
-                        const extra = parseInt(extraEl?.value || "0") || 0;
-                        const comm = parseInt(commEl?.value || "0") || 0;
-                        const ach = parseInt(achEl?.value || "0") || 0;
+                        const study = Math.max(0, Math.min(20, parseInt(studyEl?.value || "0") || 0));
+                        const vio = Math.max(0, Math.min(25, parseInt(vioEl?.value || "0") || 0));
+                        const extra = Math.max(0, Math.min(30, parseInt(extraEl?.value || "0") || 0));
+                        const comm = Math.max(0, Math.min(15, parseInt(commEl?.value || "0") || 0));
+                        const ach = Math.max(0, Math.min(10, parseInt(achEl?.value || "0") || 0));
                         const commentVal = commentEl?.value || "";
-                        const tot = study + vio + extra + comm + ach;
+                        const tot = Math.max(0, Math.min(100, study + vio + extra + comm + ach));
 
                         submitGroupLeaderScore(selectedDetailStudentId, {
                           studyPoints: study,

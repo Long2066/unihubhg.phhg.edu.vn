@@ -2269,7 +2269,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     const studentObj = students.find(s => s.id === effectiveStudentId);
-    const resolvedClassId = studentObj?.classId || data.classId || "";
+    const resolvedClassId = normalizeClassId(studentObj?.classId || data.classId || "");
     const resolvedStudentName = studentObj?.name || data.studentName || currentUser.name || "Sinh viên";
 
     const cleanActivityName = (data.activityName || "").trim();
@@ -3279,13 +3279,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.warn("Group leader cannot review evidence");
         return;
       }
-      if (!targetStudent || !currentUser.targetId || targetStudent.classId !== currentUser.targetId) {
+      if (!targetStudent || !currentUser.targetId || (targetStudent.classId !== currentUser.targetId && normalizeClassId(targetStudent.classId) !== normalizeClassId(currentUser.targetId))) {
         console.warn("Cannot review evidence outside assigned class");
         return;
       }
     }
     if (currentUser.role === UserRole.ADVISER) {
-      if (!targetStudent || !currentUser.targetId || targetStudent.classId !== currentUser.targetId) {
+      if (!targetStudent || !currentUser.targetId || (targetStudent.classId !== currentUser.targetId && normalizeClassId(targetStudent.classId) !== normalizeClassId(currentUser.targetId))) {
         console.warn("Cannot review evidence outside assigned class");
         return;
       }
@@ -3762,7 +3762,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return;
       }
       const glStudent = students.find(s => s.id === currentUser.targetId);
-      if (!glStudent || targetStudent.classId !== glStudent.classId) {
+      if (!glStudent || (targetStudent.classId !== glStudent.classId && normalizeClassId(targetStudent.classId) !== normalizeClassId(glStudent.classId))) {
         console.warn("Group leader cannot grade student in another class");
         return;
       }
@@ -3772,8 +3772,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     } else {
       const isAuthorized = currentUser.role === UserRole.ADMIN ||
-        (currentUser.role === UserRole.ADVISER && currentUser.targetId === targetStudent.classId) ||
-        (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === targetStudent.classId);
+        (currentUser.role === UserRole.ADVISER && (currentUser.targetId === targetStudent.classId || normalizeClassId(currentUser.targetId) === normalizeClassId(targetStudent.classId))) ||
+        (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && (currentUser.targetId === targetStudent.classId || normalizeClassId(currentUser.targetId) === normalizeClassId(targetStudent.classId)));
       if (!isAuthorized) {
         console.warn("Unauthorized attempt to submit group leader score");
         return;

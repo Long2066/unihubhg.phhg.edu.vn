@@ -1379,7 +1379,8 @@ assert(
 );
 
 assert(
-  stateContent.includes("if (!targetStudent || !currentUser.targetId || targetStudent.classId !== currentUser.targetId) {\n        console.warn(\"Cannot review evidence outside assigned class\");") &&
+  (stateContent.includes("if (!targetStudent || !currentUser.targetId || targetStudent.classId !== currentUser.targetId) {\n        console.warn(\"Cannot review evidence outside assigned class\");") ||
+   stateContent.includes("if (!targetStudent || !currentUser.targetId || (targetStudent.classId !== currentUser.targetId && normalizeClassId(targetStudent.classId) !== normalizeClassId(currentUser.targetId))) {\n        console.warn(\"Cannot review evidence outside assigned class\");")) &&
   stateContent.includes("if (!targetStudent || !currentUser.targetId || targetStudent.facultyId !== currentUser.targetId) {\n        console.warn(\"Cannot review evidence outside assigned faculty\");"),
   "Batch 29 Issue 6: reviewEvidence must strictly enforce targetId boundary matching student class/faculty",
   "reviewEvidence allows unassigned monitors, advisers, or faculty to review evidence outside scope"
@@ -1509,7 +1510,8 @@ assert(
 assert(
   classPortalContent.includes("if (!selectedDetailStudentId) return;") &&
   classPortalContent.includes("const studyEl = document.getElementById(\"gl-study-pt\") as HTMLInputElement | null;") &&
-  classPortalContent.includes("const study = parseInt(studyEl?.value || \"0\") || 0;"),
+  (classPortalContent.includes("const study = parseInt(studyEl?.value || \"0\") || 0;") ||
+   classPortalContent.includes("const study = Math.max(0, Math.min(20, parseInt(studyEl?.value || \"0\") || 0));")),
   "Batch 31 Issue 7: ClassPortal must safely read group leader score input elements with null checks",
   "ClassPortal group scoring blindly accesses DOM elements causing runtime crashes"
 );
@@ -1535,7 +1537,8 @@ assert(
 );
 
 assert(
-  stateContent.includes("if (!glStudent || targetStudent.classId !== glStudent.classId) {\n        console.warn(\"Group leader cannot grade student in another class\");") &&
+  (stateContent.includes("if (!glStudent || targetStudent.classId !== glStudent.classId) {\n        console.warn(\"Group leader cannot grade student in another class\");") ||
+   stateContent.includes("if (!glStudent || (targetStudent.classId !== glStudent.classId && normalizeClassId(targetStudent.classId) !== normalizeClassId(glStudent.classId))) {\n        console.warn(\"Group leader cannot grade student in another class\");")) &&
   stateContent.includes("if (!currentUser.groupInCharge || targetStudent.groupName !== currentUser.groupInCharge) {\n        console.warn(\"Group leader cannot grade student in another group\");"),
   "Batch 32 Issue 3: submitGroupLeaderScore must verify valid glStudent and matching group charge",
   "submitGroupLeaderScore allows unverified group leaders or missing group students to bypass scope"
@@ -1632,7 +1635,8 @@ console.log("\n--- BATCH 34: Evidence Isolation, Appeal Subject Code & Profile S
 
 assert(
   stateContent.includes("if (!effectiveStudentId) {\n      console.warn(\"Cannot submit evidence without a valid student identity\");") &&
-  stateContent.includes("const resolvedClassId = studentObj?.classId || data.classId || \"\";") &&
+  (stateContent.includes("const resolvedClassId = studentObj?.classId || data.classId || \"\";") ||
+   stateContent.includes("const resolvedClassId = normalizeClassId(studentObj?.classId || data.classId || \"\");")) &&
   stateContent.includes("classId: resolvedClassId,"),
   "Batch 34 Issue 1: submitEvidence must resolve student classId dynamically to prevent cross-class leakage",
   "submitEvidence allows spoofing or leaking evidence across class boundaries"
@@ -2305,9 +2309,48 @@ assert(
   "TrainingPortal handleSaveEditAssignment does not normalize classId or clamp credits"
 );
 
+// ==========================================
+// BATCH 53: Teacher Portal Normalization, Admin Engine Sync, Evidence Normalization & Group Score Clamping
+// ==========================================
+console.log("\n--- BATCH 53: Teacher Normalization, Admin Engine Sync, Evidence Scoping & Group Score Clamping ---");
+
+assert(
+  teacherPortalContent.includes("const classStudents = students.filter(s => normalizeClassId(s.classId) === normalizeClassId(activeAssignment.classId));") &&
+  teacherPortalContent.includes("normalizeClassId(s.classId) === normalizeClassId(assignment.classId)"),
+  "Batch 53 Issue 1: TeacherPortal must normalize classId when adding students and looking up grade sheets",
+  "TeacherPortal uses raw classId string equality causing missing students or incorrect sheet lock status"
+);
+
+assert(
+  adminAppContent.includes("classId: normalizeClassId(student.classId),") &&
+  adminAppContent.includes(".sort((a, b) => `${a.semesterId}_${normalizeClassId(a.classId)}_${a.subjectCode}`.localeCompare(`${b.semesterId}_${normalizeClassId(b.classId)}_${b.subjectCode}`));"),
+  "Batch 53 Issue 2: unihub-admin evaluation engine and assignment sort must enforce normalized class IDs",
+  "unihub-admin writes unnormalized class IDs into evaluation results or sorts assignments with raw class IDs"
+);
+
+assert(
+  stateContent.includes("if (!targetStudent || !currentUser.targetId || (targetStudent.classId !== currentUser.targetId && normalizeClassId(targetStudent.classId) !== normalizeClassId(currentUser.targetId))) {\n        console.warn(\"Cannot review evidence outside assigned class\");"),
+  "Batch 53 Issue 3: reviewEvidence must support normalized class IDs for class monitors and advisers",
+  "reviewEvidence rejects authorized monitors or advisers due to case/whitespace differences"
+);
+
+assert(
+  stateContent.includes("const resolvedClassId = normalizeClassId(studentObj?.classId || data.classId || \"\");"),
+  "Batch 53 Issue 4: submitEvidence must normalize resolvedClassId to prevent unnormalized evidence submissions",
+  "submitEvidence stores unnormalized class IDs in evidence records"
+);
+
+assert(
+  stateContent.includes("if (!glStudent || (targetStudent.classId !== glStudent.classId && normalizeClassId(targetStudent.classId) !== normalizeClassId(glStudent.classId)))") &&
+  classPortalContent.includes("const classId = normalizeClassId(currentUser?.isGroupLeader") &&
+  classPortalContent.includes("const study = Math.max(0, Math.min(20, parseInt(studyEl?.value || \"0\") || 0));"),
+  "Batch 53 Issue 5: submitGroupLeaderScore and ClassPortal must normalize classId and clamp proposed scores",
+  "submitGroupLeaderScore rejects matching classes or ClassPortal sends unclamped proposed scores"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 52 SECURITY & INTEGRITY REGRESSION TESTS PASSED (268 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 53 SECURITY & INTEGRITY REGRESSION TESTS PASSED (273 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
