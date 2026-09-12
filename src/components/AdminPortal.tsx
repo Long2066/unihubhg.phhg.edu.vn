@@ -317,7 +317,8 @@ export const AdminPortal: React.FC = () => {
       name: accFormName.trim(),
       role: accFormRole,
       email: finalEmail,
-      targetId: resolvedTargetId || undefined
+      targetId: resolvedTargetId || undefined,
+      password: finalPassword
     };
 
     if (selectedAccId) {

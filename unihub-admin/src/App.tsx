@@ -1634,11 +1634,15 @@ export default function App() {
     try {
       let collName = dbSelectedCollection;
       let docId = dbEditTarget.id;
+      let cleanTarget = { ...dbEditTarget };
+      if (cleanTarget.classId) {
+        cleanTarget.classId = normalizeClassId(cleanTarget.classId);
+      }
       if (collName === "results") {
         docId = `${dbEditTarget.studentId}_${dbEditTarget.periodId}`;
       }
 
-      await setDoc(doc(db, collName, docId), dbEditTarget);
+      await setDoc(doc(db, collName, docId), cleanTarget);
       setShowDbEditModal(false);
       setTimeout(() => {
         alert("Đã cập nhật bản ghi dữ liệu thành công!");
@@ -2342,7 +2346,7 @@ export default function App() {
                         <tr key={row.id}>
                           <td style={{ fontWeight: 700, fontFamily: 'monospace', color: "var(--accent-cyan)" }}>{row.id}</td>
                           <td style={{ color: "#0f172a", fontWeight: 700 }}>{row.name}</td>
-                          <td>{row.classId}</td>
+                          <td>{normalizeClassId(row.classId)}</td>
                           <td>{row.facultyId}</td>
                           <td>{row.gender || "—"}</td>
                           <td>{row.dob || "—"}</td>

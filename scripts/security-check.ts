@@ -1766,8 +1766,10 @@ assert(
 
 assert(
   stateContent.includes("const studentMap = new Map(students.map(s => [s.id, s]));") &&
-  stateContent.includes("studentMap.has(id) && !attendance.some(att => att.activityId === activityId && att.studentId === id)") &&
-  stateContent.includes("studentName: sObj.name,\n        classId: sObj.classId,"),
+  (stateContent.includes("studentMap.has(id) && !attendance.some(att => att.activityId === activityId && att.studentId === id)") ||
+   stateContent.includes("studentMap.has(id) && !attendance.some(att => att.activityId === cleanActivityId && att.studentId === id)")) &&
+  (stateContent.includes("studentName: sObj.name,\n        classId: sObj.classId,") ||
+   stateContent.includes("studentName: sObj.name,\n        classId: normalizeClassId(sObj.classId),")),
   "Batch 38 Issue 2: addBulkAttendance must deduplicate student IDs and verify student existence",
   "addBulkAttendance allows ghost student IDs without existence verification"
 );
@@ -2429,9 +2431,52 @@ assert(
   "unihub-admin displays raw unnormalized classId for assignments"
 );
 
+// ==========================================
+// BATCH 56: Activity Sanitization, Enum Status Validation, Bulk Attendance Class Normalization, Score Clamping & Admin Password Persistence
+// ==========================================
+console.log("\n--- BATCH 56: Activity Sanitization, Enum Status Validation, Bulk Attendance Class Normalization, Score Clamping & Admin Password Persistence ---");
+
+assert(
+  stateContent.includes("const cleanActivityId = (activityId || \"\").trim();") &&
+  stateContent.includes("classId: normalizeClassId(studentObj.classId),"),
+  "Batch 56 Issue 1: registerForActivity must sanitize activityId and store normalized classId in attendance",
+  "registerForActivity accepts unpadded/empty activityId or stores raw unnormalized classId"
+);
+
+assert(
+  stateContent.includes("if (![\"UPCOMING\", \"ONGOING\", \"COMPLETED\"].includes(status)) return;") &&
+  stateContent.includes("if (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY && (!effectiveOrgId || act.orgId !== effectiveOrgId))"),
+  "Batch 56 Issue 2: updateActivityStatus must validate status enum and allow FACULTY org scope",
+  "updateActivityStatus accepts invalid status or blocks FACULTY role from managing faculty activities"
+);
+
+assert(
+  stateContent.includes("const cleanAttendanceId = (attendanceId || \"\").trim();") &&
+  stateContent.includes("classId: normalizeClassId(sObj.classId),\n        registeredAt:"),
+  "Batch 56 Issue 3: updateAttendance and addBulkAttendance must sanitize IDs and normalize classId",
+  "updateAttendance or addBulkAttendance allows empty attendance IDs or stores unnormalized student classId"
+);
+
+assert(
+  stateContent.includes("const safePoints = Math.max(-30, Math.min(30, points));") &&
+  adviserPortalContent.includes("const safeBulkPoints = Math.max(-30, Math.min(30, Number(bulkPoints) || 0));") &&
+  adviserPortalContent.includes("const safeAdjustPoints = Math.max(-30, Math.min(30, Number(adjustPoints) || 0));"),
+  "Batch 56 Issue 4: adjustStudentScoreSpecific and AdviserPortal must clamp score adjustments to [-30, 30]",
+  "Score adjustments allow unbounded negative or positive point injection"
+);
+
+assert(
+  adminPortalContent.includes("password: finalPassword\n    };") &&
+  stateContent.includes("safeAccount.targetId = normalizeClassId(safeAccount.targetId);") &&
+  adminAppContent.includes("cleanTarget.classId = normalizeClassId(cleanTarget.classId);") &&
+  adminAppContent.includes("<td>{normalizeClassId(row.classId)}</td>"),
+  "Batch 56 Issue 5: Admin accounts must persist password and normalize targetId; unihub-admin must normalize classId on direct edit and render",
+  "Admin account creation drops password, targetId is unnormalized, or admin raw editor saves unnormalized classId"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 55 SECURITY & INTEGRITY REGRESSION TESTS PASSED (283 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 56 SECURITY & INTEGRITY REGRESSION TESTS PASSED (288 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

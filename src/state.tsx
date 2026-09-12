@@ -2203,16 +2203,20 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Student Actions
   const registerForActivity = (activityId: string, studentId: string) => {
     if (!currentUser) return;
-    const effectiveStudentId = currentUser.role === UserRole.ADMIN
+    const cleanActivityId = (activityId || "").trim();
+    if (!cleanActivityId) return;
+    const effectiveStudentId = (currentUser.role === UserRole.ADMIN
       ? (studentId || currentUser.targetId || currentUser.username)
-      : (currentUser.targetId || currentUser.username);
+      : (currentUser.targetId || currentUser.username))?.trim();
 
-    if (currentUser.role !== UserRole.ADMIN && studentId && effectiveStudentId !== studentId) {
+    if (!effectiveStudentId) return;
+
+    if (currentUser.role !== UserRole.ADMIN && studentId && effectiveStudentId !== studentId.trim()) {
       console.warn("Unauthorized attempt to register another student for activity");
       return;
     }
 
-    const activityObj = activities.find(act => act.id === activityId);
+    const activityObj = activities.find(act => act.id === cleanActivityId);
     if (!activityObj) return;
 
     const today = new Date().toISOString().split("T")[0];
@@ -2221,7 +2225,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    const alreadyRegistered = attendance.some(a => a.activityId === activityId && a.studentId === effectiveStudentId);
+    const alreadyRegistered = attendance.some(a => a.activityId === cleanActivityId && a.studentId === effectiveStudentId);
     if (alreadyRegistered) return;
 
     const studentObj = students.find(s => s.id === effectiveStudentId);
@@ -2229,7 +2233,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Check registration limit
     if (activityObj.maxParticipants !== undefined && activityObj.maxParticipants > 0) {
-      const currentCount = attendance.filter(a => a.activityId === activityId).length;
+      const currentCount = attendance.filter(a => a.activityId === cleanActivityId).length;
       if (currentCount >= activityObj.maxParticipants) {
         alert("Đăng ký thất bại: Hoạt động đã đạt số lượng người tham gia tối đa!");
         return;
@@ -2238,10 +2242,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const newAttendee: ActivityAttendance = {
       id: `AT_NEW_${Date.now()}`,
-      activityId,
+      activityId: cleanActivityId,
       studentId: effectiveStudentId,
       studentName: studentObj.name,
-      classId: studentObj.classId,
+      classId: normalizeClassId(studentObj.classId),
       registeredAt: new Date().toISOString().split("T")[0],
       role: "MEM",
       attended: false,
@@ -2571,17 +2575,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to delete activity");
       return;
     }
-    const act = activities.find(a => a.id === activityId);
+    const cleanActivityId = (activityId || "").trim();
+    if (!cleanActivityId) return;
+    const act = activities.find(a => a.id === cleanActivityId);
     if (!act) return;
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
     if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || act.orgId !== effectiveOrgId)) {
       console.warn("Unauthorized attempt to delete activity of another organization");
       return;
     }
-    const updated = activities.filter(a => a.id !== activityId);
+    const updated = activities.filter(a => a.id !== cleanActivityId);
     setActivities(updated);
     saveToStorage("unihub_activities", updated);
-    deleteDoc(doc(db, "activities", activityId)).catch(e => console.warn("Lỗi xóa hoạt động Firestore:", e));
+    deleteDoc(doc(db, "activities", cleanActivityId)).catch(e => console.warn("Lỗi xóa hoạt động Firestore:", e));
 
     const updatedAttendance = attendance.filter(att => att.activityId !== activityId);
     if (updatedAttendance.length !== attendance.length) {
@@ -2595,15 +2601,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to update activity status");
       return;
     }
-    const act = activities.find(a => a.id === activityId);
+    const cleanActivityId = (activityId || "").trim();
+    if (!cleanActivityId) return;
+    if (!["UPCOMING", "ONGOING", "COMPLETED"].includes(status)) return;
+    const act = activities.find(a => a.id === cleanActivityId);
     if (!act) return;
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
-    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || act.orgId !== effectiveOrgId)) {
+    if (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY && (!effectiveOrgId || act.orgId !== effectiveOrgId)) {
       console.warn("Unauthorized attempt to update activity status of another organization");
       return;
     }
     const updated = activities.map(act => {
-      if (act.id === activityId) {
+      if (act.id === cleanActivityId) {
         return { ...act, status };
       }
       return act;
@@ -2921,16 +2930,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to update attendance");
       return;
     }
-    const att = attendance.find(a => a.id === attendanceId);
+    const cleanAttendanceId = (attendanceId || "").trim();
+    if (!cleanAttendanceId) return;
+    const att = attendance.find(a => a.id === cleanAttendanceId);
     if (!att) return;
     const act = activities.find(a => a.id === att.activityId);
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
-    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || (act && act.orgId !== effectiveOrgId))) {
+    if (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY && (!effectiveOrgId || (act && act.orgId !== effectiveOrgId))) {
       console.warn("Unauthorized attempt to update attendance of another organization");
       return;
     }
     const updated = attendance.map(a => {
-      if (a.id === attendanceId) {
+      if (a.id === cleanAttendanceId) {
         return { 
           ...a, 
           attended, 
@@ -2948,10 +2959,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to bulk add attendance");
       return;
     }
-    const currentAct = activities.find(a => a.id === activityId);
+    const cleanActivityId = (activityId || "").trim();
+    if (!cleanActivityId) return;
+    const currentAct = activities.find(a => a.id === cleanActivityId);
     if (!currentAct) return;
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
-    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || currentAct.orgId !== effectiveOrgId)) {
+    if (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY && (!effectiveOrgId || currentAct.orgId !== effectiveOrgId)) {
       console.warn("Unauthorized attempt to add attendance to another organization's activity");
       return;
     }
@@ -2959,17 +2972,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Filter out duplicate and non-existent studentIds
     const studentMap = new Map(students.map(s => [s.id, s]));
     const cleanIds = Array.from(new Set(studentIds)).filter(id => 
-      studentMap.has(id) && !attendance.some(att => att.activityId === activityId && att.studentId === id)
+      studentMap.has(id) && !attendance.some(att => att.activityId === cleanActivityId && att.studentId === id)
     );
     
     const newRecords: ActivityAttendance[] = cleanIds.map(sid => {
       const sObj = studentMap.get(sid)!;
       return {
         id: `AT_BLK_${Date.now()}_${sid}`,
-        activityId,
+        activityId: cleanActivityId,
         studentId: sid,
         studentName: sObj.name,
-        classId: sObj.classId,
+        classId: normalizeClassId(sObj.classId),
         registeredAt: new Date().toISOString().split("T")[0],
         role: "MEM",
         attended: true,
@@ -4442,7 +4455,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       alert(`Tên đăng nhập "${account.username}" đã tồn tại trên hệ thống! Vui lòng chọn tên đăng nhập khác.`);
       return;
     }
-    const clean = sanitizeForFirestore(account);
+    const safeAccount = { ...account };
+    if (safeAccount.targetId && (safeAccount.role === UserRole.CLASS_MONITOR || safeAccount.role === UserRole.ADVISER)) {
+      safeAccount.targetId = normalizeClassId(safeAccount.targetId);
+    }
+    const clean = sanitizeForFirestore(safeAccount);
     setUsers(prev => {
       const exists = prev.some(u => u.id === clean.id);
       const updated = exists ? prev.map(u => u.id === clean.id ? { ...u, ...clean } : u) : [...prev, clean];
@@ -4469,6 +4486,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         alert(`Tên đăng nhập "${safeAccount.username}" đã tồn tại trên hệ thống! Vui lòng chọn tên đăng nhập khác.`);
         return;
       }
+    }
+    if (safeAccount.targetId && (safeAccount.role === UserRole.CLASS_MONITOR || safeAccount.role === UserRole.ADVISER || (!safeAccount.role && (existingTarget.role === UserRole.CLASS_MONITOR || existingTarget.role === UserRole.ADVISER)))) {
+      safeAccount.targetId = normalizeClassId(safeAccount.targetId);
     }
     if (currentUser.role !== UserRole.ADMIN) {
       delete safeAccount.role;
@@ -4869,6 +4889,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const adjustStudentScoreSpecific = (studentId: string, category: string, points: number, reason: string) => {
     if (!currentUser) return;
     if (isNaN(points) || !isFinite(points)) return;
+    const safePoints = Math.max(-30, Math.min(30, points));
     const cleanReason = (reason || "").trim();
     const cleanCategory = (category || "").trim();
     if (!cleanReason || !cleanCategory) {
@@ -4894,11 +4915,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         let communityPoints = res.communityPoints;
         let achievementPoints = res.achievementPoints;
 
-        if (category.toLowerCase().includes("học tập") || category.includes("TC1")) studyPoints = Math.min(20, Math.max(0, studyPoints + points));
-        else if (category.toLowerCase().includes("nội quy") || category.includes("TC2")) violationPoints = Math.max(0, Math.min(25, violationPoints + points));
-        else if (category.toLowerCase().includes("hoạt động") || category.includes("TC3")) extracurricularPoints = Math.min(30, Math.max(0, extracurricularPoints + points));
-        else if (category.toLowerCase().includes("công dân") || category.includes("TC4")) communityPoints = Math.min(15, Math.max(0, communityPoints + points));
-        else if (category.toLowerCase().includes("khen thưởng") || category.includes("TC5")) achievementPoints = Math.min(10, Math.max(0, achievementPoints + points));
+        if (category.toLowerCase().includes("học tập") || category.includes("TC1")) studyPoints = Math.min(20, Math.max(0, studyPoints + safePoints));
+        else if (category.toLowerCase().includes("nội quy") || category.includes("TC2")) violationPoints = Math.max(0, Math.min(25, violationPoints + safePoints));
+        else if (category.toLowerCase().includes("hoạt động") || category.includes("TC3")) extracurricularPoints = Math.min(30, Math.max(0, extracurricularPoints + safePoints));
+        else if (category.toLowerCase().includes("công dân") || category.includes("TC4")) communityPoints = Math.min(15, Math.max(0, communityPoints + safePoints));
+        else if (category.toLowerCase().includes("khen thưởng") || category.includes("TC5")) achievementPoints = Math.min(10, Math.max(0, achievementPoints + safePoints));
 
         const totalPoints = studyPoints + violationPoints + extracurricularPoints + communityPoints + achievementPoints;
         let grade: EvaluationResult["grade"] = "TRUNG BÌNH";
@@ -4914,8 +4935,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           ...res.logs,
           {
             criteriaId: "ADJUST_MANUAL",
-            points,
-            reason: `Hiệu chỉnh [${category}]: ${reason}`,
+            points: safePoints,
+            reason: `Hiệu chỉnh [${cleanCategory}]: ${cleanReason}`,
             source: adjusterSource as any,
             timestamp: new Date().toISOString().split("T")[0]
           }

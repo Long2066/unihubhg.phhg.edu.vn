@@ -243,8 +243,9 @@ export const AdviserPortal: React.FC = () => {
       alert("Hãy nhập lý do cộng điểm tập thể.");
       return;
     }
+    const safeBulkPoints = Math.max(-30, Math.min(30, Number(bulkPoints) || 0));
     selectedStudentIds.forEach(sid => {
-      adjustStudentScoreSpecific(sid, bulkCategory, bulkPoints, bulkReason);
+      adjustStudentScoreSpecific(sid, bulkCategory, safeBulkPoints, bulkReason.trim());
     });
     alert(`Đã cộng/trừ điểm rèn luyện hàng loạt cho ${selectedStudentIds.length} sinh viên thành công!`);
     setShowBulkScoreModal(false);
@@ -307,16 +308,17 @@ export const AdviserPortal: React.FC = () => {
   // Score adjustments inside modal
   const applyScoreOverride = () => {
     if (!selectedDetailStudentId) return;
-    if (!adjustReason) {
+    if (!adjustReason.trim()) {
       alert("Hãy nhập lý do điều chỉnh ngoại lệ cho sinh viên.");
       return;
     }
 
+    const safeAdjustPoints = Math.max(-30, Math.min(30, Number(adjustPoints) || 0));
     adjustStudentScoreSpecific(
       selectedDetailStudentId,
       adjustCategory,
-      adjustPoints,
-      adjustReason
+      safeAdjustPoints,
+      adjustReason.trim()
     );
 
     alert("Đã áp dụng bản ghi can thiệp rèn luyện của Giáo viên Chủ nhiệm.");
