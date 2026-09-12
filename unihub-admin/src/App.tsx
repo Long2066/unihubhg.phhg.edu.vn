@@ -97,6 +97,11 @@ const formatFileSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 };
 
+const normalizeClassId = (classId: string | undefined | null): string => {
+  if (!classId) return "";
+  return classId.trim().toUpperCase().replace(/\s+/g, " ");
+};
+
 const getJsonSizeBytes = (value: unknown) => {
   try {
     const json = JSON.stringify(value ?? {});
@@ -1184,6 +1189,12 @@ export default function App() {
         }
       }
 
+      if (userForm.role === UserRole.CLASS_MONITOR || userForm.role === UserRole.ADVISER) {
+        if (resolvedTargetId) {
+          resolvedTargetId = normalizeClassId(resolvedTargetId);
+        }
+      }
+
       const cleanUsername = userForm.username.trim();
       const cleanEmail = targetEmail.trim();
       const cleanName = userForm.name.trim();
@@ -1774,16 +1785,16 @@ export default function App() {
     });
 
     // Class approval progress metrics
-    const totalClasses = Array.from(new Set(students.map(s => s.classId))).filter(Boolean);
+    const totalClasses = Array.from(new Set(students.map(s => normalizeClassId(s.classId)))).filter(Boolean);
     let lockedClasses = 0;
     let adviserApproved = 0;
     let monitorApproved = 0;
 
     totalClasses.forEach(cId => {
-      const classResults = results.filter(r => r.classId === cId);
+      const classResults = results.filter(r => normalizeClassId(r.classId) === cId);
       if (classResults.length === 0) return;
       
-      const allLocked = classResults.every(r => r.status === "LOCKED");
+      const allLocked = classResults.every(r => r.status === "LOCKED" || r.status === "APPROVED_ADMIN" || r.status === "APPROVED_FACULTY");
       const adviserApp = classResults.some(r => r.status === "APPROVED_ADVISER");
       const monitorApp = classResults.some(r => r.status === "APPROVED_CLASS");
 

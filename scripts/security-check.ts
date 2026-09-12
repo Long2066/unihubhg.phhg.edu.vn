@@ -2190,9 +2190,48 @@ assert(
   "OrganizerPortal allows unnormalized classId in manual or Excel member additions"
 );
 
+// ==========================================
+// BATCH 50: Appeal Scope Defense, Role/Member ID Sanitization, Admin Normalization & Statistics Crash Fix
+// ==========================================
+console.log("\n--- BATCH 50: Appeal Scope Defense, Role/Member ID Sanitization, Admin Normalization & Statistics Crash Fix ---");
+
+assert(
+  stateContent.includes("(appeal.sheetId && s.id === appeal.sheetId) ||\n        (normalizeClassId(s.classId) === normalizeClassId(appeal.classId) && s.subjectCode.toUpperCase() === appeal.subjectCode.toUpperCase())") &&
+  stateContent.includes("const isTargetSheet = appeal.sheetId \n              ? sheet.id === appeal.sheetId \n              : (sheet.subjectCode.toUpperCase() === targetSubjectCode.toUpperCase() &&\n                 (!appeal.classId || normalizeClassId(sheet.classId) === normalizeClassId(appeal.classId)));"),
+  "Batch 50 Issue 1: resolveGradeAppeal must strictly scope teacher authorization and sheet update to target sheet and class",
+  "resolveGradeAppeal allows cross-class sheet corruption or mismatching teacher permissions"
+);
+
+assert(
+  stateContent.includes("const cleanMemberId = (memberId || \"\").trim();\n    if (!cleanMemberId) return;\n    const validRoles = [\"CHỦ NHIỆM\", \"BAN CHẤP HÀNH\", \"ỦY VIÊN\", \"THÀNH VIÊN\"];\n    if (!validRoles.includes(role)) {") &&
+  stateContent.includes("const cleanMemberId = (memberId || \"\").trim();\n    if (!cleanMemberId) return;\n    const member = members.find(m => m.id === cleanMemberId);") &&
+  stateContent.includes("const cleanId = (id || \"\").trim();\n    if (!cleanId) return;\n    const ann = announcements.find(a => a.id === cleanId);"),
+  "Batch 50 Issue 2: assignMemberRole, deleteMember, and deleteAnnouncement must sanitize IDs and validate member role",
+  "assignMemberRole, deleteMember, or deleteAnnouncement allows blank IDs or invalid roles"
+);
+
+assert(
+  adminAppContent.includes("const normalizeClassId = (classId: string | undefined | null): string => {") &&
+  adminAppContent.includes("if (userForm.role === UserRole.CLASS_MONITOR || userForm.role === UserRole.ADVISER) {\n        if (resolvedTargetId) {\n          resolvedTargetId = normalizeClassId(resolvedTargetId);\n        }\n      }") &&
+  adminAppContent.includes("const totalClasses = Array.from(new Set(students.map(s => normalizeClassId(s.classId)))).filter(Boolean);") &&
+  adminAppContent.includes("const classResults = results.filter(r => normalizeClassId(r.classId) === cId);") &&
+  adminAppContent.includes("const allLocked = classResults.every(r => r.status === \"LOCKED\" || r.status === \"APPROVED_ADMIN\" || r.status === \"APPROVED_FACULTY\");"),
+  "Batch 50 Issue 3: unihub-admin must normalize classId for accounts and dashboard approval progress metrics",
+  "unihub-admin dashboard fails to normalize class IDs or ignores approved statuses"
+);
+
+assert(
+  classStatisticsBottomContent.includes("AlertCircle") &&
+  classStatisticsBottomContent.includes("const classes = Array.from(new Set(students.map(s => normalizeClassId(s.classId)))).filter(Boolean);") &&
+  classStatisticsBottomContent.includes("normalizeClassId(da.classId) === normalizeClassId(effectiveClass)") &&
+  classStatisticsBottomContent.includes("reportedCidsToday.includes(normTargetClassId)"),
+  "Batch 50 Issue 4: ClassStatisticsBottom must import AlertCircle and normalize class IDs for attendance tracking",
+  "ClassStatisticsBottom crashes on missing AlertCircle import or fails on unnormalized class IDs"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 49 SECURITY & INTEGRITY REGRESSION TESTS PASSED (256 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 50 SECURITY & INTEGRITY REGRESSION TESTS PASSED (260 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

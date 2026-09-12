@@ -415,7 +415,7 @@ export interface EvaluationResult {
   totalPoints: number;        // Tổng điểm rèn luyện (Max 100)
   grade: "XUẤT SẮC" | "TỐT" | "KHÁ" | "TRUNG BÌNH" | "YẾU" | "KÉM";
   
-  status: "AUTO" | "PENDING_CLASS" | "APPROVED_CLASS" | "APPROVED_ADVISER" | "LOCKED";
+  status: "AUTO" | "PENDING_CLASS" | "APPROVED_CLASS" | "APPROVED_ADVISER" | "APPROVED_FACULTY" | "APPROVED_ADMIN" | "LOCKED";
   adviserNotes?: string;
   
   // Traceability logs explaining how points are formulated

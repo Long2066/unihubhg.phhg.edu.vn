@@ -1130,7 +1130,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     if (currentUser.role === UserRole.TEACHER) {
-      const sheet = subjectGradeSheets.find(s => s.id === appeal.sheetId || s.subjectCode === appeal.subjectCode);
+      const sheet = subjectGradeSheets.find(s => 
+        (appeal.sheetId && s.id === appeal.sheetId) ||
+        (normalizeClassId(s.classId) === normalizeClassId(appeal.classId) && s.subjectCode.toUpperCase() === appeal.subjectCode.toUpperCase())
+      );
       if (!sheet || !sheet.teacherId) {
         console.warn("Cannot resolve appeal: associated subject grade sheet or teacher not found");
         return;
@@ -1176,7 +1179,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!isNaN(parsedNum) && parsedNum >= 0 && parsedNum <= 10) {
         setSubjectGradeSheets(prevSheets => {
           const nextSheets = prevSheets.map(sheet => {
-            if (sheet.subjectCode === targetSubjectCode || (targetSubjectCode && sheet.subjectName.toLowerCase().includes(targetSubjectCode.toLowerCase()))) {
+            const isTargetSheet = appeal.sheetId 
+              ? sheet.id === appeal.sheetId 
+              : (sheet.subjectCode.toUpperCase() === targetSubjectCode.toUpperCase() &&
+                 (!appeal.classId || normalizeClassId(sheet.classId) === normalizeClassId(appeal.classId)));
+            if (isTargetSheet) {
               const updatedGrades = sheet.grades.map(g => {
                 if (g.studentId === targetStudentId) {
                   const tb10 = Math.max(0, Math.min(10, Math.round(parsedNum * 10) / 10));
@@ -2652,17 +2659,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to delete announcement");
       return;
     }
-    const ann = announcements.find(a => a.id === id);
+    const cleanId = (id || "").trim();
+    if (!cleanId) return;
+    const ann = announcements.find(a => a.id === cleanId);
     if (!ann) return;
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
     if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || ann.orgId !== effectiveOrgId)) {
       console.warn("Unauthorized attempt to delete announcement of another organization");
       return;
     }
-    const updated = announcements.filter(a => a.id !== id);
+    const updated = announcements.filter(a => a.id !== cleanId);
     setAnnouncements(updated);
     saveToStorage("unihub_announcements", updated);
-    deleteDoc(doc(db, "announcements", id)).catch(e => console.warn("Lỗi xóa thông báo Firestore:", e));
+    deleteDoc(doc(db, "announcements", cleanId)).catch(e => console.warn("Lỗi xóa thông báo Firestore:", e));
   };
 
   const addMemberManual = (member: Omit<OrganizationMember, "id" | "joinedDate" | "term" | "status">) => {
@@ -2712,14 +2721,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to delete organization member");
       return;
     }
-    const member = members.find(m => m.id === memberId);
+    const cleanMemberId = (memberId || "").trim();
+    if (!cleanMemberId) return;
+    const member = members.find(m => m.id === cleanMemberId);
     if (!member) return;
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
     if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || member.orgId !== effectiveOrgId)) {
       console.warn("Unauthorized attempt to delete member of another organization");
       return;
     }
-    const updated = members.filter(m => m.id !== memberId);
+    const updated = members.filter(m => m.id !== cleanMemberId);
     setMembers(updated);
     saveToStorage("unihub_members", updated);
   };
@@ -2859,7 +2870,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to assign member role");
       return;
     }
-    const member = members.find(m => m.id === memberId);
+    const cleanMemberId = (memberId || "").trim();
+    if (!cleanMemberId) return;
+    const validRoles = ["CHỦ NHIỆM", "BAN CHẤP HÀNH", "ỦY VIÊN", "THÀNH VIÊN"];
+    if (!validRoles.includes(role)) {
+      console.warn("Invalid member role provided to assignMemberRole");
+      return;
+    }
+    const member = members.find(m => m.id === cleanMemberId);
     if (!member) return;
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
     if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || member.orgId !== effectiveOrgId)) {
@@ -2867,7 +2885,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
     const updated = members.map(m => {
-      if (m.id === memberId) {
+      if (m.id === cleanMemberId) {
         return { ...m, role };
       }
       return m;

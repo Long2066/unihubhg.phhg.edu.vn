@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { useUniHub } from "../state";
+import { useUniHub, normalizeClassId } from "../state";
 import { UserRole } from "../types";
 import { 
   Users, 
   Calendar, 
   ClipboardList, 
   AlertTriangle, 
+  AlertCircle,
   CheckCircle,
   Search,
   X,
@@ -40,12 +41,12 @@ export const ClassStatisticsBottom: React.FC = () => {
   }
 
   // Group students dynamically to find all unique classes across UniHub
-  const classes = Array.from(new Set(students.map(s => s.classId)));
+  const classes = Array.from(new Set(students.map(s => normalizeClassId(s.classId)))).filter(Boolean);
   const effectiveClass = (isClassScoped && targetClassId) ? targetClassId : filterClass;
 
   // Filtered attendance reports
   const filteredReports = dailyAttendance.filter(da => {
-    const classMatches = effectiveClass === "ALL" || da.classId.toLowerCase() === effectiveClass.toLowerCase();
+    const classMatches = effectiveClass === "ALL" || normalizeClassId(da.classId) === normalizeClassId(effectiveClass);
     const dateMatches = !filterDate || da.date === filterDate;
     return classMatches && dateMatches;
   });
@@ -65,9 +66,10 @@ export const ClassStatisticsBottom: React.FC = () => {
 
   // Let's assume today is "2026-05-24" based on system states/seed data date
   const todayStr = "2026-05-24";
-  const reportedCidsToday = dailyAttendance.filter(da => da.date === todayStr).map(da => da.classId);
+  const reportedCidsToday = dailyAttendance.filter(da => da.date === todayStr).map(da => normalizeClassId(da.classId));
+  const normTargetClassId = normalizeClassId(targetClassId);
   const missingCidsToday = (isClassScoped && targetClassId)
-    ? (reportedCidsToday.includes(targetClassId) ? [] : [targetClassId])
+    ? (reportedCidsToday.includes(normTargetClassId) ? [] : [normTargetClassId])
     : classes.filter(cid => !reportedCidsToday.includes(cid));
 
   return (
@@ -185,7 +187,7 @@ export const ClassStatisticsBottom: React.FC = () => {
           </span>
           <span className="text-[9px] font-mono text-slate-500 block leading-tight mt-0.5">
             {isClassScoped && targetClassId 
-              ? (reportedCidsToday.includes(targetClassId) ? "Đã nộp báo cáo sĩ số" : "Chưa nộp báo cáo sĩ số")
+              ? (reportedCidsToday.includes(normTargetClassId) ? "Đã nộp báo cáo sĩ số" : "Chưa nộp báo cáo sĩ số")
               : (missingCidsToday.length === 0 ? "100% Các lớp đã nộp" : `Còn ${missingCidsToday.length} lớp chưa nộp sĩ số`)}
           </span>
         </div>
@@ -193,7 +195,7 @@ export const ClassStatisticsBottom: React.FC = () => {
 
       {/* ALERT BOX FOR MISSING SUBMISSIONS TODAY */}
       {isClassScoped && targetClassId ? (
-        missingCidsToday.includes(targetClassId) && (
+        missingCidsToday.includes(normTargetClassId) && (
           <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 flex items-center gap-2 font-sans">
             <AlertTriangle size={15} className="text-amber-600 shrink-0" />
             <div>
