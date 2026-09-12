@@ -32,7 +32,8 @@ import {
   X,
   Check,
   Copy,
-  Database
+  Database,
+  AlertCircle
 } from "lucide-react";
 import { DataBackupRestoreModal } from "./DataBackupRestoreModal";
 

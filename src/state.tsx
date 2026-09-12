@@ -677,7 +677,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const item: GradeAuditLog = {
       ...log,
-      action: cleanAction,
+      action: cleanAction as GradeAuditLog["action"],
       actor: actorName,
       id: `LOG_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       timestamp: new Date().toISOString().replace("T", " ").substring(0, 19)
@@ -2823,18 +2823,23 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const targetStudent = students.find(s => s.id === cleanStudentId);
         if (!cleanStudentId || !targetStudent) return null;
         const targetOrg = (currentUser.role === UserRole.ADMIN && m.orgId) ? m.orgId.trim() : effectiveOrgId!;
-        return {
+        const validRole: OrganizationMember["role"] = 
+          (m.role?.trim() === "CHỦ NHIỆM" || m.role?.trim() === "BAN CHẤP HÀNH" || m.role?.trim() === "ỦY VIÊN")
+            ? (m.role!.trim() as OrganizationMember["role"])
+            : "THÀNH VIÊN";
+        const memberItem: OrganizationMember = {
           ...m,
           id: m.id?.trim() || `M_IMP_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           studentId: cleanStudentId,
           studentName: currentUser.role === UserRole.ADMIN && m.studentName?.trim() ? m.studentName.trim() : targetStudent.name,
           classId: normalizeClassId(currentUser.role === UserRole.ADMIN && m.classId?.trim() ? m.classId.trim() : targetStudent.classId),
           orgId: targetOrg,
-          role: m.role?.trim() || "THÀNH VIÊN",
+          role: validRole,
           status: (m.status === "ACTIVE" || m.status === "PENDING") ? m.status : "ACTIVE",
           joinedDate: m.joinedDate?.trim() || new Date().toISOString().split("T")[0],
           term: m.term?.trim() || period.academicYear
         };
+        return memberItem;
       })
       .filter((m): m is OrganizationMember => m !== null);
 
@@ -2971,12 +2976,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Filter out duplicate and non-existent studentIds
     const studentMap = new Map(students.map(s => [s.id, s]));
-    const cleanIds = Array.from(new Set(studentIds)).filter(id => 
+    const cleanIds = Array.from(new Set(studentIds)).filter((id: any) => 
       studentMap.has(id) && !attendance.some(att => att.activityId === cleanActivityId && att.studentId === id)
     );
     
-    const newRecords: ActivityAttendance[] = cleanIds.map(sid => {
-      const sObj = studentMap.get(sid)!;
+    const newRecords: ActivityAttendance[] = cleanIds.map((sid: any) => {
+      const sObj = studentMap.get(sid) as Student;
       return {
         id: `AT_BLK_${Date.now()}_${sid}`,
         activityId: cleanActivityId,

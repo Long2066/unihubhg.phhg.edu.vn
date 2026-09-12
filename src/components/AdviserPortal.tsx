@@ -528,6 +528,40 @@ export const AdviserPortal: React.FC = () => {
     else if (grade === "KÉM") academicCounts["KÉM"]++;
   });
 
+  // Calculate Academic & Discipline Early Warnings for Adviser
+  const warningsList = myClassmatesArr.filter(student => {
+    const reasons: string[] = [];
+    if (student.learningWarning || student.learningStatus === "Bị cảnh báo" || student.learningStatus === "Đình chỉ") {
+      reasons.push(student.learningStatus || "Cảnh báo học vụ");
+    }
+    if (student.gpa !== undefined && student.gpa < 2.0) {
+      reasons.push(`GPA thấp (${student.gpa.toFixed(2)})`);
+    }
+    const studentRes = myClassResults.find(r => r.studentId === student.id);
+    if (studentRes && (studentRes.totalScore < 50 || studentRes.grade === "YẾU" || studentRes.grade === "KÉM")) {
+      reasons.push(`ĐRL thấp (${studentRes.totalScore}đ - ${studentRes.grade || "Yếu/Kém"})`);
+    }
+    return reasons.length > 0;
+  }).map(student => {
+    const reasons: string[] = [];
+    if (student.learningWarning || student.learningStatus === "Bị cảnh báo" || student.learningStatus === "Đình chỉ") {
+      reasons.push(student.learningStatus || "Cảnh báo học vụ");
+    }
+    if (student.gpa !== undefined && student.gpa < 2.0) {
+      reasons.push(`GPA thấp (${student.gpa.toFixed(2)})`);
+    }
+    const studentRes = myClassResults.find(r => r.studentId === student.id);
+    if (studentRes && (studentRes.totalScore < 50 || studentRes.grade === "YẾU" || studentRes.grade === "KÉM")) {
+      reasons.push(`ĐRL thấp (${studentRes.totalScore}đ - ${studentRes.grade || "Yếu/Kém"})`);
+    }
+    return {
+      studentId: student.id,
+      studentName: student.name,
+      reasons,
+      notes: student.notes || ""
+    };
+  });
+
   if (!classId) {
     return (
       <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">

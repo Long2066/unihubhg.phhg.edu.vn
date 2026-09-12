@@ -312,7 +312,7 @@ export const FacultyPortal: React.FC = () => {
             <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Tiến độ ký duyệt nộp danh sách điểm của các Lớp</h4>
             
             <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden shadow-xs">
-              {classes.map(cId => {
+              {classes.map((cId: string) => {
                 const rev = classReviews.find(r => normalizeClassId(r.classId) === normalizeClassId(cId));
                 const isBCS = !!rev?.representativeApproved;
                 const isGVCN = !!rev?.adviserApproved;

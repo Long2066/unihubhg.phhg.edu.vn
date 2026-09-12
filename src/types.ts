@@ -623,6 +623,7 @@ export interface GradeUnlockRequest {
 /** Đơn nộp phúc khảo điểm môn học từ Sinh viên */
 export interface GradeAppeal {
   id: string;
+  sheetId?: string;
   studentId: string;
   studentName: string;
   classId: string;
@@ -646,7 +647,8 @@ export interface GradeAuditLog {
   classId: string;
   subjectCode: string;
   subjectName: string;
-  action: "NẠP_MỚI" | "SỬA_ĐIỂM" | "LƯU_NHÁP" | "CHỐT_NỘP" | "MỞ_KHÓA" | "PHÚC_KHẢO";
+  action: "NẠP_MỚI" | "SỬA_ĐIỂM" | "LƯU_NHÁP" | "CHỐT_NỘP" | "MỞ_KHÓA" | "PHÚC_KHẢO" | string;
+  actor?: string;
   userEmail: string;
   userName: string;
   userRole: string;

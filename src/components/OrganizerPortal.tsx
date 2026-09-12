@@ -801,6 +801,7 @@ export const OrganizerPortal: React.FC = () => {
   const selectedAct = activities.find(a => a.id === selectedActId);
   const currentAttendance = attendance.filter(att => att.activityId === selectedActId);
   const liveMatchRule = selectedAct ? criteria.flatMap(c => c.rules).find(r => r.id === selectedAct.criteriaId) : null;
+  const realActPoints = selectedAct ? Number(selectedAct.points || 0) : 0;
   if (!orgId) {
     return (
       <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">

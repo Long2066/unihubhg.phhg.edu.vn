@@ -311,7 +311,7 @@ export const AdminPortal: React.FC = () => {
       }
     }
 
-    const userData: UserAccount = {
+    const userData: UserAccount & { password?: string } = {
       id: selectedAccId || `U_GEN_${Date.now()}`,
       username: finalUsername,
       name: accFormName.trim(),
@@ -393,7 +393,7 @@ export const AdminPortal: React.FC = () => {
     const existingAssocUser = users.find(u => isOrgRole(u.role) && (u.targetId === cleanId || u.username.toLowerCase() === finalClubUsername.toLowerCase()));
     const finalClubPassword = clubFormPassword.trim() || (existingAssocUser?.password || "123456");
 
-    const userData: UserAccount = {
+    const userData: UserAccount & { password?: string } = {
       id: existingAssocUser ? existingAssocUser.id : `U_ORG_GEN_${cleanId}`,
       username: finalClubUsername,
       name: clubFormName.trim(),

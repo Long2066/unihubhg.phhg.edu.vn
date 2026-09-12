@@ -2474,9 +2474,54 @@ assert(
   "Admin account creation drops password, targetId is unnormalized, or admin raw editor saves unnormalized classId"
 );
 
+// ==========================================
+// BATCH 57: Type Safety, Runtime Crash Defenses & Early Warning Panel Integrity
+// ==========================================
+console.log("\n--- BATCH 57: Type Safety, Runtime Crash Defenses & Early Warning Panel Integrity ---");
+
+assert(
+  adminPortalContent.includes("const userData: UserAccount & { password?: string } = {") &&
+  !rootTypesContent.includes("password?: string;"),
+  "Batch 57 Issue 1: AdminPortal scopes password property without leaking it to root UserAccount interface",
+  "AdminPortal does not type password-bearing accounts or leaks secret field into root UserAccount"
+);
+
+assert(
+  adviserPortalContent.includes("const warningsList = myClassmatesArr.filter(student => {") &&
+  adviserPortalContent.includes("notes-input-${warn.studentId}") &&
+  adviserPortalContent.includes("updateStudentProfile(warn.studentId, sObj.name, sObj.avatar || \"\", undefined, { notes: val });"),
+  "Batch 57 Issue 2: AdviserPortal must define warningsList for early warning intervention and notes sync",
+  "AdviserPortal misses warningsList definition or early warning intervention tracking"
+);
+
+assert(
+  organizerPortalContent.includes("const realActPoints = selectedAct ? Number(selectedAct.points || 0) : 0;") &&
+  organizerPortalContent.includes("Chuẩn mốc: <strong className=\"text-emerald-600\">+{realActPoints}đ</strong>") &&
+  organizerPortalContent.includes("Ban tổ chức (+{realActPoints + 2}đ)"),
+  "Batch 57 Issue 3: OrganizerPortal must define realActPoints for activity criteria and organizer bonus points",
+  "OrganizerPortal misses realActPoints or fails to display organizer role points"
+);
+
+assert(
+  trainingPortalContent.includes("AlertCircle") &&
+  trainingPortalContent.includes("<AlertCircle className=\"w-12 h-12 text-rose-500 mx-auto mb-3\" />") &&
+  facultyPortalContent.includes("classes.map((cId: string) => {"),
+  "Batch 57 Issue 4: TrainingPortal must import AlertCircle and FacultyPortal must type class IDs in lock review",
+  "TrainingPortal misses AlertCircle import or FacultyPortal untyped class mapping"
+);
+
+assert(
+  rootTypesContent.includes("sheetId?: string;") &&
+  rootTypesContent.includes("actor?: string;") &&
+  stateContent.includes("const validRole: OrganizationMember[\"role\"] =") &&
+  stateContent.includes("sObj = studentMap.get(sid) as Student;"),
+  "Batch 57 Issue 5: Types must include sheetId and actor; state must enforce member role enum and cast student map",
+  "Missing sheetId or actor on types, unvalidated member role, or uncaught student map type in state"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 56 SECURITY & INTEGRITY REGRESSION TESTS PASSED (288 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 57 SECURITY & INTEGRITY REGRESSION TESTS PASSED (293 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
@@ -2484,4 +2529,5 @@ if (failures === 0) {
   console.log("=========================================\n");
   process.exit(1);
 }
+
 
