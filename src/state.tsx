@@ -2814,6 +2814,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const submitAdviserAdjustment = (studentId: string, criteriaCategory: string, points: number, reason: string) => {
     if (!currentUser) return;
+    if (isNaN(points) || !isFinite(points)) return;
     const targetStudent = students.find(s => s.id === studentId);
     if (!targetStudent) return;
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
@@ -3744,6 +3745,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     setClassReviews(updated);
     saveToStorage("unihub_class_reviews", updated);
+
+    const classStudentIds = students.filter(s => s.classId === classId).map(s => s.id);
+    const updatedResults = results.map(res => {
+      if (classStudentIds.includes(res.studentId)) {
+        return {
+          ...res,
+          status: "APPROVED_ADMIN" as const
+        };
+      }
+      return res;
+    });
+    setResults(updatedResults);
+    saveToStorage("unihub_results", updatedResults);
   };
 
   const createClubWithAccount = (club: Organization, account: UserAccount) => {
@@ -4207,6 +4221,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const adjustStudentScoreSpecific = (studentId: string, category: string, points: number, reason: string) => {
     if (!currentUser) return;
+    if (isNaN(points) || !isFinite(points)) return;
     const targetStudent = students.find(s => s.id === studentId);
     if (!targetStudent) return;
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
@@ -4239,13 +4254,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         else if (totalPoints >= 30) grade = "YẾU";
         else grade = "KÉM";
 
+        const adjusterSource = currentUser.role === UserRole.ADVISER ? "GV_ĐIỀU_CHỈNH" : currentUser.role === UserRole.ADMIN ? "ADMIN" : "BCS_DUYỆT";
         const updatedLogs = [
           ...res.logs,
           {
             criteriaId: "ADJUST_MANUAL",
             points,
             reason: `Hiệu chỉnh [${category}]: ${reason}`,
-            source: "BCS_DUYỆT" as const,
+            source: adjusterSource as any,
             timestamp: new Date().toISOString().split("T")[0]
           }
         ];

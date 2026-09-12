@@ -1002,9 +1002,42 @@ assert(
   "FacultyPortal contains unimported AlertTriangle JSX tag causing runtime crash"
 );
 
+// ==========================================
+// BATCH 24: Score Adjustment Sanitization & Admin Approval Status Synchronization
+// ==========================================
+console.log("\n--- BATCH 24: Score Adjustment Sanitization & Admin Approval Status Synchronization ---");
+
+assert(
+  stateContent.includes("submitAdviserAdjustment = (studentId: string, criteriaCategory: string, points: number, reason: string)") &&
+  stateContent.includes("if (isNaN(points) || !isFinite(points)) return;"),
+  "Batch 24 Issue 1: submitAdviserAdjustment must validate that points is a valid finite number",
+  "submitAdviserAdjustment does not validate points against NaN or non-finite inputs"
+);
+
+assert(
+  stateContent.includes("adjustStudentScoreSpecific = (studentId: string, category: string, points: number, reason: string)") &&
+  stateContent.includes("if (isNaN(points) || !isFinite(points)) return;"),
+  "Batch 24 Issue 2: adjustStudentScoreSpecific must validate that points is a valid finite number",
+  "adjustStudentScoreSpecific does not validate points against NaN or non-finite inputs"
+);
+
+assert(
+  stateContent.includes("const adjusterSource = currentUser.role === UserRole.ADVISER ? \"GV_ĐIỀU_CHỈNH\" : currentUser.role === UserRole.ADMIN ? \"ADMIN\" : \"BCS_DUYỆT\";") &&
+  stateContent.includes("source: adjusterSource as any"),
+  "Batch 24 Issue 3: adjustStudentScoreSpecific must dynamically attribute adjustment log source to caller role",
+  "adjustStudentScoreSpecific always hardcodes BCS_DUYỆT source even when called by adviser or admin"
+);
+
+assert(
+  stateContent.includes("approveAdminScores = (classId: string, comment: string)") &&
+  stateContent.includes("status: \"APPROVED_ADMIN\" as const"),
+  "Batch 24 Issue 4: approveAdminScores must update student evaluation results in class to APPROVED_ADMIN status",
+  "approveAdminScores does not synchronize evaluation result status to APPROVED_ADMIN"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 23 SECURITY & INTEGRITY REGRESSION TESTS PASSED (110 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 24 SECURITY & INTEGRITY REGRESSION TESTS PASSED (114 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
