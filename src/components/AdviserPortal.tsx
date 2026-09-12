@@ -285,7 +285,11 @@ export const AdviserPortal: React.FC = () => {
 
     const csvContent = [
       headers.join(","),
-      ...rows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))
+      ...rows.map(row => row.map(val => {
+        const s = String(val ?? "");
+        const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+        return `"${safe.replace(/"/g, '""')}"`;
+      }).join(","))
     ].join("\n");
 
     const BOM = "\uFEFF";

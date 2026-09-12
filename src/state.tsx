@@ -1724,19 +1724,27 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         logs.push({ criteriaId: "TC2.2", points: rule2pt, reason: "Vi phạm quy chế nợ nhiều học phần hoặc cảnh báo học lực quá thấp", source: "ĐÀO TẠO", timestamp: timestampNow });
       }
 
-      // Let's model manual classroom tardiness reports from class monitor or teachers
-      const subbedTardiness = student.id === "SV20CN02"; // Phan Thi Binh đi học muộn
-      if (subbedTardiness) {
-        const rule1pt = getRulePoints("TC2", "TC2.1", -2);
-        violationPoints = Math.max(0, violationPoints + rule1pt);
-        logs.push({ criteriaId: "TC2.1", points: rule1pt, reason: "Báo cáo nề nếp lớp: Đi học muộn quá thời gian quy định", source: "ĐÀO TẠO", timestamp: timestampNow });
-      }
-
       // Dynamic Daily Attendance: Deduct 2 points for every unexcused absence ("KHÔNG_PHÉP")
       const unexcusedReportCount = dailyAttendance.filter(rep => 
         rep.classId === student.classId && 
         rep.absentees.some(abs => abs.studentId === student.id && abs.type === "KHÔNG_PHÉP")
       ).length;
+
+      // Dynamic classroom tardiness reports from daily attendance and group attendance
+      const tardinessCount = dailyAttendance.filter(rep => 
+        rep.classId === student.classId && 
+        rep.absentees.some(abs => abs.studentId === student.id && abs.reason && /muộn|trễ|tard/i.test(abs.reason))
+      ).length + groupAttendances.filter(ga => 
+        ga.classId === student.classId && 
+        ga.status === "APPROVED" && 
+        ga.absentees.some(abs => abs.studentId === student.id && abs.reason && /muộn|trễ|tard/i.test(abs.reason))
+      ).length;
+
+      if (tardinessCount > 0) {
+        const rule1pt = getRulePoints("TC2", "TC2.1", -2) * tardinessCount;
+        violationPoints = Math.max(0, violationPoints + rule1pt);
+        logs.push({ criteriaId: "TC2.1", points: rule1pt, reason: `Báo cáo nề nếp lớp: Đi học muộn quá thời gian quy định (${tardinessCount} lần)`, source: "ĐÀO TẠO", timestamp: timestampNow });
+      }
 
       if (unexcusedReportCount > 0) {
         const loss = unexcusedReportCount * -2;
@@ -1765,22 +1773,40 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         logs.push({ criteriaId: "TC3.3", points: activeOrgPt, reason: `Là thành viên tích cực: ${orgNames}`, source: "CLB_ATTENDANCE", timestamp: timestampNow });
       }
 
-      // Attended events points
+      // 4. TC4: Ý thức công dân, cộng đồng (Max 15 XP)
+      let communityPoints = 0;
+      const maxTC4 = criteria.find(c => c.id === "TC4")?.maxScore || 15;
+
+      // Attended events points (categorized dynamically between TC3 and TC4)
       const attendedEvents = attendance.filter(a => a.studentId === student.id && a.attended && a.verified);
       attendedEvents.forEach(att => {
         const act = activities.find(act => act.id === att.activityId);
         if (act) {
-          const scoreIncrement = att.role === "BTC" 
-            ? getRulePoints("TC3", "TC3.2", 8) 
-            : (att.role === "SUPPORTER" ? 6 : getRulePoints("TC3", "TC3.1", 5));
-          extracurricularPoints += scoreIncrement;
-          logs.push({ 
-            criteriaId: act.criteriaId, 
-            points: scoreIncrement, 
-            reason: `Tham gia hoạt động: "${act.title}" (${att.role === "BTC" ? "Ban tổ chức" : (att.role === "SUPPORTER" ? "Ban hỗ trợ" : "Thành viên")})`, 
-            source: "CLB_ATTENDANCE", 
-            timestamp: timestampNow 
-          });
+          const isCommunityAct = act.criteriaId === "TC4" || act.criteriaId.startsWith("TC4.");
+          const scoreIncrement = isCommunityAct
+            ? (act.points || getRulePoints("TC4", "TC4.1", 10))
+            : (att.role === "BTC" 
+                ? getRulePoints("TC3", "TC3.2", 8) 
+                : (att.role === "SUPPORTER" ? 6 : getRulePoints("TC3", "TC3.1", 5)));
+          if (isCommunityAct) {
+            communityPoints += scoreIncrement;
+            logs.push({ 
+              criteriaId: act.criteriaId, 
+              points: scoreIncrement, 
+              reason: `Tham gia hoạt động cộng đồng / tình nguyện: "${act.title}"`, 
+              source: "CLB_ATTENDANCE", 
+              timestamp: timestampNow 
+            });
+          } else {
+            extracurricularPoints += scoreIncrement;
+            logs.push({ 
+              criteriaId: act.criteriaId, 
+              points: scoreIncrement, 
+              reason: `Tham gia hoạt động: "${act.title}" (${att.role === "BTC" ? "Ban tổ chức" : (att.role === "SUPPORTER" ? "Ban hỗ trợ" : "Thành viên")})`, 
+              source: "CLB_ATTENDANCE", 
+              timestamp: timestampNow 
+            });
+          }
         }
       });
       // Check Approved Evidence Submissions for extracurricular activity (TC3)
@@ -1796,10 +1822,6 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
       });
       extracurricularPoints = Math.min(maxTC3, extracurricularPoints);
-
-      // 4. TC4: Ý thức công dân, cộng đồng (Max 15 XP)
-      let communityPoints = 0;
-      const maxTC4 = criteria.find(c => c.id === "TC4")?.maxScore || 15;
       
       // Check Approved Evidence Submissions for community activity (TC4)
       const approvedTC4Evs = evidence.filter(e => e.status === "APPROVED" && e.studentId === student.id && (e.criteriaId === "TC4" || e.criteriaId.startsWith("TC4.")));
@@ -1814,11 +1836,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
       });
 
-      // Default class monitor activity (TC4.2)
-      // If student is Triet (SV20CN03) or An (DTG245140202053 with blood donation completed via standard list)
-      const hasBloodDonation = attendance.some(a => a.studentId === student.id && a.activityId === "ACT_02" && a.attended && a.verified);
-      // If student has completed active class clean duty
-      const hasCleanDuty = student.id === "DTG245140202053" || student.id === "SV20CN02" || student.id === "SV20CN03" || student.id === "SV20NL01";
+      // Default class monitor activity (TC4.2): Active class clean duty & self-governance
+      const hasCleanDuty = unexcusedReportCount === 0 && tardinessCount === 0;
       if (hasCleanDuty) {
         const cleanPt = getRulePoints("TC4", "TC4.2", 5);
         communityPoints += cleanPt;
@@ -1832,7 +1851,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const maxTC5 = criteria.find(c => c.id === "TC5")?.maxScore || 10;
       
       // Class monitor bonus
-      const isMonitor = users.some(u => u.role === UserRole.CLASS_MONITOR && (u.username === student.id || u.targetId === student.classId)) || student.id === "SV20CN03" || student.id === "SV20NL01";
+      const isMonitor = users.some(u => u.role === UserRole.CLASS_MONITOR && (u.username === student.id || u.targetId === student.classId));
       if (isMonitor) {
         const monitorPt = getRulePoints("TC5", "TC5.1", 10);
         achievementPoints += monitorPt;

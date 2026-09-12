@@ -1645,10 +1645,37 @@ assert(
   "Batch 34 Issue 3: updateStudentProfile must sanitize student name and dangerous avatar protocols",
   "updateStudentProfile allows unsafe avatar URIs or empty names"
 );
+// ==========================================
+// BATCH 35: Dynamic Conduct Points, Student ID De-hardcoding & CSV Formula Injection Protection
+// ==========================================
+console.log("\n--- BATCH 35: Dynamic Conduct Evaluation, ID De-hardcoding & CSV Injection Defense ---");
+
+assert(
+  !stateContent.includes('const subbedTardiness = student.id === "SV20CN02";') &&
+  stateContent.includes("const tardinessCount = dailyAttendance.filter(rep =>") &&
+  stateContent.includes("if (tardinessCount > 0) {"),
+  "Batch 35 Issue 1: computeConductPoints must dynamically calculate tardiness and eliminate hardcoded SV20CN02",
+  "computeConductPoints contains hardcoded SV20CN02 tardiness mock"
+);
+
+assert(
+  !stateContent.includes('const hasCleanDuty = student.id === "DTG245140202053"') &&
+  !stateContent.includes('|| student.id === "SV20CN03" || student.id === "SV20NL01";') &&
+  stateContent.includes("const hasCleanDuty = unexcusedReportCount === 0 && tardinessCount === 0;") &&
+  stateContent.includes("const isCommunityAct = act.criteriaId === \"TC4\" || act.criteriaId.startsWith(\"TC4.\");"),
+  "Batch 35 Issue 2: computeConductPoints must dynamically evaluate community activities and clean duty without hardcoded student IDs",
+  "computeConductPoints contains hardcoded student IDs for clean duty or monitor role"
+);
+
+assert(
+  adviserPortalContent.includes("const safe = /^[=+\\-@\\t\\r]/.test(s) ? `'${s}` : s;"),
+  "Batch 35 Issue 3: AdviserPortal CSV export must sanitize cells against CSV / formula injection",
+  "AdviserPortal CSV export does not sanitize formula injection characters"
+);
 
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 34 SECURITY & INTEGRITY REGRESSION TESTS PASSED (189 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 35 SECURITY & INTEGRITY REGRESSION TESTS PASSED (192 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
