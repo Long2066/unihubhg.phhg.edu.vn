@@ -641,10 +641,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to import teacher assignments");
       return;
     }
+    const validItems = (newAssignments || []).filter(a => a && a.classId && a.subjectCode && a.semesterId).map(a => ({
+      ...a,
+      classId: normalizeClassId(a.classId),
+      subjectCode: a.subjectCode.trim(),
+      credits: Math.max(1, Math.min(20, Math.round(Number(a.credits) || 3)))
+    }));
+
     setTeacherAssignments(prev => {
       const merged = [...prev];
-      newAssignments.forEach(item => {
-        const idx = merged.findIndex(a => a.semesterId === item.semesterId && a.classId === item.classId && a.subjectCode === item.subjectCode);
+      validItems.forEach(item => {
+        const idx = merged.findIndex(a => a.semesterId === item.semesterId && normalizeClassId(a.classId) === item.classId && a.subjectCode.trim().toUpperCase() === item.subjectCode.toUpperCase());
         if (idx >= 0) {
           merged[idx] = item;
         } else {
@@ -652,10 +659,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       });
       localStorage.setItem("unihub_teacher_assignments", JSON.stringify(merged));
-      persistTeacherAssignmentsToFirestore(newAssignments);
+      persistTeacherAssignmentsToFirestore(validItems);
       return merged;
     });
-    provisionTeacherAccounts(newAssignments);
+    provisionTeacherAccounts(validItems);
   };
 
   const addGradeAuditLog = (log: Omit<GradeAuditLog, "id" | "timestamp">) => {
@@ -804,7 +811,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const saveSubjectGradeSheet = (sheet: SubjectGradeSheet) => {
-    if (!currentUser) return;
+    if (!currentUser || !sheet?.id || !sheet.id.trim()) return;
+    const cleanSheetId = sheet.id.trim();
     const isAcademicAdmin = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.TRAINING_DEPT;
     const isTeacher = currentUser.role === UserRole.TEACHER;
     if (!isAcademicAdmin && !isTeacher) {
@@ -812,7 +820,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    const existingSheet = subjectGradeSheets.find(s => s.id === sheet.id);
+    const existingSheet = subjectGradeSheets.find(s => s.id === cleanSheetId);
     if (isTeacher) {
       const targetTid = (existingSheet?.teacherId || sheet.teacherId || "").toLowerCase();
       if (!targetTid) {
@@ -839,10 +847,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return !isNaN(num) ? Math.max(0, Math.min(10, Math.round(num * 10) / 10)) : val;
     };
 
-    const sanitizedGrades = (sheet.grades || []).map(g => {
+    const sanitizedGrades = (sheet.grades || []).filter(g => g && g.studentId && g.studentId.trim()).map(g => {
       const safeTb4 = typeof g.tb4 === "number" ? Math.max(0, Math.min(4, Math.round(g.tb4 * 100) / 100)) : g.tb4;
       return {
         ...g,
+        studentId: g.studentId.trim(),
+        studentName: (g.studentName || "").trim(),
         cc: sanitizeGradeNum(g.cc),
         tx1: sanitizeGradeNum(g.tx1),
         tx2: sanitizeGradeNum(g.tx2),
@@ -857,6 +867,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const safeSheet: SubjectGradeSheet = {
       ...sheet,
+      id: cleanSheetId,
+      classId: normalizeClassId(sheet.classId),
       teacherId: (isTeacher && !isAcademicAdmin && existingSheet) ? existingSheet.teacherId : sheet.teacherId,
       status: (isAcademicAdmin || !existingSheet) ? sheet.status : existingSheet.status,
       grades: sanitizedGrades,
@@ -864,7 +876,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     setSubjectGradeSheets(prev => {
-      const idx = prev.findIndex(s => s.id === sheet.id);
+      const idx = prev.findIndex(s => s.id === cleanSheetId);
       let next: SubjectGradeSheet[];
       if (idx >= 0) {
         next = [...prev];
@@ -2763,18 +2775,26 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ? membersToImport
       : membersToImport.filter(m => m.orgId === effectiveOrgId);
 
-    const cleanMembers = validMembers.map(m => {
-      const targetOrg = (currentUser.role === UserRole.ADMIN && m.orgId) ? m.orgId : effectiveOrgId!;
-      return {
-        ...m,
-        id: m.id || `M_IMP_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        orgId: targetOrg,
-        role: m.role || "THÀNH VIÊN",
-        status: (m.status === "ACTIVE" || m.status === "PENDING") ? m.status : "ACTIVE",
-        joinedDate: m.joinedDate || new Date().toISOString().split("T")[0],
-        term: m.term || period.academicYear
-      };
-    });
+    const cleanMembers = validMembers
+      .map(m => {
+        const cleanStudentId = (m.studentId || "").trim();
+        const targetStudent = students.find(s => s.id === cleanStudentId);
+        if (!cleanStudentId || !targetStudent) return null;
+        const targetOrg = (currentUser.role === UserRole.ADMIN && m.orgId) ? m.orgId.trim() : effectiveOrgId!;
+        return {
+          ...m,
+          id: m.id?.trim() || `M_IMP_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          studentId: cleanStudentId,
+          studentName: currentUser.role === UserRole.ADMIN && m.studentName?.trim() ? m.studentName.trim() : targetStudent.name,
+          classId: normalizeClassId(currentUser.role === UserRole.ADMIN && m.classId?.trim() ? m.classId.trim() : targetStudent.classId),
+          orgId: targetOrg,
+          role: m.role?.trim() || "THÀNH VIÊN",
+          status: (m.status === "ACTIVE" || m.status === "PENDING") ? m.status : "ACTIVE",
+          joinedDate: m.joinedDate?.trim() || new Date().toISOString().split("T")[0],
+          term: m.term?.trim() || period.academicYear
+        };
+      })
+      .filter((m): m is OrganizationMember => m !== null);
 
     const existingKeys = new Set(members.map(m => `${m.orgId}_${m.studentId}`));
     const deduplicatedMembers: OrganizationMember[] = [];
@@ -2796,15 +2816,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to approve organization member");
       return;
     }
-    const member = members.find(m => m.id === memberId);
-    if (!member) return;
+    const cleanMemberId = (memberId || "").trim();
+    if (!cleanMemberId) return;
+    const member = members.find(m => m.id === cleanMemberId);
+    if (!member || member.status !== "PENDING") return;
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
     if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || member.orgId !== effectiveOrgId)) {
       console.warn("Unauthorized attempt to approve member of another organization");
       return;
     }
     const updated = members.map(m => {
-      if (m.id === memberId) {
+      if (m.id === cleanMemberId) {
         return { ...m, status: "ACTIVE" as const };
       }
       return m;
@@ -2818,14 +2840,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to reject organization member");
       return;
     }
-    const member = members.find(m => m.id === memberId);
-    if (!member) return;
+    const cleanMemberId = (memberId || "").trim();
+    if (!cleanMemberId) return;
+    const member = members.find(m => m.id === cleanMemberId);
+    if (!member || member.status !== "PENDING") return;
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
     if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || member.orgId !== effectiveOrgId)) {
       console.warn("Unauthorized attempt to reject member of another organization");
       return;
     }
-    const updated = members.filter(m => m.id !== memberId);
+    const updated = members.filter(m => m.id !== cleanMemberId);
     setMembers(updated);
     saveToStorage("unihub_members", updated);
   };

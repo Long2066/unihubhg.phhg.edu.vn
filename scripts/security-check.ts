@@ -2057,9 +2057,46 @@ assert(
   "updateMemberDetails allows altering student names arbitrarily"
 );
 
+// ==========================================
+// BATCH 46: Member Import Sanitization, Status Guards, Assignment Normalization & Class Isolation
+// ==========================================
+console.log("\n--- BATCH 46: Member Import Sanitization, Status Guards, Assignment Normalization & Class Isolation ---");
+
+assert(
+  stateContent.includes("const cleanStudentId = (m.studentId || \"\").trim();\n        const targetStudent = students.find(s => s.id === cleanStudentId);\n        if (!cleanStudentId || !targetStudent) return null;") &&
+  stateContent.includes("studentName: currentUser.role === UserRole.ADMIN && m.studentName?.trim() ? m.studentName.trim() : targetStudent.name,") &&
+  stateContent.includes("classId: normalizeClassId(currentUser.role === UserRole.ADMIN && m.classId?.trim() ? m.classId.trim() : targetStudent.classId),"),
+  "Batch 46 Issue 1: importMembersExcel must reject phantom students and protect member name & class integrity",
+  "importMembersExcel allows phantom students or unverified student names"
+);
+
+assert(
+  stateContent.includes("const cleanMemberId = (memberId || \"\").trim();\n    if (!cleanMemberId) return;\n    const member = members.find(m => m.id === cleanMemberId);\n    if (!member || member.status !== \"PENDING\") return;") &&
+  stateContent.includes("if (m.id === cleanMemberId) {\n        return { ...m, status: \"ACTIVE\" as const };"),
+  "Batch 46 Issue 2: approveMemberRequest and rejectMemberRequest must validate clean ID and require PENDING status",
+  "approveMemberRequest or rejectMemberRequest allows processing non-pending or uncleaned member IDs"
+);
+
+assert(
+  stateContent.includes("const validItems = (newAssignments || []).filter(a => a && a.classId && a.subjectCode && a.semesterId).map(a => ({\n      ...a,\n      classId: normalizeClassId(a.classId),\n      subjectCode: a.subjectCode.trim(),\n      credits: Math.max(1, Math.min(20, Math.round(Number(a.credits) || 3)))\n    }));") &&
+  stateContent.includes("if (!currentUser || !sheet?.id || !sheet.id.trim()) return;\n    const cleanSheetId = sheet.id.trim();") &&
+  stateContent.includes("classId: normalizeClassId(sheet.classId),"),
+  "Batch 46 Issue 3: importTeacherAssignmentsExcel and saveSubjectGradeSheet must normalize classId, clamp credits, and validate sheet ID",
+  "Teacher assignments or grade sheets allow unnormalized class IDs or invalid sheet IDs"
+);
+
+assert(
+  adviserPortalContent.includes("const normClassId = normalizeClassId(classId);\n  const classReviewInfo = classReviews.find(cr => normalizeClassId(cr.classId) === normClassId);\n  const myClassResults = results.filter(r => normalizeClassId(r.classId) === normClassId && r.periodId === selectedSemesterId);\n  const myClassmatesArr = students.filter(s => normalizeClassId(s.classId) === normClassId);") &&
+  adviserPortalContent.includes("const classAttendances = dailyAttendance.filter(da => normalizeClassId(da.classId) === normClassId);") &&
+  studentPortalContent.includes("value={sObj?.classId || \"Chưa phân lớp\"}") &&
+  trainingPortalContent.includes("const normClassId = normalizeClassId(assignForm.classId.trim());\n    const cleanSubCode = assignForm.subjectCode.trim();\n    const assignmentId = `HP_${selectedSemesterId}_${normClassId}_${cleanSubCode}`;"),
+  "Batch 46 Issue 4: AdviserPortal, StudentPortal, and TrainingPortal must eliminate hardcoded fallbacks and enforce normalized class boundaries",
+  "Portals use raw classId comparisons or hardcoded class fallbacks"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 45 SECURITY & INTEGRITY REGRESSION TESTS PASSED (240 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 46 SECURITY & INTEGRITY REGRESSION TESTS PASSED (244 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

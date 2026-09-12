@@ -2416,7 +2416,7 @@ export const StudentPortal: React.FC = () => {
                                           <input 
                                             type="text" 
                                             disabled
-                                            value={sObj?.classId || "K2-GDTH A"}
+                                            value={sObj?.classId || "Chưa phân lớp"}
                                             className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-slate-100 text-slate-450"
                                           />
                                         </div>

@@ -72,9 +72,10 @@ export const AdviserPortal: React.FC = () => {
   }
 
   // Filter class reviews
-  const classReviewInfo = classReviews.find(cr => cr.classId === classId);
-  const myClassResults = results.filter(r => r.classId === classId && r.periodId === selectedSemesterId);
-  const myClassmatesArr = students.filter(s => s.classId === classId);
+  const normClassId = normalizeClassId(classId);
+  const classReviewInfo = classReviews.find(cr => normalizeClassId(cr.classId) === normClassId);
+  const myClassResults = results.filter(r => normalizeClassId(r.classId) === normClassId && r.periodId === selectedSemesterId);
+  const myClassmatesArr = students.filter(s => normalizeClassId(s.classId) === normClassId);
   
   // Find evidence submissions of classmates
   const classStudentIds = myClassmatesArr.map(s => s.id);
@@ -136,7 +137,7 @@ export const AdviserPortal: React.FC = () => {
   // Helper for unexcused absences
   const getUnexcusedAbsencesCount = (studentId: string) => {
     let count = 0;
-    const classAttendances = dailyAttendance.filter(da => da.classId === classId);
+    const classAttendances = dailyAttendance.filter(da => normalizeClassId(da.classId) === normClassId);
     classAttendances.forEach(ca => {
       ca.absentees.forEach(abs => {
         if (abs.studentId === studentId && abs.type === "KHÔNG_PHÉP") {

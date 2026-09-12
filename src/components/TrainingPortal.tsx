@@ -574,12 +574,14 @@ export const TrainingPortal: React.FC = () => {
     e.preventDefault();
     if (!assignForm.classId || !assignForm.subjectCode || !assignForm.subjectName) return;
 
-    const assignmentId = `HP_${selectedSemesterId}_${assignForm.classId.trim()}_${assignForm.subjectCode.trim()}`;
+    const normClassId = normalizeClassId(assignForm.classId.trim());
+    const cleanSubCode = assignForm.subjectCode.trim();
+    const assignmentId = `HP_${selectedSemesterId}_${normClassId}_${cleanSubCode}`;
     const newAssignment: CourseClassAssignment = {
       id: assignmentId,
       semesterId: selectedSemesterId,
-      classId: assignForm.classId.trim(),
-      subjectCode: assignForm.subjectCode.trim(),
+      classId: normClassId,
+      subjectCode: cleanSubCode,
       subjectName: assignForm.subjectName.trim(),
       credits: Math.max(1, Math.min(20, Math.round(Number(assignForm.credits) || 3))),
       teacherId: assignForm.teacherId.trim(),
