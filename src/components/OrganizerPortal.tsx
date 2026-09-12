@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
-import { useUniHub } from "../state";
+import { useUniHub, normalizeClassId } from "../state";
 import { motion } from "motion/react";
 import { 
   Users, 
@@ -317,7 +317,7 @@ export const OrganizerPortal: React.FC = () => {
     addMemberManual({
       studentId: manualStudentId,
       studentName: manualName,
-      classId: manualClass,
+      classId: normalizeClassId(manualClass),
       orgId: org?.id || orgId,
       role: manualRole,
       gender: manualGender,
@@ -596,7 +596,7 @@ export const OrganizerPortal: React.FC = () => {
               id: `M_IMP_${Date.now()}_${i}`,
               studentId: cleanStudentId,
               studentName: csvStudentName || "Học sinh nhập",
-              classId: csvClassId,
+              classId: normalizeClassId(csvClassId),
               orgId: org?.id || orgId,
               role: (cleanText(getColValRaw(row, roleIdx, 10)) as any) || "THÀNH VIÊN",
               joinedDate: formatDate(getColValRaw(row, joinedDateIdx, 11)) || new Date().toISOString().split("T")[0],

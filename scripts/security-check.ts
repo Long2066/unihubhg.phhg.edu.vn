@@ -2158,9 +2158,41 @@ assert(
   "TrainingPortal schedule class filter uses raw string equality"
 );
 
+// ==========================================
+// BATCH 49: Admin Portal Class Scoping, Faculty Portal Review Matching & Organizer Class Normalization
+// ==========================================
+console.log("\n--- BATCH 49: Admin Portal Class Scoping, Faculty Portal Review Matching & Organizer Class Normalization ---");
+
+assert(
+  adminPortalContent.includes("if (accFormRole === UserRole.CLASS_MONITOR || accFormRole === UserRole.ADVISER) {\n      if (resolvedTargetId) {\n        resolvedTargetId = normalizeClassId(resolvedTargetId);\n      }\n    }"),
+  "Batch 49 Issue 1: AdminPortal handleSaveAccount must normalize targetId for CLASS_MONITOR and ADVISER",
+  "AdminPortal saves unnormalized classId as targetId for class officers or advisers"
+);
+
+assert(
+  adminPortalContent.includes("const availableClasses = Array.from(new Set([...students.map(s => s.classId), ...(customClasses || [])].map(c => normalizeClassId(c)).filter(Boolean))).sort();") &&
+  adminPortalContent.includes(".filter(s => normalizeClassId(s.classId) === normalizeClassId(selectedClassIdForForm))"),
+  "Batch 49 Issue 2: AdminPortal account modal must include customClasses in availableClasses and normalize student class matching",
+  "AdminPortal account modal ignores customClasses or fails to normalize class matching"
+);
+
+assert(
+  facultyPortalContent.includes("const classes = Array.from(new Set(facultyStudents.map(s => normalizeClassId(s.classId))));") &&
+  facultyPortalContent.includes("const rev = classReviews.find(r => normalizeClassId(r.classId) === normalizeClassId(cId));"),
+  "Batch 49 Issue 3: FacultyPortal must group faculty classes and match class review lock progress with normalized class IDs",
+  "FacultyPortal uses raw classId strings causing review progress mismatch"
+);
+
+assert(
+  organizerPortalContent.includes("classId: normalizeClassId(manualClass),") &&
+  organizerPortalContent.includes("classId: normalizeClassId(csvClassId),"),
+  "Batch 49 Issue 4: OrganizerPortal manual and Excel member registration must normalize classId",
+  "OrganizerPortal allows unnormalized classId in manual or Excel member additions"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 48 SECURITY & INTEGRITY REGRESSION TESTS PASSED (252 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 49 SECURITY & INTEGRITY REGRESSION TESTS PASSED (256 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

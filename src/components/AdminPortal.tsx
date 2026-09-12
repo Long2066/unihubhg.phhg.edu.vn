@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useUniHub } from "../state";
+import { useUniHub, normalizeClassId } from "../state";
 import { SEED_USERS } from "../data";
 import { UserRole, isOrgRole, UserAccount, Organization } from "../types";
 import { 
@@ -44,6 +44,7 @@ export const AdminPortal: React.FC = () => {
     students,
     organizations,
     users,
+    customClasses,
     createClubWithAccount,
     updateClubAndAccount,
     deleteClubAndAccount,
@@ -237,7 +238,7 @@ export const AdminPortal: React.FC = () => {
         setSelectedClassIdForForm(studentObj.classId);
       }
     } else if (user.role === UserRole.CLASS_MONITOR || user.role === UserRole.ADVISER) {
-      setSelectedClassIdForForm(user.targetId || "");
+      setSelectedClassIdForForm(user.targetId ? normalizeClassId(user.targetId) : "");
     } else if (user.role === UserRole.FACULTY) {
       setSelectedFacultyIdForForm(user.targetId || "");
     }
@@ -290,6 +291,12 @@ export const AdminPortal: React.FC = () => {
         finalUsername = `${finalUsername}@phhg.edu.vn`;
       }
       finalEmail = finalUsername;
+    }
+
+    if (accFormRole === UserRole.CLASS_MONITOR || accFormRole === UserRole.ADVISER) {
+      if (resolvedTargetId) {
+        resolvedTargetId = normalizeClassId(resolvedTargetId);
+      }
     }
 
     if (!resolvedTargetId) {
@@ -2347,7 +2354,7 @@ export const AdminPortal: React.FC = () => {
 
       {/* SYSTEM ACCOUNT MODAL (ADD / EDIT) */}
       {showAccountModal && (() => {
-        const availableClasses = Array.from(new Set(students.map(s => s.classId))).filter(Boolean).sort();
+        const availableClasses = Array.from(new Set([...students.map(s => s.classId), ...(customClasses || [])].map(c => normalizeClassId(c)).filter(Boolean))).sort();
         const availableFaculties = Array.from(new Set(students.map(s => s.facultyId))).filter(Boolean).sort();
         
         return (
@@ -2460,7 +2467,7 @@ export const AdminPortal: React.FC = () => {
                         >
                           <option value="">-- Chọn Sinh viên --</option>
                           {students
-                            .filter(s => s.classId === selectedClassIdForForm)
+                            .filter(s => normalizeClassId(s.classId) === normalizeClassId(selectedClassIdForForm))
                             .map(s => (
                               <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
                             ))}
@@ -2477,15 +2484,16 @@ export const AdminPortal: React.FC = () => {
                       value={selectedClassIdForForm}
                       onChange={(e) => {
                         const cls = e.target.value;
-                        setSelectedClassIdForForm(cls);
-                        setAccFormTargetId(cls);
-                        const cleanCls = cls.toLowerCase().replace(/[^a-z0-9]/g, "");
+                        const normCls = normalizeClassId(cls);
+                        setSelectedClassIdForForm(normCls);
+                        setAccFormTargetId(normCls);
+                        const cleanCls = normCls.toLowerCase().replace(/[^a-z0-9]/g, "");
                         if (accFormRole === UserRole.CLASS_MONITOR) {
                           setAccFormUsername(`bcs.${cleanCls}@phhg.edu.vn`);
-                          setAccFormName(`Ban Cán sự Lớp ${cls}`);
+                          setAccFormName(`Ban Cán sự Lớp ${normCls}`);
                         } else if (accFormRole === UserRole.ADVISER) {
                           setAccFormUsername(`gvcn.${cleanCls}@phhg.edu.vn`);
-                          setAccFormName(`Cố vấn học tập Lớp ${cls}`);
+                          setAccFormName(`Cố vấn học tập Lớp ${normCls}`);
                         }
                       }}
                       className="w-full px-2.5 py-1.5 border border-slate-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg font-sans"

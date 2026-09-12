@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useUniHub } from "../state";
+import { useUniHub, normalizeClassId } from "../state";
 import { UserRole } from "../types";
 import { 
   Building2, 
@@ -81,7 +81,7 @@ export const FacultyPortal: React.FC = () => {
   const yeuCount = countByGrade("YẾU") + countByGrade("KÉM");
 
   // Group classes under faculty
-  const classes = Array.from(new Set(facultyStudents.map(s => s.classId)));
+  const classes = Array.from(new Set(facultyStudents.map(s => normalizeClassId(s.classId))));
 
   const facultyNameMap: Record<string, string> = {
     "K-CNTT": "Khoa Công nghệ thông tin",
@@ -313,7 +313,7 @@ export const FacultyPortal: React.FC = () => {
             
             <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden shadow-xs">
               {classes.map(cId => {
-                const rev = classReviews.find(r => r.classId === cId);
+                const rev = classReviews.find(r => normalizeClassId(r.classId) === normalizeClassId(cId));
                 const isBCS = !!rev?.representativeApproved;
                 const isGVCN = !!rev?.adviserApproved;
                 
