@@ -739,7 +739,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const cleanSemesterId = (semesterId || "").trim();
     if (!cleanSemesterId) return { updatedCount: 0, warningsCount: 0 };
 
-    const validSheets = subjectGradeSheets.filter(s => s.semesterId === cleanSemesterId && (s.status === "SUBMITTED" || s.status === "LOCKED"));
+    let sheetsToUse = subjectGradeSheets;
+    try {
+      const stored = localStorage.getItem("unihub_subject_grade_sheets");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) sheetsToUse = parsed;
+      }
+    } catch {}
+
+    const validSheets = sheetsToUse.filter(s => s.semesterId === cleanSemesterId && (s.status === "SUBMITTED" || s.status === "LOCKED"));
 
     let updatedCount = 0;
     let warningsCount = 0;
@@ -1246,6 +1255,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (status === "UPDATED" && newGrade) {
       const parsedNum = parseFloat(newGrade.trim());
       if (!isNaN(parsedNum) && parsedNum >= 0 && parsedNum <= 10) {
+        let resolvedSheetsList: SubjectGradeSheet[] = [];
         setSubjectGradeSheets(prevSheets => {
           const nextSheets = prevSheets.map(sheet => {
             const isTargetSheet = appeal.sheetId 
@@ -1286,6 +1296,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             }
             return sheet;
           });
+          resolvedSheetsList = nextSheets;
           localStorage.setItem("unihub_subject_grade_sheets", JSON.stringify(nextSheets));
           saveToFirestore("unihub_subject_grade_sheets", nextSheets);
           return nextSheets;
@@ -4123,6 +4134,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to clear schedules");
       return;
     }
+    schedules.forEach(s => {
+      if (db && s.id) deleteDoc(doc(db, "schedules", s.id)).catch(() => {});
+    });
     setSchedules([]);
     saveToStorage("unihub_schedules", []);
   };
@@ -4708,6 +4722,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     if (userToDelete && userToDelete.role === UserRole.TEACHER) {
+      teacherAssignments.filter(ta => ta.teacherId === userId || ta.teacherId === userToDelete.username || ta.teacherName === userToDelete.name).forEach(ta => {
+        if (db && ta.id) deleteDoc(doc(db, "teacherAssignments", ta.id)).catch(() => {});
+      });
       setTeacherAssignments(prev => {
         const updated = prev.filter(ta => ta.teacherId !== userId && ta.teacherId !== userToDelete.username);
         saveToStorage("unihub_teacher_assignments", updated);
@@ -4943,10 +4960,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setResults(updatedResults);
     saveToStorage("unihub_results", updatedResults);
 
+    schedules.filter(sch => normalizeClassId(sch.classId) === norm).forEach(sch => {
+      if (db && sch.id) deleteDoc(doc(db, "schedules", sch.id)).catch(() => {});
+    });
     const updatedSchedules = schedules.filter(sch => normalizeClassId(sch.classId) !== norm);
     setSchedules(updatedSchedules);
     saveToStorage("unihub_schedules", updatedSchedules);
 
+    teacherAssignments.filter(ta => normalizeClassId(ta.classId) === norm).forEach(ta => {
+      if (db && ta.id) deleteDoc(doc(db, "teacherAssignments", ta.id)).catch(() => {});
+    });
     const updatedAssignments = teacherAssignments.filter(ta => normalizeClassId(ta.classId) !== norm);
     setTeacherAssignments(updatedAssignments);
     saveToStorage("unihub_teacher_assignments", updatedAssignments);

@@ -2791,9 +2791,51 @@ assert(
   "Teacher assignments deletion only merges state leaving orphaned documents in Firestore"
 );
 
+// ==========================================
+// BATCH 64: Appeal Decimal Support, Fresh GPA Aggregation, Teacher Account Cascade Purge, Schedule/Assignment Firestore Deletion & Class Score Clamping
+// ==========================================
+console.log("\n--- BATCH 64: Appeal Decimal Support, Fresh GPA Aggregation, Teacher Account Cascade Purge, Schedule/Assignment Firestore Deletion & Class Score Clamping ---");
+
+assert(
+  teacherPortalContent.includes("parseFloat(appealNewGrade.trim().replace(\",\", \".\"));") &&
+  teacherPortalContent.includes("const clampedGrade = Math.round(parsed * 10) / 10;"),
+  "Batch 64 Issue 1: TeacherPortal resolveGradeAppeal must handle comma decimal inputs and clamp to [0, 10]",
+  "TeacherPortal truncates comma decimals when resolving grade appeals"
+);
+
+assert(
+  stateContent.includes("let sheetsToUse = subjectGradeSheets;\n    try {\n      const stored = localStorage.getItem(\"unihub_subject_grade_sheets\");") &&
+  stateContent.includes("const validSheets = sheetsToUse.filter(s => s.semesterId === cleanSemesterId && (s.status === \"SUBMITTED\" || s.status === \"LOCKED\"));"),
+  "Batch 64 Issue 2: aggregateSubjectGradesToSemesterGpa must read freshest sheets from storage to eliminate stale closure race conditions on grade recalculation",
+  "aggregateSubjectGradesToSemesterGpa computes GPA with stale closures"
+);
+
+assert(
+  stateContent.includes("teacherAssignments.filter(ta => ta.teacherId === userId || ta.teacherId === userToDelete.username || ta.teacherName === userToDelete.name).forEach(ta => {") &&
+  stateContent.includes("if (db && ta.id) deleteDoc(doc(db, \"teacherAssignments\", ta.id)).catch(() => {});"),
+  "Batch 64 Issue 3: deleteUserAccount must purge matching teacherAssignments docs from Firestore when deleting a teacher user account",
+  "deleteUserAccount only removes teacher assignments locally leaving orphaned documents in Firestore"
+);
+
+assert(
+  stateContent.includes("schedules.forEach(s => {\n      if (db && s.id) deleteDoc(doc(db, \"schedules\", s.id)).catch(() => {});\n    });") &&
+  stateContent.includes("schedules.filter(sch => normalizeClassId(sch.classId) === norm).forEach(sch => {") &&
+  stateContent.includes("teacherAssignments.filter(ta => normalizeClassId(ta.classId) === norm).forEach(ta => {"),
+  "Batch 64 Issue 4: clearSchedules and deleteClass must permanently purge schedules and teacher assignments from Firestore",
+  "clearSchedules or deleteClass leave resurrectable schedule and assignment docs in Firestore"
+);
+
+assert(
+  classPortalContent.includes("const safeAdjust = Math.max(-30, Math.min(30, adjustPoints));") &&
+  classPortalContent.includes("adjustStudentScoreSpecific(selectedDetailStudentId, adjustCategory, safeAdjust, adjustReason);") &&
+  classPortalContent.includes("alert(`Đã điều chỉnh ${safeAdjust >= 0 ? `+${safeAdjust}` : safeAdjust}đ cho sinh viên!`);"),
+  "Batch 64 Issue 5: ClassPortal must clamp manual adjustPoints to [-30, 30] before dispatching and notify exact clamped value",
+  "ClassPortal passes unconstrained adjustment points to state dispatcher"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 63 SECURITY & INTEGRITY REGRESSION TESTS PASSED (323 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 64 SECURITY & INTEGRITY REGRESSION TESTS PASSED (328 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

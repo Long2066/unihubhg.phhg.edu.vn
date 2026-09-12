@@ -2195,12 +2195,13 @@ export const TeacherPortal: React.FC = () => {
                 type="button"
                 onClick={() => {
                   if (appealActionType === "UPDATED") {
-                    const parsed = parseFloat(appealNewGrade);
+                    const parsed = parseFloat(appealNewGrade.trim().replace(",", "."));
                     if (Number.isNaN(parsed) || parsed < 0 || parsed > 10) {
                       alert("Vui lòng nhập điểm mới hợp lệ từ 0 đến 10.");
                       return;
                     }
-                    resolveGradeAppeal(selectedAppealToResolve.id, "UPDATED", String(parsed), appealResponseText.trim() || "Giảng viên đã duyệt cập nhật điểm phúc khảo.");
+                    const clampedGrade = Math.round(parsed * 10) / 10;
+                    resolveGradeAppeal(selectedAppealToResolve.id, "UPDATED", String(clampedGrade), appealResponseText.trim() || "Giảng viên đã duyệt cập nhật điểm phúc khảo.");
                   } else {
                     resolveGradeAppeal(selectedAppealToResolve.id, "REJECTED", undefined, appealResponseText.trim() || "Không chấp thuận thay đổi điểm sau khi rà soát.");
                   }

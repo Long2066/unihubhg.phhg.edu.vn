@@ -1837,8 +1837,9 @@ export const ClassPortal: React.FC = () => {
                           alert("Vui lòng điền lý do điều chỉnh điểm!");
                           return;
                         }
-                        adjustStudentScoreSpecific(selectedDetailStudentId, adjustCategory, adjustPoints, adjustReason);
-                        alert(`Đã điều chỉnh ${adjustPoints >= 0 ? `+${adjustPoints}` : adjustPoints}đ cho sinh viên!`);
+                        const safeAdjust = Math.max(-30, Math.min(30, adjustPoints));
+                        adjustStudentScoreSpecific(selectedDetailStudentId, adjustCategory, safeAdjust, adjustReason);
+                        alert(`Đã điều chỉnh ${safeAdjust >= 0 ? `+${safeAdjust}` : safeAdjust}đ cho sinh viên!`);
                         setAdjustReason("");
                       }}
                       className="w-full py-2 px-4 bg-indigo-650 hover:bg-indigo-700 text-white font-black rounded-lg text-xs cursor-pointer shadow-sm transition-colors border-0"
