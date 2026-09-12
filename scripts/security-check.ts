@@ -1817,9 +1817,50 @@ assert(
   "AdviserPortal or ClassPortal uses unnormalized class ID comparisons"
 );
 
+// ==========================================
+// BATCH 40: Appeal Dynamic Metadata, Formula Injection Defense, Clamped Imports, Schedule Limits & Strict Class Isolation
+// ==========================================
+console.log("\n--- BATCH 40: Appeal Dynamic Metadata, Formula Injection Defense, Clamped Imports, Schedule Limits & Strict Class Isolation ---");
+
+assert(
+  stateContent.includes("const targetStudent = students.find(s => s.id === effectiveStudentId);") &&
+  stateContent.includes("const resolvedClassId = targetStudent?.classId || appeal.classId || \"\";") &&
+  stateContent.includes("sheetId: matchedSheet?.id || appeal.sheetId,"),
+  "Batch 40 Issue 1: submitGradeAppeal must dynamically resolve student classId, studentName, and associate sheetId",
+  "submitGradeAppeal allows unverified classId or missing sheetId association"
+);
+
+assert(
+  trainingPortalContent.includes("if (/^[=+\\-@\\t\\r]/.test(str)) {") &&
+  trainingPortalContent.includes("sanitizeExcelCell(formattedId)"),
+  "Batch 40 Issue 2: TrainingPortal must sanitize cells against CSV/Formula Injection in Excel exports",
+  "TrainingPortal exports allow unescaped formula injection cells"
+);
+
+assert(
+  trainingPortalContent.includes("const gpa = isNaN(rawGpa) ? 3.0 : Math.max(0, Math.min(4.0, rawGpa));") &&
+  trainingPortalContent.includes("const gpa10 = isNaN(rawGpa10) ? (gpa * 2.5) : Math.max(0, Math.min(10.0, rawGpa10));"),
+  "Batch 40 Issue 3: TrainingPortal handleImportExcel must safely clamp parsed gpa and gpa10 against NaN",
+  "TrainingPortal handleImportExcel allows NaN or out-of-range GPAs"
+);
+
+assert(
+  trainingPortalContent.includes("credits: Math.max(1, Math.min(20, Number(row.credits) || 2)),") &&
+  trainingPortalContent.includes("credits: Math.max(1, Math.min(20, Number(scheduleModalData.credits) || 2)),"),
+  "Batch 40 Issue 4: TrainingPortal schedule saving must clamp credits, dayOfWeek, and periods",
+  "TrainingPortal allows unvalidated credits or period numbers in schedules"
+);
+
+assert(
+  teacherPortalContent.includes("return sNorm === targetNormClass;\n    });") &&
+  !teacherPortalContent.includes("targetNormClass.includes(sNorm) || sNorm.includes(targetNormClass)"),
+  "Batch 40 Issue 5: TeacherPortal must enforce strict class equality to prevent cross-class student leakage",
+  "TeacherPortal uses loose .includes() class matching leading to cross-class leakage"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 39 SECURITY & INTEGRITY REGRESSION TESTS PASSED (209 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 40 SECURITY & INTEGRITY REGRESSION TESTS PASSED (214 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

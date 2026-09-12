@@ -1062,9 +1062,21 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
+    const targetStudent = students.find(s => s.id === effectiveStudentId);
+    const resolvedClassId = targetStudent?.classId || appeal.classId || "";
+    const resolvedStudentName = targetStudent?.name || appeal.studentName || "Sinh viên";
+    const matchedSheet = subjectGradeSheets.find(s => 
+      s.semesterId === (appeal.semesterId || selectedSemesterId) && 
+      normalizeClassId(s.classId) === normalizeClassId(resolvedClassId) && 
+      s.subjectCode.toUpperCase() === cleanSubjectCode.toUpperCase()
+    );
+
     const newAppeal: GradeAppeal = {
       ...appeal,
       studentId: effectiveStudentId,
+      studentName: resolvedStudentName,
+      classId: resolvedClassId,
+      sheetId: matchedSheet?.id || appeal.sheetId,
       reason: cleanReason,
       id: `APPL_${Date.now()}`,
       requestedAt: new Date().toISOString().replace("T", " ").substring(0, 19),

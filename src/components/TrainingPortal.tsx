@@ -734,6 +734,16 @@ export const TrainingPortal: React.FC = () => {
       "Ngày cập nhật"
     ];
     
+    const sanitizeExcelCell = (val: any) => {
+      if (val === null || val === undefined) return "";
+      if (typeof val === "number") return val;
+      const str = String(val).trim();
+      if (/^[=+\-@\t\r]/.test(str)) {
+        return `'${str}`;
+      }
+      return str;
+    };
+    
     const data = students.map((s, idx) => {
       const semData = s.academicDataByPeriod?.[selectedSemesterId] || {};
       const subjectGrades = semData.subjectGrades ?? s.subjectGrades;
@@ -749,22 +759,22 @@ export const TrainingPortal: React.FC = () => {
 
       return [
         idx + 1,
-        s.id,
-        s.name,
-        s.gender || "Nam",
-        s.dob || "2006-01-01",
-        s.pob || "Hà Giang",
-        s.ethnicity || "Kinh",
-        s.idCard || "00120600" + (1000 + idx),
-        s.idCardDate || "2022-10-15",
-        s.idCardPlace || "Cục Cảnh sát QLHC về TTXH",
-        s.classId,
-        ...gradeCols,
+        sanitizeExcelCell(s.id),
+        sanitizeExcelCell(s.name),
+        sanitizeExcelCell(s.gender || "Nam"),
+        sanitizeExcelCell(s.dob || "2006-01-01"),
+        sanitizeExcelCell(s.pob || "Hà Giang"),
+        sanitizeExcelCell(s.ethnicity || "Kinh"),
+        sanitizeExcelCell(s.idCard || "00120600" + (1000 + idx)),
+        sanitizeExcelCell(s.idCardDate || "2022-10-15"),
+        sanitizeExcelCell(s.idCardPlace || "Cục Cảnh sát QLHC về TTXH"),
+        sanitizeExcelCell(s.classId),
+        ...gradeCols.map(sanitizeExcelCell),
         gpa10,
         gpa4,
-        academicGrade,
-        semData.notes ?? s.notes ?? "",
-        semData.updatedAt ?? s.updatedAt ?? new Date().toISOString().split("T")[0]
+        sanitizeExcelCell(academicGrade),
+        sanitizeExcelCell(semData.notes ?? s.notes ?? ""),
+        sanitizeExcelCell(semData.updatedAt ?? s.updatedAt ?? new Date().toISOString().split("T")[0])
       ];
     });
 
@@ -830,8 +840,10 @@ export const TrainingPortal: React.FC = () => {
           if (!rawId) continue;
           const id = formatStudentId(rawId);
 
-          const gpa = colIdx.gpa4 !== -1 && row[colIdx.gpa4] !== undefined ? Number(row[colIdx.gpa4]) : 3.0;
-          const gpa10 = colIdx.gpa10 !== -1 && row[colIdx.gpa10] !== undefined ? Number(row[colIdx.gpa10]) : 8.0;
+          const rawGpa = colIdx.gpa4 !== -1 && row[colIdx.gpa4] !== undefined ? Number(row[colIdx.gpa4]) : 3.0;
+          const gpa = isNaN(rawGpa) ? 3.0 : Math.max(0, Math.min(4.0, rawGpa));
+          const rawGpa10 = colIdx.gpa10 !== -1 && row[colIdx.gpa10] !== undefined ? Number(row[colIdx.gpa10]) : (gpa * 2.5);
+          const gpa10 = isNaN(rawGpa10) ? (gpa * 2.5) : Math.max(0, Math.min(10.0, rawGpa10));
           const warning = gpa < 2.0;
           const status = warning ? "Bị cảnh báo" : "Bình thường";
 
@@ -955,7 +967,8 @@ export const TrainingPortal: React.FC = () => {
   };
 
   const handleExportClassStudentsExcel = async (targetClassId: string) => {
-    const classStudents = students.filter(s => s.classId === targetClassId);
+    if (!targetClassId || !targetClassId.trim()) return;
+    const classStudents = students.filter(s => normalizeClassId(s.classId) === normalizeClassId(targetClassId));
     const headers = [
       "STT", "Mã sinh viên", "Họ và tên", "Giới tính", "Ngày sinh", "Nơi sinh", "Dân tộc", "Tôn giáo", "Quốc tịch", "Số CCCD/CMND",
       "Ngày cấp CCCD/CMND", "Nơi cấp CCCD/CMND", "Mã BHYT", "Đối tượng ưu tiên", "Khu vực ưu tiên", "Email", "Số điện thoại", "Địa chỉ thường trú", "Tỉnh/TP thường trú", "Xã/Phường thường trú",
@@ -963,6 +976,16 @@ export const TrainingPortal: React.FC = () => {
       "Chuyên ngành", "Khoa/Đơn vị quản lý", "Niên khóa", "Cố vấn học tập", "Số học phần đã đăng ký", "Danh sách lớp tín chỉ", "Ghi chú đăng ký học", "Tín chỉ đã tích lũy", "Tổng học phí phải nộp", "Học phí đã nộp",
       "Học phí còn nợ", "Trạng thái thanh toán", "Ghi chú", "Ngày cập nhật"
     ];
+
+    const sanitizeExcelCell = (val: any) => {
+      if (val === null || val === undefined) return "";
+      if (typeof val === "number") return val;
+      const str = String(val).trim();
+      if (/^[=+\-@\t\r]/.test(str)) {
+        return `'${str}`;
+      }
+      return str;
+    };
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet(`Lớp ${targetClassId}`);
@@ -999,49 +1022,49 @@ export const TrainingPortal: React.FC = () => {
       const formattedId = formatStudentId(s.id);
       const rowValues = [
         idx + 1,
-        formattedId,
-        s.name || "",
-        s.gender || "",
-        s.dob || "",
-        s.pob || "",
-        s.ethnicity || "",
-        s.religion || "",
-        s.nationality || "",
-        s.idCard || "",
-        s.idCardDate || "",
-        s.idCardPlace || "",
-        s.bhyt || "",
-        s.priorityObject || "",
-        s.priorityArea || "",
-        s.email || "",
-        s.phone || "",
-        s.permanentAddress || "",
-        s.permanentProvince || "",
-        s.permanentWard || "",
-        s.temporaryAddress || "",
-        s.fatherName || "",
-        s.fatherJob || "",
-        s.fatherPhone || "",
-        s.motherName || "",
-        s.motherJob || "",
-        s.motherPhone || "",
-        s.trainingSystem || "",
-        s.trainingCourse || "",
-        s.trainingMajor || "",
-        s.specialization || "",
-        s.facultyInCharge || "",
-        s.academicYears || "",
-        s.adviser || "",
+        sanitizeExcelCell(formattedId),
+        sanitizeExcelCell(s.name || ""),
+        sanitizeExcelCell(s.gender || ""),
+        sanitizeExcelCell(s.dob || ""),
+        sanitizeExcelCell(s.pob || ""),
+        sanitizeExcelCell(s.ethnicity || ""),
+        sanitizeExcelCell(s.religion || ""),
+        sanitizeExcelCell(s.nationality || ""),
+        sanitizeExcelCell(s.idCard || ""),
+        sanitizeExcelCell(s.idCardDate || ""),
+        sanitizeExcelCell(s.idCardPlace || ""),
+        sanitizeExcelCell(s.bhyt || ""),
+        sanitizeExcelCell(s.priorityObject || ""),
+        sanitizeExcelCell(s.priorityArea || ""),
+        sanitizeExcelCell(s.email || ""),
+        sanitizeExcelCell(s.phone || ""),
+        sanitizeExcelCell(s.permanentAddress || ""),
+        sanitizeExcelCell(s.permanentProvince || ""),
+        sanitizeExcelCell(s.permanentWard || ""),
+        sanitizeExcelCell(s.temporaryAddress || ""),
+        sanitizeExcelCell(s.fatherName || ""),
+        sanitizeExcelCell(s.fatherJob || ""),
+        sanitizeExcelCell(s.fatherPhone || ""),
+        sanitizeExcelCell(s.motherName || ""),
+        sanitizeExcelCell(s.motherJob || ""),
+        sanitizeExcelCell(s.motherPhone || ""),
+        sanitizeExcelCell(s.trainingSystem || ""),
+        sanitizeExcelCell(s.trainingCourse || ""),
+        sanitizeExcelCell(s.trainingMajor || ""),
+        sanitizeExcelCell(s.specialization || ""),
+        sanitizeExcelCell(s.facultyInCharge || ""),
+        sanitizeExcelCell(s.academicYears || ""),
+        sanitizeExcelCell(s.adviser || ""),
         s.registeredSubjectsCount || 0,
-        s.creditClassesList || "",
-        s.enrollmentNotes || "",
+        sanitizeExcelCell(s.creditClassesList || ""),
+        sanitizeExcelCell(s.enrollmentNotes || ""),
         s.accumulatedCredits || s.creditsEarned || 0,
         s.totalTuition || 0,
         s.paidTuition || 0,
         s.debtTuition || 0,
-        s.paymentStatus || "",
-        s.notes || "",
-        s.updatedAt || new Date().toISOString().split("T")[0]
+        sanitizeExcelCell(s.paymentStatus || ""),
+        sanitizeExcelCell(s.notes || ""),
+        sanitizeExcelCell(s.updatedAt || new Date().toISOString().split("T")[0])
       ];
 
       const row = worksheet.addRow(rowValues);
@@ -2331,18 +2354,20 @@ export const TrainingPortal: React.FC = () => {
       }
 
       const { startWeek, endWeek } = parseWeekRange(row.weekRange || "1-15");
+      const rawStart = Math.max(1, Math.min(12, Number(row.periodStart) || 1));
+      const rawEnd = Math.max(rawStart, Math.min(12, Number(row.periodEnd) || 3));
       const slot: ScheduleSlot = {
         id: `SCH_BATCH_${Date.now()}_${idx}`,
         classId: normalizeClassId(row.classId.trim()),
         className: normalizeClassId(row.className?.trim() || row.classId.trim()),
         subjectName: row.subjectName.trim(),
         subjectCode: row.subjectCode?.trim() || `HP_${row.subjectName.trim().replace(/\s+/g, "")}`,
-        credits: Number(row.credits) || 2,
+        credits: Math.max(1, Math.min(20, Number(row.credits) || 2)),
         teacherName: row.teacherName?.trim() || "Chưa phân công",
-        dayOfWeek: Number(row.dayOfWeek) || 2,
+        dayOfWeek: Math.max(2, Math.min(8, Number(row.dayOfWeek) || 2)),
         session: row.session || "Sáng",
-        periodStart: Number(row.periodStart) || 1,
-        periodEnd: Number(row.periodEnd) || 3,
+        periodStart: rawStart,
+        periodEnd: rawEnd,
         room: row.room?.trim() || "Phòng học",
         semester: row.semester || "II",
         semesterId: row.semesterId || selectedScheduleSemesterId || "HOCKY_2_2025_2026",
@@ -2407,18 +2432,20 @@ export const TrainingPortal: React.FC = () => {
     }
 
     const { startWeek, endWeek } = parseWeekRange(scheduleModalData.weekRange || "1-15");
+    const rawStart = Math.max(1, Math.min(12, Number(scheduleModalData.periodStart) || 1));
+    const rawEnd = Math.max(rawStart, Math.min(12, Number(scheduleModalData.periodEnd) || 3));
     const slotToSave: ScheduleSlot = {
       id: editingScheduleSlot ? editingScheduleSlot.id : `SCH_MANUAL_${Date.now()}`,
       classId: normalizeClassId(scheduleModalData.classId.trim()),
       className: normalizeClassId(scheduleModalData.className?.trim() || scheduleModalData.classId.trim()),
       subjectName: scheduleModalData.subjectName.trim(),
       subjectCode: scheduleModalData.subjectCode?.trim() || `HP_${scheduleModalData.subjectName.trim().replace(/\s+/g, "")}`,
-      credits: Number(scheduleModalData.credits) || 2,
+      credits: Math.max(1, Math.min(20, Number(scheduleModalData.credits) || 2)),
       teacherName: scheduleModalData.teacherName?.trim() || "Chưa phân công",
-      dayOfWeek: Number(scheduleModalData.dayOfWeek) || 2,
+      dayOfWeek: Math.max(2, Math.min(8, Number(scheduleModalData.dayOfWeek) || 2)),
       session: scheduleModalData.session || "Sáng",
-      periodStart: Number(scheduleModalData.periodStart) || 1,
-      periodEnd: Number(scheduleModalData.periodEnd) || 3,
+      periodStart: rawStart,
+      periodEnd: rawEnd,
       room: scheduleModalData.room?.trim() || "Phòng học",
       semester: scheduleModalData.semester || "II",
       semesterId: scheduleModalData.semesterId || selectedScheduleSemesterId,

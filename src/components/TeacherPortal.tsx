@@ -966,7 +966,7 @@ export const TeacherPortal: React.FC = () => {
     const targetNormClass = normalizeClass(activeAssignment.classId);
     const classStudents = students.filter(s => {
       const sNorm = normalizeClass(s.classId || "");
-      return sNorm === targetNormClass || targetNormClass.includes(sNorm) || sNorm.includes(targetNormClass);
+      return sNorm === targetNormClass;
     });
 
     const rawList = classStudents;
@@ -1017,7 +1017,7 @@ export const TeacherPortal: React.FC = () => {
     const matchingTrainingStudents = students.filter(s => {
       const sNorm = normalizeClass(s.classId || "");
       if (!sNorm || !targetNormClass) return false;
-      return sNorm === targetNormClass || targetNormClass.includes(sNorm) || sNorm.includes(targetNormClass);
+      return sNorm === targetNormClass;
     });
 
     let baseGrades: SubjectStudentGrade[] = activeGradeSheet?.grades ? [...activeGradeSheet.grades] : [];
