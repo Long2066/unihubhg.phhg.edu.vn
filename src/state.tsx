@@ -192,6 +192,7 @@ interface UniHubContextType {
   gradeAuditLogs: GradeAuditLog[];
   gradingRules: GradingRulesConfig;
   saveTeacherAssignments: (assignments: CourseClassAssignment[]) => void;
+  deleteTeacherAssignment: (id: string) => void;
   importTeacherAssignmentsExcel: (assignments: CourseClassAssignment[]) => void;
   saveSubjectGradeSheet: (sheet: SubjectGradeSheet) => void;
   submitSubjectGradeSheet: (sheetId: string) => void;
@@ -634,6 +635,21 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.setItem("unihub_teacher_assignments", JSON.stringify(sanitized));
     persistTeacherAssignmentsToFirestore(sanitized);
     provisionTeacherAccounts(sanitized);
+  };
+
+  const deleteTeacherAssignment = (id: string) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to delete teacher assignment");
+      return;
+    }
+    const cleanId = (id || "").trim();
+    if (!cleanId) return;
+    const updated = teacherAssignments.filter(a => a.id !== cleanId);
+    setTeacherAssignments(updated);
+    localStorage.setItem("unihub_teacher_assignments", JSON.stringify(updated));
+    if (db) {
+      deleteDoc(doc(db, "teacherAssignments", cleanId)).catch(e => console.error("Error deleting teacher assignment from firestore:", e));
+    }
   };
 
   const importTeacherAssignmentsExcel = (newAssignments: (CourseClassAssignment & { teacherPassword?: string })[]) => {
@@ -2420,6 +2436,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const alreadyExists = members.some(m => m.studentId === effectiveStudentId && m.orgId === orgId && (m.status === "PENDING" || m.status === "ACTIVE"));
     if (alreadyExists) {
       console.warn("Member request already exists or active");
+      alert("Bạn đã nộp đơn hoặc đang là thành viên chính thức của CLB này!");
       return;
     }
 
@@ -2437,7 +2454,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ...safeDetails,
       id: `M_NEW_${Date.now()}`,
       studentId: effectiveStudentId,
-      classId: studentObj.classId,
+      classId: normalizeClassId(studentObj.classId),
       orgId,
       role: (currentUser.role === UserRole.ADMIN && details?.role) ? details.role : "THÀNH VIÊN",
       joinedDate: new Date().toISOString().split("T")[0],
@@ -4096,6 +4113,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updated = schedules.filter(s => s.id !== cleanId);
     setSchedules(updated);
     saveToStorage("unihub_schedules", updated);
+    if (db) {
+      deleteDoc(doc(db, "schedules", cleanId)).catch(e => console.error("Error deleting schedule doc from firestore:", e));
+    }
   };
 
   const clearSchedules = () => {
@@ -5193,6 +5213,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       gradeAuditLogs,
       gradingRules,
       saveTeacherAssignments,
+      deleteTeacherAssignment,
       importTeacherAssignmentsExcel,
       saveSubjectGradeSheet,
       submitSubjectGradeSheet,

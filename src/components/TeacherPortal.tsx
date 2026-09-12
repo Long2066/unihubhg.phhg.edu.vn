@@ -1240,6 +1240,17 @@ export const TeacherPortal: React.FC = () => {
       updatedAt: new Date().toISOString().split("T")[0]
     };
     saveSubjectGradeSheet(updatedSheet);
+    addGradeAuditLog({
+      semesterId: activeGradeSheet.semesterId,
+      classId: activeGradeSheet.classId,
+      subjectCode: activeGradeSheet.subjectCode,
+      subjectName: activeGradeSheet.subjectName,
+      action: "MỞ_KHÓA",
+      userEmail: currentUser?.email || currentUser?.username || "",
+      userName: currentUser?.name || currentUser?.username || "Quản trị viên Đào tạo",
+      userRole: currentUser?.role || "ADMIN",
+      reason: "Cán bộ quản trị mở lại quyền chỉnh sửa bảng điểm"
+    });
     setSaveSuccessMsg("Đã mở lại bảng điểm thành công! Giảng viên có thể tiếp tục nhập và sửa điểm.");
     setTimeout(() => setSaveSuccessMsg(""), 4000);
   };
@@ -1259,9 +1270,9 @@ export const TeacherPortal: React.FC = () => {
       subjectCode: activeAssignment.subjectCode,
       subjectName: activeAssignment.subjectName,
       action: "LƯU_NHÁP",
-      userEmail: currentUser?.email || "teacher",
-      userName: currentUser?.name || "Giảng viên",
-      userRole: "TEACHER",
+      userEmail: currentUser?.email || currentUser?.username || "",
+      userName: currentUser?.name || currentUser?.username || "Giảng viên",
+      userRole: currentUser?.role || "TEACHER",
       reason: "Giảng viên lưu nháp bảng điểm online"
     });
     setSaveSuccessMsg("Đã lưu nháp bảng điểm thành công!");
@@ -1286,9 +1297,9 @@ export const TeacherPortal: React.FC = () => {
         subjectCode: activeAssignment.subjectCode,
         subjectName: activeAssignment.subjectName,
         action: "CHỐT_NỘP",
-        userEmail: currentUser?.email || "teacher",
-        userName: currentUser?.name || "Giảng viên",
-        userRole: "TEACHER",
+        userEmail: currentUser?.email || currentUser?.username || "",
+        userName: currentUser?.name || currentUser?.username || "Giảng viên",
+        userRole: currentUser?.role || "TEACHER",
         reason: "Giảng viên chốt nộp bảng điểm chính thức"
       });
       setSaveSuccessMsg("Đã nộp và khóa bảng điểm chính thức thành công!");

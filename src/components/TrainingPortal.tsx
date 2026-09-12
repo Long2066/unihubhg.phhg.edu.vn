@@ -68,6 +68,7 @@ export const TrainingPortal: React.FC = () => {
     setSelectedSemesterId,
     teacherAssignments,
     saveTeacherAssignments,
+    deleteTeacherAssignment,
     importTeacherAssignmentsExcel,
     unlockRequests,
     approveUnlockRequest,
@@ -417,8 +418,7 @@ export const TrainingPortal: React.FC = () => {
 
   const handleDeleteSingleAssignment = (assignment: CourseClassAssignment) => {
     if (window.confirm(`Xác nhận xóa phân công giảng dạy môn "${assignment.subjectName}" (${assignment.subjectCode}) - Lớp ${assignment.classId} của giảng viên ${assignment.teacherName}?`)) {
-      const updated = teacherAssignments.filter(a => a.id !== assignment.id);
-      saveTeacherAssignments(updated);
+      deleteTeacherAssignment(assignment.id);
       setSelectedAssignmentIds(prev => prev.filter(id => id !== assignment.id));
     }
   };
@@ -426,8 +426,7 @@ export const TrainingPortal: React.FC = () => {
   const handleBulkDeleteAssignments = () => {
     if (selectedAssignmentIds.length === 0) return;
     if (window.confirm(`Xác nhận xóa hàng loạt ${selectedAssignmentIds.length} phân công giảng dạy đã chọn?`)) {
-      const updated = teacherAssignments.filter(a => !selectedAssignmentIds.includes(a.id));
-      saveTeacherAssignments(updated);
+      selectedAssignmentIds.forEach(id => deleteTeacherAssignment(id));
       setSelectedAssignmentIds([]);
     }
   };
@@ -2504,8 +2503,7 @@ export const TrainingPortal: React.FC = () => {
 
   const handleDeleteScheduleSlot = (id: string) => {
     if (confirm("Bạn có chắc chắn muốn xóa ca học này khỏi thời khóa biểu không?")) {
-      const updated = schedules.filter(s => s.id !== id);
-      importScheduleData(updated);
+      deleteScheduleSlot(id);
     }
   };
 

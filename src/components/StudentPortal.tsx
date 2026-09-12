@@ -2648,6 +2648,18 @@ export const StudentPortal: React.FC = () => {
                                           return;
                                         }
 
+                                        const phoneRegex = /^[0-9+() -]{8,15}$/;
+                                        if (!phoneRegex.test(applyPhone.trim())) {
+                                          alert("Số điện thoại không hợp lệ (từ 8 đến 15 ký tự số)!");
+                                          return;
+                                        }
+
+                                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                                        if (!emailRegex.test(applyEmail.trim())) {
+                                          alert("Địa chỉ email không đúng định dạng!");
+                                          return;
+                                        }
+
                                         // Call join request action with collected details
                                         joinOrganizationRequest(studentId, club.id, {
                                           studentName: applyName,

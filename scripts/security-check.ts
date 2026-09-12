@@ -2746,9 +2746,54 @@ assert(
   "resolveGradeAppeal logs empty oldValue due to mismatched originalGrade property"
 );
 
+// ==========================================
+// BATCH 63: Self Unlock Audit, Dynamic Actor Identity, Club Validation, Schedule Deletion & Teacher Assignment Deletion
+// ==========================================
+console.log("\n--- BATCH 63: Self Unlock Audit, Dynamic Actor Identity, Club Validation, Schedule Deletion & Teacher Assignment Deletion ---");
+
+assert(
+  teacherPortalContent.includes("action: \"MỞ_KHÓA\",") &&
+  teacherPortalContent.includes("reason: \"Cán bộ quản trị mở lại quyền chỉnh sửa bảng điểm\""),
+  "Batch 63 Issue 1: TeacherPortal handleTeacherSelfUnlock must record MỞ_KHÓA audit log",
+  "TeacherPortal unlocks grade sheets without audit trail entry"
+);
+
+assert(
+  teacherPortalContent.includes("userEmail: currentUser?.email || currentUser?.username || \"\",") &&
+  teacherPortalContent.includes("userName: currentUser?.name || currentUser?.username || \"Giảng viên\",") &&
+  teacherPortalContent.includes("userRole: currentUser?.role || \"TEACHER\","),
+  "Batch 63 Issue 2: TeacherPortal draft and submit actions must bind dynamic user identity rather than hardcoded strings",
+  "TeacherPortal uses hardcoded teacher identity strings for grade audit logs"
+);
+
+assert(
+  studentPortalContent.includes("const phoneRegex = /^[0-9+() -]{8,15}$/;") &&
+  studentPortalContent.includes("emailRegex.test(applyEmail.trim())") &&
+  stateContent.includes("alert(\"Bạn đã nộp đơn hoặc đang là thành viên chính thức của CLB này!\");") &&
+  stateContent.includes("classId: normalizeClassId(studentObj.classId),"),
+  "Batch 63 Issue 3: StudentPortal must validate phone/email format on club application and joinOrganizationRequest must alert on existing membership and normalize classId",
+  "StudentPortal accepts malformed phone/email or fails to notify on duplicate club registration"
+);
+
+assert(
+  trainingPortalContent.includes("deleteScheduleSlot(id);") &&
+  stateContent.includes("deleteDoc(doc(db, \"schedules\", cleanId)).catch(e => console.error(\"Error deleting schedule doc from firestore:\", e));"),
+  "Batch 63 Issue 4: TrainingPortal handleDeleteScheduleSlot must call deleteScheduleSlot and deleteScheduleSlot must remove schedule doc from Firestore",
+  "Schedule slot deletion fails to purge Firestore document or uses importScheduleData bypass"
+);
+
+assert(
+  stateContent.includes("deleteTeacherAssignment: (id: string) => void;") &&
+  stateContent.includes("deleteDoc(doc(db, \"teacherAssignments\", cleanId)).catch(e => console.error(\"Error deleting teacher assignment from firestore:\", e));") &&
+  trainingPortalContent.includes("deleteTeacherAssignment(assignment.id);") &&
+  trainingPortalContent.includes("selectedAssignmentIds.forEach(id => deleteTeacherAssignment(id));"),
+  "Batch 63 Issue 5: State and TrainingPortal must support deleteTeacherAssignment with permanent Firestore document deletion for single and bulk removals",
+  "Teacher assignments deletion only merges state leaving orphaned documents in Firestore"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 62 SECURITY & INTEGRITY REGRESSION TESTS PASSED (318 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 63 SECURITY & INTEGRITY REGRESSION TESTS PASSED (323 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
