@@ -1115,9 +1115,61 @@ assert(
   "AdviserPortal lacks role authorization guard or unassigned class protection"
 );
 
+// ==========================================
+// BATCH 26: Activity Expiry, Attendance Deduplication, Component Grade Sanitization & Role Boundary Checks
+// ==========================================
+console.log("\n--- BATCH 26: Activity Expiry, Attendance Deduplication & Grade Sanitization ---");
+
+assert(
+  stateContent.includes("activityObj.expiryDate && activityObj.expiryDate < today") &&
+  stateContent.includes("Hoạt động đã đóng đăng ký, đã hết hạn hoặc đã kết thúc!"),
+  "Batch 26 Issue 1: registerForActivity must validate activity expiryDate against current date",
+  "registerForActivity allows registration for expired activities"
+);
+
+assert(
+  stateContent.includes("const classStudentIds = new Set(students.filter(s => s.classId === classId).map(s => s.id));") &&
+  stateContent.includes("const seenAbsentIds = new Set<string>();") &&
+  stateContent.includes("!classStudentIds.has(a.studentId) || seenAbsentIds.has(a.studentId)"),
+  "Batch 26 Issue 2: reportDailyAttendance must deduplicate absentees and filter out foreign students",
+  "reportDailyAttendance does not filter absentees against class membership or deduplicate"
+);
+
+assert(
+  stateContent.includes("const presCount = Math.max(0, totalStuds - absCount);"),
+  "Batch 26 Issue 3: reportDailyAttendance must clamp present student count to non-negative value",
+  "reportDailyAttendance allows negative present count"
+);
+
+assert(
+  stateContent.includes("const sanitizeGradeNum = (val: any) =>") &&
+  stateContent.includes("tx1: sanitizeGradeNum(g.tx1)") &&
+  stateContent.includes("tx2: sanitizeGradeNum(g.tx2)") &&
+  stateContent.includes("thi: sanitizeGradeNum(g.thi)") &&
+  stateContent.includes("tb10: sanitizeGradeNum(g.tb10)"),
+  "Batch 26 Issue 4: saveSubjectGradeSheet must sanitize tx1, tx2, thi, and tb10 within [0, 10] range",
+  "saveSubjectGradeSheet allows out-of-range or non-numeric component grades"
+);
+
+assert(
+  stateContent.includes("if (studentId) {") &&
+  stateContent.includes("targetStudent && targetStudent.classId !== toClassId") &&
+  stateContent.includes("Target student does not belong to specified class"),
+  "Batch 26 Issue 5: sendFeedback must verify that targeted student belongs to specified toClassId",
+  "sendFeedback allows targeting students from other classes under mismatched toClassId"
+);
+
+assert(
+  stateContent.includes("currentUser.role === UserRole.YOUTH_UNION || currentUser.role === UserRole.STUDENT_UNION") &&
+  stateContent.includes('targetEv.criteriaId && targetEv.criteriaId.startsWith("TC1")') &&
+  stateContent.includes("Youth Union or Student Union cannot evaluate academic criteria evidence"),
+  "Batch 26 Issue 6: reviewEvidence must prevent youth/student union from reviewing academic (TC1) evidence",
+  "reviewEvidence allows youth or student union to evaluate academic criteria evidence"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 25 SECURITY & INTEGRITY REGRESSION TESTS PASSED (124 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 26 SECURITY & INTEGRITY REGRESSION TESTS PASSED (130 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

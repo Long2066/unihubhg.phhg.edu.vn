@@ -799,12 +799,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
+    const sanitizeGradeNum = (val: any) => {
+      if (val === undefined || val === null || val === "" || val === "-") return val;
+      const num = typeof val === "number" ? val : parseFloat(String(val));
+      return !isNaN(num) ? Math.max(0, Math.min(10, Math.round(num * 10) / 10)) : val;
+    };
+
     const sanitizedGrades = (sheet.grades || []).map(g => {
-      const tb10Num = typeof g.tb10 === "number" ? g.tb10 : parseFloat(String(g.tb10 || ""));
-      const safeTb10 = !isNaN(tb10Num) ? Math.max(0, Math.min(10, tb10Num)) : g.tb10;
       return {
         ...g,
-        tb10: safeTb10
+        tx1: sanitizeGradeNum(g.tx1),
+        tx2: sanitizeGradeNum(g.tx2),
+        thi: sanitizeGradeNum(g.thi),
+        tb10: sanitizeGradeNum(g.tb10)
       };
     });
 
@@ -2038,8 +2045,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const activityObj = activities.find(act => act.id === activityId);
     if (!activityObj) return;
 
-    if (activityObj.registrationOpen === false || activityObj.status === "COMPLETED") {
-      alert("Đăng ký thất bại: Hoạt động đã đóng đăng ký hoặc đã kết thúc!");
+    const today = new Date().toISOString().split("T")[0];
+    if (activityObj.registrationOpen === false || activityObj.status === "COMPLETED" || (activityObj.expiryDate && activityObj.expiryDate < today)) {
+      alert("Đăng ký thất bại: Hoạt động đã đóng đăng ký, đã hết hạn hoặc đã kết thúc!");
       return;
     }
 
@@ -2965,6 +2973,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return;
       }
     }
+    if (currentUser.role === UserRole.YOUTH_UNION || currentUser.role === UserRole.STUDENT_UNION) {
+      if (targetEv.criteriaId && targetEv.criteriaId.startsWith("TC1")) {
+        console.warn("Youth Union or Student Union cannot evaluate academic criteria evidence");
+        return;
+      }
+    }
 
     const updated = evidence.map(e => {
       if (e.id === subId) {
@@ -3538,9 +3552,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    const totalStuds = students.filter(s => s.classId === classId).length;
-    const absCount = absentees.length;
-    const presCount = totalStuds - absCount;
+    const classStudentIds = new Set(students.filter(s => s.classId === classId).map(s => s.id));
+    const seenAbsentIds = new Set<string>();
+    const sanitizedAbsentees = (absentees || []).filter(a => {
+      if (!a.studentId || !classStudentIds.has(a.studentId) || seenAbsentIds.has(a.studentId)) return false;
+      seenAbsentIds.add(a.studentId);
+      return true;
+    });
+
+    const totalStuds = classStudentIds.size;
+    const absCount = sanitizedAbsentees.length;
+    const presCount = Math.max(0, totalStuds - absCount);
 
     const report: DailyAttendanceReport = {
       id: `DAR_${Date.now()}`,
@@ -3549,7 +3571,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       totalStudents: totalStuds,
       presentCount: presCount,
       absentCount: absCount,
-      absentees,
+      absentees: sanitizedAbsentees,
       reportedBy,
       reportedAt: new Date().toISOString()
     };
@@ -3585,6 +3607,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const isFacultyClass = students.some(s => s.classId === toClassId && s.facultyId === currentUser.targetId);
       if (!isFacultyClass) {
         console.warn("Unauthorized attempt by faculty to send feedback to another faculty's class");
+        return;
+      }
+    }
+
+    if (studentId) {
+      const targetStudent = students.find(s => s.id === studentId);
+      if (targetStudent && targetStudent.classId !== toClassId) {
+        console.warn("Target student does not belong to specified class");
         return;
       }
     }
