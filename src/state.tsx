@@ -879,7 +879,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const submitSubjectGradeSheet = (sheetId: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !sheetId || !sheetId.trim()) return;
     const isAcademicAdmin = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.TRAINING_DEPT;
     const isTeacher = currentUser.role === UserRole.TEACHER;
     if (!isAcademicAdmin && !isTeacher) {
@@ -923,7 +923,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const requestGradeUnlock = (req: Omit<GradeUnlockRequest, "id" | "requestedAt" | "status">) => {
-    if (!currentUser) return;
+    if (!currentUser || !req?.sheetId || !req.sheetId.trim()) return;
     const isAuthorized = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.TRAINING_DEPT || currentUser.role === UserRole.TEACHER;
     if (!isAuthorized) {
       console.warn("Unauthorized attempt to request grade unlock");
@@ -2732,6 +2732,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (currentUser.role !== UserRole.ADMIN) {
       delete safeDetails.role;
       delete safeDetails.status;
+      delete safeDetails.studentName;
+    }
+    if (safeDetails.studentName) {
+      const realStudent = students.find(s => s.id === member.studentId);
+      if (realStudent) safeDetails.studentName = realStudent.name;
     }
 
     const updated = members.map(m => {
@@ -3858,7 +3863,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ...s,
       classId: normalizeClassId(s.classId.trim()),
       subjectCode: (s.subjectCode || "").trim(),
-      subjectName: (s.subjectName || "").trim()
+      subjectName: (s.subjectName || "").trim(),
+      credits: Math.max(1, Math.min(20, Number(s.credits) || 1)),
+      dayOfWeek: Math.max(2, Math.min(8, Number(s.dayOfWeek) || 2)),
+      periodStart: Math.max(1, Math.min(12, Number(s.periodStart) || 1)),
+      periodEnd: Math.max(Math.max(1, Math.min(12, Number(s.periodStart) || 1)), Math.min(12, Number(s.periodEnd) || 1))
     }));
     setSchedules(validSlots);
     saveToStorage("unihub_schedules", validSlots);

@@ -2028,9 +2028,38 @@ assert(
   "TrainingPortal allows submitting non-numeric or out-of-range appeal new grades"
 );
 
+// ==========================================
+// BATCH 45: Sheet ID Guards, Schedule Range Bounds & Member Name Spoofing Defense
+// ==========================================
+console.log("\n--- BATCH 45: Sheet ID Guards, Schedule Range Bounds & Member Name Spoofing Defense ---");
+
+assert(
+  stateContent.includes("submitSubjectGradeSheet = (sheetId: string) => {\n    if (!currentUser || !sheetId || !sheetId.trim()) return;"),
+  "Batch 45 Issue 1: submitSubjectGradeSheet must validate non-empty sheetId",
+  "submitSubjectGradeSheet allows empty or blank sheetId"
+);
+
+assert(
+  stateContent.includes("requestGradeUnlock = (req: Omit<GradeUnlockRequest, \"id\" | \"requestedAt\" | \"status\">) => {\n    if (!currentUser || !req?.sheetId || !req.sheetId.trim()) return;"),
+  "Batch 45 Issue 2: requestGradeUnlock must validate non-empty req.sheetId",
+  "requestGradeUnlock allows requesting unlock with missing or empty sheetId"
+);
+
+assert(
+  stateContent.includes("credits: Math.max(1, Math.min(20, Number(s.credits) || 1)),\n      dayOfWeek: Math.max(2, Math.min(8, Number(s.dayOfWeek) || 2)),\n      periodStart: Math.max(1, Math.min(12, Number(s.periodStart) || 1)),\n      periodEnd: Math.max(Math.max(1, Math.min(12, Number(s.periodStart) || 1)), Math.min(12, Number(s.periodEnd) || 1))"),
+  "Batch 45 Issue 3: importScheduleData must clamp credits, dayOfWeek, and periods to valid bounds",
+  "importScheduleData allows out-of-range credits, days, or periods"
+);
+
+assert(
+  stateContent.includes("delete safeDetails.studentName;\n    }\n    if (safeDetails.studentName) {\n      const realStudent = students.find(s => s.id === member.studentId);"),
+  "Batch 45 Issue 4: updateMemberDetails must prevent non-admin member name spoofing and sync with student directory",
+  "updateMemberDetails allows altering student names arbitrarily"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 44 SECURITY & INTEGRITY REGRESSION TESTS PASSED (236 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 45 SECURITY & INTEGRITY REGRESSION TESTS PASSED (240 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
