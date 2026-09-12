@@ -3524,15 +3524,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     leaders: { [groupName: string]: { studentId: string; username?: string; password?: string } }
   ) => {
     if (!currentUser || !classId) return;
+    const cleanClassId = classId.trim();
+    if (!cleanClassId) return;
+    const normClassId = normalizeClassId(cleanClassId);
+
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
-      (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId) ||
-      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === classId);
+      (currentUser.role === UserRole.ADVISER && (currentUser.targetId === classId || normalizeClassId(currentUser.targetId) === normClassId)) ||
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && (currentUser.targetId === classId || normalizeClassId(currentUser.targetId) === normClassId));
     if (!isAuthorized) {
       console.warn("Unauthorized attempt to save group settings");
       return;
     }
     const updatedStudents = students.map(s => {
-      if (s.classId === classId) {
+      if (s.classId === classId || normalizeClassId(s.classId) === normClassId) {
         return {
           ...s,
           groupName: assignments[s.id] || ""
@@ -3547,7 +3551,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     // Xóa bỏ các tài khoản Tổ trưởng cũ đã được tạo từ trước của lớp này (dựa vào id bắt đầu bằng U_GL_ và role)
     // Để khi cập nhật tổ trưởng mới, các account cũ không bị lưu rác.
-    const classStudentIds = students.filter(s => s.classId === classId).map(s => s.id);
+    const classStudentIds = students.filter(s => s.classId === classId || normalizeClassId(s.classId) === normClassId).map(s => s.id);
     updatedUsers = updatedUsers.filter(u => !(
       u.role === UserRole.CLASS_MONITOR && 
       u.isGroupLeader && 
@@ -3559,7 +3563,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const cleanGroupName = (groupName || "").trim();
       if (!cleanGroupName || !leaderInfo || !leaderInfo.studentId) return;
       const studentObj = students.find(s => s.id === leaderInfo.studentId);
-      if (!studentObj || studentObj.classId !== classId) return;
+      if (!studentObj || (studentObj.classId !== classId && normalizeClassId(studentObj.classId) !== normClassId)) return;
 
       const rawUsername = (leaderInfo.username || `totruong_${leaderInfo.studentId}`).trim();
       const safeUsername = rawUsername.includes("@") ? rawUsername.split("@")[0] : rawUsername;
@@ -3580,7 +3584,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setUsers(updatedUsers);
     saveToStorage("unihub_users", updatedUsers);
 
-    const classStudentIdsToClean = students.filter(s => s.classId === classId).map(s => s.id);
+    const classStudentIdsToClean = students.filter(s => s.classId === classId || normalizeClassId(s.classId) === normClassId).map(s => s.id);
     const oldUsersToDelete = users.filter(u => 
       u.role === UserRole.CLASS_MONITOR && 
       u.isGroupLeader && 
@@ -3858,22 +3862,26 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const aggregateGroupAttendancesToDaily = (classId: string, date: string, reporterName: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !classId) return;
+    const cleanClassId = classId.trim();
+    if (!cleanClassId) return;
+    const normClassId = normalizeClassId(cleanClassId);
+
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
-      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === classId) ||
-      (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId);
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && (currentUser.targetId === classId || normalizeClassId(currentUser.targetId) === normClassId)) ||
+      (currentUser.role === UserRole.ADVISER && (currentUser.targetId === classId || normalizeClassId(currentUser.targetId) === normClassId));
     if (!isAuthorized) {
       console.warn("Unauthorized attempt to aggregate group attendance");
       return;
     }
 
-    const approvedReports = groupAttendances.filter(ga => ga.classId === classId && ga.date === date && ga.status === "APPROVED");
+    const approvedReports = groupAttendances.filter(ga => (ga.classId === classId || normalizeClassId(ga.classId) === normClassId) && ga.date === date && ga.status === "APPROVED");
     if (approvedReports.length === 0) {
       alert("Không có báo cáo chuyên cần cấp Tổ nào đã được duyệt cho ngày này!");
       return;
     }
 
-    const classStudentIds = new Set(students.filter(s => s.classId === classId).map(s => s.id));
+    const classStudentIds = new Set(students.filter(s => s.classId === classId || normalizeClassId(s.classId) === normClassId).map(s => s.id));
     const allAbsentees: { studentId: string; studentName: string; type: "PHÉP" | "KHÔNG_PHÉP"; reason?: string }[] = [];
     const seenStudentIds = new Set<string>();
 
@@ -3892,7 +3900,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const classReport: DailyAttendanceReport = {
       id: `DAR_${Date.now()}`,
-      classId,
+      classId: normClassId,
       date,
       totalStudents: totalStuds,
       presentCount: presCount,
@@ -3902,7 +3910,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       reportedAt: new Date().toISOString()
     };
 
-    const filteredDaily = dailyAttendance.filter(da => !(da.classId === classId && da.date === date));
+    const filteredDaily = dailyAttendance.filter(da => !( (da.classId === classId || normalizeClassId(da.classId) === normClassId) && da.date === date));
     const updatedDaily = [classReport, ...filteredDaily];
     setDailyAttendance(updatedDaily);
     saveToStorage("unihub_daily_attendance", updatedDaily);
@@ -3910,9 +3918,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const sendGroupReminder = (classId: string, targetStudentIds: string[], message: string) => {
     if (!currentUser || !classId) return;
+    const cleanClassId = classId.trim();
+    if (!cleanClassId) return;
+    const normClassId = normalizeClassId(cleanClassId);
+
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
-      (currentUser.role === UserRole.ADVISER && currentUser.targetId && currentUser.targetId === classId) ||
-      (currentUser.role === UserRole.CLASS_MONITOR && currentUser.targetId && currentUser.targetId === classId);
+      (currentUser.role === UserRole.ADVISER && currentUser.targetId && (currentUser.targetId === classId || normalizeClassId(currentUser.targetId) === normClassId)) ||
+      (currentUser.role === UserRole.CLASS_MONITOR && currentUser.targetId && (currentUser.targetId === classId || normalizeClassId(currentUser.targetId) === normClassId));
     if (!isAuthorized) {
       console.warn("Unauthorized attempt to send group reminder");
       return;
@@ -3921,7 +3933,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const cleanMessage = (message || "").trim();
     if (!cleanMessage) return;
 
-    const classStudentIds = new Set(students.filter(s => s.classId === classId).map(s => s.id));
+    const classStudentIds = new Set(students.filter(s => s.classId === classId || normalizeClassId(s.classId) === normClassId).map(s => s.id));
     const validTargetIds = Array.from(new Set(targetStudentIds.filter(sid => classStudentIds.has(sid))));
     if (validTargetIds.length === 0) return;
 
@@ -3929,7 +3941,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       id: `FB_REMIND_${sid}_${Date.now()}_${Math.random()}`,
       fromRole: currentUser.role,
       fromName: currentUser.name || "Ban Cán sự Lớp",
-      toClassId: classId,
+      toClassId: normClassId,
       studentId: sid,
       comment: cleanMessage,
       createdAt: new Date().toISOString().split("T")[0],

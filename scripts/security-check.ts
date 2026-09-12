@@ -308,7 +308,8 @@ assert(
 console.log("\n--- BATCH 6: Cross-Class & Role Scoping Hardening Checks ---");
 
 assert(
-  stateContent.includes("currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === classId"),
+  stateContent.includes("currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === classId") ||
+  stateContent.includes("currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && (currentUser.targetId === classId || normalizeClassId(currentUser.targetId) === normClassId)"),
   "Batch 6 Issue 1: approveClassScores must exclude group leaders and enforce class scope",
   "approveClassScores missing !isGroupLeader or class scoping check"
 );
@@ -833,8 +834,10 @@ assert(
 
 assert(
   !stateContent.includes("(!currentUser.targetId ||") &&
-  stateContent.includes("currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === classId") &&
-  stateContent.includes("currentUser.role === UserRole.ADVISER && currentUser.targetId === classId") &&
+  (stateContent.includes("currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === classId") ||
+   stateContent.includes("currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && (currentUser.targetId === classId || normalizeClassId(currentUser.targetId) === normClassId)")) &&
+  (stateContent.includes("currentUser.role === UserRole.ADVISER && currentUser.targetId === classId") ||
+   stateContent.includes("currentUser.role === UserRole.ADVISER && (currentUser.targetId === classId || normalizeClassId(currentUser.targetId) === normClassId)")) &&
   stateContent.includes("currentUser.role === UserRole.FACULTY && currentUser.targetId === facultyId"),
   "Batch 19 Issue 3: All class, adviser, and faculty actions in state.tsx must eliminate loose !currentUser.targetId bypasses",
   "state.tsx still contains loose !currentUser.targetId bypasses allowing unassigned accounts to act on any class/faculty"
@@ -1221,7 +1224,8 @@ assert(
 );
 
 assert(
-  stateContent.includes("if (!studentObj || studentObj.classId !== classId) return;"),
+  stateContent.includes("if (!studentObj || studentObj.classId !== classId) return;") ||
+  stateContent.includes("if (!studentObj || (studentObj.classId !== classId && normalizeClassId(studentObj.classId) !== normClassId)) return;"),
   "Batch 27 Issue 7: saveGroupSettings must enforce that assigned group leader belongs to target class",
   "saveGroupSettings allows appointing students from other classes as group leaders"
 );
@@ -1388,7 +1392,9 @@ assert(
 );
 
 assert(
-  stateContent.includes("const sendGroupReminder = (classId: string, targetStudentIds: string[], message: string) => {\n    if (!currentUser || !classId) return;\n    const isAuthorized = currentUser.role === UserRole.ADMIN ||\n      (currentUser.role === UserRole.ADVISER && currentUser.targetId && currentUser.targetId === classId) ||\n      (currentUser.role === UserRole.CLASS_MONITOR && currentUser.targetId && currentUser.targetId === classId);"),
+  stateContent.includes("const sendGroupReminder = (classId: string, targetStudentIds: string[], message: string) => {\n    if (!currentUser || !classId) return;") &&
+  (stateContent.includes("currentUser.role === UserRole.ADVISER && currentUser.targetId && currentUser.targetId === classId") ||
+   stateContent.includes("currentUser.role === UserRole.ADVISER && currentUser.targetId && (currentUser.targetId === classId || normalizeClassId(currentUser.targetId) === normClassId)")),
   "Batch 29 Issue 8: sendGroupReminder must verify non-empty classId and matching targetId",
   "sendGroupReminder allows sending reminders with empty classId or mismatched targetId"
 );
@@ -2263,9 +2269,45 @@ assert(
   "restoreAllDataBackup drops customClasses, appeals, unlockRequests, or gradingRules"
 );
 
+// ==========================================
+// BATCH 52: Group Management Normalization, Attendance Aggregation, Reminder Isolation & Training Assignment Sanitization
+// ==========================================
+console.log("\n--- BATCH 52: Group Management Normalization, Attendance Aggregation, Reminder Isolation & Training Assignment Sanitization ---");
+
+assert(
+  stateContent.includes("const cleanClassId = classId.trim();\n    if (!cleanClassId) return;\n    const normClassId = normalizeClassId(cleanClassId);") &&
+  stateContent.includes("currentUser.role === UserRole.ADVISER && (currentUser.targetId === classId || normalizeClassId(currentUser.targetId) === normClassId)") &&
+  stateContent.includes("if (!studentObj || (studentObj.classId !== classId && normalizeClassId(studentObj.classId) !== normClassId)) return;"),
+  "Batch 52 Issue 1: saveGroupSettings must use normalizeClassId for role scoping and student validation",
+  "saveGroupSettings allows cross-class group assignments or bypasses normalized class scoping"
+);
+
+assert(
+  stateContent.includes("const approvedReports = groupAttendances.filter(ga => (ga.classId === classId || normalizeClassId(ga.classId) === normClassId) && ga.date === date && ga.status === \"APPROVED\");") &&
+  stateContent.includes("const filteredDaily = dailyAttendance.filter(da => !( (da.classId === classId || normalizeClassId(da.classId) === normClassId) && da.date === date));") &&
+  stateContent.includes("toClassId: normClassId,"),
+  "Batch 52 Issue 2: aggregateGroupAttendancesToDaily and sendGroupReminder must enforce normalized class IDs",
+  "aggregateGroupAttendancesToDaily or sendGroupReminder drop or corrupt normalized class IDs"
+);
+
+assert(
+  trainingPortalContent.includes("const normClassId = normalizeClassId(classId);") &&
+  trainingPortalContent.includes("id: `HP_${semId}_${normClassId}_${subjectCode}`,") &&
+  trainingPortalContent.includes("credits: Math.max(1, Math.min(20, Math.round(credits))),"),
+  "Batch 52 Issue 3: TrainingPortal Excel assignment import must normalize classId and clamp credits",
+  "TrainingPortal Excel assignment import allows unnormalized classId or out-of-bounds credits"
+);
+
+assert(
+  trainingPortalContent.includes("classId: normalizeClassId(editAssignForm.classId.trim()),") &&
+  trainingPortalContent.includes("credits: Math.max(1, Math.min(20, Math.round(Number(editAssignForm.credits) || 3))),"),
+  "Batch 52 Issue 4: TrainingPortal handleSaveEditAssignment must normalize classId and clamp credits",
+  "TrainingPortal handleSaveEditAssignment does not normalize classId or clamp credits"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 51 SECURITY & INTEGRITY REGRESSION TESTS PASSED (264 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 52 SECURITY & INTEGRITY REGRESSION TESTS PASSED (268 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

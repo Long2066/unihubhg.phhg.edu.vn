@@ -355,10 +355,10 @@ export const TrainingPortal: React.FC = () => {
       if (a.id === editingAssignmentId) {
         return {
           ...a,
-          classId: editAssignForm.classId.trim(),
+          classId: normalizeClassId(editAssignForm.classId.trim()),
           subjectCode: editAssignForm.subjectCode.trim(),
           subjectName: editAssignForm.subjectName.trim(),
-          credits: Number(editAssignForm.credits) || 3,
+          credits: Math.max(1, Math.min(20, Math.round(Number(editAssignForm.credits) || 3))),
           teacherId: editAssignForm.teacherId.trim(),
           teacherName: editAssignForm.teacherName.trim()
         };
@@ -543,13 +543,14 @@ export const TrainingPortal: React.FC = () => {
           const teacherId = String(row[colMap.teacherId] || "").trim();
           const teacherName = String(row[colMap.teacherName] || "").trim();
 
+          const normClassId = normalizeClassId(classId);
           newAssignments.push({
-            id: `HP_${semId}_${classId}_${subjectCode}`,
+            id: `HP_${semId}_${normClassId}_${subjectCode}`,
             semesterId: semId,
-            classId,
+            classId: normClassId,
             subjectCode,
             subjectName,
-            credits,
+            credits: Math.max(1, Math.min(20, Math.round(credits))),
             teacherId: teacherId || "teacher",
             teacherName: teacherName || "Giảng viên",
             status: "PENDING"
