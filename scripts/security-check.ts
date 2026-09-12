@@ -51,6 +51,8 @@ const studentPortalPath = path.join(rootDir, "src", "components", "StudentPortal
 const studentPortalContent = fs.readFileSync(studentPortalPath, "utf-8");
 const adminPortalPath = path.join(rootDir, "src", "components", "AdminPortal.tsx");
 const adminPortalContent = fs.readFileSync(adminPortalPath, "utf-8");
+const facultyPortalPath = path.join(rootDir, "src", "components", "FacultyPortal.tsx");
+const facultyPortalContent = fs.readFileSync(facultyPortalPath, "utf-8");
 
 // =========================================================
 // BATCH 1 CHECKS
@@ -968,9 +970,41 @@ assert(
   "updateCriteriaScore does not clamp or validate newPoints"
 );
 
+// ==========================================
+// BATCH 23: Teacher Portal Data Contamination Guard & Faculty/Teacher Role Isolations
+// ==========================================
+console.log("\n--- BATCH 23: Teacher Portal Data Contamination Guard & Faculty/Teacher Role Isolations ---");
+
+assert(
+  !teacherPortalContent.includes("defaultSeedStudents") &&
+  !teacherPortalContent.includes("DTG245140202053"),
+  "Batch 23 Issue 1: TeacherPortal must not inject hardcoded seed students into classes",
+  "TeacherPortal still injects hardcoded seed students when matching students are absent"
+);
+
+assert(
+  teacherPortalContent.includes("if (!currentUser || (currentUser.role !== UserRole.TEACHER && currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT))") &&
+  teacherPortalContent.includes("Không có quyền truy cập Cổng Giảng viên"),
+  "Batch 23 Issue 2: TeacherPortal must enforce role authorization guard for TEACHER/ADMIN/TRAINING_DEPT",
+  "TeacherPortal renders for unauthorized roles without access restriction banner"
+);
+
+assert(
+  facultyPortalContent.includes("if (!currentUser || (currentUser.role !== UserRole.FACULTY && currentUser.role !== UserRole.ADMIN))") &&
+  facultyPortalContent.includes("Không có quyền truy cập Cổng Khoa"),
+  "Batch 23 Issue 3: FacultyPortal must enforce role authorization guard for FACULTY/ADMIN",
+  "FacultyPortal renders for unauthorized roles without access restriction banner"
+);
+
+assert(
+  !facultyPortalContent.includes("<AlertTriangle"),
+  "Batch 23 Issue 4: FacultyPortal must not reference unimported AlertTriangle icon",
+  "FacultyPortal contains unimported AlertTriangle JSX tag causing runtime crash"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 22 SECURITY & INTEGRITY REGRESSION TESTS PASSED (106 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 23 SECURITY & INTEGRITY REGRESSION TESTS PASSED (110 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

@@ -4,7 +4,8 @@ import {
   CourseClassAssignment, 
   SubjectGradeSheet, 
   SubjectStudentGrade, 
-  SEMESTER_LIST 
+  SEMESTER_LIST,
+  UserRole 
 } from "../types";
 import { 
   BookOpen, 
@@ -965,13 +966,7 @@ export const TeacherPortal: React.FC = () => {
       return sNorm === targetNormClass || targetNormClass.includes(sNorm) || sNorm.includes(targetNormClass);
     });
 
-    const rawList = classStudents.length > 0 ? classStudents : [
-      { id: "DTG2357140202099", name: "Hoàng Hải Nam", gender: "Nam", dob: "2006-01-01", classId: activeAssignment.classId },
-      { id: "DTG245140202002", name: "Đỗ Thị Huyền Anh", gender: "Nữ", dob: "2006-03-15", classId: activeAssignment.classId },
-      { id: "DTG245140202004", name: "Hứa Hải Anh", gender: "Nam", dob: "2006-04-10", classId: activeAssignment.classId },
-      { id: "DTG245140202007", name: "Hoàng Thị Ngọc Ánh", gender: "Nữ", dob: "2006-08-22", classId: activeAssignment.classId },
-      { id: "DTG245140202053", name: "Ma Văn Long", gender: "Nam", dob: "2006-05-20", classId: activeAssignment.classId }
-    ];
+    const rawList = classStudents;
 
     const initialGrades: SubjectStudentGrade[] = rawList.map((s: any, idx: number) => {
       const realId = String(s.id || s.studentId || `STUDENT_${idx + 1}`).trim();
@@ -1023,16 +1018,7 @@ export const TeacherPortal: React.FC = () => {
     });
 
     let baseGrades: SubjectStudentGrade[] = activeGradeSheet?.grades ? [...activeGradeSheet.grades] : [];
-
-    const defaultSeedStudents = [
-      { id: "DTG2357140202099", name: "Hoàng Hải Nam", gender: "Nam", dob: "2006-01-01", classId: activeAssignment.classId },
-      { id: "DTG245140202002", name: "Đỗ Thị Huyền Anh", gender: "Nữ", dob: "2006-03-15", classId: activeAssignment.classId },
-      { id: "DTG245140202004", name: "Hứa Hải Anh", gender: "Nam", dob: "2006-04-10", classId: activeAssignment.classId },
-      { id: "DTG245140202007", name: "Hoàng Thị Ngọc Ánh", gender: "Nữ", dob: "2006-08-22", classId: activeAssignment.classId },
-      { id: "DTG245140202053", name: "Ma Văn Long", gender: "Nam", dob: "2006-05-20", classId: activeAssignment.classId }
-    ];
-
-    const sourceStudents = matchingTrainingStudents.length > 0 ? matchingTrainingStudents : defaultSeedStudents;
+    const sourceStudents = matchingTrainingStudents;
 
     const cleanId = (str: string) => String(str || "").replace(/^DTG/i, "").toLowerCase();
 
@@ -1447,6 +1433,16 @@ export const TeacherPortal: React.FC = () => {
   }, [currentGrades, searchQuery]);
 
   const isLocked = activeGradeSheet?.status === "SUBMITTED" || activeGradeSheet?.status === "LOCKED";
+
+  if (!currentUser || (currentUser.role !== UserRole.TEACHER && currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6 font-sans">
+        <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-800">Không có quyền truy cập Cổng Giảng viên</h3>
+        <p className="text-slate-500 text-sm mt-1">Chỉ Giảng viên giảng dạy hoặc Quản trị viên mới có quyền truy cập cổng này.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-12 font-sans">
