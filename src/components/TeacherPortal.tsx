@@ -6,7 +6,8 @@ import {
   SubjectStudentGrade, 
   SEMESTER_LIST,
   UserRole,
-  GradeAppeal 
+  GradeAppeal,
+  GradingRulesConfig
 } from "../types";
 import { 
   BookOpen, 
@@ -710,7 +711,8 @@ const createTeacherGradeWorkbookBlob = (
   assignment: CourseClassAssignment,
   grades: SubjectStudentGrade[],
   teacherName: string,
-  currentUserName?: string
+  currentUserName?: string,
+  rules?: GradingRulesConfig
 ) => {
   let scoreCount = 0;
   let scoreSum = 0;
@@ -794,10 +796,15 @@ const createTeacherGradeWorkbookBlob = (
     ];
 
     const r = rowNumber;
-    const formulaTb10 = `ROUND(IF(COUNT(F${r},K${r})>0, F${r}*0.1 + AVERAGE(G${r}:H${r})*0.2 + AVERAGE(I${r}:J${r})*0.2 + K${r}*0.5, 0), 1)`;
-    const formulaTb4 = `IF(L${r}>=8.5,4.0,IF(L${r}>=8.0,3.5,IF(L${r}>=7.0,3.0,IF(L${r}>=6.5,2.5,IF(L${r}>=5.5,2.0,IF(L${r}>=5.0,1.5,IF(L${r}>=4.0,1.0,0.0)))))))`;
-    const formulaDiemChu = `IF(L${r}>=8.5,"A",IF(L${r}>=7.0,"B",IF(L${r}>=5.5,"C",IF(L${r}>=4.0,"D","F"))))`;
-    const formulaXepLoai = `IF(L${r}>=9.0,"Xuất sắc",IF(L${r}>=8.0,"Giỏi",IF(L${r}>=7.0,"Khá",IF(L${r}>=5.0,"Trung bình",IF(L${r}>=4.0,"Yếu","Kém")))))`;
+    const ccW = (rules?.ccWeight ?? 10) / 100;
+    const halfPrW = ((rules?.processWeight ?? 30) / 2) / 100;
+    const exW = (rules?.examWeight ?? 60) / 100;
+    const roundDec = rules?.roundingDecimals ?? 1;
+    const passScore = rules?.passScoreMin10 ?? 4.0;
+    const formulaTb10 = `ROUND(IF(COUNT(F${r},K${r})>0, F${r}*${ccW} + AVERAGE(G${r}:H${r})*${halfPrW} + AVERAGE(I${r}:J${r})*${halfPrW} + K${r}*${exW}, 0), ${roundDec})`;
+    const formulaTb4 = `IF(L${r}>=8.5,4.0,IF(L${r}>=8.0,3.5,IF(L${r}>=7.0,3.0,IF(L${r}>=6.5,2.5,IF(L${r}>=5.5,2.0,IF(L${r}>=5.0,1.5,IF(L${r}>=${passScore},1.0,0.0)))))))`;
+    const formulaDiemChu = `IF(L${r}>=8.5,"A",IF(L${r}>=7.0,"B",IF(L${r}>=5.5,"C",IF(L${r}>=${passScore},"D","F"))))`;
+    const formulaXepLoai = `IF(L${r}>=9.0,"Xuất sắc",IF(L${r}>=8.0,"Giỏi",IF(L${r}>=7.0,"Khá",IF(L${r}>=5.0,"Trung bình",IF(L${r}>=${passScore},"Yếu","Kém")))))`;
 
     rows.push({
       rowNumber,
@@ -1138,8 +1145,10 @@ export const TeacherPortal: React.FC = () => {
     }
 
     // Process weighted average using dynamic grading rules
-    const processScore = (tx1 + (tx2 || tx1)) / (tx2 ? 2 : 1);
-    const midScore = (dk1 + (dk2 || dk1)) / (dk2 ? 2 : 1);
+    const hasTx2 = grade.tx2 !== "" && grade.tx2 !== undefined && grade.tx2 !== "-";
+    const hasDk2 = grade.dk2 !== "" && grade.dk2 !== undefined && grade.dk2 !== "-";
+    const processScore = hasTx2 ? (tx1 + tx2) / 2 : tx1;
+    const midScore = hasDk2 ? (dk1 + dk2) / 2 : dk1;
     const processMidAvg = (processScore + midScore) / 2;
 
     const ccW = (gradingRules?.ccWeight ?? 10) / 100;
@@ -1294,7 +1303,8 @@ export const TeacherPortal: React.FC = () => {
       activeAssignment,
       currentGrades,
       teacherName,
-      currentUser?.name
+      currentUser?.name,
+      gradingRules
     );
     const fileName = `Danh_sach_diem_hoc_phan_${sanitizeFilePart(activeAssignment.subjectCode)}_${sanitizeFilePart(activeAssignment.classId)}.xlsx`;
     downloadBlob(workbookBlob, fileName);

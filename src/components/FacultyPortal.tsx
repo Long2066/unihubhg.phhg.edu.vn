@@ -30,7 +30,8 @@ export const FacultyPortal: React.FC = () => {
     updateActivityStatus,
     addBulkAttendance,
     attendance,
-    selectedSemesterId
+    selectedSemesterId,
+    period
   } = useUniHub();
 
   const activeTab = (activePortletTab as "STAT" | "LOCKS" | "EVENTS") || "STAT";
@@ -64,7 +65,10 @@ export const FacultyPortal: React.FC = () => {
   // Filter students in the faculty
   const facultyStudents = students.filter(s => s.facultyId === facultyId);
   const studentIds = facultyStudents.map(s => s.id);
-  const facultyResults = results.filter(r => studentIds.includes(r.studentId) && r.periodId === selectedSemesterId);
+  const facultyResults = results.filter(r => 
+    studentIds.includes(r.studentId) && 
+    (!selectedSemesterId || r.periodId === selectedSemesterId || r.periodId === period.id || (!r.periodId && selectedSemesterId === period.id))
+  );
 
   // Compute stat matrices
   const totalInFac = facultyResults.length;

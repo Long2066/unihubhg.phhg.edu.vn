@@ -86,8 +86,11 @@ const downloadStudentTranscriptPdf = async (
 
   // Prepare table rows
   let gradeRows: any[] = [];
-  if (subjectGradeSheets && subjectGradeSheets.length > 0) {
-    gradeRows = subjectGradeSheets.map((sheet, idx) => {
+  const matchingSheets = (subjectGradeSheets || []).filter((s: any) =>
+    s.grades?.some((g: any) => g.studentId === studentId)
+  );
+  if (matchingSheets.length > 0) {
+    gradeRows = matchingSheets.map((sheet, idx) => {
       const match = sheet.grades?.find((g: any) => g.studentId === studentId);
       return [
         { text: String(idx + 1), alignment: "center", fontSize: 9 },
@@ -103,7 +106,7 @@ const downloadStudentTranscriptPdf = async (
   } else {
     gradeRows = [
       [
-        { text: "Chưa có dữ liệu điểm học phần", colSpan: 8, alignment: "center", italics: true, color: "#64748b", fontSize: 9 },
+        { text: "Chưa có dữ liệu điểm học phần trong học kỳ này", colSpan: 8, alignment: "center", italics: true, color: "#64748b", fontSize: 9 },
         {}, {}, {}, {}, {}, {}, {}
       ]
     ];
@@ -554,6 +557,34 @@ export const StudentPortal: React.FC = () => {
   };
 
   const academicMeta = getAcademicClassification(currentGpa);
+
+  const studentGradeRows = useMemo(() => {
+    return subjectGradeSheets
+      .map(sheet => {
+        const match = sheet.grades?.find(g => g.studentId === studentId);
+        if (!match) return null;
+        return { sheet, match };
+      })
+      .filter((item): item is { sheet: typeof subjectGradeSheets[0]; match: any } => item !== null);
+  }, [subjectGradeSheets, studentId]);
+
+  const transcriptCredits = useMemo(() => {
+    const sum = studentGradeRows.reduce((acc, curr) => acc + (Number(curr.sheet.credits) || 0), 0);
+    return sum > 0 ? sum : (sObj?.creditsEarned || 0);
+  }, [studentGradeRows, sObj?.creditsEarned]);
+
+  const transcriptGpa10 = useMemo(() => {
+    if (sObj?.gpa10 !== undefined && sObj?.gpa10 !== null) return sObj.gpa10.toFixed(2);
+    if (sObj?.gpa !== undefined && sObj?.gpa !== null) return (sObj.gpa * 2.5).toFixed(2);
+    return "0.00";
+  }, [sObj?.gpa10, sObj?.gpa]);
+
+  const transcriptGpa4 = useMemo(() => {
+    if (sObj?.gpa !== undefined && sObj?.gpa !== null) return sObj.gpa.toFixed(2);
+    return "0.00";
+  }, [sObj?.gpa]);
+
+  const transcriptClassification = sObj?.academicGrade || academicMeta.label || "Chưa xếp loại";
 
   // Compute live conduct data
   const liveResult = results.find(r => r.studentId === studentId);
@@ -3571,11 +3602,11 @@ export const StudentPortal: React.FC = () => {
                       await downloadStudentTranscriptPdf(
                         sObj || null,
                         currentUser,
-                        subjectGradeSheets,
-                        sObj?.gpa10 ? sObj.gpa10.toFixed(2) : "8.85",
-                        sObj?.gpa ? sObj.gpa.toFixed(2) : "3.85",
-                        18,
-                        sObj?.academicGrade || "Giỏi"
+                        studentGradeRows.map(r => r.sheet),
+                        transcriptGpa10,
+                        transcriptGpa4,
+                        transcriptCredits,
+                        transcriptClassification
                       );
                     } catch (err) {
                       console.error("PDF generation failed:", err);
@@ -3645,45 +3676,27 @@ export const StudentPortal: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {subjectGradeSheets.length > 0 ? (
-                      subjectGradeSheets.map((sheet, idx) => {
-                        const match = sheet.grades.find(g => g.studentId === (sObj?.id || currentUser?.username));
+                    {studentGradeRows.length > 0 ? (
+                      studentGradeRows.map(({ sheet, match }, idx) => {
                         return (
                           <tr key={sheet.id}>
                             <td className="p-2 border-r border-slate-200 text-center font-mono">{idx + 1}</td>
                             <td className="p-2 border-r border-slate-200 font-mono font-bold">{sheet.subjectCode}</td>
                             <td className="p-2 border-r border-slate-200 font-bold">{sheet.subjectName}</td>
                             <td className="p-2 border-r border-slate-200 text-center font-mono">{sheet.credits}</td>
-                            <td className="p-2 border-r border-slate-200 text-center font-mono font-bold">{match?.tb10 || "-"}</td>
-                            <td className="p-2 border-r border-slate-200 text-center font-mono font-bold">{match?.tb4 || "-"}</td>
-                            <td className="p-2 border-r border-slate-200 text-center font-mono font-bold text-blue-700">{match?.diemChu || "-"}</td>
+                            <td className="p-2 border-r border-slate-200 text-center font-mono font-bold">{match?.tb10 ?? "-"}</td>
+                            <td className="p-2 border-r border-slate-200 text-center font-mono font-bold">{match?.tb4 ?? "-"}</td>
+                            <td className="p-2 border-r border-slate-200 text-center font-mono font-bold text-blue-700">{match?.diemChu ?? "-"}</td>
                             <td className="p-2 text-center font-bold">{match?.xepLoai || "Đạt"}</td>
                           </tr>
                         );
                       })
                     ) : (
-                      <>
-                        <tr>
-                          <td className="p-2 border-r border-slate-200 text-center font-mono">1</td>
-                          <td className="p-2 border-r border-slate-200 font-mono font-bold">VPS7251</td>
-                          <td className="p-2 border-r border-slate-200 font-bold">Cơ sở Tự nhiên - xã hội</td>
-                          <td className="p-2 border-r border-slate-200 text-center font-mono">4</td>
-                          <td className="p-2 border-r border-slate-200 text-center font-mono font-bold">8.7</td>
-                          <td className="p-2 border-r border-slate-200 text-center font-mono font-bold">3.8</td>
-                          <td className="p-2 border-r border-slate-200 text-center font-mono font-bold text-blue-700">A</td>
-                          <td className="p-2 text-center font-bold text-blue-800">Giỏi</td>
-                        </tr>
-                        <tr>
-                          <td className="p-2 border-r border-slate-200 text-center font-mono">2</td>
-                          <td className="p-2 border-r border-slate-200 font-mono font-bold">HCP7121</td>
-                          <td className="p-2 border-r border-slate-200 font-bold">Lịch sử Đảng Cộng sản VN</td>
-                          <td className="p-2 border-r border-slate-200 text-center font-mono">2</td>
-                          <td className="p-2 border-r border-slate-200 text-center font-mono font-bold">9.2</td>
-                          <td className="p-2 border-r border-slate-200 text-center font-mono font-bold">4.0</td>
-                          <td className="p-2 border-r border-slate-200 text-center font-mono font-bold text-blue-700">A+</td>
-                          <td className="p-2 text-center font-bold text-purple-800">Xuất sắc</td>
-                        </tr>
-                      </>
+                      <tr>
+                        <td colSpan={8} className="p-4 text-center text-slate-500 italic">
+                          Chưa có dữ liệu điểm học phần trong học kỳ này
+                        </td>
+                      </tr>
                     )}
                   </tbody>
                 </table>
@@ -3691,10 +3704,10 @@ export const StudentPortal: React.FC = () => {
 
               {/* Semester Summary Box */}
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-2 gap-4 text-xs font-sans">
-                <div>Điểm trung bình học kỳ (Thang 10): <strong className="font-mono text-slate-900">{sObj?.gpa10 ? sObj.gpa10.toFixed(2) : "8.85"}</strong></div>
-                <div>Điểm trung bình học kỳ (Thang 4): <strong className="font-mono text-blue-700">{sObj?.gpa ? sObj.gpa.toFixed(2) : "3.85"}</strong></div>
-                <div>Số tín chỉ đạt trong kỳ: <strong className="font-mono text-slate-900">18 TC</strong></div>
-                <div>Xếp loại học lực: <strong className="text-emerald-700 font-bold">{sObj?.academicGrade || "Giỏi"}</strong></div>
+                <div>Điểm trung bình học kỳ (Thang 10): <strong className="font-mono text-slate-900">{transcriptGpa10}</strong></div>
+                <div>Điểm trung bình học kỳ (Thang 4): <strong className="font-mono text-blue-700">{transcriptGpa4}</strong></div>
+                <div>Số tín chỉ đạt trong kỳ: <strong className="font-mono text-slate-900">{transcriptCredits} TC</strong></div>
+                <div>Xếp loại học lực: <strong className="text-emerald-700 font-bold">{transcriptClassification}</strong></div>
               </div>
 
               {/* Verification & Signatures Footer */}

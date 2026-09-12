@@ -270,10 +270,11 @@ export const AdviserPortal: React.FC = () => {
 
     const rows = myClassResults.map(res => {
       const origStudent = myClassmatesArr.find(s => s.id === res.studentId);
+      const semGpa = origStudent?.academicDataByPeriod?.[selectedSemesterId]?.gpa ?? origStudent?.gpa;
       return [
         res.studentId,
         res.studentName,
-        origStudent?.gpa?.toFixed(2) || "0.00",
+        semGpa !== undefined && semGpa !== null ? semGpa.toFixed(2) : "0.00",
         res.studyPoints,
         res.violationPoints,
         res.extracurricularPoints,

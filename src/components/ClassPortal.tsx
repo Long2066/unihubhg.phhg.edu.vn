@@ -247,14 +247,19 @@ export const ClassPortal: React.FC = () => {
   const submitGroupRollCall = () => {
     if (!groupName) return;
 
-    if (draftAbsentees.length === 0) {
+    // Deduplicate absentees by studentId
+    const uniqueAbsentees = draftAbsentees.filter((a, index, self) =>
+      index === self.findIndex(t => t.studentId === a.studentId)
+    );
+
+    if (uniqueAbsentees.length === 0) {
       if (!window.confirm("Không có thành viên nào vắng. Báo cáo Tổ đi học đầy đủ?")) {
         return;
       }
     }
 
     const totalStuds = myGroupMembers.length;
-    const absentCount = draftAbsentees.length;
+    const absentCount = uniqueAbsentees.length;
     const presentCount = Math.max(0, totalStuds - absentCount);
 
     reportGroupAttendance({
@@ -264,7 +269,7 @@ export const ClassPortal: React.FC = () => {
       totalStudents: totalStuds,
       presentCount,
       absentCount,
-      absentees: draftAbsentees,
+      absentees: uniqueAbsentees,
       reportedBy: currentUser?.name || "Tổ trưởng",
       status: "PENDING"
     });

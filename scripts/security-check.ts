@@ -2609,9 +2609,54 @@ assert(
   "TrainingPortal schedule creation allows out-of-range periods or periodStart > periodEnd"
 );
 
+// ==========================================
+// BATCH 60: Teacher Zero Score, Dynamic Excel Formulas, Faculty Semester Fallback, Transcript Modal Real Data, Group Roll Call Deduplication & Adviser Semester GPA
+// ==========================================
+console.log("\n--- BATCH 60: Teacher Zero Score, Dynamic Excel Formulas, Faculty Fallback, Transcript Real Data, Group Roll Call & Adviser GPA ---");
+
+assert(
+  teacherPortalContent.includes("const hasTx2 = grade.tx2 !== \"\" && grade.tx2 !== undefined && grade.tx2 !== \"-\";") &&
+  teacherPortalContent.includes("const hasDk2 = grade.dk2 !== \"\" && grade.dk2 !== undefined && grade.dk2 !== \"-\";") &&
+  teacherPortalContent.includes("const processScore = hasTx2 ? (tx1 + tx2) / 2 : tx1;"),
+  "Batch 60 Issue 1: calculateSingleRow must distinguish zero scores from empty inputs to prevent doubling tx1/dk1",
+  "TeacherPortal treats score 0 as falsy, doubling tx1/dk1"
+);
+
+assert(
+  teacherPortalContent.includes("const ccW = (rules?.ccWeight ?? 10) / 100;") &&
+  teacherPortalContent.includes("ROUND(IF(COUNT(F${r},K${r})>0, F${r}*${ccW} + AVERAGE(G${r}:H${r})*${halfPrW} + AVERAGE(I${r}:J${r})*${halfPrW} + K${r}*${exW}, 0), ${roundDec})") &&
+  teacherPortalContent.includes("createTeacherGradeWorkbookBlob(\n      activeAssignment,\n      currentGrades,\n      teacherName,\n      currentUser?.name,\n      gradingRules\n    )"),
+  "Batch 60 Issue 2: Teacher grade Excel export must embed dynamic grading rules and coefficients into spreadsheet formulas",
+  "createTeacherGradeWorkbookBlob uses hardcoded weights in Excel formula"
+);
+
+assert(
+  facultyPortalContent.includes("const facultyResults = results.filter(r => \n    studentIds.includes(r.studentId) && \n    (!selectedSemesterId || r.periodId === selectedSemesterId || r.periodId === period.id || (!r.periodId && selectedSemesterId === period.id))\n  );"),
+  "Batch 60 Issue 3: FacultyPortal must fall back to current period when filtering faculty student results",
+  "FacultyPortal fails to match evaluation results with active semester id"
+);
+
+assert(
+  studentPortalContent.includes("const studentGradeRows = useMemo(() => {") &&
+  studentPortalContent.includes("const transcriptCredits = useMemo(() => {") &&
+  studentPortalContent.includes("Chưa có dữ liệu điểm học phần trong học kỳ này") &&
+  !studentPortalContent.includes("VPS7251") &&
+  !studentPortalContent.includes("HCP7121"),
+  "Batch 60 Issue 4: StudentPortal printable transcript and PDF export must display actual matching grades, credits and GPA instead of hardcoded mock data",
+  "StudentPortal printable transcript renders hardcoded fake course grades and mock GPA"
+);
+
+assert(
+  classPortalContent.includes("const submitGroupRollCall = () => {\n    if (!groupName) return;\n\n    // Deduplicate absentees by studentId\n    const uniqueAbsentees = draftAbsentees.filter((a, index, self) =>\n      index === self.findIndex(t => t.studentId === a.studentId)\n    );") &&
+  adviserPortalContent.includes("const semGpa = origStudent?.academicDataByPeriod?.[selectedSemesterId]?.gpa ?? origStudent?.gpa;") &&
+  adviserPortalContent.includes("semGpa !== undefined && semGpa !== null ? semGpa.toFixed(2) : \"0.00\","),
+  "Batch 60 Issue 5: Group roll call must deduplicate absentees and AdviserPortal CSV export must resolve semester-specific GPA",
+  "submitGroupRollCall allows duplicate absentees or AdviserPortal export misses semester GPA"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 59 SECURITY & INTEGRITY REGRESSION TESTS PASSED (303 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 60 SECURITY & INTEGRITY REGRESSION TESTS PASSED (308 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
