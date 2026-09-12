@@ -660,8 +660,20 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to update grading rules");
       return;
     }
-    setGradingRules(rules);
-    localStorage.setItem("unihub_grading_rules", JSON.stringify(rules));
+    if (isNaN(rules.ccWeight) || isNaN(rules.processWeight) || isNaN(rules.examWeight)) {
+      console.warn("Invalid grading rule weights");
+      return;
+    }
+    const safeRules: GradingRulesConfig = {
+      ...rules,
+      ccWeight: Math.max(0, Math.min(100, Math.round(Number(rules.ccWeight) || 10))),
+      processWeight: Math.max(0, Math.min(100, Math.round(Number(rules.processWeight) || 30))),
+      examWeight: Math.max(0, Math.min(100, Math.round(Number(rules.examWeight) || 60))),
+      roundingDecimals: Math.max(0, Math.min(4, Math.round(Number(rules.roundingDecimals) || 1))),
+      passScoreMin10: Math.max(0, Math.min(10, Math.round((Number(rules.passScoreMin10) || 4.0) * 10) / 10))
+    };
+    setGradingRules(safeRules);
+    localStorage.setItem("unihub_grading_rules", JSON.stringify(safeRules));
   };
 
   const aggregateSubjectGradesToSemesterGpa = (semesterId: string) => {
@@ -2333,7 +2345,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const createActivity = async (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName">): Promise<string> => {
-    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY)) {
       throw new Error("Không có quyền tạo hoạt động phong trào.");
     }
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
@@ -2374,7 +2386,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteActivity = (activityId: string) => {
-    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY)) {
       console.warn("Unauthorized attempt to delete activity");
       return;
     }
@@ -2398,7 +2410,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateActivityStatus = (activityId: string, status: "UPCOMING" | "ONGOING" | "COMPLETED") => {
-    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY)) {
       console.warn("Unauthorized attempt to update activity status");
       return;
     }
@@ -2656,7 +2668,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateAttendance = (attendanceId: string, attended: boolean, role?: "MEM" | "BTC" | "SUPPORTER") => {
-    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY)) {
       console.warn("Unauthorized attempt to update attendance");
       return;
     }
@@ -2683,7 +2695,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const addBulkAttendance = (activityId: string, studentIds: string[]) => {
-    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY)) {
       console.warn("Unauthorized attempt to bulk add attendance");
       return;
     }
@@ -2937,7 +2949,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Faculty Actions
   const lockFacultyData = (facultyId: string, lockedBy: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !facultyId) return;
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
       (currentUser.role === UserRole.FACULTY && currentUser.targetId === facultyId);
     if (!isAuthorized) {
@@ -3001,19 +3013,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.warn("Group leader cannot review evidence");
         return;
       }
-      if (currentUser.targetId && targetStudent && targetStudent.classId !== currentUser.targetId) {
+      if (!targetStudent || !currentUser.targetId || targetStudent.classId !== currentUser.targetId) {
         console.warn("Cannot review evidence outside assigned class");
         return;
       }
     }
     if (currentUser.role === UserRole.ADVISER) {
-      if (currentUser.targetId && targetStudent && targetStudent.classId !== currentUser.targetId) {
+      if (!targetStudent || !currentUser.targetId || targetStudent.classId !== currentUser.targetId) {
         console.warn("Cannot review evidence outside assigned class");
         return;
       }
     }
     if (currentUser.role === UserRole.FACULTY) {
-      if (currentUser.targetId && targetStudent && targetStudent.facultyId !== currentUser.targetId) {
+      if (!targetStudent || !currentUser.targetId || targetStudent.facultyId !== currentUser.targetId) {
         console.warn("Cannot review evidence outside assigned faculty");
         return;
       }
@@ -3413,11 +3425,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
-    const safeStudy = Math.max(0, Math.min(100, Number(scores.studyPoints) || 0));
-    const safeViolation = Math.min(0, Number(scores.violationPoints) || 0);
-    const safeExtra = Math.max(0, Math.min(100, Number(scores.extracurricularPoints) || 0));
-    const safeComm = Math.max(0, Math.min(100, Number(scores.communityPoints) || 0));
-    const safeAchieve = Math.max(0, Math.min(100, Number(scores.achievementPoints) || 0));
+    const safeStudy = Math.max(0, Math.min(20, Math.round(Number(scores.studyPoints) || 0)));
+    const safeViolation = Math.max(0, Math.min(25, Math.round(Number(scores.violationPoints) || 0)));
+    const safeExtra = Math.max(0, Math.min(30, Math.round(Number(scores.extracurricularPoints) || 0)));
+    const safeComm = Math.max(0, Math.min(15, Math.round(Number(scores.communityPoints) || 0)));
+    const safeAchieve = Math.max(0, Math.min(10, Math.round(Number(scores.achievementPoints) || 0)));
     const rawTotal = safeStudy + safeViolation + safeExtra + safeComm + safeAchieve;
     const safeTotal = Math.max(0, Math.min(100, rawTotal));
 
@@ -3544,10 +3556,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const sendGroupReminder = (classId: string, targetStudentIds: string[], message: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !classId) return;
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
-      (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId) ||
-      (currentUser.role === UserRole.CLASS_MONITOR && currentUser.targetId === classId);
+      (currentUser.role === UserRole.ADVISER && currentUser.targetId && currentUser.targetId === classId) ||
+      (currentUser.role === UserRole.CLASS_MONITOR && currentUser.targetId && currentUser.targetId === classId);
     if (!isAuthorized) {
       console.warn("Unauthorized attempt to send group reminder");
       return;
@@ -3666,12 +3678,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
     if (currentUser.role === UserRole.ADVISER || currentUser.role === UserRole.CLASS_MONITOR) {
-      if (currentUser.targetId && toClassId && currentUser.targetId !== toClassId) {
+      if (!toClassId || !currentUser.targetId || currentUser.targetId !== toClassId) {
         console.warn("Unauthorized attempt to send feedback to another class");
         return;
       }
     }
-    if (currentUser.role === UserRole.FACULTY && currentUser.targetId) {
+    if (currentUser.role === UserRole.FACULTY) {
+      if (!currentUser.targetId) {
+        console.warn("Unauthorized attempt by unassigned faculty to send feedback");
+        return;
+      }
       const isFacultyClass = students.some(s => s.classId === toClassId && s.facultyId === currentUser.targetId);
       if (!isFacultyClass) {
         console.warn("Unauthorized attempt by faculty to send feedback to another faculty's class");

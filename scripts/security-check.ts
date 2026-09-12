@@ -1329,9 +1329,73 @@ assert(
   "importAcademicData allows unvalidated or out-of-range academic grades"
 );
 
+// ==========================================
+// BATCH 29: Faculty Activities & Attendance, Group Score Clamping, Evidence & Feedback Scoping
+// ==========================================
+console.log("\n--- BATCH 29: Faculty Activities, Attendance Sync, Score Clamping & Feedback Boundary ---");
+
+assert(
+  stateContent.includes("const safeRules: GradingRulesConfig = {") &&
+  stateContent.includes("ccWeight: Math.max(0, Math.min(100, Math.round(Number(rules.ccWeight) || 10)))") &&
+  stateContent.includes("passScoreMin10: Math.max(0, Math.min(10, Math.round((Number(rules.passScoreMin10) || 4.0) * 10) / 10))"),
+  "Batch 29 Issue 1: updateGradingRules must sanitize and clamp rule weights and pass score",
+  "updateGradingRules allows invalid or unbounded weights and pass threshold"
+);
+
+assert(
+  stateContent.includes("createActivity = async (activity: Omit<ExtracurricularActivity, \"id\" | \"status\" | \"orgName\">): Promise<string> => {\n    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY))") &&
+  stateContent.includes("deleteActivity = (activityId: string) => {\n    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY))") &&
+  stateContent.includes("updateActivityStatus = (activityId: string, status: \"UPCOMING\" | \"ONGOING\" | \"COMPLETED\") => {\n    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY))"),
+  "Batch 29 Issue 2: createActivity, deleteActivity, and updateActivityStatus must permit FACULTY role",
+  "Activity lifecycle functions reject FACULTY role preventing faculty event management"
+);
+
+assert(
+  stateContent.includes("updateAttendance = (attendanceId: string, attended: boolean, role?: \"MEM\" | \"BTC\" | \"SUPPORTER\") => {\n    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY))") &&
+  stateContent.includes("addBulkAttendance = (activityId: string, studentIds: string[]) => {\n    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY))"),
+  "Batch 29 Issue 3: updateAttendance and addBulkAttendance must permit FACULTY role",
+  "Attendance updates block FACULTY role from syncing faculty activity attendance"
+);
+
+assert(
+  stateContent.includes("const safeStudy = Math.max(0, Math.min(20, Math.round(Number(scores.studyPoints) || 0)));") &&
+  stateContent.includes("const safeViolation = Math.max(0, Math.min(25, Math.round(Number(scores.violationPoints) || 0)));") &&
+  stateContent.includes("const safeExtra = Math.max(0, Math.min(30, Math.round(Number(scores.extracurricularPoints) || 0)));") &&
+  stateContent.includes("const safeComm = Math.max(0, Math.min(15, Math.round(Number(scores.communityPoints) || 0)));") &&
+  stateContent.includes("const safeAchieve = Math.max(0, Math.min(10, Math.round(Number(scores.achievementPoints) || 0)));"),
+  "Batch 29 Issue 4: submitGroupLeaderScore must clamp violationPoints to [0, 25] and all criteria within limits",
+  "submitGroupLeaderScore clamps violationPoints to <= 0 wiping discipline score"
+);
+
+assert(
+  stateContent.includes("if (!toClassId || !currentUser.targetId || currentUser.targetId !== toClassId) {\n        console.warn(\"Unauthorized attempt to send feedback to another class\");") &&
+  stateContent.includes("if (currentUser.role === UserRole.FACULTY) {\n      if (!currentUser.targetId) {\n        console.warn(\"Unauthorized attempt by unassigned faculty to send feedback\");"),
+  "Batch 29 Issue 5: sendFeedback must eliminate loose targetId bypass for adviser, monitor, and faculty",
+  "sendFeedback allows accounts without targetId to send feedback across classes"
+);
+
+assert(
+  stateContent.includes("if (!targetStudent || !currentUser.targetId || targetStudent.classId !== currentUser.targetId) {\n        console.warn(\"Cannot review evidence outside assigned class\");") &&
+  stateContent.includes("if (!targetStudent || !currentUser.targetId || targetStudent.facultyId !== currentUser.targetId) {\n        console.warn(\"Cannot review evidence outside assigned faculty\");"),
+  "Batch 29 Issue 6: reviewEvidence must strictly enforce targetId boundary matching student class/faculty",
+  "reviewEvidence allows unassigned monitors, advisers, or faculty to review evidence outside scope"
+);
+
+assert(
+  stateContent.includes("const lockFacultyData = (facultyId: string, lockedBy: string) => {\n    if (!currentUser || !facultyId) return;\n    const isAuthorized = currentUser.role === UserRole.ADMIN ||\n      (currentUser.role === UserRole.FACULTY && currentUser.targetId === facultyId);"),
+  "Batch 29 Issue 7: lockFacultyData must require non-empty facultyId and verified matching targetId",
+  "lockFacultyData allows locking with empty facultyId or unverified targetId"
+);
+
+assert(
+  stateContent.includes("const sendGroupReminder = (classId: string, targetStudentIds: string[], message: string) => {\n    if (!currentUser || !classId) return;\n    const isAuthorized = currentUser.role === UserRole.ADMIN ||\n      (currentUser.role === UserRole.ADVISER && currentUser.targetId && currentUser.targetId === classId) ||\n      (currentUser.role === UserRole.CLASS_MONITOR && currentUser.targetId && currentUser.targetId === classId);"),
+  "Batch 29 Issue 8: sendGroupReminder must verify non-empty classId and matching targetId",
+  "sendGroupReminder allows sending reminders with empty classId or mismatched targetId"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 28 SECURITY & INTEGRITY REGRESSION TESTS PASSED (150 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 29 SECURITY & INTEGRITY REGRESSION TESTS PASSED (158 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
