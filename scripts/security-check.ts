@@ -1892,9 +1892,58 @@ assert(
   "updateUserAccount or deleteUserAccount allows empty userId or non-existent user operations"
 );
 
+// ==========================================
+// BATCH 42: Normalized Class Boundaries, Attendance Defense, Reset Completeness & Portal Isolation
+// ==========================================
+console.log("\n--- BATCH 42: Normalized Class Boundaries, Attendance Defense, Reset Completeness & Portal Isolation ---");
+
+assert(
+  stateContent.includes("normalizeClassId(reportData.classId) !== normalizeClassId(glStudent.classId)") &&
+  stateContent.includes("students.filter(s => normalizeClassId(s.classId) === normalizeClassId(reportData.classId) && s.groupName === reportData.groupName).forEach(s => groupStudentIds.add(s.id));"),
+  "Batch 42 Issue 1: reportGroupAttendance must use normalizeClassId for class isolation and student inclusion",
+  "reportGroupAttendance fails on case-variant class IDs or omits normalized class students"
+);
+
+assert(
+  stateContent.includes("const normTarget = normalizeClassId(currentUser.targetId);") &&
+  stateContent.includes("const normClass = normalizeClassId(targetStudent.classId);") &&
+  stateContent.includes("(currentUser.targetId === targetStudent.classId || normTarget === normClass)"),
+  "Batch 42 Issue 2: applyGroupLeaderScore must support normalized class ID matching for authorized roles",
+  "applyGroupLeaderScore rejects valid advisers or monitors due to class ID casing"
+);
+
+assert(
+  stateContent.includes("students.filter(s => normalizeClassId(s.classId) === normClass).forEach(s => classStudentIds.add(s.id));"),
+  "Batch 42 Issue 3: reportDailyAttendance must populate class student IDs using normalized classId",
+  "reportDailyAttendance misses normalized class students in attendance calculation"
+);
+
+assert(
+  stateContent.includes("const classStudentIds = students.filter(s => s.classId === classId || normalizeClassId(s.classId) === normClass).map(s => s.id);"),
+  "Batch 42 Issue 4: bulkApproveScores must include normalized class students in approval scope",
+  "bulkApproveScores excludes valid students on case differences"
+);
+
+assert(
+  stateContent.includes("setCustomClasses([]);") &&
+  stateContent.includes("setTeacherAssignments(SEED_TEACHER_ASSIGNMENTS);") &&
+  stateContent.includes("setSubjectGradeSheets(SEED_SUBJECT_GRADES);") &&
+  stateContent.includes("setGradeAppeals([]);") &&
+  stateContent.includes("setUnlockRequests([]);"),
+  "Batch 42 Issue 5: resetToSeeds must completely reset custom classes, assignments, gradesheets, and appeals",
+  "resetToSeeds leaves orphan custom classes, grade sheets, or appeals in state"
+);
+
+assert(
+  facultyPortalContent.includes("const facultyDisplay = facultyNameMap[facultyId] || `Khoa ${facultyId}`;") &&
+  !studentPortalContent.includes("resetToSeeds"),
+  "Batch 42 Issue 6: FacultyPortal must use dynamic faculty branding and StudentPortal must not expose resetToSeeds",
+  "FacultyPortal hardcodes CNTT branding or StudentPortal exposes admin reset"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 41 SECURITY & INTEGRITY REGRESSION TESTS PASSED (218 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 42 SECURITY & INTEGRITY REGRESSION TESTS PASSED (224 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

@@ -3317,6 +3317,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       { id: "XS", name: "Tập thể Xuất sắc", minExcellentPercent: 30, maxWeakPercent: 0, description: "Tỉ lệ rèn luyện Xuất sắc & Tốt đạt từ 30% trở lên, không có sinh viên xếp loại Yếu hoặc Kém." },
       { id: "TT", name: "Tập thể Tiên tiến", minExcellentPercent: 20, maxWeakPercent: 5, description: "Tỉ lệ rèn luyện Xuất sắc & Tốt đạt từ 20% trở lên, tỉ lệ xếp loại Yếu hoặc Kém không quá 5%." }
     ]);
+    setCustomClasses([]);
+    setTeacherAssignments(SEED_TEACHER_ASSIGNMENTS);
+    setSubjectGradeSheets(SEED_SUBJECT_GRADES);
+    setGradeAppeals([]);
+    setUnlockRequests([]);
     // Không tự set currentUser = seed user nữa. Người dùng phải đăng nhập lại.
   };
 
@@ -3511,7 +3516,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (currentUser.isGroupLeader) {
       const glStudent = students.find(s => s.id === currentUser.targetId);
-      if (glStudent && reportData.classId && reportData.classId !== glStudent.classId) {
+      if (glStudent && reportData.classId && reportData.classId !== glStudent.classId && normalizeClassId(reportData.classId) !== normalizeClassId(glStudent.classId)) {
         console.warn("Group leader cannot report attendance for another class");
         return;
       }
@@ -3520,7 +3525,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return;
       }
     } else if (currentUser.role === UserRole.ADVISER || currentUser.role === UserRole.CLASS_MONITOR) {
-      if (currentUser.targetId && reportData.classId && reportData.classId !== currentUser.targetId) {
+      if (currentUser.targetId && reportData.classId && reportData.classId !== currentUser.targetId && normalizeClassId(reportData.classId) !== normalizeClassId(currentUser.targetId)) {
         console.warn("Cannot report group attendance for another class");
         return;
       }
@@ -3528,6 +3533,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const groupStudents = students.filter(s => s.classId === reportData.classId && s.groupName === reportData.groupName);
     const groupStudentIds = new Set(groupStudents.map(s => s.id));
+    students.filter(s => normalizeClassId(s.classId) === normalizeClassId(reportData.classId) && s.groupName === reportData.groupName).forEach(s => groupStudentIds.add(s.id));
     const seenAbsentIds = new Set<string>();
     const sanitizedAbsentees = (reportData.absentees || []).filter(a => {
       if (!a.studentId || !groupStudentIds.has(a.studentId) || seenAbsentIds.has(a.studentId)) return false;
@@ -3700,9 +3706,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const targetStudent = students.find(s => s.id === studentId);
     if (!targetStudent) return;
 
+    const normTarget = normalizeClassId(currentUser.targetId);
+    const normClass = normalizeClassId(targetStudent.classId);
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
-      (currentUser.role === UserRole.ADVISER && currentUser.targetId === targetStudent.classId) ||
-      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === targetStudent.classId);
+      (currentUser.role === UserRole.ADVISER && (currentUser.targetId === targetStudent.classId || normTarget === normClass)) ||
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && (currentUser.targetId === targetStudent.classId || normTarget === normClass));
     if (!isAuthorized) {
       console.warn("Unauthorized attempt to apply group leader score");
       return;
@@ -3870,15 +3878,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     reportedBy: string
   ) => {
     if (!currentUser) return;
+    const normTarget = normalizeClassId(currentUser.targetId);
+    const normClass = normalizeClassId(classId);
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
-      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === classId) ||
-      (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId);
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && (currentUser.targetId === classId || normTarget === normClass)) ||
+      (currentUser.role === UserRole.ADVISER && (currentUser.targetId === classId || normTarget === normClass));
     if (!isAuthorized) {
       console.warn("Unauthorized attempt to report daily attendance");
       return;
     }
 
     const classStudentIds = new Set(students.filter(s => s.classId === classId).map(s => s.id));
+    students.filter(s => normalizeClassId(s.classId) === normClass).forEach(s => classStudentIds.add(s.id));
     const seenAbsentIds = new Set<string>();
     const sanitizedAbsentees = (absentees || []).filter(a => {
       if (!a.studentId || !classStudentIds.has(a.studentId) || seenAbsentIds.has(a.studentId)) return false;
@@ -4647,16 +4658,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const bulkApproveScores = (classId: string, studentIds: string[], role: UserRole) => {
     if (!currentUser || !classId) return;
+    const normTarget = normalizeClassId(currentUser.targetId);
+    const normClass = normalizeClassId(classId);
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
-      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === classId) ||
-      (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId);
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && (currentUser.targetId === classId || normTarget === normClass)) ||
+      (currentUser.role === UserRole.ADVISER && (currentUser.targetId === classId || normTarget === normClass));
     if (!isAuthorized) {
       console.warn("Unauthorized attempt to bulk approve scores");
       return;
     }
 
     const effectiveRole = currentUser.role === UserRole.ADMIN ? role : currentUser.role;
-    const classStudentIds = students.filter(s => s.classId === classId).map(s => s.id);
+    const classStudentIds = students.filter(s => s.classId === classId || normalizeClassId(s.classId) === normClass).map(s => s.id);
     const validStudentIds = studentIds.filter(sid => classStudentIds.includes(sid));
 
     const updatedResults = results.map(res => {
@@ -4686,9 +4699,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     const targetStudent = students.find(s => s.id === studentId);
     if (!targetStudent) return;
+    const normTarget = normalizeClassId(currentUser.targetId);
+    const normClass = normalizeClassId(targetStudent.classId);
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
-      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === targetStudent.classId) ||
-      (currentUser.role === UserRole.ADVISER && currentUser.targetId === targetStudent.classId);
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && (currentUser.targetId === targetStudent.classId || normTarget === normClass)) ||
+      (currentUser.role === UserRole.ADVISER && (currentUser.targetId === targetStudent.classId || normTarget === normClass));
     if (!isAuthorized) {
       console.warn("Unauthorized attempt to adjust score");
       return;

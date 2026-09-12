@@ -83,8 +83,16 @@ export const FacultyPortal: React.FC = () => {
   // Group classes under faculty
   const classes = Array.from(new Set(facultyStudents.map(s => s.classId)));
 
+  const facultyNameMap: Record<string, string> = {
+    "K-CNTT": "Khoa Công nghệ thông tin",
+    "K-TA": "Khoa Ngoại ngữ",
+    "K-GDTH": "Khoa Sư phạm Tiểu học",
+    "K-MN": "Khoa Giáo dục Mầm non"
+  };
+  const facultyDisplay = facultyNameMap[facultyId] || `Khoa ${facultyId}`;
+
   const handleLockFaculty = () => {
-    const lockerName = currentUser?.name || "Văn phòng Khoa";
+    const lockerName = currentUser?.name || `Văn phòng ${facultyDisplay}`;
     lockFacultyData(facultyId, lockerName);
     alert(`${lockerName} đã khoá sổ nộp điểm rèn luyện chính thức của toàn bộ các lớp trực thuộc lên Cổng CTHSSV trường.`);
   };
@@ -149,7 +157,7 @@ export const FacultyPortal: React.FC = () => {
       <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <span className="text-[10px] font-mono font-bold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200 uppercase tracking-wider">
-            VĂN PHÒNG KHOA CÔNG NGHỆ THÔNG TIN
+            VĂN PHÒNG {facultyDisplay.toUpperCase()}
           </span>
           <h2 className="text-xl font-extrabold text-slate-900 mt-2">Bàn Điều Hành & Thẩm Thư Cấp Khoa</h2>
           <p className="text-xs text-slate-505 mt-1 italic">
@@ -181,7 +189,7 @@ export const FacultyPortal: React.FC = () => {
             Lớp liên đới
           </div>
           <div className="text-2xl font-black text-slate-900 font-mono tracking-tight mt-1">{classes.length}</div>
-          <div className="text-[10px] text-slate-450 mt-1">Lớp K20-CNTT, K21-CNTT...</div>
+          <div className="text-[10px] text-slate-450 mt-1">Các lớp trực thuộc {facultyDisplay}</div>
         </div>
         <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
@@ -225,7 +233,7 @@ export const FacultyPortal: React.FC = () => {
                 <p className="text-[10px] text-slate-500 mt-0.5">Xuất file Excel tổng hợp chính xác điểm của {facultyResults.length} sinh viên để lưu trữ hồ sơ Phân hiệu.</p>
               </div>
               <button 
-                onClick={() => alert("Hệ thống đã chuẩn bị tệp tin Excel khoa_cntt_ren_luyen.xlsx xuất ra thiết bị của bạn.")}
+                onClick={() => alert(`Hệ thống đã chuẩn bị tệp tin Excel khoa_${facultyId.toLowerCase().replace(/[^a-z0-9]/g, '_')}_ren_luyen.xlsx xuất ra thiết bị của bạn.`)}
                 className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold rounded-lg hover:cursor-pointer transition-colors flex items-center gap-1 shrink-0"
               >
                 <FileSpreadsheet size={13} />
@@ -313,7 +321,7 @@ export const FacultyPortal: React.FC = () => {
                   <div key={cId} className="p-4 bg-white hover:bg-slate-50/20 transition-colors flex justify-between items-center flex-wrap gap-4 text-xs">
                     <div>
                       <h5 className="font-extrabold text-slate-900">Chi hội Lớp: {cId}</h5>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Khoa Công nghệ thông tin liên kết</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{facultyDisplay} quản lý</p>
                     </div>
 
                     <div className="flex items-center gap-6">

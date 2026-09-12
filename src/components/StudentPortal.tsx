@@ -353,7 +353,6 @@ export const StudentPortal: React.FC = () => {
     students,
     criteria,
     updateStudentProfile,
-    resetToSeeds,
     announcements,
     updateMemberDetails,
     activePortletTab,
