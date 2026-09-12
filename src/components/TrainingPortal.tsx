@@ -231,7 +231,7 @@ export const TrainingPortal: React.FC = () => {
       }
 
       worksheet.getCell("D1").value = `BẢNG PHÂN CÔNG GIẢNG VIÊN THAM GIA GIẢNG DẠY CÁC HỌC PHẦN \r\nTẠI CÁC LỚP, ${semesterNameUpper}`;
-      worksheet.getCell("H1").value = "Trích xuất từ hệ thống UniHubHG\r\nHệ thống quản lí sinh viên\r\nhttps://unihubhg-phhg.vercel.app/";
+      worksheet.getCell("H1").value = "Trích xuất từ hệ thống UniHubHG\r\nHệ thống quản lí sinh viên\r\nhttps://unihubhg.vercel.app/";
 
       for (let rowIndex = 0; rowIndex < renderedDataRows; rowIndex++) {
         const rowNumber = 4 + rowIndex;
