@@ -670,8 +670,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to add grade audit log");
       return;
     }
+    const cleanAction = (log.action || "").trim();
+    if (!cleanAction) return;
+    const isSuperRole = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.TRAINING_DEPT;
+    const actorName = isSuperRole ? (log.actor || currentUser.name || currentUser.username) : (currentUser.name || currentUser.username);
+
     const item: GradeAuditLog = {
       ...log,
+      action: cleanAction,
+      actor: actorName,
       id: `LOG_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       timestamp: new Date().toISOString().replace("T", " ").substring(0, 19)
     };
@@ -699,8 +706,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       roundingDecimals: Math.max(0, Math.min(4, Math.round(Number(rules.roundingDecimals) || 1))),
       passScoreMin10: Math.max(0, Math.min(10, Math.round((Number(rules.passScoreMin10) || 4.0) * 10) / 10))
     };
+    if (safeRules.ccWeight + safeRules.processWeight + safeRules.examWeight === 0) {
+      console.warn("Total grading rule weight cannot be 0");
+      return;
+    }
     setGradingRules(safeRules);
     localStorage.setItem("unihub_grading_rules", JSON.stringify(safeRules));
+    saveToFirestore("unihub_grading_rules", safeRules);
   };
 
   const aggregateSubjectGradesToSemesterGpa = (semesterId: string) => {
@@ -708,7 +720,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to aggregate grades");
       return { updatedCount: 0, warningsCount: 0 };
     }
-    const validSheets = subjectGradeSheets.filter(s => s.semesterId === semesterId && (s.status === "SUBMITTED" || s.status === "LOCKED"));
+    const cleanSemesterId = (semesterId || "").trim();
+    if (!cleanSemesterId) return { updatedCount: 0, warningsCount: 0 };
+
+    const validSheets = subjectGradeSheets.filter(s => s.semesterId === cleanSemesterId && (s.status === "SUBMITTED" || s.status === "LOCKED"));
 
     let updatedCount = 0;
     let warningsCount = 0;
@@ -719,7 +734,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         validSheets.forEach(sheet => {
           const match = sheet.grades.find(g => g.studentId === student.id);
-          if (match && match.tb10 !== undefined && match.tb10 !== "" && match.tb10 !== "-") {
+          if (match && (!sheet.classId || normalizeClassId(student.classId) === normalizeClassId(sheet.classId)) && match.tb10 !== undefined && match.tb10 !== "" && match.tb10 !== "-") {
             const tb10 = parseFloat(String(match.tb10));
             const tb4 = parseFloat(String(match.tb4)) || 0;
             if (!isNaN(tb10)) {
@@ -781,10 +796,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
 
         const existingPeriodData = student.academicDataByPeriod || {};
+        const prevEarnedForSemester = student.academicDataByPeriod?.[cleanSemesterId]?.creditsEarned || 0;
+        const baseAccumulated = Math.max(0, (student.accumulatedCredits || 0) - prevEarnedForSemester);
+
         const periodData = {
           gpa: semGpa4,
           gpa10: semGpa10,
-          creditsEarned: (student.creditsEarned || 0) + earnedCredits,
+          creditsEarned: earnedCredits,
           learningWarning,
           learningStatus,
           academicGrade,
@@ -795,13 +813,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           ...student,
           gpa: semGpa4,
           gpa10: semGpa10,
-          accumulatedCredits: (student.accumulatedCredits || 0) + earnedCredits,
+          accumulatedCredits: baseAccumulated + earnedCredits,
           learningWarning,
           learningStatus,
           academicGrade,
           academicDataByPeriod: {
             ...existingPeriodData,
-            [semesterId]: periodData
+            [cleanSemesterId]: periodData
           }
         };
       });
@@ -3475,9 +3493,24 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setAnnouncements(backupData.announcements);
       saveToStorage("unihub_announcements", backupData.announcements);
     }
+    if (Array.isArray(backupData.customClasses)) {
+      setCustomClasses(backupData.customClasses);
+      saveToStorage("unihub_custom_classes", backupData.customClasses);
+    }
+    if (Array.isArray(backupData.gradeAppeals)) {
+      setGradeAppeals(backupData.gradeAppeals);
+      saveToStorage("unihub_grade_appeals", backupData.gradeAppeals);
+    }
+    if (Array.isArray(backupData.unlockRequests)) {
+      setUnlockRequests(backupData.unlockRequests);
+      saveToStorage("unihub_unlock_requests", backupData.unlockRequests);
+    }
     if (backupData.gradingRules) {
       setGradingRules(backupData.gradingRules);
       localStorage.setItem("unihub_grading_rules", JSON.stringify(backupData.gradingRules));
+    }
+    if (backupData.gradingRules) {
+      saveToStorage("unihub_grading_rules", backupData.gradingRules);
     }
     if (backupData.period) {
       setPeriod(backupData.period);

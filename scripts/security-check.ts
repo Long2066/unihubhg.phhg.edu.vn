@@ -2229,9 +2229,43 @@ assert(
   "ClassStatisticsBottom crashes on missing AlertCircle import or fails on unnormalized class IDs"
 );
 
+// ==========================================
+// BATCH 51: Audit Log Impersonation Defense, Grading Rules Firestore Sync, GPA Double-Counting Fix & Full Backup Restore
+// ==========================================
+console.log("\n--- BATCH 51: Audit Log Defense, Rules Sync, GPA Credit Baseline & Full Restore ---");
+
+assert(
+  stateContent.includes("const cleanAction = (log.action || \"\").trim();\n    if (!cleanAction) return;\n    const isSuperRole = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.TRAINING_DEPT;\n    const actorName = isSuperRole ? (log.actor || currentUser.name || currentUser.username) : (currentUser.name || currentUser.username);"),
+  "Batch 51 Issue 1: addGradeAuditLog must validate action and prevent non-super roles from spoofing actor name",
+  "addGradeAuditLog allows blank action or actor spoofing by teachers"
+);
+
+assert(
+  stateContent.includes("if (safeRules.ccWeight + safeRules.processWeight + safeRules.examWeight === 0) {\n      console.warn(\"Total grading rule weight cannot be 0\");\n      return;\n    }\n    setGradingRules(safeRules);\n    localStorage.setItem(\"unihub_grading_rules\", JSON.stringify(safeRules));\n    saveToFirestore(\"unihub_grading_rules\", safeRules);"),
+  "Batch 51 Issue 2: updateGradingRules must reject zero total weight and synchronize to Firestore",
+  "updateGradingRules allows 0% weight sum or skips Firestore synchronization"
+);
+
+assert(
+  stateContent.includes("const cleanSemesterId = (semesterId || \"\").trim();\n    if (!cleanSemesterId) return { updatedCount: 0, warningsCount: 0 };") &&
+  stateContent.includes("if (match && (!sheet.classId || normalizeClassId(student.classId) === normalizeClassId(sheet.classId)) && match.tb10 !== undefined && match.tb10 !== \"\" && match.tb10 !== \"-\")") &&
+  stateContent.includes("const prevEarnedForSemester = student.academicDataByPeriod?.[cleanSemesterId]?.creditsEarned || 0;\n        const baseAccumulated = Math.max(0, (student.accumulatedCredits || 0) - prevEarnedForSemester);\n\n        const periodData = {\n          gpa: semGpa4,\n          gpa10: semGpa10,\n          creditsEarned: earnedCredits,\n          learningWarning,\n          learningStatus,\n          academicGrade,\n          updatedAt: new Date().toISOString().split(\"T\")[0]\n        };\n\n        return {\n          ...student,\n          gpa: semGpa4,\n          gpa10: semGpa10,\n          accumulatedCredits: baseAccumulated + earnedCredits,"),
+  "Batch 51 Issue 3: aggregateSubjectGradesToSemesterGpa must validate semesterId, isolate by class, and prevent credit double-counting",
+  "aggregateSubjectGradesToSemesterGpa double-counts accumulated credits or leaks cross-class student grades"
+);
+
+assert(
+  stateContent.includes("if (Array.isArray(backupData.customClasses)) {\n      setCustomClasses(backupData.customClasses);\n      saveToStorage(\"unihub_custom_classes\", backupData.customClasses);\n    }") &&
+  stateContent.includes("if (Array.isArray(backupData.gradeAppeals)) {\n      setGradeAppeals(backupData.gradeAppeals);\n      saveToStorage(\"unihub_grade_appeals\", backupData.gradeAppeals);\n    }") &&
+  stateContent.includes("if (Array.isArray(backupData.unlockRequests)) {\n      setUnlockRequests(backupData.unlockRequests);\n      saveToStorage(\"unihub_unlock_requests\", backupData.unlockRequests);\n    }") &&
+  stateContent.includes("if (backupData.gradingRules) {\n      saveToStorage(\"unihub_grading_rules\", backupData.gradingRules);\n    }"),
+  "Batch 51 Issue 4: restoreAllDataBackup must restore customClasses, appeals, unlockRequests, and gradingRules to storage",
+  "restoreAllDataBackup drops customClasses, appeals, unlockRequests, or gradingRules"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 50 SECURITY & INTEGRITY REGRESSION TESTS PASSED (260 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 51 SECURITY & INTEGRITY REGRESSION TESTS PASSED (264 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
