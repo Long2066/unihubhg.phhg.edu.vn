@@ -1508,9 +1508,80 @@ assert(
   "ClassPortal group scoring blindly accesses DOM elements causing runtime crashes"
 );
 
+// ==========================================
+// BATCH 32: Group Attendance Key Integrity, Strict Scoping, Cascade Cleanup & Schedule Fallback Sanitization
+// ==========================================
+console.log("\n--- BATCH 32: Group Attendance Key, Scoping Guards, Cascade Cleanup & Schedule Sanitization ---");
+
+assert(
+  stateContent.includes("saveToStorage(\"unihub_group_attendances\", updatedGroupAttendances);") &&
+  !stateContent.includes("saveToStorage(\"unihub_group_attendance\", updatedGroupAttendances);"),
+  "Batch 32 Issue 1: renameClass and deleteClass must save to unihub_group_attendances storage key",
+  "renameClass or deleteClass uses mismatching unihub_group_attendance key"
+);
+
+assert(
+  stateContent.includes("approveGroupAttendance = (reportId: string, reviewerName: string) => {") &&
+  stateContent.includes("if (!currentUser.targetId) {\n        console.warn(\"Unauthorized attempt by unassigned user to approve group attendance\");") &&
+  stateContent.includes("if (!currentUser.targetId) {\n        console.warn(\"Unauthorized attempt by unassigned user to reject group attendance\");"),
+  "Batch 32 Issue 2: approveGroupAttendance and rejectGroupAttendance must verify caller targetId matches class",
+  "approveGroupAttendance or rejectGroupAttendance allows unassigned accounts to approve/reject reports"
+);
+
+assert(
+  stateContent.includes("if (!glStudent || targetStudent.classId !== glStudent.classId) {\n        console.warn(\"Group leader cannot grade student in another class\");") &&
+  stateContent.includes("if (!currentUser.groupInCharge || targetStudent.groupName !== currentUser.groupInCharge) {\n        console.warn(\"Group leader cannot grade student in another group\");"),
+  "Batch 32 Issue 3: submitGroupLeaderScore must verify valid glStudent and matching group charge",
+  "submitGroupLeaderScore allows unverified group leaders or missing group students to bypass scope"
+);
+
+assert(
+  stateContent.includes("if (studentId) {\n      const targetStudent = students.find(s => s.id === studentId);\n      if (!targetStudent) {\n        console.warn(\"Target student not found\");"),
+  "Batch 32 Issue 4: sendFeedback must verify that targeted student exists in students directory",
+  "sendFeedback allows ghost student IDs without existence verification"
+);
+
+assert(
+  stateContent.includes("const targetFb = feedbacks.find(fb => fb.id === feedbackId);\n    if (!targetFb) return;\n\n    if (currentUser.role !== UserRole.ADMIN) {\n      if (!currentUser.targetId) {\n        console.warn(\"Unauthorized attempt by unassigned user to resolve feedback\");"),
+  "Batch 32 Issue 5: resolveFeedback must reject unassigned non-admin users",
+  "resolveFeedback allows unassigned users with empty targetId to resolve feedback"
+);
+
+assert(
+  stateContent.includes("const orgActIds = activities.filter(a => a.orgId.toLowerCase() === orgId).map(a => a.id);") &&
+  stateContent.includes("localStorage.setItem(\"unihub_activities\", JSON.stringify(updated));") &&
+  stateContent.includes("localStorage.setItem(\"unihub_attendance\", JSON.stringify(updated));") &&
+  stateContent.includes("localStorage.setItem(\"unihub_announcements\", JSON.stringify(updated));") &&
+  stateContent.includes("localStorage.setItem(\"unihub_members\", JSON.stringify(updated));"),
+  "Batch 32 Issue 6: deleteUserAccount must cascade cleanup of activities, attendance, announcements, and members",
+  "deleteUserAccount leaves orphaned club activities, attendance records, or memberships"
+);
+
+assert(
+  stateContent.includes("if (res.studentId === studentId && (!period?.id || res.periodId === period.id))"),
+  "Batch 32 Issue 7: adjustStudentScoreSpecific must scope score adjustment strictly to current evaluation period",
+  "adjustStudentScoreSpecific modifies evaluation results across all historical periods"
+);
+
+assert(
+  stateContent.includes("saveGroupSettings = (\n    classId: string, \n    assignments: { [studentId: string]: string }, \n    leaders: { [groupName: string]: { studentId: string; username?: string; password?: string } }\n  ) => {\n    if (!currentUser || !classId) return;") &&
+  stateContent.includes("const cleanGroupName = (groupName || \"\").trim();\n      if (!cleanGroupName || !leaderInfo || !leaderInfo.studentId) return;"),
+  "Batch 32 Issue 8: saveGroupSettings must require non-empty classId and validate non-empty group names",
+  "saveGroupSettings allows empty classId or whitespace group names"
+);
+
+assert(
+  !trainingPortalContent.includes("row.classId || \"K2-GDTH A\"") &&
+  !trainingPortalContent.includes("scheduleModalData.classId || \"K2-GDTH A\"") &&
+  trainingPortalContent.includes("classId: normalizeClassId(row.classId.trim()),") &&
+  trainingPortalContent.includes("classId: normalizeClassId(scheduleModalData.classId.trim()),"),
+  "Batch 32 Issue 9: TrainingPortal schedule creation must not assign hardcoded K2-GDTH A fallback",
+  "TrainingPortal contains hardcoded K2-GDTH A fallback for schedules"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 31 SECURITY & INTEGRITY REGRESSION TESTS PASSED (173 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 32 SECURITY & INTEGRITY REGRESSION TESTS PASSED (182 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

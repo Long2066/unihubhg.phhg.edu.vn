@@ -3221,7 +3221,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     assignments: { [studentId: string]: string }, 
     leaders: { [groupName: string]: { studentId: string; username?: string; password?: string } }
   ) => {
-    if (!currentUser) return;
+    if (!currentUser || !classId) return;
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
       (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId) ||
       (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === classId);
@@ -3254,7 +3254,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     ));
 
     Object.entries(leaders).forEach(([groupName, leaderInfo]) => {
-      if (!leaderInfo.studentId) return;
+      const cleanGroupName = (groupName || "").trim();
+      if (!cleanGroupName || !leaderInfo || !leaderInfo.studentId) return;
       const studentObj = students.find(s => s.id === leaderInfo.studentId);
       if (!studentObj || studentObj.classId !== classId) return;
 
@@ -3270,7 +3271,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         email: safeEmail,
         targetId: leaderInfo.studentId,
         isGroupLeader: true,
-        groupInCharge: groupName
+        groupInCharge: cleanGroupName
       });
     });
 
@@ -3376,9 +3377,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const targetReport = groupAttendances.find(ga => ga.id === reportId);
     if (!targetReport) return;
-    if (currentUser.role !== UserRole.ADMIN && currentUser.targetId && targetReport.classId !== currentUser.targetId) {
-      console.warn("Unauthorized attempt to approve group attendance for another class");
-      return;
+    if (currentUser.role !== UserRole.ADMIN) {
+      if (!currentUser.targetId) {
+        console.warn("Unauthorized attempt by unassigned user to approve group attendance");
+        return;
+      }
+      if (currentUser.targetId && targetReport.classId !== currentUser.targetId) {
+        console.warn("Unauthorized attempt to approve group attendance for another class");
+        return;
+      }
     }
 
     const updated = groupAttendances.map(ga => {
@@ -3408,9 +3415,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const targetReport = groupAttendances.find(ga => ga.id === reportId);
     if (!targetReport) return;
-    if (currentUser.role !== UserRole.ADMIN && currentUser.targetId && targetReport.classId !== currentUser.targetId) {
-      console.warn("Unauthorized attempt to reject group attendance for another class");
-      return;
+    if (currentUser.role !== UserRole.ADMIN) {
+      if (!currentUser.targetId) {
+        console.warn("Unauthorized attempt by unassigned user to reject group attendance");
+        return;
+      }
+      if (currentUser.targetId && targetReport.classId !== currentUser.targetId) {
+        console.warn("Unauthorized attempt to reject group attendance for another class");
+        return;
+      }
     }
 
     const updated = groupAttendances.map(ga => {
@@ -3442,11 +3455,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return;
       }
       const glStudent = students.find(s => s.id === currentUser.targetId);
-      if (glStudent && targetStudent.classId !== glStudent.classId) {
+      if (!glStudent || targetStudent.classId !== glStudent.classId) {
         console.warn("Group leader cannot grade student in another class");
         return;
       }
-      if (currentUser.groupInCharge && targetStudent.groupName && targetStudent.groupName !== currentUser.groupInCharge) {
+      if (!currentUser.groupInCharge || targetStudent.groupName !== currentUser.groupInCharge) {
         console.warn("Group leader cannot grade student in another group");
         return;
       }
@@ -3732,6 +3745,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (studentId) {
       const targetStudent = students.find(s => s.id === studentId);
+      if (!targetStudent) {
+        console.warn("Target student not found");
+        return;
+      }
       if (targetStudent && targetStudent.classId !== toClassId) {
         console.warn("Target student does not belong to specified class");
         return;
@@ -3770,9 +3787,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const targetFb = feedbacks.find(fb => fb.id === feedbackId);
     if (!targetFb) return;
 
-    if (currentUser.role !== UserRole.ADMIN && currentUser.targetId && targetFb.toClassId && targetFb.toClassId !== currentUser.targetId) {
-      console.warn("Unauthorized attempt to resolve feedback for another class");
-      return;
+    if (currentUser.role !== UserRole.ADMIN) {
+      if (!currentUser.targetId) {
+        console.warn("Unauthorized attempt by unassigned user to resolve feedback");
+        return;
+      }
+      if (currentUser.targetId && targetFb.toClassId && targetFb.toClassId !== currentUser.targetId) {
+        console.warn("Unauthorized attempt to resolve feedback for another class");
+        return;
+      }
     }
 
     const updated = feedbacks.map(fb => {
@@ -4139,13 +4162,35 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     deleteDoc(doc(db, "users", userId)).catch(e => console.warn("Lỗi xóa user Firestore:", e));
 
     if (userToDelete && isOrgRole(userToDelete.role) && userToDelete.targetId) {
-      const orgId = userToDelete.targetId;
+      const orgId = userToDelete.targetId.toLowerCase();
       setOrganizations(prev => {
-        const updated = prev.filter(o => o.id.toLowerCase() !== orgId.toLowerCase());
+        const updated = prev.filter(o => o.id.toLowerCase() !== orgId);
         localStorage.setItem("unihub_organizations", JSON.stringify(updated));
         return updated;
       });
-      deleteDoc(doc(db, "organizations", orgId)).catch(e => console.warn("Lỗi xóa organization liên kết Firestore:", e));
+      deleteDoc(doc(db, "organizations", userToDelete.targetId)).catch(e => console.warn("Lỗi xóa organization liên kết Firestore:", e));
+
+      const orgActIds = activities.filter(a => a.orgId.toLowerCase() === orgId).map(a => a.id);
+      setActivities(prev => {
+        const updated = prev.filter(a => a.orgId.toLowerCase() !== orgId);
+        localStorage.setItem("unihub_activities", JSON.stringify(updated));
+        return updated;
+      });
+      setAttendance(prev => {
+        const updated = prev.filter(att => !orgActIds.includes(att.activityId));
+        localStorage.setItem("unihub_attendance", JSON.stringify(updated));
+        return updated;
+      });
+      setAnnouncements(prev => {
+        const updated = prev.filter(ann => ann.orgId.toLowerCase() !== orgId);
+        localStorage.setItem("unihub_announcements", JSON.stringify(updated));
+        return updated;
+      });
+      setMembers(prev => {
+        const updated = prev.filter(m => m.orgId.toLowerCase() !== orgId);
+        localStorage.setItem("unihub_members", JSON.stringify(updated));
+        return updated;
+      });
     }
   };
 
@@ -4286,7 +4331,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const updatedGroupAttendances = groupAttendances.map(ga => normalizeClassId(ga.classId) === oldNorm ? { ...ga, classId: newNorm } : ga);
     setGroupAttendances(updatedGroupAttendances);
-    saveToStorage("unihub_group_attendance", updatedGroupAttendances);
+    saveToStorage("unihub_group_attendances", updatedGroupAttendances);
 
     const updatedEvidence = evidence.map(ev => normalizeClassId(ev.classId) === oldNorm ? { ...ev, classId: newNorm } : ev);
     setEvidence(updatedEvidence);
@@ -4357,7 +4402,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const updatedGroupAttendances = groupAttendances.filter(ga => normalizeClassId(ga.classId) !== norm);
     setGroupAttendances(updatedGroupAttendances);
-    saveToStorage("unihub_group_attendance", updatedGroupAttendances);
+    saveToStorage("unihub_group_attendances", updatedGroupAttendances);
 
     const updatedFeedbacks = feedbacks.filter(fb => normalizeClassId(fb.toClassId) !== norm);
     setFeedbacks(updatedFeedbacks);
@@ -4415,7 +4460,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
     const updatedResults = results.map(res => {
-      if (res.studentId === studentId) {
+      if (res.studentId === studentId && (!period?.id || res.periodId === period.id)) {
         let studyPoints = res.studyPoints;
         let violationPoints = res.violationPoints;
         let extracurricularPoints = res.extracurricularPoints;

@@ -2325,8 +2325,8 @@ export const TrainingPortal: React.FC = () => {
       const { startWeek, endWeek } = parseWeekRange(row.weekRange || "1-15");
       const slot: ScheduleSlot = {
         id: `SCH_BATCH_${Date.now()}_${idx}`,
-        classId: normalizeClassId(row.classId || "K2-GDTH A"),
-        className: normalizeClassId(row.className || row.classId || "K2-GDTH A"),
+        classId: normalizeClassId(row.classId.trim()),
+        className: normalizeClassId(row.className?.trim() || row.classId.trim()),
         subjectName: row.subjectName.trim(),
         subjectCode: row.subjectCode?.trim() || `HP_${row.subjectName.trim().replace(/\s+/g, "")}`,
         credits: Number(row.credits) || 2,
@@ -2401,8 +2401,8 @@ export const TrainingPortal: React.FC = () => {
     const { startWeek, endWeek } = parseWeekRange(scheduleModalData.weekRange || "1-15");
     const slotToSave: ScheduleSlot = {
       id: editingScheduleSlot ? editingScheduleSlot.id : `SCH_MANUAL_${Date.now()}`,
-      classId: normalizeClassId(scheduleModalData.classId || "K2-GDTH A"),
-      className: normalizeClassId(scheduleModalData.className || scheduleModalData.classId || "K2-GDTH A"),
+      classId: normalizeClassId(scheduleModalData.classId.trim()),
+      className: normalizeClassId(scheduleModalData.className?.trim() || scheduleModalData.classId.trim()),
       subjectName: scheduleModalData.subjectName.trim(),
       subjectCode: scheduleModalData.subjectCode?.trim() || `HP_${scheduleModalData.subjectName.trim().replace(/\s+/g, "")}`,
       credits: Number(scheduleModalData.credits) || 2,
