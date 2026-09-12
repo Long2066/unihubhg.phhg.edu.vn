@@ -1707,9 +1707,41 @@ assert(
   "TrainingPortal allows duplicate assignment row generation"
 );
 
+// ==========================================
+// BATCH 37: Evidence Point Ceiling, Cascade Cleanup, Member Dedup Sanitization & Schedule Integrity
+// ==========================================
+console.log("\n--- BATCH 37: Evidence Point Ceiling, Cascade Evidence Cleanup, Dedup & Schedule Integrity ---");
+
+assert(
+  stateContent.includes("const cleanActivityName = (data.activityName || \"\").trim();\n    const cleanCriteriaId = (data.criteriaId || \"\").trim();\n    if (!cleanActivityName || !cleanCriteriaId) {") &&
+  stateContent.includes("const maxAllowedPoints = cleanCriteriaId.startsWith(\"TC4\") ? 15 : cleanCriteriaId.startsWith(\"TC5\") ? 10 : cleanCriteriaId.startsWith(\"TC1\") ? 20 : cleanCriteriaId.startsWith(\"TC2\") ? 25 : 30;") &&
+  stateContent.includes("const safePoints = Math.max(1, Math.min(maxAllowedPoints, Math.round(boundedPoints) || 5));"),
+  "Batch 37 Issue 1: submitEvidence must validate non-empty fields and dynamically clamp points requested to criteria ceiling",
+  "submitEvidence allows blank activity name or unclamped points up to 100"
+);
+
+assert(
+  stateContent.includes("const updatedEvidence = evidence.filter(ev => normalizeClassId(ev.classId) !== norm && !deletedStudentIds.has(ev.studentId));\n    setEvidence(updatedEvidence);\n    saveToStorage(\"unihub_evidence\", updatedEvidence);"),
+  "Batch 37 Issue 2: deleteClass must cascade cleanup of evidence submissions",
+  "deleteClass leaves orphaned evidence submissions"
+);
+
+assert(
+  stateContent.includes("const isCleanDuplicate = members.some(m => m.orgId === member.orgId && m.studentId === cleanStudentId);"),
+  "Batch 37 Issue 3: addMemberManual duplicate check must use sanitized cleanStudentId",
+  "addMemberManual duplicate check uses uncleaned studentId allowing whitespace bypass"
+);
+
+assert(
+  stateContent.includes("classId: normalizeClassId(s.classId.trim()),\n      subjectCode: (s.subjectCode || \"\").trim(),\n      subjectName: (s.subjectName || \"\").trim()") &&
+  stateContent.includes("const cleanId = (id || \"\").trim();\n    if (!cleanId) return;"),
+  "Batch 37 Issue 4: importScheduleData and deleteScheduleSlot must sanitize schedule slot data and slot IDs",
+  "Schedule operations allow unnormalized classId or blank IDs"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 36 SECURITY & INTEGRITY REGRESSION TESTS PASSED (196 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 37 SECURITY & INTEGRITY REGRESSION TESTS PASSED (200 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

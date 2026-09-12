@@ -2205,18 +2205,31 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const resolvedClassId = studentObj?.classId || data.classId || "";
     const resolvedStudentName = studentObj?.name || data.studentName || currentUser.name || "Sinh viên";
 
+    const cleanActivityName = (data.activityName || "").trim();
+    const cleanCriteriaId = (data.criteriaId || "").trim();
+    if (!cleanActivityName || !cleanCriteriaId) {
+      console.warn("Evidence submission requires valid activityName and criteriaId");
+      return;
+    }
+
     const rawUrl = (data.proofUrl || "").trim();
     if (/^(javascript|vbscript):/i.test(rawUrl) || rawUrl.startsWith("//")) {
       console.warn("Rejected unsafe proofUrl:", rawUrl);
       return;
     }
 
+    const boundedPoints = Math.max(0, Math.min(100, Number(data.pointsRequested) || 0));
+    const maxAllowedPoints = cleanCriteriaId.startsWith("TC4") ? 15 : cleanCriteriaId.startsWith("TC5") ? 10 : cleanCriteriaId.startsWith("TC1") ? 20 : cleanCriteriaId.startsWith("TC2") ? 25 : 30;
+    const safePoints = Math.max(1, Math.min(maxAllowedPoints, Math.round(boundedPoints) || 5));
+
     const newEvidence: EvidenceSubmission = {
       ...data,
+      activityName: cleanActivityName,
+      criteriaId: cleanCriteriaId,
       studentId: effectiveStudentId,
       studentName: resolvedStudentName,
       classId: resolvedClassId,
-      pointsRequested: Math.max(0, Math.min(100, Number(data.pointsRequested) || 0)),
+      pointsRequested: safePoints,
       proofUrl: rawUrl,
       id: `EV_NEW_${Date.now()}`,
       submittedAt: new Date().toISOString().split("T")[0],
@@ -2600,8 +2613,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Cannot add member: student not found in students directory");
       return;
     }
+    const isCleanDuplicate = members.some(m => m.orgId === member.orgId && m.studentId === cleanStudentId);
     const isDuplicate = members.some(m => m.orgId === member.orgId && m.studentId === member.studentId);
     if (isDuplicate) {
+      console.warn("Student is already a member of this organization");
+      return;
+    }
+    if (isCleanDuplicate) {
       console.warn("Student is already a member of this organization");
       return;
     }
@@ -3749,7 +3767,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to import schedule data");
       return;
     }
-    const validSlots = (slots || []).filter(s => s && typeof s.classId === "string" && s.classId.trim() && typeof s.subjectName === "string" && s.subjectName.trim());
+    const validSlots = (slots || []).filter(s => s && typeof s.classId === "string" && s.classId.trim() && typeof s.subjectName === "string" && s.subjectName.trim()).map(s => ({
+      ...s,
+      classId: normalizeClassId(s.classId.trim()),
+      subjectCode: (s.subjectCode || "").trim(),
+      subjectName: (s.subjectName || "").trim()
+    }));
     setSchedules(validSlots);
     saveToStorage("unihub_schedules", validSlots);
   };
@@ -3759,7 +3782,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to delete schedule slot");
       return;
     }
-    const updated = schedules.filter(s => s.id !== id);
+    const cleanId = (id || "").trim();
+    if (!cleanId) return;
+    const updated = schedules.filter(s => s.id !== cleanId);
     setSchedules(updated);
     saveToStorage("unihub_schedules", updated);
   };
@@ -4523,6 +4548,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedGradeAppeals = gradeAppeals.filter(ga => normalizeClassId(ga.classId) !== norm);
     setGradeAppeals(updatedGradeAppeals);
     localStorage.setItem("unihub_grade_appeals", JSON.stringify(updatedGradeAppeals));
+
+    const updatedEvidence = evidence.filter(ev => normalizeClassId(ev.classId) !== norm && !deletedStudentIds.has(ev.studentId));
+    setEvidence(updatedEvidence);
+    saveToStorage("unihub_evidence", updatedEvidence);
   };
 
   const bulkApproveScores = (classId: string, studentIds: string[], role: UserRole) => {
