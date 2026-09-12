@@ -840,8 +840,6 @@ export default function App() {
       if (authUser && authUser.email && allowedEmails.includes(authUser.email.toLowerCase())) {
         setIsAuthenticated(true);
         localStorage.setItem("unihub_superadmin_auth", "true");
-      } else if (localStorage.getItem("unihub_superadmin_auth") === "true") {
-        setIsAuthenticated(true);
       } else {
         setIsAuthenticated(false);
         localStorage.removeItem("unihub_superadmin_auth");
@@ -1040,10 +1038,24 @@ export default function App() {
         }
       }
 
-      if (userCredential?.user) {
-        setIsAuthenticated(true);
-        localStorage.setItem("unihub_superadmin_auth", "true");
+      const allowedAdminEmails = [
+        "admin@phhg.edu.vn",
+        "cthssv@phhg.edu.vn",
+        "superadmin@unihub.edu.vn",
+        "admin@unihub.edu.vn",
+        "pcthssv@hg.edu.vn"
+      ];
+      const userEmail = (userCredential?.user?.email || "").toLowerCase();
+      if (!userCredential?.user || !allowedAdminEmails.includes(userEmail)) {
+        await signOut(auth).catch(() => {});
+        setIsAuthenticated(false);
+        localStorage.removeItem("unihub_superadmin_auth");
+        setLoginError("Tài khoản không có quyền quản trị Super Admin.");
+        return;
       }
+
+      setIsAuthenticated(true);
+      localStorage.setItem("unihub_superadmin_auth", "true");
     } catch (err: any) {
       if (err.code === "auth/operation-not-allowed") {
         setLoginError("Lỗi: Phương thức đăng nhập bằng Email/Password chưa được kích hoạt trong Firebase Console.");
@@ -1117,7 +1129,7 @@ export default function App() {
         username: user.username,
         email: user.email,
         role: user.role,
-        password: user.password || "123456",
+        password: (user as any).password || "123456",
         targetId: user.targetId || "",
         monitorTitle: user.monitorTitle || "Lớp trưởng"
       });
@@ -1175,7 +1187,7 @@ export default function App() {
       const cleanUsername = userForm.username.trim();
       const cleanEmail = targetEmail.trim();
       const cleanName = userForm.name.trim();
-      const targetPassword = userForm.password && userForm.password.trim() ? userForm.password.trim() : (selectedUser?.password || "123456");
+      const targetPassword = userForm.password && userForm.password.trim() ? userForm.password.trim() : ((selectedUser as any)?.password || "123456");
 
       const userData: Record<string, any> = {
         name: cleanName,
@@ -1489,7 +1501,8 @@ export default function App() {
     try {
       // Upsert baseline Seeds safely with merge: true so user-created records are preserved
       for (const u of SEED_USERS) {
-        await setDoc(doc(db, "users", u.id), u, { merge: true });
+        const { password: _pw, ...cleanUser } = u as any;
+        await setDoc(doc(db, "users", u.id), cleanUser, { merge: true });
       }
       for (const s of SEED_STUDENTS) await setDoc(doc(db, "students", s.id), s, { merge: true });
       for (const o of SEED_ORGANIZATIONS) await setDoc(doc(db, "organizations", o.id), o, { merge: true });
@@ -1512,8 +1525,7 @@ export default function App() {
         name: "Nhà phát triển (Super Admin)",
         username: "admin@phhg.edu.vn",
         email: "admin@phhg.edu.vn",
-        role: UserRole.ADMIN,
-        password: "admin@123"
+        role: UserRole.ADMIN
       };
       await setDoc(doc(db, "users", "U_SUPERADMIN"), superadminAccount, { merge: true });
 
@@ -1562,8 +1574,7 @@ export default function App() {
         name: "Nhà phát triển (Super Admin)",
         username: "admin@phhg.edu.vn",
         email: "admin@phhg.edu.vn",
-        role: UserRole.ADMIN,
-        password: "admin@123"
+        role: UserRole.ADMIN
       };
       await setDoc(doc(db, "users", "U_SUPERADMIN"), superadminAccount);
 
@@ -1805,9 +1816,9 @@ export default function App() {
 
   const isTeacherUserModal = showUserModal && (selectedUser?.role === UserRole.TEACHER || userForm.role === UserRole.TEACHER);
   const resolveTeacherPassword = (u: UserAccount, assignments: CourseClassAssignment[]) => {
-    if (u.password) return u.password;
+    if ((u as any).password) return (u as any).password;
     const match = assignments.find(a => (a.teacherId && a.teacherId.toLowerCase() === u.username.toLowerCase()) || (a.teacherName && a.teacherName.toLowerCase() === u.name.toLowerCase()));
-    return match?.teacherPassword || "123456";
+    return (match as any)?.teacherPassword || "123456";
   };
   const modalTeacherAccount: UserAccount | null = isTeacherUserModal ? {
     ...(selectedUser || {
@@ -2164,7 +2175,6 @@ export default function App() {
                     <th>Email / Tài khoản</th>
                     <th>Vai trò</th>
                     <th>Mã liên kết (Target ID)</th>
-                    <th>Mật khẩu</th>
                     <th style={{ textAlign: "right" }}>Thao tác điều khiển</th>
                   </tr>
                 </thead>
@@ -2172,7 +2182,6 @@ export default function App() {
                   {filteredUsers.map((u) => {
                     const isTeacherRow = u.role === UserRole.TEACHER;
                     const linkedAssignments = isTeacherRow ? getTeacherAssignmentsForUser(u) : [];
-                    const displayPassword = isTeacherRow ? resolveTeacherPassword(u, linkedAssignments) : (u.password || "123456");
 
                     return (
                       <tr key={u.id || u.username || u.email}>
@@ -2192,7 +2201,6 @@ export default function App() {
                         <td style={{ fontFamily: 'monospace', color: "var(--accent-cyan)" }}>
                           {isTeacherRow ? `${linkedAssignments.length} học phần` : (u.targetId || "—")}
                         </td>
-                        <td style={{ fontFamily: 'monospace', fontSize: "11px", color: "var(--accent-cyan)" }}>{displayPassword}</td>
                         <td style={{ textAlign: "right" }}>
                           <div style={{ display: "inline-flex", gap: "8px" }}>
                             {isTeacherRow ? (

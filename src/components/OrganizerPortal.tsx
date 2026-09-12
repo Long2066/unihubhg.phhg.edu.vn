@@ -65,7 +65,7 @@ export const OrganizerPortal: React.FC = () => {
     setActivePortletTab(tab);
   };
 
-  let defaultTargetId = "UNITECH";
+  let defaultTargetId = "";
   if (currentUser?.role === UserRole.YOUTH_UNION) defaultTargetId = "DOANTN";
   else if (currentUser?.role === UserRole.STUDENT_UNION) defaultTargetId = "HOISV";
 
@@ -81,8 +81,8 @@ export const OrganizerPortal: React.FC = () => {
     ? "BCH Hội Sinh viên Phân hiệu Hà Giang" 
     : "Tổ chức / Câu lạc bộ";
 
-  // Find current organization with guaranteed non-null fallback
-  const rawOrg = organizations.find(o => o.id === orgId) || organizations.find(o => o.id === defaultTargetId) || (organizations.length > 0 ? organizations[0] : undefined);
+  // Find current organization without arbitrary fallback
+  const rawOrg = organizations.find(o => o.id === orgId) || (defaultTargetId ? organizations.find(o => o.id === defaultTargetId) : undefined);
   const org: Organization = rawOrg || {
     id: orgId,
     name: currentUser?.name || defaultOrgName,
@@ -788,7 +788,15 @@ export const OrganizerPortal: React.FC = () => {
   const selectedAct = activities.find(a => a.id === selectedActId);
   const currentAttendance = attendance.filter(att => att.activityId === selectedActId);
   const liveMatchRule = selectedAct ? criteria.flatMap(c => c.rules).find(r => r.id === selectedAct.criteriaId) : null;
-  const realActPoints = selectedAct ? (liveMatchRule ? liveMatchRule.points : selectedAct.points) : 0;
+  if (!orgId) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
+        <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-800">Chưa được phân công Câu lạc bộ / Tổ chức</h3>
+        <p className="text-slate-500 text-sm mt-1">Tài khoản chưa được liên kết với Câu lạc bộ hoặc Tổ chức nào. Vui lòng liên hệ Quản trị viên để được gán quyền quản lý.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6" id="organizer-portal-container">

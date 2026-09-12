@@ -202,7 +202,7 @@ export const AdminPortal: React.FC = () => {
     const assocUser = findAssocUser(org, users);
     if (assocUser) {
       setClubFormUsername(assocUser.username);
-      setClubFormPassword(assocUser.password || "");
+      setClubFormPassword("");
     } else {
       setClubFormUsername("");
       setClubFormPassword("");
@@ -215,7 +215,7 @@ export const AdminPortal: React.FC = () => {
     setAccFormName(user.name);
     setAccFormRole(user.role);
     setAccFormUsername(user.username);
-    setAccFormPassword(user.password || "");
+    setAccFormPassword("");
     setAccFormTargetId(user.targetId || "");
     
     // Auto populate Class or Faculty state based on role
@@ -298,8 +298,7 @@ export const AdminPortal: React.FC = () => {
       name: accFormName.trim(),
       role: accFormRole,
       email: finalEmail,
-      targetId: resolvedTargetId || undefined,
-      password: finalPassword
+      targetId: resolvedTargetId || undefined
     };
 
     if (selectedAccId) {
@@ -376,8 +375,7 @@ export const AdminPortal: React.FC = () => {
       name: clubFormName.trim(),
       role: clubFormType === "DOAN" ? UserRole.YOUTH_UNION : clubFormType === "HOI" ? UserRole.STUDENT_UNION : UserRole.CLUB_MANAGER,
       email: finalClubUsername,
-      targetId: cleanId,
-      password: finalClubPassword
+      targetId: cleanId
     };
 
     if (selectedClubId) {
@@ -1408,7 +1406,7 @@ export const AdminPortal: React.FC = () => {
                             <span className="text-slate-750 font-mono font-medium flex items-center gap-1.5">
                               {assocUser ? (
                                 <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold text-[10px]">
-                                  {assocUser.password || "••••••"}
+                                  ••••••
                                 </span>
                               ) : (
                                 <span className="text-slate-350">-</span>
@@ -1500,7 +1498,7 @@ export const AdminPortal: React.FC = () => {
                               <td className="p-3.5 font-mono font-medium text-slate-655">{user.username}</td>
                               <td className="p-3.5 font-mono text-slate-750 font-medium">
                                 <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold text-[10.5px]">
-                                  {user.password || (user.role === UserRole.STUDENT && studentObj?.idCard ? studentObj.idCard : "123456")}
+                                  ••••••
                                 </span>
                               </td>
                               <td className="p-3.5 font-mono font-bold text-indigo-700">{linkedClass}</td>
@@ -1625,7 +1623,7 @@ export const AdminPortal: React.FC = () => {
                               <td className="p-3.5 font-mono font-medium text-slate-655">{user.username}</td>
                               <td className="p-3.5 font-mono text-slate-750 font-medium">
                                 <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold text-[10.5px]">
-                                  {user.password || "123456"}
+                                  ••••••
                                 </span>
                               </td>
                               <td className="p-3.5 font-mono text-slate-500">{user.targetId || <span className="text-slate-350 italic">-</span>}</td>
@@ -1722,7 +1720,7 @@ export const AdminPortal: React.FC = () => {
                             <td className="p-3.5 font-mono text-blue-700 font-bold">{teacher.username || teacher.email}</td>
                             <td className="p-3.5 font-mono text-slate-600">
                               <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold text-[10px]">
-                                {teacher.password || "123456"}
+                                ••••••
                               </span>
                             </td>
                             <td className="p-3.5">
@@ -1737,7 +1735,7 @@ export const AdminPortal: React.FC = () => {
                                   setAccFormName(teacher.name);
                                   setAccFormRole(teacher.role);
                                   setAccFormUsername(teacher.username || teacher.email || "");
-                                  setAccFormPassword(teacher.password || "");
+                                  setAccFormPassword("");
                                   setAccFormTargetId(teacher.targetId || "");
                                   setShowAccountModal(true);
                                 }}
@@ -1838,19 +1836,19 @@ export const AdminPortal: React.FC = () => {
                               <td className="p-3.5">
                                 <div className="flex items-center gap-2">
                                   <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold font-mono text-[10px]">
-                                    {user.password || "••••••"}
+                                    ••••••
                                   </span>
                                   <button
                                     onClick={() => {
-                                      const newPass = prompt(`Nhập mật khẩu mới cho tài khoản "${user.name}" (${user.username}):`, user.password || "123456");
+                                      const newPass = prompt(`Nhập mật khẩu mới cho tài khoản "${user.name}" (${user.username}):`, "");
                                       if (newPass !== null) {
                                         const trimmed = newPass.trim();
                                         if (!trimmed) {
                                           alert("Mật khẩu không được để trống!");
                                           return;
                                         }
-                                        updateUserAccount(user.id, { password: trimmed });
-                                        alert(`Đã đổi mật khẩu thành công!\nTài khoản: ${user.username}\nMật khẩu mới: ${trimmed}`);
+                                        updateUserAccount(user.id, { password: trimmed } as any);
+                                        alert(`Đã đổi mật khẩu thành công cho tài khoản: ${user.username}`);
                                       }
                                     }}
                                     className="px-2 py-0.5 text-[10px] font-bold rounded border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer transition-colors whitespace-nowrap"

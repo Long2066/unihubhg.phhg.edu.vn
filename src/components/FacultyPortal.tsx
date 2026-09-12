@@ -34,7 +34,17 @@ export const FacultyPortal: React.FC = () => {
 
   const activeTab = (activePortletTab as "STAT" | "LOCKS" | "EVENTS") || "STAT";
 
-  const facultyId = currentUser?.targetId || "K-CNTT";
+  const facultyId = currentUser?.targetId || "";
+
+  if (!facultyId) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
+        <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-800">Chưa được phân công Khoa quản lý</h3>
+        <p className="text-slate-500 text-sm mt-1">Tài khoản Ban chủ nhiệm Khoa chưa được liên kết với Khoa nào. Vui lòng liên hệ Quản trị viên để được gán quyền Khoa.</p>
+      </div>
+    );
+  }
   
   // Find Faculty review status
   const facReviewInfo = facultyReviews.find(fr => fr.facultyId === facultyId);
@@ -63,8 +73,9 @@ export const FacultyPortal: React.FC = () => {
   const classes = Array.from(new Set(facultyStudents.map(s => s.classId)));
 
   const handleLockFaculty = () => {
-    lockFacultyData(facultyId, "Trưởng Khoa CNTT");
-    alert(`Khoa CNTT đã khoá sổ nộp điểm rèn luyện chính thức của toàn bộ các lớp trực thuộc lên Cổng CTHSSV trường.`);
+    const lockerName = currentUser?.name || "Văn phòng Khoa";
+    lockFacultyData(facultyId, lockerName);
+    alert(`${lockerName} đã khoá sổ nộp điểm rèn luyện chính thức của toàn bộ các lớp trực thuộc lên Cổng CTHSSV trường.`);
   };
 
   // State variables for Event Broadcaster

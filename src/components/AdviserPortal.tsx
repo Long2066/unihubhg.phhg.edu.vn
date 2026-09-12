@@ -48,7 +48,7 @@ export const AdviserPortal: React.FC = () => {
     selectedSemesterId
   } = useUniHub();
 
-  const classId = currentUser?.targetId || "K20-CNTT";
+  const classId = currentUser?.targetId || "";
 
   // Filter class reviews
   const classReviewInfo = classReviews.find(cr => cr.classId === classId);
@@ -500,7 +500,15 @@ export const AdviserPortal: React.FC = () => {
     else if (grade === "KÉM") academicCounts["KÉM"]++;
   });
 
-  const warningsList = getEarlyWarnings();
+  if (!classId) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
+        <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-800">Chưa được phân công Lớp cố vấn</h3>
+        <p className="text-slate-500 text-sm mt-1">Tài khoản Cố vấn học tập chưa được liên kết với Lớp nào. Vui lòng liên hệ Quản trị viên để được gán lớp quản lý.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6" id="adviser-portal-container">

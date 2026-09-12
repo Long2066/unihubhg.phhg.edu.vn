@@ -231,8 +231,7 @@ export const normalizeUserAccount = (u: UserAccount): UserAccount => {
       email: defaultSeed.email,
       name: u.name || defaultSeed.name,
       role: defaultSeed.role,
-      targetId: defaultSeed.targetId || u.targetId,
-      password: u.password || defaultSeed.password || "123456"
+      targetId: defaultSeed.targetId || u.targetId
     };
   }
 
@@ -251,8 +250,7 @@ export const normalizeUserAccount = (u: UserAccount): UserAccount => {
     return {
       ...u,
       username: cleanStudentId,
-      email: cleanEmail,
-      password: u.password || (cleanStudentId === "DTG245140202053" ? "004206005165" : undefined)
+      email: cleanEmail
     };
   }
 
@@ -276,8 +274,7 @@ export const normalizeUserAccount = (u: UserAccount): UserAccount => {
   return {
     ...u,
     username: cleanUsername,
-    email: cleanEmail,
-    password: u.password || "123456"
+    email: cleanEmail
   };
 };
 
@@ -559,14 +556,6 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           let userChanged = false;
           const updatedUser = { ...curr };
 
-          if (assign.teacherPassword && assign.teacherPassword.trim()) {
-            updatedUser.password = assign.teacherPassword.trim();
-            userChanged = true;
-          } else if (!updatedUser.password) {
-            updatedUser.password = "123456";
-            userChanged = true;
-          }
-
           // Enforce UserRole.TEACHER for teacher accounts
           if (curr.role !== UserRole.TEACHER) {
             updatedUser.role = UserRole.TEACHER;
@@ -584,8 +573,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             name: assign.teacherName,
             role: UserRole.TEACHER,
             email: teacherEmail,
-            targetId: assign.subjectCode,
-            password: assign.teacherPassword && assign.teacherPassword.trim() ? assign.teacherPassword.trim() : "123456"
+            targetId: assign.subjectCode
           };
           nextUsers.push(newAccount);
           updated = true;
@@ -616,6 +604,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const saveTeacherAssignments = (assignments: CourseClassAssignment[]) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to save teacher assignments");
+      return;
+    }
     setTeacherAssignments(assignments);
     localStorage.setItem("unihub_teacher_assignments", JSON.stringify(assignments));
     persistTeacherAssignmentsToFirestore(assignments);
@@ -623,6 +615,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const importTeacherAssignmentsExcel = (newAssignments: (CourseClassAssignment & { teacherPassword?: string })[]) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to import teacher assignments");
+      return;
+    }
     setTeacherAssignments(prev => {
       const merged = [...prev];
       newAssignments.forEach(item => {
@@ -641,6 +637,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const addGradeAuditLog = (log: Omit<GradeAuditLog, "id" | "timestamp">) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT && currentUser.role !== UserRole.TEACHER)) {
+      console.warn("Unauthorized attempt to add grade audit log");
+      return;
+    }
     const item: GradeAuditLog = {
       ...log,
       id: `LOG_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -654,11 +654,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateGradingRules = (rules: GradingRulesConfig) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to update grading rules");
+      return;
+    }
     setGradingRules(rules);
     localStorage.setItem("unihub_grading_rules", JSON.stringify(rules));
   };
 
   const aggregateSubjectGradesToSemesterGpa = (semesterId: string) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to aggregate grades");
+      return { updatedCount: 0, warningsCount: 0 };
+    }
     const validSheets = subjectGradeSheets.filter(s => s.semesterId === semesterId && (s.status === "SUBMITTED" || s.status === "LOCKED"));
 
     let updatedCount = 0;
@@ -762,21 +770,94 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const saveSubjectGradeSheet = (sheet: SubjectGradeSheet) => {
+    if (!currentUser) return;
+    const isAcademicAdmin = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.TRAINING_DEPT;
+    const isTeacher = currentUser.role === UserRole.TEACHER;
+    if (!isAcademicAdmin && !isTeacher) {
+      console.warn("Unauthorized attempt to save subject grade sheet");
+      return;
+    }
+
+    const existingSheet = subjectGradeSheets.find(s => s.id === sheet.id);
+    if (isTeacher) {
+      const targetTid = (existingSheet?.teacherId || sheet.teacherId || "").toLowerCase();
+      if (!targetTid) {
+        console.warn("Missing teacherId on grade sheet");
+        return;
+      }
+      const match = (currentUser.email && targetTid === currentUser.email.toLowerCase()) ||
+                    (currentUser.id && targetTid === currentUser.id.toLowerCase()) ||
+                    (currentUser.username && targetTid === currentUser.username.toLowerCase()) ||
+                    (currentUser.targetId && targetTid === currentUser.targetId.toLowerCase());
+      if (!match) {
+        console.warn("Unauthorized attempt to save another teacher's grade sheet");
+        return;
+      }
+      if (existingSheet && (existingSheet.status === "LOCKED" || existingSheet.status === "SUBMITTED")) {
+        console.warn("Cannot edit submitted or locked grade sheet without unlock approval");
+        return;
+      }
+    }
+
+    const sanitizedGrades = (sheet.grades || []).map(g => {
+      const tb10Num = typeof g.tb10 === "number" ? g.tb10 : parseFloat(String(g.tb10 || ""));
+      const safeTb10 = !isNaN(tb10Num) ? Math.max(0, Math.min(10, tb10Num)) : g.tb10;
+      return {
+        ...g,
+        tb10: safeTb10
+      };
+    });
+
+    const safeSheet: SubjectGradeSheet = {
+      ...sheet,
+      teacherId: (isTeacher && !isAcademicAdmin && existingSheet) ? existingSheet.teacherId : sheet.teacherId,
+      status: (isAcademicAdmin || !existingSheet) ? sheet.status : existingSheet.status,
+      grades: sanitizedGrades,
+      updatedAt: new Date().toISOString().replace("T", " ").substring(0, 19)
+    };
+
     setSubjectGradeSheets(prev => {
       const idx = prev.findIndex(s => s.id === sheet.id);
       let next: SubjectGradeSheet[];
       if (idx >= 0) {
         next = [...prev];
-        next[idx] = sheet;
+        next[idx] = safeSheet;
       } else {
-        next = [sheet, ...prev];
+        next = [safeSheet, ...prev];
       }
       localStorage.setItem("unihub_subject_grade_sheets", JSON.stringify(next));
+      saveToFirestore("unihub_subject_grade_sheets", next);
       return next;
     });
   };
 
   const submitSubjectGradeSheet = (sheetId: string) => {
+    if (!currentUser) return;
+    const isAcademicAdmin = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.TRAINING_DEPT;
+    const isTeacher = currentUser.role === UserRole.TEACHER;
+    if (!isAcademicAdmin && !isTeacher) {
+      console.warn("Unauthorized attempt to submit subject grade sheet");
+      return;
+    }
+    const sheet = subjectGradeSheets.find(s => s.id === sheetId);
+    if (!sheet) return;
+
+    if (isTeacher) {
+      const tid = (sheet.teacherId || "").toLowerCase();
+      const match = (currentUser.email && tid === currentUser.email.toLowerCase()) ||
+                    (currentUser.id && tid === currentUser.id.toLowerCase()) ||
+                    (currentUser.username && tid === currentUser.username.toLowerCase()) ||
+                    (currentUser.targetId && tid === currentUser.targetId.toLowerCase());
+      if (!match) {
+        console.warn("Unauthorized attempt to submit another teacher's grade sheet");
+        return;
+      }
+      if (sheet.status === "LOCKED") {
+        console.warn("Grade sheet is already locked");
+        return;
+      }
+    }
+
     setSubjectGradeSheets(prev => {
       const next = prev.map(s => {
         if (s.id === sheetId) {
@@ -789,11 +870,31 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return s;
       });
       localStorage.setItem("unihub_subject_grade_sheets", JSON.stringify(next));
+      saveToFirestore("unihub_subject_grade_sheets", next);
       return next;
     });
   };
 
   const requestGradeUnlock = (req: Omit<GradeUnlockRequest, "id" | "requestedAt" | "status">) => {
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.TRAINING_DEPT || currentUser.role === UserRole.TEACHER;
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to request grade unlock");
+      return;
+    }
+    if (currentUser.role === UserRole.TEACHER) {
+      const sheet = subjectGradeSheets.find(s => s.id === req.sheetId);
+      const tid = (sheet?.teacherId || req.teacherId || "").toLowerCase();
+      const match = (currentUser.email && tid === currentUser.email.toLowerCase()) ||
+                    (currentUser.id && tid === currentUser.id.toLowerCase()) ||
+                    (currentUser.username && tid === currentUser.username.toLowerCase()) ||
+                    (currentUser.targetId && tid === currentUser.targetId.toLowerCase());
+      if (!match) {
+        console.warn("Unauthorized attempt to request unlock for another teacher's grade sheet");
+        return;
+      }
+    }
+
     const newReq: GradeUnlockRequest = {
       ...req,
       id: `REQ_${Date.now()}`,
@@ -808,14 +909,28 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const approveUnlockRequest = (requestId: string) => {
-    const req = unlockRequests.find(r => r.id === requestId);
-    if (req) {
-      setSubjectGradeSheets(prev => {
-        const next = prev.map(s => s.id === req.sheetId ? { ...s, status: "UNLOCKED" as const } : s);
-        localStorage.setItem("unihub_subject_grade_sheets", JSON.stringify(next));
-        return next;
-      });
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.TRAINING_DEPT || currentUser.role === UserRole.FACULTY;
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to approve unlock request");
+      return;
     }
+
+    const req = unlockRequests.find(r => r.id === requestId);
+    if (!req) return;
+    if (currentUser.role === UserRole.FACULTY && currentUser.targetId) {
+      const isFacultyClass = students.some(s => s.classId === req.classId && s.facultyId === currentUser.targetId);
+      if (!isFacultyClass) {
+        console.warn("Unauthorized attempt by faculty to approve unlock request for another faculty");
+        return;
+      }
+    }
+
+    setSubjectGradeSheets(prev => {
+      const next = prev.map(s => s.id === req.sheetId ? { ...s, status: "UNLOCKED" as const } : s);
+      localStorage.setItem("unihub_subject_grade_sheets", JSON.stringify(next));
+      return next;
+    });
     setUnlockRequests(prev => {
       const next = prev.map(r => r.id === requestId ? { ...r, status: "APPROVED" as const, reviewedAt: new Date().toISOString().replace("T", " ").substring(0, 19) } : r);
       localStorage.setItem("unihub_unlock_requests", JSON.stringify(next));
@@ -824,6 +939,23 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const rejectUnlockRequest = (requestId: string) => {
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.TRAINING_DEPT || currentUser.role === UserRole.FACULTY;
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to reject unlock request");
+      return;
+    }
+
+    const req = unlockRequests.find(r => r.id === requestId);
+    if (!req) return;
+    if (currentUser.role === UserRole.FACULTY && currentUser.targetId) {
+      const isFacultyClass = students.some(s => s.classId === req.classId && s.facultyId === currentUser.targetId);
+      if (!isFacultyClass) {
+        console.warn("Unauthorized attempt by faculty to reject unlock request for another faculty");
+        return;
+      }
+    }
+
     setUnlockRequests(prev => {
       const next = prev.map(r => r.id === requestId ? { ...r, status: "REJECTED" as const, reviewedAt: new Date().toISOString().replace("T", " ").substring(0, 19) } : r);
       localStorage.setItem("unihub_unlock_requests", JSON.stringify(next));
@@ -832,8 +964,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const submitGradeAppeal = (appeal: Omit<GradeAppeal, "id" | "requestedAt" | "status">) => {
+    if (!currentUser) return;
+    const effectiveStudentId = currentUser.role === UserRole.STUDENT
+      ? (currentUser.targetId || currentUser.username)
+      : appeal.studentId;
+
+    if (currentUser.role === UserRole.STUDENT && currentUser.targetId && currentUser.targetId !== appeal.studentId) {
+      console.warn("Unauthorized grade appeal submission for another student");
+      return;
+    }
+
     const newAppeal: GradeAppeal = {
       ...appeal,
+      studentId: effectiveStudentId,
       id: `APPL_${Date.now()}`,
       requestedAt: new Date().toISOString().replace("T", " ").substring(0, 19),
       status: "PENDING"
@@ -846,6 +989,30 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const resolveGradeAppeal = (appealId: string, status: "UPDATED" | "REJECTED", newGrade?: string, response?: string) => {
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.TRAINING_DEPT || currentUser.role === UserRole.TEACHER;
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to resolve grade appeal");
+      return;
+    }
+    if (currentUser.role === UserRole.TEACHER) {
+      const appeal = gradeAppeals.find(a => a.id === appealId);
+      if (appeal) {
+        const sheet = subjectGradeSheets.find(s => s.id === appeal.sheetId || s.subjectCode === appeal.subjectCode);
+        if (sheet && sheet.teacherId) {
+          const tid = sheet.teacherId.toLowerCase();
+          const match = (currentUser.email && tid === currentUser.email.toLowerCase()) ||
+                        (currentUser.id && tid === currentUser.id.toLowerCase()) ||
+                        (currentUser.username && tid === currentUser.username.toLowerCase()) ||
+                        (currentUser.targetId && tid === currentUser.targetId.toLowerCase());
+          if (!match) {
+            console.warn("Unauthorized attempt to resolve another teacher's grade appeal");
+            return;
+          }
+        }
+      }
+    }
+
     let targetSemesterId = "HOCKY_2_2025_2026";
     let targetStudentId = "";
     let targetSubjectCode = "";
@@ -873,7 +1040,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (status === "UPDATED" && newGrade) {
       const parsedNum = parseFloat(newGrade.trim());
-      if (!isNaN(parsedNum)) {
+      if (!isNaN(parsedNum) && parsedNum >= 0 && parsedNum <= 10) {
         setSubjectGradeSheets(prevSheets => {
           const nextSheets = prevSheets.map(sheet => {
             if (sheet.subjectCode === targetSubjectCode || (targetSubjectCode && sheet.subjectName.toLowerCase().includes(targetSubjectCode.toLowerCase()))) {
@@ -1278,11 +1445,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       if (key === "unihub_users" && Array.isArray(data)) {
         for (const item of data) {
-          if (item?.id) await setDoc(doc(db, "users", item.id), item, { merge: true });
+          if (item?.id) await setDoc(doc(db, "users", item.id), sanitizeForFirestore(item), { merge: true });
         }
       } else if (key === "unihub_students" && Array.isArray(data)) {
         for (const item of data) {
-          if (item?.id) await setDoc(doc(db, "students", item.id), item, { merge: true });
+          if (item?.id) await setDoc(doc(db, "students", item.id), sanitizeForFirestore(item), { merge: true });
         }
       } else if (key === "unihub_organizations" && Array.isArray(data)) {
         for (const item of data) {
@@ -1540,25 +1707,35 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           });
         }
       });
+      // Check Approved Evidence Submissions for extracurricular activity (TC3)
+      const approvedTC3Evs = evidence.filter(e => e.status === "APPROVED" && e.studentId === student.id && (e.criteriaId === "TC3" || e.criteriaId.startsWith("TC3.")));
+      approvedTC3Evs.forEach(ev => {
+        extracurricularPoints += ev.pointsRequested;
+        logs.push({ 
+          criteriaId: ev.criteriaId, 
+          points: ev.pointsRequested, 
+          reason: `Phê duyệt minh chứng hoạt động: "${ev.activityName}"`, 
+          source: "MINH_CHỨNG", 
+          timestamp: ev.submittedAt 
+        });
+      });
       extracurricularPoints = Math.min(maxTC3, extracurricularPoints);
 
       // 4. TC4: Ý thức công dân, cộng đồng (Max 15 XP)
       let communityPoints = 0;
       const maxTC4 = criteria.find(c => c.id === "TC4")?.maxScore || 15;
       
-      // Check Approved Evidence Submissions for community activity (TC4.1)
-      const approvedEvs = evidence.filter(e => e.status === "APPROVED" && e.criteriaId === "TC4.1");
-      approvedEvs.forEach(ev => {
-        if (ev.studentId === student.id) {
-          communityPoints += ev.pointsRequested;
-          logs.push({ 
-            criteriaId: "TC4.1", 
-            points: ev.pointsRequested, 
-            reason: `Phê duyệt minh chứng ngoại lệ: "${ev.activityName}"`, 
-            source: "MINH_CHỨNG", 
-            timestamp: ev.submittedAt 
-          });
-        }
+      // Check Approved Evidence Submissions for community activity (TC4)
+      const approvedTC4Evs = evidence.filter(e => e.status === "APPROVED" && e.studentId === student.id && (e.criteriaId === "TC4" || e.criteriaId.startsWith("TC4.")));
+      approvedTC4Evs.forEach(ev => {
+        communityPoints += ev.pointsRequested;
+        logs.push({ 
+          criteriaId: ev.criteriaId, 
+          points: ev.pointsRequested, 
+          reason: `Phê duyệt minh chứng cộng đồng: "${ev.activityName}"`, 
+          source: "MINH_CHỨNG", 
+          timestamp: ev.submittedAt 
+        });
       });
 
       // Default class monitor activity (TC4.2)
@@ -1609,6 +1786,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           : "Đóng vai trò Chủ nhiệm / Ban điều hành CLB sinh viên xuất sắc";
         logs.push({ criteriaId: "TC5.2", points: leaderPt, reason: reasonStr, source: "MINH_CHỨNG", timestamp: timestampNow });
       }
+
+      // Check Approved Evidence Submissions for achievements / awards (TC5)
+      const approvedTC5Evs = evidence.filter(e => e.status === "APPROVED" && e.studentId === student.id && (e.criteriaId === "TC5" || e.criteriaId.startsWith("TC5.")));
+      approvedTC5Evs.forEach(ev => {
+        achievementPoints += ev.pointsRequested;
+        logs.push({ 
+          criteriaId: ev.criteriaId, 
+          points: ev.pointsRequested, 
+          reason: `Phê duyệt minh chứng khen thưởng: "${ev.activityName}"`, 
+          source: "MINH_CHỨNG", 
+          timestamp: ev.submittedAt 
+        });
+      });
 
       achievementPoints = Math.min(maxTC5, achievementPoints);
 
@@ -1723,15 +1913,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // 2. KIỂM TRA MẬT KHẨU HIỆN HÀNH (AUTHORITATIVE PASSWORD CHECK)
     // Nếu bên cấp tài khoản đã thay đổi mk (password), mật khẩu cũ sẽ bị từ chối 100%!
     let currentValidPassword = "";
-    if (matchedUser?.password && matchedUser.password.trim()) {
-      currentValidPassword = matchedUser.password.trim();
-    } else if (matchedStudent?.password && matchedStudent.password.trim()) {
-      currentValidPassword = matchedStudent.password.trim();
+    if ((matchedUser as any)?.password && (matchedUser as any).password.trim()) {
+      currentValidPassword = (matchedUser as any).password.trim();
+    } else if ((matchedStudent as any)?.password && (matchedStudent as any).password.trim()) {
+      currentValidPassword = (matchedStudent as any).password.trim();
     } else if (matchedStudent?.idCard && matchedStudent.idCard.trim()) {
       currentValidPassword = matchedStudent.idCard.trim();
     } else if (matchedUser?.role === UserRole.STUDENT) {
       const stud = students.find(s => s.id.toLowerCase() === (matchedUser!.targetId || matchedUser!.username).toLowerCase());
-      currentValidPassword = stud?.password?.trim() || stud?.idCard?.trim() || "123456";
+      currentValidPassword = (stud as any)?.password?.trim() || stud?.idCard?.trim() || "123456";
     } else {
       currentValidPassword = "123456";
     }
@@ -1789,8 +1979,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         name: matchedStudent!.name,
         role: UserRole.STUDENT,
         targetId: matchedStudent!.id,
-        email: targetEmail,
-        password: currentValidPassword
+        email: targetEmail
       };
       setUsers(prev => {
         const updated = [...prev.filter(u => u.id !== userDoc.id), userDoc];
@@ -1825,6 +2014,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updatePeriodStatus = (status: "ACTIVE" | "LOCKED") => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to update period status");
+      return;
+    }
     const updated = { ...period, status };
     setPeriod(updated);
     saveToStorage("unihub_period", updated);
@@ -1832,15 +2025,32 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Student Actions
   const registerForActivity = (activityId: string, studentId: string) => {
-    const alreadyRegistered = attendance.some(a => a.activityId === activityId && a.studentId === studentId);
+    if (!currentUser) return;
+    const effectiveStudentId = currentUser.role === UserRole.STUDENT
+      ? (currentUser.targetId || currentUser.username)
+      : studentId;
+
+    if (currentUser.role === UserRole.STUDENT && currentUser.targetId && currentUser.targetId !== studentId) {
+      console.warn("Unauthorized attempt to register another student for activity");
+      return;
+    }
+
+    const activityObj = activities.find(act => act.id === activityId);
+    if (!activityObj) return;
+
+    if (activityObj.registrationOpen === false || activityObj.status === "COMPLETED") {
+      alert("Đăng ký thất bại: Hoạt động đã đóng đăng ký hoặc đã kết thúc!");
+      return;
+    }
+
+    const alreadyRegistered = attendance.some(a => a.activityId === activityId && a.studentId === effectiveStudentId);
     if (alreadyRegistered) return;
 
-    const studentObj = students.find(s => s.id === studentId);
+    const studentObj = students.find(s => s.id === effectiveStudentId);
     if (!studentObj) return;
 
     // Check registration limit
-    const activityObj = activities.find(act => act.id === activityId);
-    if (activityObj && activityObj.maxParticipants !== undefined && activityObj.maxParticipants > 0) {
+    if (activityObj.maxParticipants !== undefined && activityObj.maxParticipants > 0) {
       const currentCount = attendance.filter(a => a.activityId === activityId).length;
       if (currentCount >= activityObj.maxParticipants) {
         alert("Đăng ký thất bại: Hoạt động đã đạt số lượng người tham gia tối đa!");
@@ -1851,7 +2061,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const newAttendee: ActivityAttendance = {
       id: `AT_NEW_${Date.now()}`,
       activityId,
-      studentId,
+      studentId: effectiveStudentId,
       studentName: studentObj.name,
       classId: studentObj.classId,
       registeredAt: new Date().toISOString().split("T")[0],
@@ -1866,8 +2076,27 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const submitEvidence = (data: Omit<EvidenceSubmission, "id" | "submittedAt" | "status">) => {
+    if (!currentUser) return;
+    const effectiveStudentId = currentUser.role === UserRole.STUDENT
+      ? (currentUser.targetId || currentUser.username)
+      : (data.studentId || currentUser.targetId || "");
+
+    if (currentUser.role === UserRole.STUDENT && currentUser.targetId && data.studentId && currentUser.targetId !== data.studentId) {
+      console.warn("Unauthorized attempt to submit evidence for another student");
+      return;
+    }
+
+    const rawUrl = (data.proofUrl || "").trim();
+    if (/^(javascript|vbscript):/i.test(rawUrl) || rawUrl.startsWith("//")) {
+      console.warn("Rejected unsafe proofUrl:", rawUrl);
+      return;
+    }
+
     const newEvidence: EvidenceSubmission = {
       ...data,
+      studentId: effectiveStudentId,
+      pointsRequested: Math.max(0, Math.min(100, Number(data.pointsRequested) || 0)),
+      proofUrl: rawUrl,
       id: `EV_NEW_${Date.now()}`,
       submittedAt: new Date().toISOString().split("T")[0],
       status: "PENDING"
@@ -1879,20 +2108,45 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const joinOrganizationRequest = (studentId: string, orgId: string, details?: Partial<OrganizationMember>) => {
-    const studentObj = students.find(s => s.id === studentId);
+    if (!currentUser) return;
+    const effectiveStudentId = currentUser.role === UserRole.STUDENT
+      ? (currentUser.targetId || currentUser.username)
+      : studentId;
+
+    if (currentUser.role === UserRole.STUDENT && currentUser.targetId && currentUser.targetId !== studentId) {
+      console.warn("Unauthorized attempt to join organization for another student");
+      return;
+    }
+
+    const studentObj = students.find(s => s.id === effectiveStudentId);
     if (!studentObj) return;
 
+    const alreadyExists = members.some(m => m.studentId === effectiveStudentId && m.orgId === orgId && (m.status === "PENDING" || m.status === "ACTIVE"));
+    if (alreadyExists) {
+      console.warn("Member request already exists or active");
+      return;
+    }
+
+    const safeDetails = { ...(details || {}) };
+    if (currentUser.role !== UserRole.ADMIN) {
+      delete (safeDetails as any).status;
+      delete (safeDetails as any).role;
+      delete (safeDetails as any).id;
+      delete (safeDetails as any).orgId;
+      delete (safeDetails as any).studentId;
+    }
+
     const pendingMember: OrganizationMember = {
+      ...safeDetails,
       id: `M_NEW_${Date.now()}`,
-      studentId,
+      studentId: effectiveStudentId,
       classId: studentObj.classId,
       orgId,
-      role: "THÀNH VIÊN",
+      role: (currentUser.role === UserRole.ADMIN && details?.role) ? details.role : "THÀNH VIÊN",
       joinedDate: new Date().toISOString().split("T")[0],
       term: period.academicYear,
-      status: "PENDING",
-      studentName: studentObj.name,
-      ...details
+      status: (currentUser.role === UserRole.ADMIN && details?.status) ? details.status : "PENDING",
+      studentName: safeDetails.studentName || studentObj.name,
     };
 
     const updated = [...members, pendingMember];
@@ -1901,17 +2155,44 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateStudentProfile = (studentId: string, name: string, avatar: string, password?: string, additionalFields?: Partial<Student>) => {
+    // Check permission: only the student themselves or Admin can update student profile
+    if (
+      !currentUser ||
+      (currentUser.role !== UserRole.ADMIN &&
+       currentUser.targetId !== studentId &&
+       currentUser.username !== studentId &&
+       currentUser.id !== studentId)
+    ) {
+      console.warn("Cảnh báo bảo mật: Không có quyền cập nhật hồ sơ của sinh viên khác!", studentId);
+      return;
+    }
+
     const trimmedNewPass = password && password.trim() ? password.trim() : undefined;
+
+    // Strip protected academic & administrative fields if not Admin
+    const safeFields: Partial<Student> = { ...(additionalFields || {}) };
+    if (currentUser.role !== UserRole.ADMIN) {
+      delete safeFields.gpa;
+      delete safeFields.gpa10;
+      delete safeFields.creditsEarned;
+      delete safeFields.learningWarning;
+      delete safeFields.learningStatus;
+      delete safeFields.academicGrade;
+      delete safeFields.subjectGrades;
+      delete safeFields.academicDataByPeriod;
+      delete safeFields.classId;
+      delete safeFields.facultyId;
+      delete safeFields.learningDataLocked;
+    }
 
     // 1. Update students array
     const updatedStudents = students.map(s => {
       if (s.id === studentId) {
         return { 
           ...s, 
-          ...additionalFields, 
+          ...safeFields, 
           name, 
-          avatar, 
-          ...(trimmedNewPass ? { password: trimmedNewPass } : {}) 
+          avatar
         };
       }
       return s;
@@ -1939,13 +2220,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
-    // 3. Update users array and store new password
+    // 3. Update users array
     const updatedUsers = users.map(u => {
       if (u.targetId === studentId || u.username === studentId || u.email === studentId || u.id === studentId) {
         return { 
           ...u, 
-          name, 
-          ...(trimmedNewPass ? { password: trimmedNewPass } : {}) 
+          name
         };
       }
       return u;
@@ -1997,7 +2277,22 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // Organizer Actions
+  const getEffectiveUserOrgId = (u: UserAccount | null): string | undefined => {
+    if (!u) return undefined;
+    if (u.role === UserRole.YOUTH_UNION) return "DOANTN";
+    if (u.role === UserRole.STUDENT_UNION) return "HOISV";
+    return u.targetId;
+  };
+
   const createActivity = async (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName">): Promise<string> => {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+      throw new Error("Không có quyền tạo hoạt động phong trào.");
+    }
+    const effectiveOrgId = getEffectiveUserOrgId(currentUser);
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || activity.orgId !== effectiveOrgId)) {
+      throw new Error("Không thể tạo hoạt động cho tổ chức khác.");
+    }
+
     const org = organizations.find(o => o.id === activity.orgId);
     let resolvedOrgName = org?.name;
     if (!resolvedOrgName) {
@@ -2031,13 +2326,41 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteActivity = (activityId: string) => {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+      console.warn("Unauthorized attempt to delete activity");
+      return;
+    }
+    const act = activities.find(a => a.id === activityId);
+    if (!act) return;
+    const effectiveOrgId = getEffectiveUserOrgId(currentUser);
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || act.orgId !== effectiveOrgId)) {
+      console.warn("Unauthorized attempt to delete activity of another organization");
+      return;
+    }
     const updated = activities.filter(a => a.id !== activityId);
     setActivities(updated);
     saveToStorage("unihub_activities", updated);
     deleteDoc(doc(db, "activities", activityId)).catch(e => console.warn("Lỗi xóa hoạt động Firestore:", e));
+
+    const updatedAttendance = attendance.filter(att => att.activityId !== activityId);
+    if (updatedAttendance.length !== attendance.length) {
+      setAttendance(updatedAttendance);
+      saveToStorage("unihub_attendance", updatedAttendance);
+    }
   };
 
   const updateActivityStatus = (activityId: string, status: "UPCOMING" | "ONGOING" | "COMPLETED") => {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+      console.warn("Unauthorized attempt to update activity status");
+      return;
+    }
+    const act = activities.find(a => a.id === activityId);
+    if (!act) return;
+    const effectiveOrgId = getEffectiveUserOrgId(currentUser);
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || act.orgId !== effectiveOrgId)) {
+      console.warn("Unauthorized attempt to update activity status of another organization");
+      return;
+    }
     const updated = activities.map(act => {
       if (act.id === activityId) {
         return { ...act, status };
@@ -2063,6 +2386,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // New clb actions
   const createAnnouncement = async (announcement: Omit<ClubAnnouncement, "id" | "orgName" | "createdAt">): Promise<string> => {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+      throw new Error("Không có quyền tạo thông báo CLB/Đoàn/Hội.");
+    }
+    const effectiveOrgId = getEffectiveUserOrgId(currentUser);
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || announcement.orgId !== effectiveOrgId)) {
+      throw new Error("Không thể tạo thông báo cho tổ chức khác.");
+    }
     const org = organizations.find(o => o.id === announcement.orgId);
     let resolvedOrgName = org?.name;
     if (!resolvedOrgName) {
@@ -2096,6 +2426,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteAnnouncement = (id: string) => {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+      console.warn("Unauthorized attempt to delete announcement");
+      return;
+    }
+    const ann = announcements.find(a => a.id === id);
+    if (!ann) return;
+    const effectiveOrgId = getEffectiveUserOrgId(currentUser);
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || ann.orgId !== effectiveOrgId)) {
+      console.warn("Unauthorized attempt to delete announcement of another organization");
+      return;
+    }
     const updated = announcements.filter(a => a.id !== id);
     setAnnouncements(updated);
     saveToStorage("unihub_announcements", updated);
@@ -2103,6 +2444,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const addMemberManual = (member: Omit<OrganizationMember, "id" | "joinedDate" | "term" | "status">) => {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+      console.warn("Unauthorized attempt to add organization member");
+      return;
+    }
+    const effectiveOrgId = getEffectiveUserOrgId(currentUser);
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || member.orgId !== effectiveOrgId)) {
+      console.warn("Unauthorized attempt to add member to another organization");
+      return;
+    }
     const newMember: OrganizationMember = {
       ...member,
       id: `M_NEW_${Date.now()}`,
@@ -2116,15 +2466,47 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteMember = (memberId: string) => {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+      console.warn("Unauthorized attempt to delete organization member");
+      return;
+    }
+    const member = members.find(m => m.id === memberId);
+    if (!member) return;
+    const effectiveOrgId = getEffectiveUserOrgId(currentUser);
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || member.orgId !== effectiveOrgId)) {
+      console.warn("Unauthorized attempt to delete member of another organization");
+      return;
+    }
     const updated = members.filter(m => m.id !== memberId);
     setMembers(updated);
     saveToStorage("unihub_members", updated);
   };
 
   const updateMemberDetails = (memberId: string, details: Partial<OrganizationMember>) => {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+      console.warn("Unauthorized attempt to update organization member");
+      return;
+    }
+    const member = members.find(m => m.id === memberId);
+    if (!member) return;
+    const effectiveOrgId = getEffectiveUserOrgId(currentUser);
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || member.orgId !== effectiveOrgId)) {
+      console.warn("Unauthorized attempt to update member of another organization");
+      return;
+    }
+
+    const safeDetails = { ...details };
+    delete safeDetails.id;
+    delete safeDetails.orgId;
+    delete safeDetails.studentId;
+    if (currentUser.role !== UserRole.ADMIN) {
+      delete safeDetails.role;
+      delete safeDetails.status;
+    }
+
     const updated = members.map(m => {
       if (m.id === memberId) {
-        return { ...m, ...details };
+        return { ...m, ...safeDetails };
       }
       return m;
     });
@@ -2133,12 +2515,49 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const importMembersExcel = (membersToImport: OrganizationMember[]) => {
-    const updated = [...members, ...membersToImport];
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+      console.warn("Unauthorized attempt to import organization members");
+      return;
+    }
+    const effectiveOrgId = getEffectiveUserOrgId(currentUser);
+    if (currentUser.role !== UserRole.ADMIN && !effectiveOrgId) {
+      console.warn("Unauthorized attempt to import organization members without assigned org");
+      return;
+    }
+    const validMembers = currentUser.role === UserRole.ADMIN
+      ? membersToImport
+      : membersToImport.filter(m => m.orgId === effectiveOrgId);
+
+    const cleanMembers = validMembers.map(m => {
+      const targetOrg = (currentUser.role === UserRole.ADMIN && m.orgId) ? m.orgId : effectiveOrgId!;
+      return {
+        ...m,
+        id: m.id || `M_IMP_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        orgId: targetOrg,
+        role: m.role || "THÀNH VIÊN",
+        status: (m.status === "ACTIVE" || m.status === "PENDING") ? m.status : "ACTIVE",
+        joinedDate: m.joinedDate || new Date().toISOString().split("T")[0],
+        term: m.term || period.academicYear
+      };
+    });
+
+    const updated = [...members, ...cleanMembers];
     setMembers(updated);
     saveToStorage("unihub_members", updated);
   };
 
   const approveMemberRequest = (memberId: string) => {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+      console.warn("Unauthorized attempt to approve organization member");
+      return;
+    }
+    const member = members.find(m => m.id === memberId);
+    if (!member) return;
+    const effectiveOrgId = getEffectiveUserOrgId(currentUser);
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || member.orgId !== effectiveOrgId)) {
+      console.warn("Unauthorized attempt to approve member of another organization");
+      return;
+    }
     const updated = members.map(m => {
       if (m.id === memberId) {
         return { ...m, status: "ACTIVE" as const };
@@ -2150,12 +2569,34 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const rejectMemberRequest = (memberId: string) => {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+      console.warn("Unauthorized attempt to reject organization member");
+      return;
+    }
+    const member = members.find(m => m.id === memberId);
+    if (!member) return;
+    const effectiveOrgId = getEffectiveUserOrgId(currentUser);
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || member.orgId !== effectiveOrgId)) {
+      console.warn("Unauthorized attempt to reject member of another organization");
+      return;
+    }
     const updated = members.filter(m => m.id !== memberId);
     setMembers(updated);
     saveToStorage("unihub_members", updated);
   };
 
   const assignMemberRole = (memberId: string, role: "CHỦ NHIỆM" | "BAN CHẤP HÀNH" | "ỦY VIÊN" | "THÀNH VIÊN") => {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+      console.warn("Unauthorized attempt to assign member role");
+      return;
+    }
+    const member = members.find(m => m.id === memberId);
+    if (!member) return;
+    const effectiveOrgId = getEffectiveUserOrgId(currentUser);
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || member.orgId !== effectiveOrgId)) {
+      console.warn("Unauthorized attempt to assign role in another organization");
+      return;
+    }
     const updated = members.map(m => {
       if (m.id === memberId) {
         return { ...m, role };
@@ -2167,6 +2608,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateAttendance = (attendanceId: string, attended: boolean, role?: "MEM" | "BTC" | "SUPPORTER") => {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+      console.warn("Unauthorized attempt to update attendance");
+      return;
+    }
+    const att = attendance.find(a => a.id === attendanceId);
+    if (!att) return;
+    const act = activities.find(a => a.id === att.activityId);
+    const effectiveOrgId = getEffectiveUserOrgId(currentUser);
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || (act && act.orgId !== effectiveOrgId))) {
+      console.warn("Unauthorized attempt to update attendance of another organization");
+      return;
+    }
     const updated = attendance.map(a => {
       if (a.id === attendanceId) {
         return { 
@@ -2182,8 +2635,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const addBulkAttendance = (activityId: string, studentIds: string[]) => {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+      console.warn("Unauthorized attempt to bulk add attendance");
+      return;
+    }
     const currentAct = activities.find(a => a.id === activityId);
     if (!currentAct) return;
+    const effectiveOrgId = getEffectiveUserOrgId(currentUser);
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || currentAct.orgId !== effectiveOrgId)) {
+      console.warn("Unauthorized attempt to add attendance to another organization's activity");
+      return;
+    }
 
     // Filter out studentIds already in attendance for this activity
     const cleanIds = studentIds.filter(id => !attendance.some(att => att.activityId === activityId && att.studentId === id));
@@ -2195,7 +2657,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         activityId,
         studentId: sid,
         studentName: sObj?.name || sid,
-        classId: sObj?.classId || "K20-CNTT",
+        classId: sObj?.classId || "",
         registeredAt: new Date().toISOString().split("T")[0],
         role: "MEM",
         attended: true,
@@ -2210,6 +2672,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Training Dept Actions
   const importAcademicData = (excelData: Partial<Student>[], targetSemesterId: string = "HOCKY_2_2025_2026") => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to import academic data");
+      return;
+    }
     const updated = students.map(s => {
       const item = excelData.find(item => item.id === s.id);
       if (item) {
@@ -2256,6 +2722,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const toggleLearningDataLock = () => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to toggle learning data lock");
+      return;
+    }
     const updated = students.map(s => ({ ...s, learningDataLocked: true }));
     setStudents(updated);
     saveToStorage("unihub_students", updated);
@@ -2263,6 +2733,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // BCS / Class Actions
   const approveClassScores = (classId: string) => {
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN ||
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === classId) ||
+      (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId);
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to approve class scores");
+      return;
+    }
+
     // Check if class review exists
     const exists = classReviews.some(cr => cr.classId === classId);
     let updated: ClassReviewState[];
@@ -2291,6 +2770,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // GVCN Actions
   const approveAdviserScores = (classId: string, comment: string) => {
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN ||
+      (currentUser.role === UserRole.FACULTY && currentUser.targetId && students.some(s => s.classId === classId && s.facultyId === currentUser.targetId)) ||
+      (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId);
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to approve adviser scores");
+      return;
+    }
+
     const exists = classReviews.some(cr => cr.classId === classId);
     let updated: ClassReviewState[];
 
@@ -2300,7 +2788,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return { 
             ...cr, 
             adviserApproved: true, 
-            adviserApprovedAt: new Date().toISOString().split("T")[0],
+            adviserApprovedAt: new Date().toISOString().split("T")[0], 
             adviserComment: comment
           };
         }
@@ -2325,6 +2813,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const submitAdviserAdjustment = (studentId: string, criteriaCategory: string, points: number, reason: string) => {
+    if (!currentUser) return;
+    const targetStudent = students.find(s => s.id === studentId);
+    if (!targetStudent) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN ||
+      (currentUser.role === UserRole.ADVISER && currentUser.targetId === targetStudent.classId);
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to submit adviser adjustment");
+      return;
+    }
     // Adjust result's logs and save
     const updatedResults = results.map(res => {
       if (res.studentId === studentId) {
@@ -2386,6 +2883,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Faculty Actions
   const lockFacultyData = (facultyId: string, lockedBy: string) => {
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN ||
+      (currentUser.role === UserRole.FACULTY && currentUser.targetId === facultyId);
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to lock faculty data");
+      return;
+    }
+
     const exists = facultyReviews.some(fr => fr.facultyId === facultyId);
     let updated: FacultyReviewState[];
 
@@ -2420,6 +2925,46 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Evidence Management (Review)
   const reviewEvidence = (subId: string, status: "APPROVED" | "REJECTED", comment?: string) => {
+    if (!currentUser) return;
+    const isAuthorized = [
+      UserRole.ADMIN,
+      UserRole.ADVISER,
+      UserRole.CLASS_MONITOR,
+      UserRole.FACULTY,
+      UserRole.YOUTH_UNION,
+      UserRole.STUDENT_UNION
+    ].includes(currentUser.role);
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to review evidence");
+      return;
+    }
+
+    const targetEv = evidence.find(e => e.id === subId);
+    if (!targetEv) return;
+    const targetStudent = students.find(s => s.id === targetEv.studentId);
+    if (currentUser.role === UserRole.CLASS_MONITOR) {
+      if (currentUser.isGroupLeader) {
+        console.warn("Group leader cannot review evidence");
+        return;
+      }
+      if (currentUser.targetId && targetStudent && targetStudent.classId !== currentUser.targetId) {
+        console.warn("Cannot review evidence outside assigned class");
+        return;
+      }
+    }
+    if (currentUser.role === UserRole.ADVISER) {
+      if (currentUser.targetId && targetStudent && targetStudent.classId !== currentUser.targetId) {
+        console.warn("Cannot review evidence outside assigned class");
+        return;
+      }
+    }
+    if (currentUser.role === UserRole.FACULTY) {
+      if (currentUser.targetId && targetStudent && targetStudent.facultyId !== currentUser.targetId) {
+        console.warn("Cannot review evidence outside assigned faculty");
+        return;
+      }
+    }
+
     const updated = evidence.map(e => {
       if (e.id === subId) {
         return { 
@@ -2438,6 +2983,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Admin Actions
   const updateCriteriaScore = (criteriaId: string, ruleId: string, newPoints: number) => {
+    if (!currentUser || currentUser.role !== UserRole.ADMIN) {
+      console.warn("Unauthorized attempt to update criteria score");
+      return;
+    }
     const updated = criteria.map(c => {
       if (c.id === criteriaId) {
         return {
@@ -2457,11 +3006,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const bulkUpdateCriteria = (newCriteria: PointCriteria[]) => {
+    if (!currentUser || currentUser.role !== UserRole.ADMIN) {
+      console.warn("Unauthorized attempt to bulk update criteria");
+      return;
+    }
     setCriteria(newCriteria);
     saveToStorage("unihub_criteria", newCriteria);
   };
 
   const resetToSeeds = () => {
+    if (!currentUser || currentUser.role !== UserRole.ADMIN) {
+      console.warn("Unauthorized attempt to reset database");
+      return;
+    }
     // A11 FIX: signOut Firebase Auth trước để tránh race condition
     signOut(auth).catch(() => {});
     setCurrentUser(null);
@@ -2494,6 +3051,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Dedicated Safe Data Restore handler (Restores entire database from JSON or Auto-Shield)
   const restoreAllDataBackup = async (backupData: any) => {
+    if (!currentUser || currentUser.role !== UserRole.ADMIN) {
+      throw new Error("Chỉ Quản trị viên hệ thống (Admin) mới có quyền khôi phục CSDL.");
+    }
     if (!backupData) return;
 
     if (Array.isArray(backupData.students) && backupData.students.length > 0) {
@@ -2549,6 +3109,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     assignments: { [studentId: string]: string }, 
     leaders: { [groupName: string]: { studentId: string; username?: string; password?: string } }
   ) => {
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN ||
+      (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId) ||
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === classId);
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to save group settings");
+      return;
+    }
     const updatedStudents = students.map(s => {
       if (s.classId === classId) {
         return {
@@ -2627,9 +3195,37 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const reportGroupAttendance = (reportData: Omit<GroupAttendanceReport, "id" | "reportedAt">) => {
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN ||
+      currentUser.role === UserRole.ADVISER ||
+      currentUser.role === UserRole.CLASS_MONITOR ||
+      currentUser.isGroupLeader;
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to report group attendance");
+      return;
+    }
+
+    if (currentUser.isGroupLeader) {
+      const glStudent = students.find(s => s.id === currentUser.targetId);
+      if (glStudent && reportData.classId && reportData.classId !== glStudent.classId) {
+        console.warn("Group leader cannot report attendance for another class");
+        return;
+      }
+      if (currentUser.groupInCharge && reportData.groupName && reportData.groupName !== currentUser.groupInCharge) {
+        console.warn("Group leader cannot report attendance for another group");
+        return;
+      }
+    } else if (currentUser.role === UserRole.ADVISER || currentUser.role === UserRole.CLASS_MONITOR) {
+      if (currentUser.targetId && reportData.classId && reportData.classId !== currentUser.targetId) {
+        console.warn("Cannot report group attendance for another class");
+        return;
+      }
+    }
+
     const report: GroupAttendanceReport = {
       ...reportData,
       id: `GR_ATT_${Date.now()}`,
+      status: "PENDING",
       reportedAt: new Date().toISOString().replace("T", " ").substring(0, 19)
     };
 
@@ -2640,6 +3236,22 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const approveGroupAttendance = (reportId: string, reviewerName: string) => {
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN ||
+      currentUser.role === UserRole.ADVISER ||
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader);
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to approve group attendance");
+      return;
+    }
+
+    const targetReport = groupAttendances.find(ga => ga.id === reportId);
+    if (!targetReport) return;
+    if (currentUser.role !== UserRole.ADMIN && currentUser.targetId && targetReport.classId !== currentUser.targetId) {
+      console.warn("Unauthorized attempt to approve group attendance for another class");
+      return;
+    }
+
     const updated = groupAttendances.map(ga => {
       if (ga.id === reportId) {
         return {
@@ -2656,6 +3268,22 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const rejectGroupAttendance = (reportId: string, reviewerName: string) => {
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN ||
+      currentUser.role === UserRole.ADVISER ||
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader);
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to reject group attendance");
+      return;
+    }
+
+    const targetReport = groupAttendances.find(ga => ga.id === reportId);
+    if (!targetReport) return;
+    if (currentUser.role !== UserRole.ADMIN && currentUser.targetId && targetReport.classId !== currentUser.targetId) {
+      console.warn("Unauthorized attempt to reject group attendance for another class");
+      return;
+    }
+
     const updated = groupAttendances.map(ga => {
       if (ga.id === reportId) {
         return {
@@ -2675,12 +3303,54 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     studentId: string, 
     scores: { studyPoints: number; violationPoints: number; extracurricularPoints: number; communityPoints: number; achievementPoints: number; totalPoints: number; comment?: string }
   ) => {
+    if (!currentUser) return;
+    const targetStudent = students.find(s => s.id === studentId);
+    if (!targetStudent) return;
+
+    if (currentUser.isGroupLeader) {
+      if (currentUser.targetId === studentId) {
+        console.warn("Group leader cannot grade themselves");
+        return;
+      }
+      const glStudent = students.find(s => s.id === currentUser.targetId);
+      if (glStudent && targetStudent.classId !== glStudent.classId) {
+        console.warn("Group leader cannot grade student in another class");
+        return;
+      }
+      if (currentUser.groupInCharge && targetStudent.groupName && targetStudent.groupName !== currentUser.groupInCharge) {
+        console.warn("Group leader cannot grade student in another group");
+        return;
+      }
+    } else {
+      const isAuthorized = currentUser.role === UserRole.ADMIN ||
+        (currentUser.role === UserRole.ADVISER && currentUser.targetId === targetStudent.classId) ||
+        (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === targetStudent.classId);
+      if (!isAuthorized) {
+        console.warn("Unauthorized attempt to submit group leader score");
+        return;
+      }
+    }
+
+    const safeStudy = Math.max(0, Math.min(100, Number(scores.studyPoints) || 0));
+    const safeViolation = Math.min(0, Number(scores.violationPoints) || 0);
+    const safeExtra = Math.max(0, Math.min(100, Number(scores.extracurricularPoints) || 0));
+    const safeComm = Math.max(0, Math.min(100, Number(scores.communityPoints) || 0));
+    const safeAchieve = Math.max(0, Math.min(100, Number(scores.achievementPoints) || 0));
+    const rawTotal = safeStudy + safeViolation + safeExtra + safeComm + safeAchieve;
+    const safeTotal = Math.max(0, Math.min(100, rawTotal));
+
     const updatedResults = results.map(r => {
       if (r.studentId === studentId && r.periodId === period.id) {
         return {
           ...r,
           groupLeaderScore: {
-            ...scores,
+            studyPoints: safeStudy,
+            violationPoints: safeViolation,
+            extracurricularPoints: safeExtra,
+            communityPoints: safeComm,
+            achievementPoints: safeAchieve,
+            totalPoints: safeTotal,
+            comment: (scores.comment || "").trim().substring(0, 500),
             approved: true,
             approvedAt: new Date().toISOString().split("T")[0]
           }
@@ -2693,6 +3363,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const applyGroupLeaderScore = (studentId: string) => {
+    if (!currentUser) return;
+    const targetStudent = students.find(s => s.id === studentId);
+    if (!targetStudent) return;
+
+    const isAuthorized = currentUser.role === UserRole.ADMIN ||
+      (currentUser.role === UserRole.ADVISER && currentUser.targetId === targetStudent.classId) ||
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === targetStudent.classId);
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to apply group leader score");
+      return;
+    }
+
     const res = results.find(r => r.studentId === studentId && r.periodId === period.id);
     if (!res || !res.groupLeaderScore) return;
     
@@ -2729,6 +3411,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const aggregateGroupAttendancesToDaily = (classId: string, date: string, reporterName: string) => {
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN ||
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === classId) ||
+      (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId);
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to aggregate group attendance");
+      return;
+    }
+
     const approvedReports = groupAttendances.filter(ga => ga.classId === classId && ga.date === date && ga.status === "APPROVED");
     if (approvedReports.length === 0) {
       alert("Không có báo cáo chuyên cần cấp Tổ nào đã được duyệt cho ngày này!");
@@ -2770,13 +3461,25 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const sendGroupReminder = (classId: string, targetStudentIds: string[], message: string) => {
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN ||
+      (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId) ||
+      (currentUser.role === UserRole.CLASS_MONITOR && currentUser.targetId === classId);
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to send group reminder");
+      return;
+    }
+
+    const cleanMessage = (message || "").trim();
+    if (!cleanMessage) return;
+
     const newFeedbacks = targetStudentIds.map(sid => ({
       id: `FB_REMIND_${sid}_${Date.now()}_${Math.random()}`,
-      fromRole: currentUser?.role || UserRole.CLASS_MONITOR,
-      fromName: currentUser?.name || "Ban Cán sự Lớp",
+      fromRole: currentUser.role,
+      fromName: currentUser.name || "Ban Cán sự Lớp",
       toClassId: classId,
       studentId: sid,
-      comment: message,
+      comment: cleanMessage,
       createdAt: new Date().toISOString().split("T")[0],
       resolved: false
     }));
@@ -2787,17 +3490,29 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const importScheduleData = (slots: ScheduleSlot[]) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to import schedule data");
+      return;
+    }
     setSchedules(slots);
     saveToStorage("unihub_schedules", slots);
   };
 
   const deleteScheduleSlot = (id: string) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to delete schedule slot");
+      return;
+    }
     const updated = schedules.filter(s => s.id !== id);
     setSchedules(updated);
     saveToStorage("unihub_schedules", updated);
   };
 
   const clearSchedules = () => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to clear schedules");
+      return;
+    }
     setSchedules([]);
     saveToStorage("unihub_schedules", []);
   };
@@ -2808,6 +3523,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     absentees: { studentId: string; studentName: string; type: "PHÉP" | "KHÔNG_PHÉP"; reason?: string }[], 
     reportedBy: string
   ) => {
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN ||
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === classId) ||
+      (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId);
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to report daily attendance");
+      return;
+    }
+
     const totalStuds = students.filter(s => s.classId === classId).length;
     const absCount = absentees.length;
     const presCount = totalStuds - absCount;
@@ -2836,13 +3560,39 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     comment: string, 
     studentId?: string
   ) => {
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN ||
+      currentUser.role === UserRole.FACULTY ||
+      currentUser.role === UserRole.ADVISER ||
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader);
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to send feedback");
+      return;
+    }
+    if (currentUser.role === UserRole.ADVISER || currentUser.role === UserRole.CLASS_MONITOR) {
+      if (currentUser.targetId && toClassId && currentUser.targetId !== toClassId) {
+        console.warn("Unauthorized attempt to send feedback to another class");
+        return;
+      }
+    }
+    if (currentUser.role === UserRole.FACULTY && currentUser.targetId) {
+      const isFacultyClass = students.some(s => s.classId === toClassId && s.facultyId === currentUser.targetId);
+      if (!isFacultyClass) {
+        console.warn("Unauthorized attempt by faculty to send feedback to another faculty's class");
+        return;
+      }
+    }
+
+    const cleanComment = (comment || "").trim();
+    if (!cleanComment) return;
+
     const newFeedback: ScoreFeedback = {
       id: `FB_${Date.now()}`,
-      fromRole,
-      fromName,
+      fromRole: currentUser.role,
+      fromName: currentUser.name || fromName,
       toClassId,
       studentId,
-      comment,
+      comment: cleanComment,
       createdAt: new Date().toISOString().split("T")[0],
       resolved: false
     };
@@ -2853,6 +3603,23 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const resolveFeedback = (feedbackId: string) => {
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN ||
+      currentUser.role === UserRole.ADVISER ||
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader);
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to resolve feedback");
+      return;
+    }
+
+    const targetFb = feedbacks.find(fb => fb.id === feedbackId);
+    if (!targetFb) return;
+
+    if (currentUser.role !== UserRole.ADMIN && currentUser.targetId && targetFb.toClassId && targetFb.toClassId !== currentUser.targetId) {
+      console.warn("Unauthorized attempt to resolve feedback for another class");
+      return;
+    }
+
     const updated = feedbacks.map(fb => {
       if (fb.id === feedbackId) {
         return { ...fb, resolved: true };
@@ -2865,15 +3632,20 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const sendSystemFeedback = async (category: string, title: string, content: string) => {
     if (!currentUser) return;
+    const cleanCat = (category || "").trim();
+    const cleanTitle = (title || "").trim().substring(0, 200);
+    const cleanContent = (content || "").trim().substring(0, 5000);
+    if (!cleanTitle || !cleanContent) return;
+
     const fbId = "SF_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7);
     const feedback: SystemFeedback = {
       id: fbId,
       userId: currentUser.id,
       userName: currentUser.name,
       userRole: currentUser.role,
-      category,
-      title,
-      content,
+      category: cleanCat,
+      title: cleanTitle,
+      content: cleanContent,
       createdAt: new Date().toISOString()
     };
     await setDoc(doc(db, "systemFeedbacks", fbId), feedback);
@@ -2883,11 +3655,23 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const importGroupCriteria = (criteriaList: GroupEvaluationCriteria[]) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.ADVISER && currentUser.role !== UserRole.CLASS_MONITOR)) {
+      console.warn("Unauthorized attempt to import group criteria");
+      return;
+    }
     setGroupCriteria(criteriaList);
     saveToStorage("unihub_group_criteria", criteriaList);
   };
 
   const approveFacultyScores = (classId: string, comment: string) => {
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN ||
+      (currentUser.role === UserRole.FACULTY && currentUser.targetId && students.some(s => s.classId === classId && s.facultyId === currentUser.targetId));
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to approve faculty scores");
+      return;
+    }
+
     const exists = classReviews.some(cr => cr.classId === classId);
     let updated: ClassReviewState[];
     if (exists) {
@@ -2920,6 +3704,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const approveAdminScores = (classId: string, comment: string) => {
+    if (!currentUser || currentUser.role !== UserRole.ADMIN) {
+      console.warn("Unauthorized attempt to approve admin scores");
+      return;
+    }
+
     const exists = classReviews.some(cr => cr.classId === classId);
     let updated: ClassReviewState[];
     if (exists) {
@@ -2953,6 +3742,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const createClubWithAccount = (club: Organization, account: UserAccount) => {
+    if (!currentUser || currentUser.role !== UserRole.ADMIN) {
+      console.warn("Unauthorized attempt to create club with account");
+      return;
+    }
+
     const cleanClub = sanitizeForFirestore(club);
     const cleanAccount = sanitizeForFirestore({ ...account, targetId: club.id });
 
@@ -2977,6 +3771,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateClubAndAccount = (clubId: string, updatedClub: Partial<Organization>, updatedAccount: Partial<UserAccount>) => {
+    if (!currentUser || currentUser.role !== UserRole.ADMIN) {
+      console.warn("Unauthorized attempt to update club and account");
+      return;
+    }
     const cleanClub = sanitizeForFirestore(updatedClub);
     const cleanAccount = sanitizeForFirestore({ ...updatedAccount, targetId: clubId });
 
@@ -3005,6 +3803,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteClubAndAccount = (clubId: string) => {
+    if (!currentUser || currentUser.role !== UserRole.ADMIN) {
+      console.warn("Unauthorized attempt to delete club and account");
+      return;
+    }
     const clubIdClean = (clubId || "").trim().toLowerCase();
     const orgToDelete = organizations.find(o => o.id.toLowerCase() === clubIdClean);
 
@@ -3045,6 +3847,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const createUserAccount = (account: UserAccount) => {
+    if (!currentUser || currentUser.role !== UserRole.ADMIN) {
+      console.warn("Unauthorized attempt to create user account");
+      return;
+    }
     const clean = sanitizeForFirestore(account);
     setUsers(prev => {
       const exists = prev.some(u => u.id === clean.id);
@@ -3056,7 +3862,33 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateUserAccount = (userId: string, updatedAccount: Partial<UserAccount>) => {
-    const clean = sanitizeForFirestore(updatedAccount);
+    if (!currentUser) return;
+    if (currentUser.role !== UserRole.ADMIN && currentUser.id !== userId) {
+      console.warn("Unauthorized attempt to update user account");
+      return;
+    }
+    const safeAccount = { ...updatedAccount };
+    if (currentUser.role !== UserRole.ADMIN) {
+      delete safeAccount.role;
+      delete safeAccount.targetId;
+      delete safeAccount.isGroupLeader;
+      delete safeAccount.groupInCharge;
+      delete safeAccount.monitorTitle;
+      delete (safeAccount as any).id;
+      delete (safeAccount as any).username;
+    } else {
+      if (userId === currentUser.id && safeAccount.role && safeAccount.role !== UserRole.ADMIN) {
+        alert("Không thể tự hạ quyền tài khoản quản trị viên đang đăng nhập!");
+        return;
+      }
+      const targetUser = users.find(u => u.id === userId);
+      if (targetUser?.username === "admin" && safeAccount.role && safeAccount.role !== UserRole.ADMIN) {
+        alert("Không thể thay đổi vai trò của tài khoản quản trị viên hệ thống mặc định!");
+        return;
+      }
+    }
+
+    const clean = sanitizeForFirestore(safeAccount);
     setUsers(prev => {
       const updated = prev.map(u => u.id === userId ? { ...u, ...clean } : u);
       localStorage.setItem("unihub_users", JSON.stringify(updated));
@@ -3066,7 +3898,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteUserAccount = (userId: string) => {
+    if (!currentUser || currentUser.role !== UserRole.ADMIN) {
+      console.warn("Unauthorized attempt to delete user account");
+      return;
+    }
+    if (userId === currentUser.id) {
+      alert("Không thể tự xóa tài khoản quản trị viên đang đăng nhập!");
+      return;
+    }
     const userToDelete = users.find(u => u.id === userId);
+    if (userToDelete?.username === "admin") {
+      alert("Không thể xóa tài khoản quản trị viên hệ thống mặc định!");
+      return;
+    }
     setUsers(prev => {
       const updated = prev.filter(u => u.id !== userId);
       localStorage.setItem("unihub_users", JSON.stringify(updated));
@@ -3086,6 +3930,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const normalizeAllAccounts = () => {
+    if (!currentUser || currentUser.role !== UserRole.ADMIN) {
+      console.warn("Unauthorized attempt to normalize accounts");
+      return;
+    }
     const updated = users.map(normalizeUserAccount);
     setUsers(updated);
     try {
@@ -3093,7 +3941,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       localStorage.setItem("unihub_users_backup", JSON.stringify(updated));
     } catch {}
     updated.forEach(u => {
-      setDoc(doc(db, "users", u.id), u, { merge: true }).catch(() => {});
+      setDoc(doc(db, "users", u.id), sanitizeForFirestore(u), { merge: true }).catch(() => {});
     });
     if (currentUser) {
       const updatedCurrent = normalizeUserAccount(currentUser);
@@ -3105,6 +3953,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const importNewClassesExcel = (studentsToImport: Student[], usersToImport: UserAccount[]) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to import new classes");
+      return;
+    }
     const combinedStudents = [...students];
     studentsToImport.forEach(newStud => {
       const existingIdx = combinedStudents.findIndex(s => s.id === newStud.id);
@@ -3117,14 +3969,27 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const combinedUsers = [...users];
     usersToImport.forEach(newUser => {
+      // Security: clamp role to STUDENT or CLASS_MONITOR; never allow importing administrative accounts
+      const safeRole = (newUser.role === UserRole.CLASS_MONITOR) ? UserRole.CLASS_MONITOR : UserRole.STUDENT;
+      const cleanUser: UserAccount = {
+        ...newUser,
+        role: safeRole
+      };
+
       const existingIdx = combinedUsers.findIndex(u => 
-        (u.username && newUser.username && u.username.toLowerCase() === newUser.username.toLowerCase()) || 
-        (u.email && newUser.email && u.email.toLowerCase() === newUser.email.toLowerCase())
+        (u.username && cleanUser.username && u.username.toLowerCase() === cleanUser.username.toLowerCase()) || 
+        (u.email && cleanUser.email && u.email.toLowerCase() === cleanUser.email.toLowerCase())
       );
       if (existingIdx !== -1) {
-        combinedUsers[existingIdx] = { ...combinedUsers[existingIdx], ...newUser };
+        const existing = combinedUsers[existingIdx];
+        // Protect privileged roles from being hijacked or modified by class Excel import
+        if (existing.role === UserRole.ADMIN || existing.role === UserRole.TRAINING_DEPT || existing.role === UserRole.TEACHER || existing.role === UserRole.FACULTY) {
+          console.warn(`Skipping overwrite of privileged account: ${existing.username}`);
+          return;
+        }
+        combinedUsers[existingIdx] = { ...existing, ...cleanUser, role: safeRole };
       } else {
-        combinedUsers.push(newUser);
+        combinedUsers.push(cleanUser);
       }
     });
 
@@ -3135,6 +4000,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const addNewClass = (className: string) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to add class");
+      return;
+    }
     if (!className.trim()) return;
     const normalized = className.trim();
     if (!customClasses.includes(normalized)) {
@@ -3145,6 +4014,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const renameClass = (oldClassId: string, newClassId: string) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to rename class");
+      return;
+    }
     if (!oldClassId.trim() || !newClassId.trim()) return;
     const oldNorm = normalizeClassId(oldClassId);
     const newNorm = normalizeClassId(newClassId);
@@ -3173,6 +4046,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteClass = (classId: string) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to delete class");
+      return;
+    }
     if (!classId.trim()) return;
     const norm = normalizeClassId(classId);
 
@@ -3198,12 +4075,25 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const bulkApproveScores = (classId: string, studentIds: string[], role: UserRole) => {
+    if (!currentUser) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN ||
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === classId) ||
+      (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId);
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to bulk approve scores");
+      return;
+    }
+
+    const effectiveRole = currentUser.role === UserRole.ADMIN ? role : currentUser.role;
+    const classStudentIds = students.filter(s => s.classId === classId).map(s => s.id);
+    const validStudentIds = studentIds.filter(sid => classStudentIds.includes(sid));
+
     const updatedResults = results.map(res => {
-      if (studentIds.includes(res.studentId)) {
+      if (validStudentIds.includes(res.studentId)) {
         let newStatus = res.status;
-        if (role === UserRole.CLASS_MONITOR) {
+        if (effectiveRole === UserRole.CLASS_MONITOR) {
           newStatus = "APPROVED_CLASS" as const;
-        } else if (role === UserRole.ADVISER) {
+        } else if (effectiveRole === UserRole.ADVISER) {
           newStatus = "APPROVED_ADVISER" as const;
         }
         return { ...res, status: newStatus };
@@ -3215,6 +4105,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const adjustStudentScoreSpecific = (studentId: string, category: string, points: number, reason: string) => {
+    if (!currentUser) return;
+    const targetStudent = students.find(s => s.id === studentId);
+    if (!targetStudent) return;
+    const isAuthorized = currentUser.role === UserRole.ADMIN ||
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === targetStudent.classId) ||
+      (currentUser.role === UserRole.ADVISER && currentUser.targetId === targetStudent.classId);
+    if (!isAuthorized) {
+      console.warn("Unauthorized attempt to adjust score");
+      return;
+    }
     const updatedResults = results.map(res => {
       if (res.studentId === studentId) {
         let studyPoints = res.studyPoints;

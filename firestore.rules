@@ -30,13 +30,18 @@ service cloud.firestore {
     }
 
     function isSuperAdmin() {
-      return isSignedIn() && request.auth.token.email == "superadmin@unihub.edu.vn";
+      return isSignedIn() && (
+        request.auth.token.email == "superadmin@unihub.edu.vn" ||
+        request.auth.token.email == "admin@phhg.edu.vn"
+      );
     }
 
     function isThemeConfigAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "superadmin@unihub.edu.vn" ||
-        request.auth.token.email == "pcthssv@hg.edu.vn"
+        request.auth.token.email == "admin@phhg.edu.vn" ||
+        request.auth.token.email == "pcthssv@hg.edu.vn" ||
+        request.auth.token.email == "cthssv@phhg.edu.vn"
       );
     }
 
@@ -248,6 +253,7 @@ service cloud.firestore {
     match /students/{studentId} {
       allow get: if isVerifiedUser() && (
         studentId == request.auth.uid || 
+        getUserData().targetId == studentId ||
         hasRole('ADMIN') || 
         hasRole('TRAINING_DEPT') || 
         hasRole('FACULTY') ||
@@ -258,7 +264,7 @@ service cloud.firestore {
       allow list: if isVerifiedUser() && (
         hasRole('ADMIN') || 
         hasRole('TRAINING_DEPT') || 
-        hasRole('FACULTY') ||
+        hasRole('FACULTY') || 
         hasRole('ADVISER') || 
         hasRole('CLASS_MONITOR') || 
         isOrgRole() ||
@@ -269,7 +275,7 @@ service cloud.firestore {
         hasRole('ADMIN') || 
         hasRole('TRAINING_DEPT') || 
         (
-          studentId == request.auth.uid && 
+          (studentId == request.auth.uid || getUserData().targetId == studentId) && 
           incoming().classId == existing().classId && 
           incoming().facultyId == existing().facultyId && 
           incoming().id == existing().id &&
@@ -495,6 +501,68 @@ service cloud.firestore {
         isSuperAdmin() ||
         (configId == 'theme' && isThemeConfigAdmin())
       );
+    }
+
+    match /teacherAssignments/{assignmentId} {
+      allow read: if isVerifiedUser();
+      allow write: if isVerifiedUser() && (hasRole('ADMIN') || isSuperAdmin() || hasRole('TRAINING_DEPT'));
+    }
+
+    match /subjectGradeSheets/{sheetId} {
+      allow read: if isVerifiedUser();
+      allow create, update: if isVerifiedUser() && (
+        hasRole('ADMIN') || 
+        hasRole('TRAINING_DEPT') ||
+        (hasRole('TEACHER') && (existing() == null || existing().status != 'LOCKED'))
+      );
+      allow delete: if isVerifiedUser() && (hasRole('ADMIN') || hasRole('TRAINING_DEPT') || isSuperAdmin());
+    }
+
+    match /unlockRequests/{requestId} {
+      allow read: if isVerifiedUser();
+      allow create: if isVerifiedUser() && hasRole('TEACHER');
+      allow update, delete: if isVerifiedUser() && (hasRole('ADMIN') || hasRole('TRAINING_DEPT') || isSuperAdmin());
+    }
+
+    match /gradeAppeals/{appealId} {
+      allow read: if isVerifiedUser();
+      allow create: if isVerifiedUser() && hasRole('STUDENT');
+      allow update, delete: if isVerifiedUser() && (hasRole('ADMIN') || hasRole('TRAINING_DEPT') || hasRole('TEACHER') || isSuperAdmin());
+    }
+
+    match /schedules/{scheduleId} {
+      allow read: if isVerifiedUser();
+      allow write: if isVerifiedUser() && (hasRole('ADMIN') || isSuperAdmin() || hasRole('TRAINING_DEPT'));
+    }
+
+    match /feedbacks/{feedbackId} {
+      allow read: if isVerifiedUser();
+      allow create: if isVerifiedUser() && isValidId(feedbackId);
+      allow update: if isVerifiedUser() && isValidId(feedbackId) && (hasRole('ADMIN') || hasRole('ADVISER') || hasRole('CLASS_MONITOR'));
+      allow delete: if isVerifiedUser() && isValidId(feedbackId) && (hasRole('ADMIN') || isSuperAdmin());
+    }
+
+    match /systemFeedbacks/{feedbackId} {
+      allow read: if isVerifiedUser() && (hasRole('ADMIN') || isSuperAdmin());
+      allow create: if isVerifiedUser() && isValidId(feedbackId);
+      allow update, delete: if isVerifiedUser() && (hasRole('ADMIN') || isSuperAdmin());
+    }
+
+    match /groupAttendances/{reportId} {
+      allow read: if isVerifiedUser();
+      allow create: if isVerifiedUser() && isValidId(reportId) && (hasRole('ADMIN') || hasRole('CLASS_MONITOR') || hasRole('ADVISER') || getUserData().isGroupLeader == true);
+      allow update: if isVerifiedUser() && isValidId(reportId) && (hasRole('ADMIN') || hasRole('CLASS_MONITOR') || hasRole('ADVISER'));
+      allow delete: if isVerifiedUser() && isValidId(reportId) && (hasRole('ADMIN') || isSuperAdmin());
+    }
+
+    match /groupCriteria/{criteriaId} {
+      allow read: if isVerifiedUser();
+      allow write: if isVerifiedUser() && isValidId(criteriaId) && (hasRole('ADMIN') || isSuperAdmin() || hasRole('FACULTY'));
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isVerifiedUser() && (hasRole('ADMIN') || isSuperAdmin());
     }
 
   }

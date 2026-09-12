@@ -34,7 +34,6 @@ export interface UserAccount {
   isGroupLeader?: boolean;
   groupInCharge?: string;
   monitorTitle?: string;
-  password?: string;
 }
 
 export interface CourseClassAssignment {
@@ -48,7 +47,6 @@ export interface CourseClassAssignment {
   credits: number;
   teacherId: string;
   teacherName: string;
-  teacherPassword?: string;
   status: "PENDING" | "DRAFT" | "SUBMITTED" | "LOCKED" | "UNLOCKED";
   submittedAt?: string;
   unlockedAt?: string;

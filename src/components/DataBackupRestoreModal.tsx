@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { Download, Upload, ShieldCheck, Database, RefreshCw, X, AlertTriangle, CheckCircle2, FileJson } from "lucide-react";
 import { useUniHub } from "../state";
+import { UserRole } from "../types";
 
 interface DataBackupRestoreModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface DataBackupRestoreModalProps {
 
 export const DataBackupRestoreModal: React.FC<DataBackupRestoreModalProps> = ({ isOpen, onClose }) => {
   const { 
+    currentUser,
     students, 
     users, 
     teacherAssignments, 
@@ -113,6 +115,10 @@ export const DataBackupRestoreModal: React.FC<DataBackupRestoreModalProps> = ({ 
           throw new Error("Tệp không đúng định dạng sao lưu UniHubHG (thiếu mảng students/users).");
         }
 
+        if (currentUser?.role !== UserRole.ADMIN) {
+          throw new Error("Chỉ Quản trị viên hệ thống (Admin) mới có quyền khôi phục CSDL.");
+        }
+
         if (restoreAllDataBackup) {
           await restoreAllDataBackup(dataPayload);
           setRestoreStatus(`Khôi phục thành công! Đã phục hồi ${(dataPayload.students || []).length} sinh viên, ${(dataPayload.users || []).length} tài khoản người dùng và toàn bộ dữ liệu kèm theo.`);
@@ -143,6 +149,10 @@ export const DataBackupRestoreModal: React.FC<DataBackupRestoreModalProps> = ({ 
   // Phục hồi nhanh từ bản sao lưu Local Storage tự động
   const handleRestoreFromLocalShield = () => {
     try {
+      if (currentUser?.role !== UserRole.ADMIN) {
+        alert("Chỉ Quản trị viên hệ thống (Admin) mới có quyền khôi phục dữ liệu.");
+        return;
+      }
       const backupStuds = localStorage.getItem("unihub_students_backup");
       const backupUsers = localStorage.getItem("unihub_users_backup");
       if (!backupStuds && !backupUsers) {
@@ -224,54 +234,68 @@ export const DataBackupRestoreModal: React.FC<DataBackupRestoreModalProps> = ({ 
             </button>
           </div>
 
-          {/* Option 2: Nạp file sao lưu JSON để khôi phục */}
-          <div className="p-4 bg-white border border-slate-200 hover:border-emerald-200 rounded-xl space-y-2.5 shadow-2xs">
-            <div className="space-y-0.5">
-              <div className="font-extrabold text-slate-900 flex items-center gap-1.5 text-xs">
-                <Upload size={14} className="text-emerald-600" />
-                <span>2. Khôi phục CSDL từ File Sao lưu (.json)</span>
+          {currentUser?.role === UserRole.ADMIN ? (
+            <>
+              {/* Option 2: Nạp file sao lưu JSON để khôi phục */}
+              <div className="p-4 bg-white border border-slate-200 hover:border-emerald-200 rounded-xl space-y-2.5 shadow-2xs">
+                <div className="space-y-0.5">
+                  <div className="font-extrabold text-slate-900 flex items-center gap-1.5 text-xs">
+                    <Upload size={14} className="text-emerald-600" />
+                    <span>2. Khôi phục CSDL từ File Sao lưu (.json)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Khôi phục lại toàn bộ sinh viên và tài khoản từ file backup đã lưu trước đó. Dữ liệu sẽ được ghi đè an toàn và đồng bộ ngay tức thì lên đám mây.
+                  </p>
+                </div>
+
+                <input 
+                  type="file" 
+                  ref={fileInputRef}
+                  accept=".json" 
+                  onChange={handleFileSelect}
+                  className="hidden" 
+                  id="data-backup-file-input"
+                />
+                <label
+                  htmlFor="data-backup-file-input"
+                  className={`px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl inline-flex items-center gap-2 cursor-pointer shadow-sm transition-all ${isProcessing ? "opacity-50 pointer-events-none" : ""}`}
+                >
+                  <FileJson size={13} />
+                  <span>{isProcessing ? "Đang xử lý..." : "Chọn Tệp JSON Để Khôi Phục"}</span>
+                </label>
               </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Khôi phục lại toàn bộ sinh viên và tài khoản từ file backup đã lưu trước đó. Dữ liệu sẽ được ghi đè an toàn và đồng bộ ngay tức thì lên đám mây.
+
+              {/* Option 3: Phục hồi tức thì từ Bản dự phòng ngầm (Local Shield Slot) */}
+              <div className="p-4 bg-amber-50/50 border border-amber-200/80 rounded-xl space-y-2.5">
+                <div className="space-y-0.5">
+                  <div className="font-extrabold text-amber-900 flex items-center gap-1.5 text-xs">
+                    <RefreshCw size={13} className="text-amber-700" />
+                    <span>3. Phục hồi khẩn cấp từ Bản sao ngầm (Local Backup Slot)</span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    Hệ thống luôn tự động lưu riêng một bản sao dự phòng của danh sách sinh viên & tài khoản. Nếu vừa bấm nhầm hoặc bị lỗi hiển thị, Thầy/Cô có thể bấm khôi phục ngay.
+                  </p>
+                </div>
+                <button
+                  onClick={handleRestoreFromLocalShield}
+                  className="px-3.5 py-1.5 bg-amber-700 hover:bg-amber-800 text-white font-bold text-[11px] rounded-lg inline-flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
+                >
+                  <RefreshCw size={12} />
+                  <span>Khôi Phục Bản Sao Ngầm</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-slate-600">
+              <div className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                <AlertTriangle size={14} className="text-amber-500" />
+                <span>Quyền khôi phục CSDL dành riêng cho Quản trị viên (Admin)</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-slate-500">
+                Cán bộ Phòng Đào tạo được phép xuất file sao lưu để lưu trữ ngoại tuyến an toàn. Để khôi phục dữ liệu toàn hệ thống từ tệp sao lưu, vui lòng liên hệ Quản trị viên.
               </p>
             </div>
-
-            <input 
-              type="file" 
-              ref={fileInputRef}
-              accept=".json" 
-              onChange={handleFileSelect}
-              className="hidden" 
-              id="data-backup-file-input"
-            />
-            <label
-              htmlFor="data-backup-file-input"
-              className={`px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl inline-flex items-center gap-2 cursor-pointer shadow-sm transition-all ${isProcessing ? "opacity-50 pointer-events-none" : ""}`}
-            >
-              <FileJson size={13} />
-              <span>{isProcessing ? "Đang xử lý..." : "Chọn Tệp JSON Để Khôi Phục"}</span>
-            </label>
-          </div>
-
-          {/* Option 3: Phục hồi tức thì từ Bản dự phòng ngầm (Local Shield Slot) */}
-          <div className="p-4 bg-amber-50/50 border border-amber-200/80 rounded-xl space-y-2.5">
-            <div className="space-y-0.5">
-              <div className="font-extrabold text-amber-900 flex items-center gap-1.5 text-xs">
-                <RefreshCw size={13} className="text-amber-700" />
-                <span>3. Phục hồi khẩn cấp từ Bản sao ngầm (Local Backup Slot)</span>
-              </div>
-              <p className="text-[11px] text-amber-800 leading-relaxed">
-                Hệ thống luôn tự động lưu riêng một bản sao dự phòng của danh sách sinh viên & tài khoản. Nếu vừa bấm nhầm hoặc bị lỗi hiển thị, Thầy/Cô có thể bấm khôi phục ngay.
-              </p>
-            </div>
-            <button
-              onClick={handleRestoreFromLocalShield}
-              className="px-3.5 py-1.5 bg-amber-700 hover:bg-amber-800 text-white font-bold text-[11px] rounded-lg inline-flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
-            >
-              <RefreshCw size={12} />
-              <span>Khôi Phục Bản Sao Ngầm</span>
-            </button>
-          </div>
+          )}
 
           {/* Result alerts */}
           {restoreStatus && (

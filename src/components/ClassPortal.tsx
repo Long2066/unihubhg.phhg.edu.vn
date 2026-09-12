@@ -61,8 +61,8 @@ export const ClassPortal: React.FC = () => {
   } = useUniHub();
 
   const classId = currentUser?.isGroupLeader 
-    ? (students.find(s => s.id === currentUser.targetId)?.classId || "K20-CNTT") 
-    : (currentUser?.targetId || "K20-CNTT");
+    ? (students.find(s => s.id === currentUser.targetId)?.classId || "") 
+    : (currentUser?.targetId || students.find(s => s.email === currentUser?.email || s.id === currentUser?.username)?.classId || "");
   
   // Get classmates
   const myClassmatesArr = students.filter(s => s.classId === classId);
@@ -1939,6 +1939,16 @@ export const ClassPortal: React.FC = () => {
         return renderOverviewDashboard();
     }
   };
+
+  if (!classId) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
+        <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-800">Chưa được phân công Lớp sinh viên</h3>
+        <p className="text-slate-500 text-sm mt-1">Tài khoản chưa được liên kết với Lớp nào. Vui lòng liên hệ Quản trị viên để được gán quyền lớp.</p>
+      </div>
+    );
+  }
 
   const banner = getBannerMeta();
 

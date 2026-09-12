@@ -47,6 +47,7 @@ export const formatStudentId = (id: any) => {
 
 export const TrainingPortal: React.FC = () => {
   const { 
+    currentUser,
     students, 
     importAcademicData, 
     toggleLearningDataLock,
@@ -2482,6 +2483,16 @@ export const TrainingPortal: React.FC = () => {
       alert("Đã hiệu chỉnh học vụ thành công.");
     }
   };
+
+  if (currentUser?.role !== UserRole.ADMIN && currentUser?.role !== UserRole.TRAINING_DEPT) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
+        <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-800">Không có quyền truy cập Cổng Đào tạo</h3>
+        <p className="text-slate-500 text-sm mt-1">Cổng thông tin này chỉ dành riêng cho Cán bộ Phòng Đào tạo hoặc Quản trị viên hệ thống.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6" id="training-portal-container">

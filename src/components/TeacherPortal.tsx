@@ -922,7 +922,13 @@ export const TeacherPortal: React.FC = () => {
   const myAssignments = useMemo(() => {
     if (!currentUser) return [];
     return teacherAssignments.filter(a => {
-      const matchTeacher = a.teacherId === currentUser.email || a.teacherId === currentUser.username || a.teacherId === currentUser.id || currentUser.role === "ADMIN" || currentUser.role === "TRAINING_DEPT";
+      const aTeacher = (a.teacherId || "").trim().toLowerCase();
+      const uEmail = (currentUser.email || "").trim().toLowerCase();
+      const uUser = (currentUser.username || "").trim().toLowerCase();
+      const uId = (currentUser.id || "").trim().toLowerCase();
+      const uTarget = (currentUser.targetId || "").trim().toLowerCase();
+      const matchTeacher = (aTeacher && (aTeacher === uEmail || aTeacher === uUser || aTeacher === uId || (uTarget && aTeacher === uTarget))) || 
+        currentUser.role === "ADMIN" || currentUser.role === "TRAINING_DEPT";
       const matchSem = a.semesterId === selectedSemester;
       return matchTeacher && matchSem;
     });
@@ -936,8 +942,8 @@ export const TeacherPortal: React.FC = () => {
   }, [myAssignments, selectedAssignmentId]);
 
   const activeAssignment = useMemo(() => {
-    return teacherAssignments.find(a => a.id === selectedAssignmentId) || myAssignments[0];
-  }, [teacherAssignments, selectedAssignmentId, myAssignments]);
+    return myAssignments.find(a => a.id === selectedAssignmentId) || myAssignments[0];
+  }, [selectedAssignmentId, myAssignments]);
 
   // Helper: Normalize class name strings (ignores spaces, hyphens, case)
   const normalizeClass = (str: string) => (str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -996,7 +1002,7 @@ export const TeacherPortal: React.FC = () => {
       subjectCode: activeAssignment.subjectCode,
       subjectName: activeAssignment.subjectName,
       credits: activeAssignment.credits,
-      teacherId: currentUser?.email || "teacher",
+      teacherId: activeAssignment?.teacherId || currentUser?.email || "teacher",
       teacherName: currentUser?.name || "Giảng viên",
       status: "DRAFT" as const,
       grades: initialGrades,
@@ -1089,7 +1095,7 @@ export const TeacherPortal: React.FC = () => {
       subjectCode: activeAssignment.subjectCode,
       subjectName: activeAssignment.subjectName,
       credits: activeAssignment.credits,
-      teacherId: currentUser?.email || "teacher",
+      teacherId: activeAssignment?.teacherId || currentUser?.email || "teacher",
       teacherName: currentUser?.name || "Giảng viên",
       status: activeGradeSheet?.status || "DRAFT",
       grades: currentGrades,
@@ -1403,7 +1409,7 @@ export const TeacherPortal: React.FC = () => {
       classId: activeAssignment.classId,
       subjectCode: activeAssignment.subjectCode,
       subjectName: activeAssignment.subjectName,
-      teacherId: currentUser?.email || "teacher",
+      teacherId: activeAssignment?.teacherId || currentUser?.email || "teacher",
       teacherName: currentUser?.name || "Giảng viên",
       reason: unlockReason
     });

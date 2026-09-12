@@ -29,6 +29,9 @@ export const convertGoogleDriveUrlToDirectUrl = (url?: string): string => {
   if (!url || typeof url !== "string") return "";
   const trimmed = url.trim();
   if (!trimmed) return "";
+  if (/^(javascript|vbscript):/i.test(trimmed) || trimmed.startsWith("//")) {
+    return "";
+  }
 
   const driveRegex = /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?export=view&id=|uc\?id=)|lh3\.googleusercontent\.com\/d\/)([a-zA-Z0-9_-]{25,})/;
   const match = trimmed.match(driveRegex);
@@ -48,7 +51,6 @@ export interface UserAccount {
   isGroupLeader?: boolean;
   groupInCharge?: string;
   monitorTitle?: string;
-  password?: string;
 }
 
 export interface EvaluationPeriod {
@@ -161,7 +163,6 @@ export interface Student {
   paidTuition?: number;        // Học phí đã nộp
   debtTuition?: number;        // Học phí còn nợ
   paymentStatus?: string;      // Trạng thái thanh toán
-  password?: string;           // Mật khẩu đăng nhập tùy chỉnh (nếu khác số CCCD)
 }
 
 export interface FieldMeta {

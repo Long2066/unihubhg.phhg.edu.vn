@@ -71,13 +71,17 @@ const downloadStudentTranscriptPdf = async (
   creditsCount: number,
   academicGrade: string
 ) => {
+  if (!student && !currentUser?.targetId) {
+    alert("Không tìm thấy thông tin sinh viên để xuất bảng điểm.");
+    return;
+  }
   const pdfMake = await configurePdfMakeForStudent();
-  const studentId = student?.id || currentUser?.username || "DTG245140202053";
-  const studentName = student?.name || currentUser?.name || "Ma Văn Long";
-  const classId = student?.classId || "K2-GDTH A";
-  const facultyName = student?.facultyId === "K-CNTT" ? "Công nghệ Thông tin" : "Giáo dục Tiểu học";
-  const dob = student?.dob || "2006-05-14";
-  const gender = student?.gender || "Nam";
+  const studentId = student?.id || currentUser?.targetId || currentUser?.username || "";
+  const studentName = student?.name || currentUser?.name || "Sinh viên";
+  const classId = student?.classId || "Chưa phân lớp";
+  const facultyName = student?.facultyId === "K-CNTT" ? "Công nghệ Thông tin" : (student?.facultyId ? student.facultyId : "Đại học Thái Nguyên");
+  const dob = student?.dob || "-";
+  const gender = student?.gender || "-";
   const now = new Date();
 
   // Prepare table rows
@@ -99,24 +103,8 @@ const downloadStudentTranscriptPdf = async (
   } else {
     gradeRows = [
       [
-        { text: "1", alignment: "center", fontSize: 9 },
-        { text: "VPS7251", alignment: "center", bold: true, fontSize: 9 },
-        { text: "Cơ sở Tự nhiên - xã hội", bold: true, fontSize: 9 },
-        { text: "4", alignment: "center", fontSize: 9 },
-        { text: "8.7", alignment: "center", bold: true, fontSize: 9 },
-        { text: "3.8", alignment: "center", bold: true, fontSize: 9 },
-        { text: "A", alignment: "center", bold: true, color: "#1d4ed8", fontSize: 9 },
-        { text: "Giỏi", alignment: "center", bold: true, fontSize: 9 }
-      ],
-      [
-        { text: "2", alignment: "center", fontSize: 9 },
-        { text: "HCP7121", alignment: "center", bold: true, fontSize: 9 },
-        { text: "Lịch sử Đảng Cộng sản VN", bold: true, fontSize: 9 },
-        { text: "2", alignment: "center", fontSize: 9 },
-        { text: "9.2", alignment: "center", bold: true, fontSize: 9 },
-        { text: "4.0", alignment: "center", bold: true, fontSize: 9 },
-        { text: "A+", alignment: "center", bold: true, color: "#1d4ed8", fontSize: 9 },
-        { text: "Xuất sắc", alignment: "center", bold: true, fontSize: 9 }
+        { text: "Chưa có dữ liệu điểm học phần", colSpan: 8, alignment: "center", italics: true, color: "#64748b", fontSize: 9 },
+        {}, {}, {}, {}, {}, {}, {}
       ]
     ];
   }
@@ -270,7 +258,7 @@ const downloadStudentTranscriptPdf = async (
   pdfMake.createPdf(docDefinition).download(fileName);
 };
 
-// Predefined historical semesters for student DTG245140202053
+// Predefined historical semesters
 const SEMESTER_HISTORY = [
   {
     id: "HOCKY_2_2025_2026",
@@ -389,8 +377,12 @@ export const StudentPortal: React.FC = () => {
     setActivePortletTab(tab);
   };
 
-  const studentId = currentUser?.targetId || "DTG245140202053";
-  const sObj = students?.find(s => s.id === studentId);
+  const sObj = students?.find(s => 
+    (currentUser?.targetId && s.id.toLowerCase() === currentUser.targetId.toLowerCase()) ||
+    (currentUser?.username && (s.id.toLowerCase() === currentUser.username.toLowerCase() || (s.email && s.email.toLowerCase() === currentUser.username.toLowerCase()))) ||
+    (currentUser?.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
+  );
+  const studentId = sObj?.id || currentUser?.targetId || (currentUser?.role === "STUDENT" ? currentUser?.username : "") || "";
 
   const isDoanBCH = members.some(m => 
     m.studentId === studentId && 
@@ -549,10 +541,10 @@ export const StudentPortal: React.FC = () => {
   const historicSem = SEMESTER_HISTORY.find(h => h.id === selectedSemesterId);
 
   // Compute live academic data
-  const liveGpa = sObj?.gpa ?? 3.42;
-  const currentGpa = isSelectedCurrent ? liveGpa : (historicSem?.gpa ?? 3.0);
+  const liveGpa = sObj?.gpa ?? 0;
+  const currentGpa = isSelectedCurrent ? liveGpa : (historicSem?.gpa ?? 0);
   const currentLearningStatus = isSelectedCurrent ? (sObj?.learningStatus || "Bình thường") : (historicSem?.learningStatus || "Bình thường");
-  const currentCreditsEarned = isSelectedCurrent ? (sObj?.creditsEarned || 15) : (historicSem?.creditsEarned || 15);
+  const currentCreditsEarned = isSelectedCurrent ? (sObj?.creditsEarned || 0) : (historicSem?.creditsEarned || 0);
 
   const getAcademicClassification = (gpa: number) => {
     if (gpa >= 3.6) return { label: "XUẤT SẮC", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-250" };
@@ -637,8 +629,8 @@ export const StudentPortal: React.FC = () => {
     
     submitEvidence({
       studentId,
-      studentName: currentUser?.name || "Ma Văn Long",
-      classId: sObj?.classId || "K2-GDTH A",
+      studentName: currentUser?.name || sObj?.name || "Sinh viên",
+      classId: sObj?.classId || "Chưa phân lớp",
       criteriaId: evCriteriaId,
       activityName: evActivity,
       description: evDesc,
@@ -693,25 +685,11 @@ export const StudentPortal: React.FC = () => {
                 <Edit size={10} />
                 <span>Sửa hồ sơ / Đổi MK</span>
               </button>
-              <button 
-                type="button"
-                onClick={() => {
-                  if (window.confirm("Bạn có chắc chắn muốn khôi phục lại toàn bộ dữ liệu mẫu ban đầu để dọn dẹp bộ nhớ cache không?")) {
-                    resetToSeeds();
-                    window.location.reload();
-                  }
-                }}
-                className="text-[10px] bg-amber-50 hover:bg-amber-105 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-lg flex items-center gap-1.5 font-bold cursor-pointer transition-colors"
-                title="Khôi phục dữ liệu mẫu ban đầu"
-              >
-                <History size={10} />
-                <span>Đặt lại dữ liệu gốc</span>
-              </button>
             </div>
             <div className="text-[11px] text-slate-550 flex items-center gap-2 flex-wrap font-medium">
-              <span>Lớp quản lý: <strong className="text-slate-800">{sObj?.classId || "K2-GDTH A"}</strong></span>
+              <span>Lớp quản lý: <strong className="text-slate-800">{sObj?.classId || "Chưa phân lớp"}</strong></span>
               <span className="text-slate-300">•</span>
-              <span>Khoa đào tạo: <strong className="text-slate-800">{sObj?.facultyId === "K-CNTT" ? "Khoa Công nghệ Thông tin" : (sObj?.facultyId === "K-GDTH" || !sObj?.facultyId ? "Khoa Sư phạm" : sObj.facultyId)}</strong></span>
+              <span>Khoa đào tạo: <strong className="text-slate-800">{sObj?.facultyId === "K-CNTT" ? "Khoa Công nghệ Thông tin" : (sObj?.facultyId === "K-GDTH" ? "Khoa Sư phạm" : (sObj?.facultyId || "Chưa xác định"))}</strong></span>
             </div>
           </div>
         </div>
@@ -1551,7 +1529,7 @@ export const StudentPortal: React.FC = () => {
 
                   {(() => {
                     // Check for subject grade sheets
-                    const studentId = sObj?.id || currentUser?.username || "DTG245140202053";
+                    const studentId = sObj?.id || currentUser?.targetId || currentUser?.username || "";
                     const foundGrades: Array<{
                       code: string;
                       name: string;
@@ -1579,14 +1557,14 @@ export const StudentPortal: React.FC = () => {
                       }
                     });
 
-                    // Fallback dataset if empty
-                    const displayGrades = foundGrades.length > 0 ? foundGrades : [
-                      { code: "VPS7251", name: "Cơ sở Tự nhiên - xã hội", credits: 4, cc: "9.0", exam: "8.5", tb10: "8.7", diemChu: "A", xepLoai: "Giỏi" },
-                      { code: "HCP7121", name: "Lịch sử Đảng Cộng sản VN", credits: 2, cc: "9.5", exam: "9.0", tb10: "9.2", diemChu: "A+", xepLoai: "Xuất sắc" },
-                      { code: "ETM7321", name: "Đạo đức & Phương pháp dạy học", credits: 2, cc: "8.0", exam: "7.5", tb10: "7.8", diemChu: "B", xepLoai: "Khá" },
-                      { code: "GDTC01", name: "Giáo dục thể chất 1", credits: 1, cc: "10", exam: "-", tb10: "-", diemChu: "-", xepLoai: "Đạt" },
-                      { code: "TH01", name: "Tin học Đại cương", credits: 2, cc: "8.5", exam: "6.0", tb10: "6.8", diemChu: "C+", xepLoai: "Trung bình" }
-                    ];
+                    const displayGrades = foundGrades;
+                    if (displayGrades.length === 0) {
+                      return (
+                        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center text-xs text-slate-500 italic mt-2">
+                          Chưa có dữ liệu bảng điểm môn học được công bố cho sinh viên này.
+                        </div>
+                      );
+                    }
 
                     return (
                       <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs mt-1 bg-white">
@@ -1727,6 +1705,22 @@ export const StudentPortal: React.FC = () => {
       </div>
     );
   };
+
+  if (!studentId) {
+    return (
+      <div className="p-8 max-w-4xl mx-auto font-sans">
+        <div className="bg-amber-50 border border-amber-250 rounded-2xl p-6 text-center space-y-3 shadow-xs">
+          <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto text-amber-700">
+            <AlertTriangle size={24} />
+          </div>
+          <h3 className="text-base font-bold text-amber-900">Tài khoản chưa được liên kết hồ sơ sinh viên</h3>
+          <p className="text-xs text-amber-800 leading-relaxed max-w-md mx-auto">
+            Tài khoản của bạn ({currentUser?.username || "Chưa xác định"}) hiện chưa được gắn với mã sinh viên cụ thể trong hệ thống. Vui lòng liên hệ Phòng Đào tạo hoặc Quản trị viên để được cập nhật mã định danh.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in-up" id="student-portal-container">
@@ -3437,9 +3431,9 @@ export const StudentPortal: React.FC = () => {
                 if (!appealReason.trim() || !appealModalSubject) return;
 
                 submitGradeAppeal({
-                  studentId: sObj?.id || currentUser?.username || "DTG245140202053",
-                  studentName: sObj?.name || currentUser?.name || "Ma Văn Long",
-                  classId: sObj?.classId || "K2-GDTH A",
+                  studentId: sObj?.id || currentUser?.targetId || currentUser?.username || "",
+                  studentName: sObj?.name || currentUser?.name || "Sinh viên",
+                  classId: sObj?.classId || "Chưa phân lớp",
                   semesterId: selectedSemesterId || "HOCKY_2_2025_2026",
                   subjectCode: appealModalSubject.code,
                   subjectName: appealModalSubject.name,
@@ -3559,12 +3553,12 @@ export const StudentPortal: React.FC = () => {
 
               {/* Student Personal Summary */}
               <div className="grid grid-cols-2 gap-4 text-xs font-sans">
-                <div>Họ và tên: <strong className="text-slate-900 font-bold uppercase">{sObj?.name || currentUser?.name || "Ma Văn Long"}</strong></div>
-                <div>Mã sinh viên: <strong className="text-slate-900 font-mono font-bold">{sObj?.id || currentUser?.username || "DTG245140202053"}</strong></div>
-                <div>Ngày sinh: <strong>{sObj?.dob || "2006-05-14"}</strong></div>
-                <div>Giới tính: <strong>{sObj?.gender || "Nam"}</strong></div>
-                <div>Lớp hành chính: <strong>{sObj?.classId || "K2-GDTH A"}</strong></div>
-                <div>Ngành đào tạo: <strong>{sObj?.facultyId === "K-CNTT" ? "Công nghệ Thông tin" : "Giáo dục Tiểu học"}</strong></div>
+                <div>Họ và tên: <strong className="text-slate-900 font-bold uppercase">{sObj?.name || currentUser?.name || "-"}</strong></div>
+                <div>Mã sinh viên: <strong className="text-slate-900 font-mono font-bold">{sObj?.id || currentUser?.targetId || currentUser?.username || "-"}</strong></div>
+                <div>Ngày sinh: <strong>{sObj?.dob || "-"}</strong></div>
+                <div>Giới tính: <strong>{sObj?.gender || "-"}</strong></div>
+                <div>Lớp hành chính: <strong>{sObj?.classId || "-"}</strong></div>
+                <div>Ngành đào tạo: <strong>{sObj?.facultyId === "K-CNTT" ? "Công nghệ Thông tin" : (sObj?.facultyId ? sObj.facultyId : "Đại học Thái Nguyên")}</strong></div>
               </div>
 
               {/* Subject Grades Table */}
