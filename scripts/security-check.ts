@@ -1457,9 +1457,60 @@ assert(
   "TeacherPortal displays or allows regular teachers to bypass unlock approval"
 );
 
+// ==========================================
+// BATCH 31: Class Review Non-Empty ClassId Guard, Appeal Dynamic Pass Score & ClassPortal Input Safety
+// ==========================================
+console.log("\n--- BATCH 31: Review ClassId Guard, Dynamic Appeal Pass Score & ClassPortal Safety ---");
+
+assert(
+  stateContent.includes("const passMin = gradingRules?.passScoreMin10 ?? 4.0;") &&
+  stateContent.includes("tb10 >= passMin ? 1.0 : 0;") &&
+  stateContent.includes("tb10 >= passMin ? \"D\" : \"F\";"),
+  "Batch 31 Issue 1: resolveGradeAppeal must use gradingRules passScoreMin10 for grade conversion",
+  "resolveGradeAppeal hardcodes pass score threshold 4.0 ignoring grading rules"
+);
+
+assert(
+  stateContent.includes("approveClassScores = (classId: string) => {\n    if (!currentUser || !classId) return;"),
+  "Batch 31 Issue 2: approveClassScores must require non-empty classId",
+  "approveClassScores allows empty classId creating orphaned reviews"
+);
+
+assert(
+  stateContent.includes("approveAdviserScores = (classId: string, comment: string) => {\n    if (!currentUser || !classId) return;"),
+  "Batch 31 Issue 3: approveAdviserScores must require non-empty classId",
+  "approveAdviserScores allows empty classId creating orphaned reviews"
+);
+
+assert(
+  stateContent.includes("approveFacultyScores = (classId: string, comment: string) => {\n    if (!currentUser || !classId) return;"),
+  "Batch 31 Issue 4: approveFacultyScores must require non-empty classId",
+  "approveFacultyScores allows empty classId creating orphaned reviews"
+);
+
+assert(
+  stateContent.includes("approveAdminScores = (classId: string, comment: string) => {\n    if (!currentUser || currentUser.role !== UserRole.ADMIN || !classId)"),
+  "Batch 31 Issue 5: approveAdminScores must require non-empty classId",
+  "approveAdminScores allows empty classId creating orphaned reviews"
+);
+
+assert(
+  stateContent.includes("bulkApproveScores = (classId: string, studentIds: string[], role: UserRole) => {\n    if (!currentUser || !classId) return;"),
+  "Batch 31 Issue 6: bulkApproveScores must require non-empty classId",
+  "bulkApproveScores allows empty classId"
+);
+
+assert(
+  classPortalContent.includes("if (!selectedDetailStudentId) return;") &&
+  classPortalContent.includes("const studyEl = document.getElementById(\"gl-study-pt\") as HTMLInputElement | null;") &&
+  classPortalContent.includes("const study = parseInt(studyEl?.value || \"0\") || 0;"),
+  "Batch 31 Issue 7: ClassPortal must safely read group leader score input elements with null checks",
+  "ClassPortal group scoring blindly accesses DOM elements causing runtime crashes"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 30 SECURITY & INTEGRITY REGRESSION TESTS PASSED (166 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 31 SECURITY & INTEGRITY REGRESSION TESTS PASSED (173 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

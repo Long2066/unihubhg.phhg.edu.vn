@@ -1115,8 +1115,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               const updatedGrades = sheet.grades.map(g => {
                 if (g.studentId === targetStudentId) {
                   const tb10 = Math.max(0, Math.min(10, Math.round(parsedNum * 10) / 10));
-                  const tb4 = tb10 >= 8.5 ? 4.0 : tb10 >= 7.0 ? 3.0 : tb10 >= 5.5 ? 2.0 : tb10 >= 4.0 ? 1.0 : 0;
-                  const letter = tb10 >= 8.5 ? "A" : tb10 >= 7.0 ? "B" : tb10 >= 5.5 ? "C" : tb10 >= 4.0 ? "D" : "F";
+                  const passMin = gradingRules?.passScoreMin10 ?? 4.0;
+                  const tb4 = tb10 >= 8.5 ? 4.0 : tb10 >= 7.0 ? 3.0 : tb10 >= 5.5 ? 2.0 : tb10 >= passMin ? 1.0 : 0;
+                  const letter = tb10 >= 8.5 ? "A" : tb10 >= 7.0 ? "B" : tb10 >= 5.5 ? "C" : tb10 >= passMin ? "D" : "F";
                   const rank = tb10 >= 9.0 ? "Xuất sắc" : tb10 >= 8.0 ? "Giỏi" : tb10 >= 6.5 ? "Khá" : tb10 >= 5.0 ? "Trung bình" : "Yếu";
                   return {
                     ...g,
@@ -2832,7 +2833,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // BCS / Class Actions
   const approveClassScores = (classId: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !classId) return;
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
       (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === classId) ||
       (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId);
@@ -2869,7 +2870,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // GVCN Actions
   const approveAdviserScores = (classId: string, comment: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !classId) return;
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
       (currentUser.role === UserRole.FACULTY && currentUser.targetId && students.some(s => s.classId === classId && s.facultyId === currentUser.targetId)) ||
       (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId);
@@ -3818,7 +3819,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const approveFacultyScores = (classId: string, comment: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !classId) return;
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
       (currentUser.role === UserRole.FACULTY && currentUser.targetId && students.some(s => s.classId === classId && s.facultyId === currentUser.targetId));
     if (!isAuthorized) {
@@ -3834,7 +3835,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return { 
             ...cr, 
             facultyApproved: true, 
-            facultyApprovedAt: new Date().toISOString().split("T")[0],
+            facultyApprovedAt: new Date().toISOString().split("T")[0], 
             facultyComment: comment 
           };
         }
@@ -3858,7 +3859,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const approveAdminScores = (classId: string, comment: string) => {
-    if (!currentUser || currentUser.role !== UserRole.ADMIN) {
+    if (!currentUser || currentUser.role !== UserRole.ADMIN || !classId) {
       console.warn("Unauthorized attempt to approve admin scores");
       return;
     }
@@ -4372,7 +4373,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const bulkApproveScores = (classId: string, studentIds: string[], role: UserRole) => {
-    if (!currentUser) return;
+    if (!currentUser || !classId) return;
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
       (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && currentUser.targetId === classId) ||
       (currentUser.role === UserRole.ADVISER && currentUser.targetId === classId);

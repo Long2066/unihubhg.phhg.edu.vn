@@ -1742,12 +1742,20 @@ export const ClassPortal: React.FC = () => {
 
                     <button
                       onClick={() => {
-                        const study = parseInt((document.getElementById("gl-study-pt") as HTMLInputElement).value) || 0;
-                        const vio = parseInt((document.getElementById("gl-violation-pt") as HTMLInputElement).value) || 0;
-                        const extra = parseInt((document.getElementById("gl-extracurricular-pt") as HTMLInputElement).value) || 0;
-                        const comm = parseInt((document.getElementById("gl-community-pt") as HTMLInputElement).value) || 0;
-                        const ach = parseInt((document.getElementById("gl-achievement-pt") as HTMLInputElement).value) || 0;
-                        const commentVal = (document.getElementById("gl-comment") as HTMLInputElement).value;
+                        if (!selectedDetailStudentId) return;
+                        const studyEl = document.getElementById("gl-study-pt") as HTMLInputElement | null;
+                        const vioEl = document.getElementById("gl-violation-pt") as HTMLInputElement | null;
+                        const extraEl = document.getElementById("gl-extracurricular-pt") as HTMLInputElement | null;
+                        const commEl = document.getElementById("gl-community-pt") as HTMLInputElement | null;
+                        const achEl = document.getElementById("gl-achievement-pt") as HTMLInputElement | null;
+                        const commentEl = document.getElementById("gl-comment") as HTMLInputElement | null;
+
+                        const study = parseInt(studyEl?.value || "0") || 0;
+                        const vio = parseInt(vioEl?.value || "0") || 0;
+                        const extra = parseInt(extraEl?.value || "0") || 0;
+                        const comm = parseInt(commEl?.value || "0") || 0;
+                        const ach = parseInt(achEl?.value || "0") || 0;
+                        const commentVal = commentEl?.value || "";
                         const tot = study + vio + extra + comm + ach;
 
                         submitGroupLeaderScore(selectedDetailStudentId, {
