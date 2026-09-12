@@ -4030,10 +4030,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     reportedBy: string
   ) => {
     if (!currentUser) return;
+    const cleanClassId = (classId || "").trim();
+    if (!cleanClassId) return;
+    const normClass = normalizeClassId(cleanClassId);
     const normTarget = normalizeClassId(currentUser.targetId);
-    const normClass = normalizeClassId(classId);
+    const userClass = students.find(s => s.id === currentUser.targetId || s.username === currentUser.username || s.email === currentUser.email)?.classId;
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
-      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && (currentUser.targetId === classId || normTarget === normClass)) ||
+      (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader && (
+        currentUser.targetId === classId || normTarget === normClass || (userClass && (userClass === classId || normalizeClassId(userClass) === normClass))
+      )) ||
       (currentUser.role === UserRole.ADVISER && (currentUser.targetId === classId || normTarget === normClass));
     if (!isAuthorized) {
       console.warn("Unauthorized attempt to report daily attendance");
@@ -4055,7 +4060,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const report: DailyAttendanceReport = {
       id: `DAR_${Date.now()}`,
-      classId,
+      classId: normClass,
       date,
       totalStudents: totalStuds,
       presentCount: presCount,
@@ -4065,7 +4070,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       reportedAt: new Date().toISOString()
     };
 
-    const updated = [report, ...dailyAttendance];
+    const filteredDaily = dailyAttendance.filter(da => !(normalizeClassId(da.classId) === normClass && da.date === date));
+    const updated = [report, ...filteredDaily];
     setDailyAttendance(updated);
     saveToStorage("unihub_daily_attendance", updated);
   };
@@ -4596,6 +4602,30 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return updated;
       });
     }
+
+    if (userToDelete && userToDelete.role === UserRole.TEACHER) {
+      setTeacherAssignments(prev => {
+        const updated = prev.filter(ta => ta.teacherId !== userId && ta.teacherId !== userToDelete.username);
+        saveToStorage("unihub_teacher_assignments", updated);
+        return updated;
+      });
+      setSchedules(prev => {
+        const updated = prev.map(sch => (sch.teacherId === userId || sch.teacherId === userToDelete.username) ? { ...sch, teacherId: "" } : sch);
+        saveToStorage("unihub_schedules", updated);
+        return updated;
+      });
+    }
+
+    if (userToDelete && (userToDelete.role === UserRole.STUDENT || userToDelete.role === UserRole.CLASS_MONITOR)) {
+      const studentIdToDelete = userToDelete.targetId;
+      if (studentIdToDelete) {
+        setGradeAppeals(prev => {
+          const updated = prev.filter(ga => ga.studentId !== studentIdToDelete);
+          localStorage.setItem("unihub_grade_appeals", JSON.stringify(updated));
+          return updated;
+        });
+      }
+    }
   };
 
   const normalizeAllAccounts = () => {
@@ -4821,7 +4851,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setSubjectGradeSheets(updatedGradeSheets);
     saveToStorage("unihub_subject_grade_sheets", updatedGradeSheets);
 
-    const updatedUsers = users.map(u => {
+    const updatedUsers = users.filter(u => {
+      if (u.role === UserRole.STUDENT && deletedStudentIds.has(u.targetId)) {
+        return false;
+      }
+      return true;
+    }).map(u => {
       if ((u.role === UserRole.CLASS_MONITOR || u.role === UserRole.ADVISER) && normalizeClassId(u.targetId) === norm) {
         return { ...u, targetId: "" };
       }

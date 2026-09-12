@@ -2562,9 +2562,56 @@ assert(
   "TeacherPortal misses appeals tab view or appeal resolution modal"
 );
 
+// ==========================================
+// BATCH 59: Notifications, Student Linking, Cascade Deletion, Roll Call Deduplication & Schedule Period Bounds
+// ==========================================
+console.log("\n--- BATCH 59: In-App Notifications, Student Linking, Cascade Deletion, Roll Call Deduplication & Schedule Bounds ---");
+
+assert(
+  rootAppContent.includes("gradeAppeals.forEach(ga => {") &&
+  rootAppContent.includes("id: `appeal-${ga.id}-${ga.status}`") &&
+  rootAppContent.includes("currentUser.role === UserRole.TEACHER") &&
+  rootAppContent.includes("id: `teach-appeal-${ga.id}`") &&
+  rootAppContent.includes("id: `unlock-pending-${ur.id}`"),
+  "Batch 59 Issue 1: App.tsx must generate in-app notifications for grade appeals and grade unlock requests across student, teacher and training roles",
+  "App.tsx omits grade appeals or unlock requests notifications"
+);
+
+assert(
+  rootAppContent.includes("const studentObj = isStudentOrMonitor") &&
+  rootAppContent.includes("(currentUser?.targetId && s.id === currentUser.targetId)") &&
+  rootAppContent.includes("(currentUser?.username && (s.id === currentUser.username || (s as any).code === currentUser.username))") &&
+  rootAppContent.includes("(currentUser?.email && s.email === currentUser.email)"),
+  "Batch 59 Issue 2: App.tsx must resolve studentObj using targetId, username, student code, and email fallback",
+  "App.tsx only binds student profile via targetId, leaving unlinked accounts broken"
+);
+
+assert(
+  stateContent.includes("if (userToDelete && userToDelete.role === UserRole.TEACHER) {") &&
+  stateContent.includes("ta.teacherId !== userId && ta.teacherId !== userToDelete.username") &&
+  stateContent.includes("u.role === UserRole.STUDENT && deletedStudentIds.has(u.targetId)"),
+  "Batch 59 Issue 3: deleteUserAccount and deleteClass must cascade cleanup of teacher assignments, schedules, and student user accounts",
+  "deleteUserAccount or deleteClass leaves orphan teacher assignments or student accounts"
+);
+
+assert(
+  classPortalContent.includes("const uniqueAbsentees = draftAbsentees.filter((a, index, self) =>") &&
+  stateContent.includes("const userClass = students.find(s => s.id === currentUser.targetId || s.username === currentUser.username || s.email === currentUser.email)?.classId;") &&
+  stateContent.includes("const filteredDaily = dailyAttendance.filter(da => !(normalizeClassId(da.classId) === normClass && da.date === date));"),
+  "Batch 59 Issue 4: submitDailyRollCall must deduplicate absentees, support userClass authorization, and deduplicate daily reports",
+  "Daily roll call allows duplicate absentees or duplicate reports per day"
+);
+
+assert(
+  trainingPortalContent.includes("Tiết học phải trong khoảng từ tiết 1 đến tiết 12!") &&
+  trainingPortalContent.includes("Tiết bắt đầu không thể lớn hơn tiết kết thúc!"),
+  "Batch 59 Issue 5: TrainingPortal must validate and reject out-of-bound schedule periods and inverted period ranges in single and batch modes",
+  "TrainingPortal schedule creation allows out-of-range periods or periodStart > periodEnd"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 58 SECURITY & INTEGRITY REGRESSION TESTS PASSED (298 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 59 SECURITY & INTEGRITY REGRESSION TESTS PASSED (303 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

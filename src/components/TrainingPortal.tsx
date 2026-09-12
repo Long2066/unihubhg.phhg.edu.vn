@@ -2357,9 +2357,20 @@ export const TrainingPortal: React.FC = () => {
         return;
       }
 
+      const numStart = Number(row.periodStart);
+      const numEnd = Number(row.periodEnd);
+      if (isNaN(numStart) || isNaN(numEnd) || numStart < 1 || numStart > 12 || numEnd < 1 || numEnd > 12) {
+        errors[idx] = "Tiết học phải trong khoảng từ tiết 1 đến tiết 12!";
+        return;
+      }
+      if (numStart > numEnd) {
+        errors[idx] = "Tiết bắt đầu không thể lớn hơn tiết kết thúc!";
+        return;
+      }
+
       const { startWeek, endWeek } = parseWeekRange(row.weekRange || "1-15");
-      const rawStart = Math.max(1, Math.min(12, Number(row.periodStart) || 1));
-      const rawEnd = Math.max(rawStart, Math.min(12, Number(row.periodEnd) || 3));
+      const rawStart = Math.max(1, Math.min(12, numStart));
+      const rawEnd = Math.max(rawStart, Math.min(12, numEnd));
       const slot: ScheduleSlot = {
         id: `SCH_BATCH_${Date.now()}_${idx}`,
         classId: normalizeClassId(row.classId.trim()),
@@ -2435,9 +2446,20 @@ export const TrainingPortal: React.FC = () => {
       return;
     }
 
+    const pStart = Number(scheduleModalData.periodStart);
+    const pEnd = Number(scheduleModalData.periodEnd);
+    if (isNaN(pStart) || isNaN(pEnd) || pStart < 1 || pStart > 12 || pEnd < 1 || pEnd > 12) {
+      alert("Tiết học phải trong khoảng từ tiết 1 đến tiết 12!");
+      return;
+    }
+    if (pStart > pEnd) {
+      alert("Tiết bắt đầu không thể lớn hơn tiết kết thúc!");
+      return;
+    }
+
     const { startWeek, endWeek } = parseWeekRange(scheduleModalData.weekRange || "1-15");
-    const rawStart = Math.max(1, Math.min(12, Number(scheduleModalData.periodStart) || 1));
-    const rawEnd = Math.max(rawStart, Math.min(12, Number(scheduleModalData.periodEnd) || 3));
+    const rawStart = Math.max(1, Math.min(12, pStart));
+    const rawEnd = Math.max(rawStart, Math.min(12, pEnd));
     const slotToSave: ScheduleSlot = {
       id: editingScheduleSlot ? editingScheduleSlot.id : `SCH_MANUAL_${Date.now()}`,
       classId: normalizeClassId(scheduleModalData.classId.trim()),

@@ -221,7 +221,12 @@ export const ClassPortal: React.FC = () => {
 
   // Submit roll calls
   const submitDailyRollCall = () => {
-    if (draftAbsentees.length === 0) {
+    // Deduplicate draftAbsentees by studentId
+    const uniqueAbsentees = draftAbsentees.filter((a, index, self) => 
+      index === self.findIndex(t => t.studentId === a.studentId)
+    );
+
+    if (uniqueAbsentees.length === 0) {
       if (!window.confirm("Không có ai vắng học. Ghi nhận cả lớp đi học đầy đủ?")) {
         return;
       }
@@ -230,7 +235,7 @@ export const ClassPortal: React.FC = () => {
     reportDailyAttendance(
       classId,
       reportDate,
-      draftAbsentees,
+      uniqueAbsentees,
       currentUser?.name || "Ban cán sự lớp"
     );
 

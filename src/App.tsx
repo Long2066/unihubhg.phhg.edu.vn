@@ -4,7 +4,7 @@
  */
 
 import React, { Component, Suspense, lazy, useState } from "react";
-import { UniHubProvider, useUniHub } from "./state";
+import { UniHubProvider, useUniHub, normalizeClassId } from "./state";
 import { UserRole, isOrgRole, STUDENT_FIELDS_META, Student, SEMESTER_LIST, convertGoogleDriveUrlToDirectUrl } from "./types";
 import { TnuLogo } from "./components/TnuLogo";
 import { 
@@ -118,7 +118,8 @@ const AppContent: React.FC = () => {
     sendSystemFeedback,
     themeConfig,
     unlockRequests,
-    gradeAppeals
+    gradeAppeals,
+    teacherAssignments
   } = useUniHub();
 
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
@@ -142,8 +143,14 @@ const AppContent: React.FC = () => {
   const [activeSubProfileTab, setActiveSubProfileTab] = useState<"personal" | "family" | "education" | "account">("personal");
 
   const isStudentOrMonitor = currentUser?.role === UserRole.STUDENT || currentUser?.role === UserRole.CLASS_MONITOR;
-  const studentId = isStudentOrMonitor ? currentUser?.targetId : undefined;
-  const studentObj = studentId ? students.find(s => s.id === studentId) : undefined;
+  const studentObj = isStudentOrMonitor 
+    ? students.find(s => 
+        (currentUser?.targetId && s.id === currentUser.targetId) ||
+        (currentUser?.username && (s.id === currentUser.username || (s as any).code === currentUser.username)) ||
+        (currentUser?.email && s.email === currentUser.email)
+      ) 
+    : undefined;
+  const studentId = studentObj?.id || (isStudentOrMonitor ? currentUser?.targetId : undefined);
 
   // Sync profile editing states for detailed student fields
   React.useEffect(() => {
@@ -271,7 +278,7 @@ const AppContent: React.FC = () => {
   const notifications: NotificationItem[] = React.useMemo(() => {
     if (!currentUser) return [];
     const list: NotificationItem[] = [];
-    const targetId = currentUser.targetId || "";
+    const targetId = currentUser.targetId || studentObj?.id || "";
     const todayStr = new Date().toISOString().split("T")[0];
 
     if (currentUser.role === UserRole.STUDENT) {
@@ -403,6 +410,23 @@ const AppContent: React.FC = () => {
           });
         }
       });
+
+      // 5. Grade appeal status updates
+      gradeAppeals.forEach(ga => {
+        if (ga.studentId === targetId || (studentObj?.id && ga.studentId === studentObj.id)) {
+          if (ga.status === "UPDATED" || ga.status === "REJECTED" || ga.status === "REVIEWING") {
+            list.push({
+              id: `appeal-${ga.id}-${ga.status}`,
+              title: ga.status === "UPDATED" ? "✅ Đơn phúc khảo được chấp nhận" : ga.status === "REJECTED" ? "❌ Đơn phúc khảo bị từ chối" : "🔍 Đơn phúc khảo đang được xử lý",
+              message: `Môn ${ga.subjectName || ga.subjectCode}: Điểm mới ${ga.newScore !== undefined ? ga.newScore : "Giữ nguyên"}.${ga.teacherResponse ? ` GV phản hồi: "${ga.teacherResponse}"` : ""}`,
+              time: ga.reviewedAt || ga.createdAt,
+              type: ga.status === "UPDATED" ? "success" : ga.status === "REJECTED" ? "warning" : "info",
+              isRead: readNotifIds.includes(`appeal-${ga.id}-${ga.status}`),
+              linkTab: "DIEM"
+            });
+          }
+        }
+      });
     }
 
     else if (currentUser.role === UserRole.CLASS_MONITOR) {
@@ -504,6 +528,42 @@ const AppContent: React.FC = () => {
       });
     }
 
+    else if (currentUser.role === UserRole.TEACHER) {
+      // 1. Pending grade appeals for this teacher
+      gradeAppeals.forEach(ga => {
+        const isMyAppeal = (ga.teacherId && (ga.teacherId === currentUser.id || ga.teacherId === currentUser.username)) ||
+          (!ga.teacherId && teacherAssignments.some(ta => (ta.teacherId === currentUser.id || ta.teacherId === currentUser.username) && ta.subjectCode === ga.subjectCode && normalizeClassId(ta.classId) === normalizeClassId(ga.classId)));
+        if (isMyAppeal && ga.status === "PENDING") {
+          list.push({
+            id: `teach-appeal-${ga.id}`,
+            title: "📝 Đơn phúc khảo điểm mới",
+            message: `Sinh viên ${ga.studentName} (${ga.classId}) gửi đơn phúc khảo môn ${ga.subjectName || ga.subjectCode}.`,
+            time: ga.createdAt,
+            type: "alert",
+            isRead: readNotifIds.includes(`teach-appeal-${ga.id}`),
+            linkTab: "APPEALS"
+          });
+        }
+      });
+
+      // 2. Unlock request status updates
+      unlockRequests.forEach(ur => {
+        if (ur.teacherId === currentUser.id || ur.teacherId === currentUser.username) {
+          if (ur.status === "APPROVED" || ur.status === "REJECTED") {
+            list.push({
+              id: `unlock-${ur.id}-${ur.status}`,
+              title: ur.status === "APPROVED" ? "✅ Yêu cầu mở khoá điểm được chấp thuận" : "❌ Yêu cầu mở khoá điểm bị từ chối",
+              message: `Bảng điểm lớp ${ur.classId} môn ${ur.subjectCode} đã ${ur.status === "APPROVED" ? "được phê duyệt mở khoá" : "bị từ chối mở khoá"}.`,
+              time: ur.reviewedAt || ur.createdAt,
+              type: ur.status === "APPROVED" ? "success" : "warning",
+              isRead: readNotifIds.includes(`unlock-${ur.id}-${ur.status}`),
+              linkTab: "GRADES"
+            });
+          }
+        }
+      });
+    }
+
     else if (currentUser.role === UserRole.TRAINING_DEPT) {
       // 1. Faculty locked their scores
       facultyReviews.forEach(fr => {
@@ -516,6 +576,21 @@ const AppContent: React.FC = () => {
             type: "success",
             isRead: readNotifIds.includes(`fac-locked-${fr.facultyId}`),
             linkTab: "LIST"
+          });
+        }
+      });
+
+      // 2. Pending grade unlock requests
+      unlockRequests.forEach(ur => {
+        if (ur.status === "PENDING") {
+          list.push({
+            id: `unlock-pending-${ur.id}`,
+            title: "🔓 Yêu cầu mở khoá bảng điểm",
+            message: `Giảng viên ${ur.teacherName} yêu cầu mở khoá điểm lớp ${ur.classId} (${ur.subjectName || ur.subjectCode}). Lý do: ${ur.reason}`,
+            time: ur.createdAt,
+            type: "alert",
+            isRead: readNotifIds.includes(`unlock-pending-${ur.id}`),
+            linkTab: "LOCKS"
           });
         }
       });
@@ -546,7 +621,7 @@ const AppContent: React.FC = () => {
     });
 
     return list.filter(n => !deletedNotifIds.includes(n.id));
-  }, [currentUser, evidence, members, organizations, announcements, feedbacks, students, classReviews, facultyReviews, period, readNotifIds, deletedNotifIds]);
+  }, [currentUser, evidence, members, organizations, announcements, feedbacks, students, classReviews, facultyReviews, period, readNotifIds, deletedNotifIds, gradeAppeals, unlockRequests, teacherAssignments, studentObj]);
 
   // Reactively mark notifications/activities as seen/read when visiting tabs
   React.useEffect(() => {
