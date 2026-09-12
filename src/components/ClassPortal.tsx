@@ -250,7 +250,7 @@ export const ClassPortal: React.FC = () => {
 
     const totalStuds = myGroupMembers.length;
     const absentCount = draftAbsentees.length;
-    const presentCount = totalStuds - absentCount;
+    const presentCount = Math.max(0, totalStuds - absentCount);
 
     reportGroupAttendance({
       classId,

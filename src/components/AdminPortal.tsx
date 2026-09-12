@@ -331,6 +331,10 @@ export const AdminPortal: React.FC = () => {
   };
 
   const handleDeleteAccount = (user: UserAccount) => {
+    if (user.id === currentUser?.id) {
+      alert("Không thể tự xóa tài khoản quản trị viên đang đăng nhập!");
+      return;
+    }
     const activeUser = users.find(u => u.id === user.id);
     const protectedAdmins = ["cthssv@phhg.edu.vn", "cthssv@hg.edu.vn", "pcthssv@hg.edu.vn", "admin@phhg.edu.vn", "admin", "superadmin"];
     if (activeUser && protectedAdmins.includes(activeUser.username.toLowerCase())) {
@@ -418,6 +422,12 @@ export const AdminPortal: React.FC = () => {
     const org = organizations.find(o => o.id === orgId);
     if (!org) return;
 
+    const protectedOrgs = ["doantn", "hoisv", "doan_hoi"];
+    if (protectedOrgs.includes(orgId.trim().toLowerCase())) {
+      alert("Không thể xóa tổ chức Đoàn - Hội mặc định của Phân hiệu!");
+      return;
+    }
+
     if (confirm(`Bạn có chắc chắn muốn xóa Câu lạc bộ "${org.name}" cùng toàn bộ thông tin đăng nhập liên kết? Các tài khoản Ban chủ nhiệm cũng sẽ bị vô hiệu hóa.`)) {
       deleteClubAndAccount(orgId);
       alert(`Đã xóa thành công Câu lạc bộ ${org.name}`);
@@ -435,7 +445,12 @@ export const AdminPortal: React.FC = () => {
 
   const saveRulePoints = () => {
     if (selectedRuleId && parentCriteriaId) {
-      updateCriteriaScore(parentCriteriaId, selectedRuleId, Number(editPoints));
+      const numPoints = Number(editPoints);
+      if (isNaN(numPoints) || !isFinite(numPoints) || numPoints < 0) {
+        alert("Điểm quy chế phải là số dương hợp lệ!");
+        return;
+      }
+      updateCriteriaScore(parentCriteriaId, selectedRuleId, numPoints);
       setSelectedRuleId(null);
       alert("Đã cập nhật quy chế chấm điểm rèn luyện tự động của phân hiệu thành công! Thang điểm mới lập tức áp dụng.");
     }

@@ -764,10 +764,17 @@ const createTeacherGradeWorkbookBlob = (
       formattedStudentId = `DTG${formattedStudentId}`;
     }
 
+    const sanitizeExcelCell = (val: any) => {
+      if (typeof val === "string" && /^[=+\-@\t\r]/.test(val)) {
+        return `'${val}`;
+      }
+      return val;
+    };
+
     const values: TeacherExcelCellValue[] = [
       index + 1,
-      formattedStudentId,
-      grade.studentName,
+      sanitizeExcelCell(formattedStudentId),
+      sanitizeExcelCell(grade.studentName),
       grade.gender || "Nam",
       dobSerial ?? (grade.dob || ""),
       scoreOrBlank(grade.cc, "-"),
@@ -780,7 +787,7 @@ const createTeacherGradeWorkbookBlob = (
       scoreOrBlank(grade.tb4),
       grade.diemChu || "",
       grade.xepLoai || "",
-      grade.notes || "",
+      sanitizeExcelCell(grade.notes || ""),
       exportDateSerial ?? `${year}-${month}-${day}`
     ];
 
@@ -1096,12 +1103,17 @@ export const TeacherPortal: React.FC = () => {
 
   // Helper auto calculator
   const calculateSingleRow = (grade: SubjectStudentGrade): SubjectStudentGrade => {
-    const cc = parseFloat(String(grade.cc)) || 0;
-    const tx1 = parseFloat(String(grade.tx1)) || 0;
-    const tx2 = parseFloat(String(grade.tx2)) || 0;
-    const dk1 = parseFloat(String(grade.dk1)) || 0;
-    const dk2 = parseFloat(String(grade.dk2)) || 0;
-    const exam = parseFloat(String(grade.exam)) || 0;
+    const clampGradeVal = (v: any) => {
+      const parsed = parseFloat(String(v));
+      if (isNaN(parsed)) return 0;
+      return Math.max(0, Math.min(10, parsed));
+    };
+    const cc = clampGradeVal(grade.cc);
+    const tx1 = clampGradeVal(grade.tx1);
+    const tx2 = clampGradeVal(grade.tx2);
+    const dk1 = clampGradeVal(grade.dk1);
+    const dk2 = clampGradeVal(grade.dk2);
+    const exam = clampGradeVal(grade.exam);
 
     const hasCc = grade.cc !== "" && grade.cc !== undefined && grade.cc !== "-";
     const hasExam = grade.exam !== "" && grade.exam !== undefined && grade.exam !== "-";

@@ -2557,7 +2557,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // If status becomes completed, mark all signed attendance to be verified
     if (status === "COMPLETED") {
       const updatedAttendance = attendance.map(att => {
-        if (att.activityId === activityId) {
+        if (att.activityId === activityId && att.attended) {
           return { ...att, verified: true };
         }
         return att;

@@ -1941,9 +1941,61 @@ assert(
   "FacultyPortal hardcodes CNTT branding or StudentPortal exposes admin reset"
 );
 
+// ==========================================
+// BATCH 43: Teacher Export Defense, Score Clamping, Admin Safeguards & Attendance Verification
+// ==========================================
+console.log("\n--- BATCH 43: Teacher Export Defense, Score Clamping, Admin Safeguards & Attendance Verification ---");
+
+assert(
+  teacherPortalContent.includes("const sanitizeExcelCell = (val: any) => {") &&
+  teacherPortalContent.includes("sanitizeExcelCell(formattedStudentId)") &&
+  teacherPortalContent.includes("sanitizeExcelCell(grade.studentName)") &&
+  teacherPortalContent.includes("sanitizeExcelCell(grade.notes || \"\")"),
+  "Batch 43 Issue 1: TeacherPortal must sanitize exported excel cells against CSV/formula injection",
+  "TeacherPortal allows formula injection in studentId, studentName, or notes"
+);
+
+assert(
+  teacherPortalContent.includes("const clampGradeVal = (v: any) => {") &&
+  teacherPortalContent.includes("Math.max(0, Math.min(10, parsed))") &&
+  teacherPortalContent.includes("const exam = clampGradeVal(grade.exam);"),
+  "Batch 43 Issue 2: TeacherPortal calculateSingleRow must clamp individual grades into [0, 10]",
+  "TeacherPortal allows out-of-range grade components to distort average calculation"
+);
+
+assert(
+  adminPortalContent.includes("if (user.id === currentUser?.id) {\n      alert(\"Không thể tự xóa tài khoản quản trị viên đang đăng nhập!\");"),
+  "Batch 43 Issue 3: AdminPortal handleDeleteAccount must block self-deletion of active admin account",
+  "AdminPortal allows active admin to delete their own account"
+);
+
+assert(
+  adminPortalContent.includes("const protectedOrgs = [\"doantn\", \"hoisv\", \"doan_hoi\"];\n    if (protectedOrgs.includes(orgId.trim().toLowerCase())) {"),
+  "Batch 43 Issue 4: AdminPortal handleDeleteClub must protect default institutional organizations",
+  "AdminPortal allows deleting core organizations like DOANTN or HOISV"
+);
+
+assert(
+  adminPortalContent.includes("if (isNaN(numPoints) || !isFinite(numPoints) || numPoints < 0) {\n        alert(\"Điểm quy chế phải là số dương hợp lệ!\");"),
+  "Batch 43 Issue 5: AdminPortal saveRulePoints must validate positive finite number for points",
+  "AdminPortal allows invalid or negative rule points"
+);
+
+assert(
+  classPortalContent.includes("const presentCount = Math.max(0, totalStuds - absentCount);"),
+  "Batch 43 Issue 6: ClassPortal submitGroupRollCall must clamp presentCount to non-negative",
+  "ClassPortal allows negative presentCount in group roll call"
+);
+
+assert(
+  stateContent.includes("if (att.activityId === activityId && att.attended) {\n          return { ...att, verified: true };"),
+  "Batch 43 Issue 7: updateActivityStatus must restrict verified status strictly to attended students",
+  "updateActivityStatus verifies absent students when activity completes"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 42 SECURITY & INTEGRITY REGRESSION TESTS PASSED (224 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 43 SECURITY & INTEGRITY REGRESSION TESTS PASSED (231 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
