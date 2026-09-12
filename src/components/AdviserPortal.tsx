@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useUniHub } from "../state";
+import { useUniHub, normalizeClassId } from "../state";
 import { UserRole } from "../types";
 import { 
   ShieldCheck, 
@@ -472,8 +472,8 @@ export const AdviserPortal: React.FC = () => {
   const selectedResult = myClassResults.find(r => r.studentId === selectedDetailStudentId);
   const selectedStudentObj = myClassmatesArr.find(s => s.id === selectedDetailStudentId);
   const studentEvidences = classEvidence.filter(ev => ev.studentId === selectedDetailStudentId);
-  const classAttendances = dailyAttendance.filter(da => da.classId === classId);
-  const classFeedbacks = feedbacks.filter(f => f.toClassId === classId);
+  const classAttendances = dailyAttendance.filter(da => normalizeClassId(da.classId) === normalizeClassId(classId));
+  const classFeedbacks = feedbacks.filter(f => normalizeClassId(f.toClassId) === normalizeClassId(classId));
 
   // Filter feedbacks for the selected student to render the message thread
   const studentFeedbacks = feedbacks

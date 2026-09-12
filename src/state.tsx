@@ -2274,6 +2274,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       delete (safeDetails as any).id;
       delete (safeDetails as any).orgId;
       delete (safeDetails as any).studentId;
+      delete (safeDetails as any).studentName;
     }
 
     const pendingMember: OrganizationMember = {
@@ -2286,7 +2287,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       joinedDate: new Date().toISOString().split("T")[0],
       term: period.academicYear,
       status: (currentUser.role === UserRole.ADMIN && details?.status) ? details.status : "PENDING",
-      studentName: safeDetails.studentName || studentObj.name,
+      studentName: (currentUser.role === UserRole.ADMIN && safeDetails.studentName) ? safeDetails.studentName : studentObj.name,
     };
 
     const updated = [...members, pendingMember];
@@ -2295,19 +2296,28 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateStudentProfile = (studentId: string, name: string, avatar: string, password?: string, additionalFields?: Partial<Student>) => {
-    // Check permission: only the student themselves or Admin can update student profile
+    // Check permission: only the student themselves, Admin, or their Class Adviser can update student profile
+    const currentStud = students.find(s => s.id === studentId);
+    const isSelf = !!currentUser && (
+      currentUser.targetId === studentId ||
+      currentUser.username === studentId ||
+      currentUser.id === studentId
+    );
+    const isAdmin = currentUser?.role === UserRole.ADMIN;
+    const isAdviserOfClass = currentUser?.role === UserRole.ADVISER &&
+      !!currentUser.targetId &&
+      !!currentStud &&
+      normalizeClassId(currentStud.classId) === normalizeClassId(currentUser.targetId);
+
     if (
       !currentUser ||
-      (currentUser.role !== UserRole.ADMIN &&
-       currentUser.targetId !== studentId &&
-       currentUser.username !== studentId &&
-       currentUser.id !== studentId)
+      (!isAdmin && !isSelf && !isAdviserOfClass)
     ) {
       console.warn("Cảnh báo bảo mật: Không có quyền cập nhật hồ sơ của sinh viên khác!", studentId);
       return;
     }
 
-    const trimmedNewPass = password && password.trim() ? password.trim() : undefined;
+    const trimmedNewPass = (isAdmin || isSelf) && password && password.trim() ? password.trim() : undefined;
 
     // Strip protected academic & administrative fields if not Admin
     const safeFields: Partial<Student> = { ...(additionalFields || {}) };
@@ -2328,10 +2338,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // 1. Update students array
-    const currentStud = students.find(s => s.id === studentId);
     const cleanName = (name || "").trim() || currentStud?.name || "Sinh viên";
-    let cleanAvatar = (avatar || "").trim();
+    const effectiveName = (!isAdmin && isAdviserOfClass) ? (currentStud?.name || "Sinh viên") : cleanName;
+    let cleanAvatar = (!isAdmin && isAdviserOfClass) ? (currentStud?.avatar || "") : (avatar || "").trim();
     if (/^(javascript|vbscript):/i.test(cleanAvatar) || cleanAvatar.startsWith("//")) {
+      cleanAvatar = currentStud?.avatar || "";
+    }
+    if (/^data:text\/html/i.test(cleanAvatar)) {
       cleanAvatar = currentStud?.avatar || "";
     }
 
@@ -2340,7 +2353,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return { 
           ...s, 
           ...safeFields, 
-          name: cleanName, 
+          name: effectiveName, 
           avatar: cleanAvatar
         };
       }
@@ -2554,6 +2567,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!cleanTitle) {
       throw new Error("Tiêu đề thông báo không được để trống.");
     }
+    const cleanContent = (announcement.content || "").trim();
+    if (!cleanContent) {
+      throw new Error("Nội dung thông báo không được để trống.");
+    }
     const org = organizations.find(o => o.id === announcement.orgId);
     let resolvedOrgName = org?.name;
     if (!resolvedOrgName) {
@@ -2565,6 +2582,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const cleanAnn = sanitizeForFirestore({
       ...announcement,
+      title: cleanTitle,
+      content: cleanContent,
       id: `ANN_${crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`}`,
       orgName: resolvedOrgName,
       createdAt: new Date().toISOString().split("T")[0]
@@ -3199,18 +3218,33 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to update criteria score");
       return;
     }
+    if (!criteriaId || !ruleId) {
+      console.warn("Invalid criteriaId or ruleId");
+      return;
+    }
+    const targetCriteria = criteria.find(c => c.id === criteriaId);
+    if (!targetCriteria) {
+      console.warn("Criteria not found:", criteriaId);
+      return;
+    }
+    const targetRule = targetCriteria.rules.find(r => r.id === ruleId);
+    if (!targetRule) {
+      console.warn("Rule not found:", ruleId);
+      return;
+    }
     if (isNaN(newPoints) || !isFinite(newPoints)) {
       console.warn("Invalid points passed to updateCriteriaScore");
       return;
     }
     const clampedPoints = Math.max(0, Math.min(100, Math.round(newPoints)));
+    const safePoints = Math.min(targetCriteria.maxPoints || 100, clampedPoints);
     const updated = criteria.map(c => {
       if (c.id === criteriaId) {
         return {
           ...c,
           rules: c.rules.map(r => {
             if (r.id === ruleId) {
-              return { ...r, points: clampedPoints };
+              return { ...r, points: safePoints };
             }
             return r;
           })
@@ -3974,7 +4008,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       content: cleanContent,
       createdAt: new Date().toISOString()
     };
-    await setDoc(doc(db, "systemFeedbacks", fbId), feedback);
+    try {
+      await setDoc(doc(db, "systemFeedbacks", fbId), feedback);
+    } catch (err) {
+      console.warn("Lỗi lưu systemFeedbacks Firestore:", err);
+    }
     const updated = [feedback, ...systemFeedbacks];
     setSystemFeedbacks(updated);
     localStorage.setItem("unihub_system_feedbacks", JSON.stringify(updated));

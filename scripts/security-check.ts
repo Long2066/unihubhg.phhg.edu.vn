@@ -1766,9 +1766,60 @@ assert(
   "bulkUpdateCriteria allows passing invalid criteria data"
 );
 
+// ==========================================
+// BATCH 39: Adviser Profile Guard, Criteria Integrity, Feedback Error Safety, Announcement Content, Member Spoofing & Class Normalization
+// ==========================================
+console.log("\n--- BATCH 39: Adviser Profile Guard, Criteria Integrity, Error Safety, Content Validation, Member Spoofing & Class Normalization ---");
+
+assert(
+  stateContent.includes("const isAdviserOfClass = currentUser?.role === UserRole.ADVISER &&") &&
+  stateContent.includes("normalizeClassId(currentStud.classId) === normalizeClassId(currentUser.targetId);") &&
+  stateContent.includes("const effectiveName = (!isAdmin && isAdviserOfClass) ? (currentStud?.name || \"Sinh viên\") : cleanName;"),
+  "Batch 39 Issue 1: updateStudentProfile must permit class adviser notes update while guarding student identity",
+  "updateStudentProfile blocks adviser notes or allows unauthorized identity modification"
+);
+
+assert(
+  stateContent.includes("if (!criteriaId || !ruleId) {") &&
+  stateContent.includes("const targetCriteria = criteria.find(c => c.id === criteriaId);") &&
+  stateContent.includes("const targetRule = targetCriteria.rules.find(r => r.id === ruleId);") &&
+  stateContent.includes("const safePoints = Math.min(targetCriteria.maxPoints || 100, clampedPoints);"),
+  "Batch 39 Issue 2: updateCriteriaScore must validate criteria and rule existence and clamp to criteria ceiling",
+  "updateCriteriaScore allows updating non-existent rules or exceeding criteria points ceiling"
+);
+
+assert(
+  stateContent.includes("await setDoc(doc(db, \"systemFeedbacks\", fbId), feedback);") &&
+  stateContent.includes("console.warn(\"Lỗi lưu systemFeedbacks Firestore:\", err);"),
+  "Batch 39 Issue 3: sendSystemFeedback must safely handle Firestore errors with try/catch",
+  "sendSystemFeedback lacks error handling on Firestore write"
+);
+
+assert(
+  stateContent.includes("const cleanContent = (announcement.content || \"\").trim();") &&
+  stateContent.includes("throw new Error(\"Nội dung thông báo không được để trống.\");"),
+  "Batch 39 Issue 4: createAnnouncement must validate non-empty content",
+  "createAnnouncement allows creating announcements with blank content"
+);
+
+assert(
+  stateContent.includes("delete (safeDetails as any).studentName;") &&
+  stateContent.includes("studentName: (currentUser.role === UserRole.ADMIN && safeDetails.studentName) ? safeDetails.studentName : studentObj.name,"),
+  "Batch 39 Issue 5: joinOrganizationRequest must strip studentName for non-admins to prevent name spoofing",
+  "joinOrganizationRequest allows non-admins to spoof studentName"
+);
+
+assert(
+  adviserPortalContent.includes("normalizeClassId(da.classId) === normalizeClassId(classId)") &&
+  adviserPortalContent.includes("normalizeClassId(f.toClassId) === normalizeClassId(classId)") &&
+  classPortalContent.includes("students.filter(s => normalizeClassId(s.classId) === normalizeClassId(classId));"),
+  "Batch 39 Issue 6: AdviserPortal and ClassPortal must use normalizeClassId for class isolation and attendance",
+  "AdviserPortal or ClassPortal uses unnormalized class ID comparisons"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 38 SECURITY & INTEGRITY REGRESSION TESTS PASSED (203 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 39 SECURITY & INTEGRITY REGRESSION TESTS PASSED (209 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

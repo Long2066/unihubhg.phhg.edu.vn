@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useUniHub } from "../state";
+import { useUniHub, normalizeClassId } from "../state";
 import { UserRole } from "../types";
 import { ClassStatisticsBottom } from "./ClassStatisticsBottom";
 import { 
@@ -85,7 +85,7 @@ export const ClassPortal: React.FC = () => {
   }
   
   // Get classmates
-  const myClassmatesArr = students.filter(s => s.classId === classId);
+  const myClassmatesArr = students.filter(s => normalizeClassId(s.classId) === normalizeClassId(classId));
   const groupName = currentUser?.isGroupLeader ? currentUser.groupInCharge : "";
 
   // Grouped members for Tổ trưởng
@@ -151,8 +151,8 @@ export const ClassPortal: React.FC = () => {
   const [adjustReason, setAdjustReason] = useState("");
   const [reviewerComment, setReviewerComment] = useState("");
 
-  const classReviewInfo = classReviews.find(cr => cr.classId === classId);
-  const classDailyReports = dailyAttendance.filter(da => da.classId === classId);
+  const classReviewInfo = classReviews.find(cr => normalizeClassId(cr.classId) === normalizeClassId(classId));
+  const classDailyReports = dailyAttendance.filter(da => normalizeClassId(da.classId) === normalizeClassId(classId));
 
   // Get early warnings for academics/disciplines
   const getEarlyWarnings = () => {
@@ -270,7 +270,7 @@ export const ClassPortal: React.FC = () => {
 
   // Calculate attendance averages
   const classResults = useMemo(() => {
-    return results.filter(r => r.classId === classId && r.periodId === selectedSemesterId);
+    return results.filter(r => normalizeClassId(r.classId) === normalizeClassId(classId) && r.periodId === selectedSemesterId);
   }, [results, classId, selectedSemesterId]);
 
   const activeGroupResults = useMemo(() => {
@@ -296,7 +296,7 @@ export const ClassPortal: React.FC = () => {
   const groupAttendanceRate = useMemo(() => {
     if (!currentUser?.isGroupLeader || !groupName) return 100;
     const approvedGroupReps = groupAttendances.filter(ga => 
-      ga.classId === classId && 
+      normalizeClassId(ga.classId) === normalizeClassId(classId) && 
       ga.groupName === groupName && 
       ga.status === "APPROVED"
     );
@@ -978,11 +978,11 @@ export const ClassPortal: React.FC = () => {
                 <Clock size={13} className="text-indigo-600" />
                 Lịch sử nhật ký sĩ số đã nộp của Tổ {groupName}
               </span>
-              {groupAttendances.filter(ga => ga.classId === classId && ga.groupName === groupName).length === 0 ? (
+              {groupAttendances.filter(ga => normalizeClassId(ga.classId) === normalizeClassId(classId) && ga.groupName === groupName).length === 0 ? (
                 <p className="text-[10.5px] text-slate-400 italic">Chưa ghi nhận lịch sử báo cáo sĩ số nào của Tổ.</p>
               ) : (
                 <div className="space-y-2 max-h-[300px] overflow-y-auto divide-y divide-slate-150 pr-1 text-left">
-                  {groupAttendances.filter(ga => ga.classId === classId && ga.groupName === groupName).map(ga => (
+                  {groupAttendances.filter(ga => normalizeClassId(ga.classId) === normalizeClassId(classId) && ga.groupName === groupName).map(ga => (
                     <div key={ga.id} className="pt-2 text-[11px] first:pt-0">
                       <div className="flex justify-between font-bold text-slate-800">
                         <span className="font-mono text-slate-600">
@@ -1019,7 +1019,7 @@ export const ClassPortal: React.FC = () => {
 
   // 3. BCS Approve Group attendance reports
   const renderApproveGroupsTab = () => {
-    const pendingReports = groupAttendances.filter(ga => ga.classId === classId && ga.status === "PENDING");
+    const pendingReports = groupAttendances.filter(ga => normalizeClassId(ga.classId) === normalizeClassId(classId) && ga.status === "PENDING");
 
     return (
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm text-left space-y-4">
