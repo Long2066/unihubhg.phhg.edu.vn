@@ -1372,7 +1372,8 @@ assert(
 );
 
 assert(
-  stateContent.includes("if (!toClassId || !currentUser.targetId || currentUser.targetId !== toClassId) {\n        console.warn(\"Unauthorized attempt to send feedback to another class\");") &&
+  (stateContent.includes("if (!toClassId || !currentUser.targetId || currentUser.targetId !== toClassId) {\n        console.warn(\"Unauthorized attempt to send feedback to another class\");") ||
+   stateContent.includes("if (!toClassId || !currentUser.targetId || (currentUser.targetId !== toClassId && normalizeClassId(currentUser.targetId) !== normalizeClassId(toClassId))) {\n        console.warn(\"Unauthorized attempt to send feedback to another class\");")) &&
   stateContent.includes("if (currentUser.role === UserRole.FACULTY) {\n      if (!currentUser.targetId) {\n        console.warn(\"Unauthorized attempt by unassigned faculty to send feedback\");"),
   "Batch 29 Issue 5: sendFeedback must eliminate loose targetId bypass for adviser, monitor, and faculty",
   "sendFeedback allows accounts without targetId to send feedback across classes"
@@ -1551,7 +1552,8 @@ assert(
 );
 
 assert(
-  stateContent.includes("const targetFb = feedbacks.find(fb => fb.id === feedbackId);\n    if (!targetFb) return;\n\n    if (currentUser.role !== UserRole.ADMIN) {\n      if (!currentUser.targetId) {\n        console.warn(\"Unauthorized attempt by unassigned user to resolve feedback\");"),
+  (stateContent.includes("const targetFb = feedbacks.find(fb => fb.id === feedbackId);\n    if (!targetFb) return;\n\n    if (currentUser.role !== UserRole.ADMIN) {\n      if (!currentUser.targetId) {\n        console.warn(\"Unauthorized attempt by unassigned user to resolve feedback\");") ||
+   stateContent.includes("const targetFb = feedbacks.find(fb => fb.id === cleanFeedbackId);\n    if (!targetFb) return;\n\n    if (currentUser.role !== UserRole.ADMIN) {\n      if (!currentUser.targetId) {\n        console.warn(\"Unauthorized attempt by unassigned user to resolve feedback\");")),
   "Batch 32 Issue 5: resolveFeedback must reject unassigned non-admin users",
   "resolveFeedback allows unassigned users with empty targetId to resolve feedback"
 );
@@ -2388,9 +2390,48 @@ assert(
   "importAcademicData misses students with lowercase/spaced IDs or updateStudentProfile allows unnormalized classId and malicious data URIs"
 );
 
+// ==========================================
+// BATCH 55: Feedback Class Scoping, Club Password Assignment & Attendance Boundary Defense
+// ==========================================
+console.log("\n--- BATCH 55: Feedback Class Scoping, Club Password Assignment & Attendance Boundary Defense ---");
+
+assert(
+  stateContent.includes("currentUser.targetId !== toClassId && normalizeClassId(currentUser.targetId) !== normalizeClassId(toClassId)") &&
+  stateContent.includes("toClassId: normalizeClassId(toClassId),"),
+  "Batch 55 Issue 1: sendFeedback must normalize class comparison and store normalized toClassId",
+  "sendFeedback rejects authorized advisers or stores unnormalized toClassId"
+);
+
+assert(
+  stateContent.includes("if (!currentUser || !feedbackId) return;\n    const cleanFeedbackId = feedbackId.trim();\n    if (!cleanFeedbackId) return;") &&
+  stateContent.includes("if (!currentUser || currentUser.role !== UserRole.ADMIN || !clubId) {"),
+  "Batch 55 Issue 2: resolveFeedback and deleteClubAndAccount must sanitize feedbackId and clubId",
+  "resolveFeedback or deleteClubAndAccount allows empty ID execution"
+);
+
+assert(
+  stateContent.includes("targetReport.classId !== currentUser.targetId && normalizeClassId(targetReport.classId) !== normalizeClassId(currentUser.targetId)") &&
+  stateContent.includes("const targetReport = groupAttendances.find(ga => ga.id === reportId);"),
+  "Batch 55 Issue 3: approveGroupAttendance and rejectGroupAttendance must support normalized class ID matching",
+  "approveGroupAttendance or rejectGroupAttendance fails on case/whitespace class mismatch"
+);
+
+assert(
+  adminPortalContent.includes("password: finalClubPassword\n    };") ||
+  adminPortalContent.includes("password: finalClubPassword"),
+  "Batch 55 Issue 4: AdminPortal handleSaveClub must assign password to created club user account",
+  "AdminPortal handleSaveClub creates club user account with undefined password preventing login"
+);
+
+assert(
+  adminAppContent.includes("<td>{assign.className || normalizeClassId(assign.classId)}</td>"),
+  "Batch 55 Issue 5: unihub-admin must display normalized classId for teacher course assignments",
+  "unihub-admin displays raw unnormalized classId for assignments"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 54 SECURITY & INTEGRITY REGRESSION TESTS PASSED (278 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 55 SECURITY & INTEGRITY REGRESSION TESTS PASSED (283 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

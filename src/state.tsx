@@ -3693,7 +3693,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.warn("Unauthorized attempt by unassigned user to approve group attendance");
         return;
       }
-      if (currentUser.targetId && targetReport.classId !== currentUser.targetId) {
+      if (currentUser.targetId && targetReport.classId !== currentUser.targetId && normalizeClassId(targetReport.classId) !== normalizeClassId(currentUser.targetId)) {
         console.warn("Unauthorized attempt to approve group attendance for another class");
         return;
       }
@@ -3731,7 +3731,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.warn("Unauthorized attempt by unassigned user to reject group attendance");
         return;
       }
-      if (currentUser.targetId && targetReport.classId !== currentUser.targetId) {
+      if (currentUser.targetId && targetReport.classId !== currentUser.targetId && normalizeClassId(targetReport.classId) !== normalizeClassId(currentUser.targetId)) {
         console.warn("Unauthorized attempt to reject group attendance for another class");
         return;
       }
@@ -4061,7 +4061,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
     if (currentUser.role === UserRole.ADVISER || currentUser.role === UserRole.CLASS_MONITOR) {
-      if (!toClassId || !currentUser.targetId || currentUser.targetId !== toClassId) {
+      if (!toClassId || !currentUser.targetId || (currentUser.targetId !== toClassId && normalizeClassId(currentUser.targetId) !== normalizeClassId(toClassId))) {
         console.warn("Unauthorized attempt to send feedback to another class");
         return;
       }
@@ -4071,7 +4071,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.warn("Unauthorized attempt by unassigned faculty to send feedback");
         return;
       }
-      const isFacultyClass = students.some(s => s.classId === toClassId && s.facultyId === currentUser.targetId);
+      const isFacultyClass = students.some(s => (s.classId === toClassId || normalizeClassId(s.classId) === normalizeClassId(toClassId)) && s.facultyId === currentUser.targetId);
       if (!isFacultyClass) {
         console.warn("Unauthorized attempt by faculty to send feedback to another faculty's class");
         return;
@@ -4084,7 +4084,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.warn("Target student not found");
         return;
       }
-      if (targetStudent && targetStudent.classId !== toClassId) {
+      if (targetStudent && targetStudent.classId !== toClassId && normalizeClassId(targetStudent.classId) !== normalizeClassId(toClassId)) {
         console.warn("Target student does not belong to specified class");
         return;
       }
@@ -4097,7 +4097,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       id: `FB_${Date.now()}`,
       fromRole: currentUser.role,
       fromName: currentUser.name || fromName,
-      toClassId,
+      toClassId: normalizeClassId(toClassId),
       studentId,
       comment: cleanComment,
       createdAt: new Date().toISOString().split("T")[0],
@@ -4110,7 +4110,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const resolveFeedback = (feedbackId: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !feedbackId) return;
+    const cleanFeedbackId = feedbackId.trim();
+    if (!cleanFeedbackId) return;
     const isAuthorized = currentUser.role === UserRole.ADMIN ||
       currentUser.role === UserRole.ADVISER ||
       (currentUser.role === UserRole.CLASS_MONITOR && !currentUser.isGroupLeader);
@@ -4119,7 +4121,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    const targetFb = feedbacks.find(fb => fb.id === feedbackId);
+    const targetFb = feedbacks.find(fb => fb.id === cleanFeedbackId);
     if (!targetFb) return;
 
     if (currentUser.role !== UserRole.ADMIN) {
@@ -4134,7 +4136,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     const updated = feedbacks.map(fb => {
-      if (fb.id === feedbackId) {
+      if (fb.id === cleanFeedbackId) {
         return { ...fb, resolved: true };
       }
       return fb;
@@ -4352,7 +4354,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteClubAndAccount = (clubId: string) => {
-    if (!currentUser || currentUser.role !== UserRole.ADMIN) {
+    if (!currentUser || currentUser.role !== UserRole.ADMIN || !clubId) {
       console.warn("Unauthorized attempt to delete club and account");
       return;
     }

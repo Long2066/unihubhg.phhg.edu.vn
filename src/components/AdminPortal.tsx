@@ -398,7 +398,8 @@ export const AdminPortal: React.FC = () => {
       name: clubFormName.trim(),
       role: clubFormType === "DOAN" ? UserRole.YOUTH_UNION : clubFormType === "HOI" ? UserRole.STUDENT_UNION : UserRole.CLUB_MANAGER,
       email: finalClubUsername,
-      targetId: cleanId
+      targetId: cleanId,
+      password: finalClubPassword
     };
 
     if (selectedClubId) {

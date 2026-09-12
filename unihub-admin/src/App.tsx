@@ -3531,7 +3531,7 @@ export default function App() {
                               <tr key={assign.id}>
                                 <td style={{ fontFamily: "monospace", fontWeight: 800, color: "var(--accent-cyan)" }}>{assign.subjectCode}</td>
                                 <td style={{ color: "#0f172a", fontWeight: 700 }}>{assign.subjectName}</td>
-                                <td>{assign.className || assign.classId}</td>
+                                <td>{assign.className || normalizeClassId(assign.classId)}</td>
                                 <td style={{ textAlign: "center", fontFamily: "monospace" }}>{assign.credits}</td>
                                 <td>{assign.semesterName || assign.semesterId}</td>
                                 <td><span className={`badge ${statusClass}`}>{statusLabel}</span></td>
