@@ -1858,9 +1858,43 @@ assert(
   "TeacherPortal uses loose .includes() class matching leading to cross-class leakage"
 );
 
+// ==========================================
+// BATCH 41: Teacher Provisioning Account Protection, Club Collision Guard, Core Org Protection & User ID Validation
+// ==========================================
+console.log("\n--- BATCH 41: Teacher Provisioning Account Protection, Club Collision Guard, Core Org Protection & User ID Validation ---");
+
+assert(
+  stateContent.includes("else if (curr.role === UserRole.ADVISER) {\n            // Keep adviser privileges intact") &&
+  stateContent.includes("else if (curr.role === UserRole.STUDENT || curr.role === UserRole.CLASS_MONITOR) {\n            // Protect student accounts from role alteration"),
+  "Batch 41 Issue 1: provisionTeacherAccounts must protect ADVISER, STUDENT, and CLASS_MONITOR accounts",
+  "provisionTeacherAccounts demotes advisers or elevates student accounts"
+);
+
+assert(
+  stateContent.includes("if (!club.id?.trim() || !club.name?.trim() || !account.username?.trim()) {") &&
+  stateContent.includes("const normUsername = account.username.trim().toLowerCase();") &&
+  stateContent.includes("const existingUser = users.find(u => u.username.toLowerCase() === normUsername && u.id !== account.id);"),
+  "Batch 41 Issue 2: createClubWithAccount must validate club fields and prevent username collisions",
+  "createClubWithAccount allows blank fields or duplicate usernames"
+);
+
+assert(
+  stateContent.includes("const protectedOrgs = [\"doantn\", \"hoisv\", \"doan_hoi\"];") &&
+  stateContent.includes("alert(\"Không thể xóa tổ chức Đoàn - Hội mặc định của Phân hiệu!\");"),
+  "Batch 41 Issue 3: deleteClubAndAccount must protect core institutional organizations from deletion",
+  "deleteClubAndAccount allows deletion of DOANTN, HOISV, or DOAN_HOI"
+);
+
+assert(
+  stateContent.includes("if (!userId || !userId.trim()) return;\n    const existingTarget = users.find(u => u.id === userId);") &&
+  stateContent.includes("if (!userId || !userId.trim()) return;\n    if (userId === currentUser.id) {\n      alert(\"Không thể tự xóa tài khoản quản trị viên đang đăng nhập!\");\n      return;\n    }\n    const userToDelete = users.find(u => u.id === userId);\n    if (!userToDelete) return;"),
+  "Batch 41 Issue 4: updateUserAccount and deleteUserAccount must validate non-empty userId and check user existence",
+  "updateUserAccount or deleteUserAccount allows empty userId or non-existent user operations"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 40 SECURITY & INTEGRITY REGRESSION TESTS PASSED (214 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 41 SECURITY & INTEGRITY REGRESSION TESTS PASSED (218 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

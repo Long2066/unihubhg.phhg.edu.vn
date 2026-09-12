@@ -561,6 +561,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             // Keep administrative privileges intact
           } else if (curr.role === UserRole.FACULTY) {
             // Keep faculty privileges intact
+          } else if (curr.role === UserRole.ADVISER) {
+            // Keep adviser privileges intact
+          } else if (curr.role === UserRole.STUDENT || curr.role === UserRole.CLASS_MONITOR) {
+            // Protect student accounts from role alteration
           } else if (curr.role !== UserRole.TEACHER) {
             updatedUser.role = UserRole.TEACHER;
             userChanged = true;
@@ -4135,6 +4139,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to create club with account");
       return;
     }
+    if (!club.id?.trim() || !club.name?.trim() || !account.username?.trim()) {
+      console.warn("Invalid club or account details");
+      return;
+    }
+
+    const normUsername = account.username.trim().toLowerCase();
+    const existingUser = users.find(u => u.username.toLowerCase() === normUsername && u.id !== account.id);
+    if (existingUser) {
+      alert(`Tên đăng nhập "${account.username}" đã tồn tại trên hệ thống! Vui lòng chọn tên đăng nhập khác.`);
+      return;
+    }
 
     const cleanClub = sanitizeForFirestore(club);
     const cleanAccount = sanitizeForFirestore({ ...account, targetId: club.id });
@@ -4197,6 +4212,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
     const clubIdClean = (clubId || "").trim().toLowerCase();
+    if (!clubIdClean) return;
+    const protectedOrgs = ["doantn", "hoisv", "doan_hoi"];
+    if (protectedOrgs.includes(clubIdClean)) {
+      alert("Không thể xóa tổ chức Đoàn - Hội mặc định của Phân hiệu!");
+      return;
+    }
     const orgToDelete = organizations.find(o => o.id.toLowerCase() === clubIdClean);
 
     // 1. Remove organization from state, cache, and Firestore
@@ -4286,6 +4307,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const updateUserAccount = (userId: string, updatedAccount: Partial<UserAccount>) => {
     if (!currentUser) return;
+    if (!userId || !userId.trim()) return;
+    const existingTarget = users.find(u => u.id === userId);
+    if (!existingTarget) return;
     if (currentUser.role !== UserRole.ADMIN && currentUser.id !== userId) {
       console.warn("Unauthorized attempt to update user account");
       return;
@@ -4338,11 +4362,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to delete user account");
       return;
     }
+    if (!userId || !userId.trim()) return;
     if (userId === currentUser.id) {
       alert("Không thể tự xóa tài khoản quản trị viên đang đăng nhập!");
       return;
     }
     const userToDelete = users.find(u => u.id === userId);
+    if (!userToDelete) return;
     if (userToDelete?.username === "admin") {
       alert("Không thể xóa tài khoản quản trị viên hệ thống mặc định!");
       return;
