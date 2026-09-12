@@ -2846,7 +2846,7 @@ export const StudentPortal: React.FC = () => {
                   <div className="border-b border-slate-100 pb-3 mb-4 flex items-center justify-between">
                     <h4 className="text-xs font-black text-slate-850 uppercase tracking-wider flex items-center gap-1.5 text-slate-800">
                       <Clock size={14} className="text-indigo-600 animate-spin" style={{ animationDuration: '12s' }} />
-                      <span>Lịch học hôm nay (Thứ {todayVN === 8 ? "Chủ Nhật" : todayVN})</span>
+                      <span>Lịch học hôm nay ({todayVN === 8 ? "Chủ Nhật" : `Thứ ${todayVN}`})</span>
                     </h4>
                     <span className="text-[10px] text-slate-400 font-mono">Hôm nay</span>
                   </div>

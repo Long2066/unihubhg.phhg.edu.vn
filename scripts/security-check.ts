@@ -2654,9 +2654,60 @@ assert(
   "submitGroupRollCall allows duplicate absentees or AdviserPortal export misses semester GPA"
 );
 
+// ==========================================
+// BATCH 61: Appeal Resolution Scale & Audit, Unlock Firestore Sync, Firestore Baseline Persistence, Sunday Locale Display & Cascade Class Storage
+// ==========================================
+console.log("\n--- BATCH 61: Appeal Scale & Audit, Unlock Sync, Persistence Baseline, Sunday Display & Cascade Storage ---");
+
+assert(
+  stateContent.includes("if (tb10 >= 9.0) { tb4 = 4.0; letter = \"A\"; rank = \"Xuất sắc\"; }") &&
+  stateContent.includes("else if (tb10 >= 8.0) { tb4 = 3.5; letter = \"B\"; rank = \"Giỏi\"; }") &&
+  stateContent.includes("action: \"PHÚC_KHẢO\",") &&
+  stateContent.includes("reason: response || appeal.reason || \"Cập nhật điểm sau phúc khảo\""),
+  "Batch 61 Issue 1: resolveGradeAppeal must standardize 4.0 conversion scale and log PHÚC_KHẢO audit entry",
+  "resolveGradeAppeal skips sub-level grade conversions or omits audit log"
+);
+
+assert(
+  stateContent.includes("saveToFirestore(\"unihub_subject_grade_sheets\", next);") &&
+  stateContent.includes("saveToFirestore(\"unihub_unlock_requests\", next);") &&
+  stateContent.includes("action: \"MỞ_KHÓA\",") &&
+  stateContent.includes("reason: req.reason || \"Phê duyệt yêu cầu mở khóa bảng điểm\""),
+  "Batch 61 Issue 2: approveUnlockRequest must synchronize unlock status to Firestore and record MỞ_KHÓA audit entry",
+  "approveUnlockRequest only saves locally without Firestore sync or audit log"
+);
+
+assert(
+  stateContent.includes("key === \"unihub_custom_classes\" && Array.isArray(data)") &&
+  stateContent.includes("key === \"unihub_subject_grade_sheets\" && Array.isArray(data)") &&
+  stateContent.includes("key === \"unihub_unlock_requests\" && Array.isArray(data)") &&
+  stateContent.includes("key === \"unihub_grade_appeals\" && Array.isArray(data)") &&
+  stateContent.includes("key === \"unihub_grading_rules\" && data"),
+  "Batch 61 Issue 3: saveToFirestore must support customClasses, subjectGradeSheets, unlockRequests, gradeAppeals, and gradingRules",
+  "saveToFirestore drops critical collections leading to data desynchronization"
+);
+
+assert(
+  studentPortalContent.includes("Lịch học hôm nay ({todayVN === 8 ? \"Chủ Nhật\" : `Thứ ${todayVN}`})") &&
+  trainingPortalContent.includes("{row.dayOfWeek === 8 ? \"Chủ Nhật\" : `Thứ ${row.dayOfWeek}`}") &&
+  trainingPortalContent.includes("{slot.dayOfWeek === 8 ? \"Chủ Nhật\" : `Thứ ${slot.dayOfWeek}`}") &&
+  !trainingPortalContent.includes("Thứ {row.dayOfWeek === 8 ? \"Chủ Nhật\" : row.dayOfWeek}"),
+  "Batch 61 Issue 4: Schedule components in StudentPortal and TrainingPortal must format Sunday as Chủ Nhật instead of Thứ Chủ Nhật",
+  "Schedule display renders Thứ Chủ Nhật on Sundays"
+);
+
+assert(
+  stateContent.includes("saveToStorage(\"unihub_custom_classes\", updatedCustom);") &&
+  stateContent.includes("saveToStorage(\"unihub_users\", updatedUsers);") &&
+  stateContent.includes("saveToStorage(\"unihub_unlock_requests\", updatedUnlockRequests);") &&
+  stateContent.includes("saveToStorage(\"unihub_grade_appeals\", updatedGradeAppeals);"),
+  "Batch 61 Issue 5: deleteClass and class management must propagate cascade deletions to Firestore via saveToStorage",
+  "deleteClass or class mutations bypass saveToStorage leaving phantom data in Firestore"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 60 SECURITY & INTEGRITY REGRESSION TESTS PASSED (308 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 61 SECURITY & INTEGRITY REGRESSION TESTS PASSED (313 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

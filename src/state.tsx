@@ -1031,12 +1031,25 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setSubjectGradeSheets(prev => {
       const next = prev.map(s => s.id === req.sheetId ? { ...s, status: "UNLOCKED" as const } : s);
       localStorage.setItem("unihub_subject_grade_sheets", JSON.stringify(next));
+      saveToFirestore("unihub_subject_grade_sheets", next);
       return next;
     });
     setUnlockRequests(prev => {
       const next = prev.map(r => r.id === requestId ? { ...r, status: "APPROVED" as const, reviewedAt: new Date().toISOString().replace("T", " ").substring(0, 19) } : r);
       localStorage.setItem("unihub_unlock_requests", JSON.stringify(next));
+      saveToFirestore("unihub_unlock_requests", next);
       return next;
+    });
+    addGradeAuditLog({
+      semesterId: req.semesterId || "HOCKY_2_2025_2026",
+      classId: req.classId,
+      subjectCode: req.subjectCode,
+      subjectName: req.subjectName,
+      action: "MỞ_KHÓA",
+      userEmail: currentUser.email || currentUser.username || "",
+      userName: currentUser.name || currentUser.username || "Phòng Đào tạo",
+      userRole: currentUser.role,
+      reason: req.reason || "Phê duyệt yêu cầu mở khóa bảng điểm"
     });
   };
 
@@ -1070,6 +1083,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setUnlockRequests(prev => {
       const next = prev.map(r => r.id === requestId ? { ...r, status: "REJECTED" as const, reviewedAt: new Date().toISOString().replace("T", " ").substring(0, 19) } : r);
       localStorage.setItem("unihub_unlock_requests", JSON.stringify(next));
+      saveToFirestore("unihub_unlock_requests", next);
       return next;
     });
   };
@@ -1207,9 +1221,21 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 if (g.studentId === targetStudentId) {
                   const tb10 = Math.max(0, Math.min(10, Math.round(parsedNum * 10) / 10));
                   const passMin = gradingRules?.passScoreMin10 ?? 4.0;
-                  const tb4 = tb10 >= 8.5 ? 4.0 : tb10 >= 7.0 ? 3.0 : tb10 >= 5.5 ? 2.0 : tb10 >= passMin ? 1.0 : 0;
-                  const letter = tb10 >= 8.5 ? "A" : tb10 >= 7.0 ? "B" : tb10 >= 5.5 ? "C" : tb10 >= passMin ? "D" : "F";
-                  const rank = tb10 >= 9.0 ? "Xuất sắc" : tb10 >= 8.0 ? "Giỏi" : tb10 >= 6.5 ? "Khá" : tb10 >= 5.0 ? "Trung bình" : "Yếu";
+                  let tb4 = 0;
+                  let letter = "F";
+                  let rank = "Kém";
+                  if (tb10 >= 9.0) { tb4 = 4.0; letter = "A"; rank = "Xuất sắc"; }
+                  else if (tb10 >= 8.5) { tb4 = 4.0; letter = "A"; rank = "Giỏi"; }
+                  else if (tb10 >= 8.0) { tb4 = 3.5; letter = "B"; rank = "Giỏi"; }
+                  else if (tb10 >= 7.0) { tb4 = 3.0; letter = "B"; rank = "Khá"; }
+                  else if (tb10 >= 6.5) { tb4 = 2.5; letter = "C"; rank = "Khá"; }
+                  else if (tb10 >= 5.5) { tb4 = 2.0; letter = "C"; rank = "Trung bình"; }
+                  else {
+                    tb4 = tb10 >= passMin ? 1.0 : 0;
+                    letter = tb10 >= passMin ? "D" : "F";
+                    rank = tb10 >= passMin ? "Yếu" : "Kém";
+                  }
+
                   return {
                     ...g,
                     tb10: tb10,
@@ -1231,6 +1257,22 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         // Auto-recalculate semester GPA & Academic Standing
         aggregateSubjectGradesToSemesterGpa(targetSemesterId);
+
+        addGradeAuditLog({
+          semesterId: targetSemesterId,
+          classId: appeal.classId,
+          subjectCode: targetSubjectCode,
+          subjectName: appeal.subjectName || targetSubjectCode,
+          action: "PHÚC_KHẢO",
+          userEmail: currentUser.email || currentUser.username || "",
+          userName: currentUser.name || currentUser.username || "Giảng viên",
+          userRole: currentUser.role,
+          studentId: targetStudentId,
+          studentName: appeal.studentName,
+          oldValue: appeal.oldGrade || "",
+          newValue: newGrade || "",
+          reason: response || appeal.reason || "Cập nhật điểm sau phúc khảo"
+        });
       }
     }
   };
@@ -1683,6 +1725,28 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       } else if (key === "unihub_period" && data) {
         await setDoc(doc(db, "settings", "period"), {
+          ...data,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      } else if (key === "unihub_subject_grade_sheets" && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.id) await setDoc(doc(db, "subjectGradeSheets", item.id), item, { merge: true });
+        }
+      } else if (key === "unihub_custom_classes" && Array.isArray(data)) {
+        await setDoc(doc(db, "settings", "customClasses"), {
+          classes: data,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      } else if (key === "unihub_unlock_requests" && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.id) await setDoc(doc(db, "unlockRequests", item.id), item, { merge: true });
+        }
+      } else if (key === "unihub_grade_appeals" && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.id) await setDoc(doc(db, "gradeAppeals", item.id), item, { merge: true });
+        }
+      } else if (key === "unihub_grading_rules" && data) {
+        await setDoc(doc(db, "settings", "gradingRules"), {
           ...data,
           updatedAt: serverTimestamp()
         }, { merge: true });
@@ -4716,7 +4780,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const toAdd = Array.from(newClassNames).filter(c => !existingNorm.has(c));
         if (toAdd.length === 0) return prev;
         const updated = [...prev, ...toAdd];
-        localStorage.setItem("unihub_custom_classes", JSON.stringify(updated));
+        saveToStorage("unihub_custom_classes", updated);
         return updated;
       });
     }
@@ -4737,7 +4801,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!customClasses.some(c => normalizeClassId(c) === normalized)) {
       const updated = [...customClasses, normalized];
       setCustomClasses(updated);
-      localStorage.setItem("unihub_custom_classes", JSON.stringify(updated));
+      saveToStorage("unihub_custom_classes", updated);
     }
   };
 
@@ -4754,7 +4818,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedCustom = customClasses.map(c => normalizeClassId(c) === oldNorm ? newNorm : c);
     if (!updatedCustom.includes(newNorm)) updatedCustom.push(newNorm);
     setCustomClasses(updatedCustom);
-    localStorage.setItem("unihub_custom_classes", JSON.stringify(updatedCustom));
+    saveToStorage("unihub_custom_classes", updatedCustom);
 
     const updatedStudents = students.map(s => normalizeClassId(s.classId) === oldNorm ? { ...s, classId: newNorm } : s);
     setStudents(updatedStudents);
@@ -4828,7 +4892,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const updatedCustom = customClasses.filter(c => normalizeClassId(c) !== norm);
     setCustomClasses(updatedCustom);
-    localStorage.setItem("unihub_custom_classes", JSON.stringify(updatedCustom));
+    saveToStorage("unihub_custom_classes", updatedCustom);
 
     const deletedStudentIds = new Set(students.filter(s => normalizeClassId(s.classId) === norm).map(s => s.id));
     const updatedStudents = students.filter(s => normalizeClassId(s.classId) !== norm);
@@ -4863,7 +4927,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return u;
     });
     setUsers(updatedUsers);
-    localStorage.setItem("unihub_users", JSON.stringify(updatedUsers));
+    saveToStorage("unihub_users", updatedUsers);
 
     const updatedClassReviews = classReviews.filter(cr => normalizeClassId(cr.classId) !== norm);
     setClassReviews(updatedClassReviews);
@@ -4883,11 +4947,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const updatedUnlockRequests = unlockRequests.filter(ur => normalizeClassId(ur.classId) !== norm);
     setUnlockRequests(updatedUnlockRequests);
-    localStorage.setItem("unihub_unlock_requests", JSON.stringify(updatedUnlockRequests));
+    saveToStorage("unihub_unlock_requests", updatedUnlockRequests);
 
     const updatedGradeAppeals = gradeAppeals.filter(ga => normalizeClassId(ga.classId) !== norm);
     setGradeAppeals(updatedGradeAppeals);
-    localStorage.setItem("unihub_grade_appeals", JSON.stringify(updatedGradeAppeals));
+    saveToStorage("unihub_grade_appeals", updatedGradeAppeals);
 
     const updatedEvidence = evidence.filter(ev => normalizeClassId(ev.classId) !== norm && !deletedStudentIds.has(ev.studentId));
     setEvidence(updatedEvidence);

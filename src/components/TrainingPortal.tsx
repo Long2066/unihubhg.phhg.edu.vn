@@ -3689,7 +3689,7 @@ export const TrainingPortal: React.FC = () => {
                               <td className="p-2 text-[10.5px] font-mono text-slate-500">{row.subjectCode || "N/A"}</td>
                               <td className="p-2 text-center font-bold text-slate-700">{row.credits || 2}</td>
                               <td className="p-2 text-slate-600">{row.teacherName}</td>
-                              <td className="p-2 text-center font-bold">Thứ {row.dayOfWeek === 8 ? "Chủ Nhật" : row.dayOfWeek}</td>
+                              <td className="p-2 text-center font-bold">{row.dayOfWeek === 8 ? "Chủ Nhật" : `Thứ ${row.dayOfWeek}`}</td>
                               <td className="p-2 text-center text-indigo-650 font-semibold">{row.session || "Sáng"}</td>
                               <td className="p-2 text-center">{row.periodStart}</td>
                               <td className="p-2 text-center">{row.periodEnd}</td>
@@ -3784,7 +3784,7 @@ export const TrainingPortal: React.FC = () => {
                               <td className="p-2 text-[10.5px] font-mono text-slate-500">{slot.subjectCode || "N/A"}</td>
                               <td className="p-2 text-center font-bold text-slate-700">{slot.credits || 2}</td>
                               <td className="p-2 text-slate-650">{slot.teacherName}</td>
-                              <td className="p-2 text-center font-semibold">Thứ {slot.dayOfWeek === 8 ? "Chủ Nhật" : slot.dayOfWeek}</td>
+                              <td className="p-2 text-center font-semibold">{slot.dayOfWeek === 8 ? "Chủ Nhật" : `Thứ ${slot.dayOfWeek}`}</td>
                               <td className="p-2 text-center text-indigo-650 font-semibold">{slot.session || "Sáng"}</td>
                               <td className="p-2 text-center">Tiết {slot.periodStart} - {slot.periodEnd}</td>
                               <td className="p-2 font-mono text-indigo-700 font-bold">{slot.room}</td>
