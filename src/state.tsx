@@ -871,6 +871,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         ...g,
         studentId: g.studentId.trim(),
         studentName: (g.studentName || "").trim(),
+        classId: normalizeClassId(g.classId || sheet.classId),
         cc: sanitizeGradeNum(g.cc),
         tx1: sanitizeGradeNum(g.tx1),
         tx2: sanitizeGradeNum(g.tx2),
@@ -2403,6 +2404,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       delete safeFields.learningDataLocked;
       delete safeFields.groupName;
     }
+    if (safeFields.classId) {
+      safeFields.classId = normalizeClassId(safeFields.classId);
+    }
 
     // 1. Update students array
     const cleanName = (name || "").trim() || currentStud?.name || "Sinh viên";
@@ -2411,7 +2415,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (/^(javascript|vbscript):/i.test(cleanAvatar) || cleanAvatar.startsWith("//")) {
       cleanAvatar = currentStud?.avatar || "";
     }
-    if (/^data:text\/html/i.test(cleanAvatar)) {
+    if (/^data:(text\/html|application\/)/i.test(cleanAvatar)) {
       cleanAvatar = currentStud?.avatar || "";
     }
 
@@ -2985,7 +2989,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
     const updated = students.map(s => {
-      const item = excelData.find(item => item.id === s.id);
+      const item = excelData.find(item => item && item.id && (item.id.trim().toUpperCase() === s.id.trim().toUpperCase() || item.id === s.id));
       if (item) {
         const currentAcademicData = s.academicDataByPeriod || {};
         const safeGpa = typeof item.gpa === "number" ? Math.max(0, Math.min(4, Math.round(item.gpa * 100) / 100)) : item.gpa;

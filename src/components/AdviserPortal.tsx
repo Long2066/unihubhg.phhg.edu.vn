@@ -49,7 +49,7 @@ export const AdviserPortal: React.FC = () => {
     selectedSemesterId
   } = useUniHub();
 
-  const classId = currentUser?.targetId || "";
+  const classId = normalizeClassId(currentUser?.targetId || "");
 
   if (currentUser && currentUser.role !== UserRole.ADVISER && currentUser.role !== UserRole.ADMIN) {
     return (

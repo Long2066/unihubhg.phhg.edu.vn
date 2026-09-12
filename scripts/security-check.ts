@@ -2348,9 +2348,49 @@ assert(
   "submitGroupLeaderScore rejects matching classes or ClassPortal sends unclamped proposed scores"
 );
 
+// ==========================================
+// BATCH 54: Adviser & Student Normalization, Search Null-Safety & Academic/Profile Hardening
+// ==========================================
+console.log("\n--- BATCH 54: Adviser & Student Normalization, Search Null-Safety & Academic/Profile Hardening ---");
+
+assert(
+  adviserPortalContent.includes("const classId = normalizeClassId(currentUser?.targetId || \"\");"),
+  "Batch 54 Issue 1: AdviserPortal must normalize classId globally to align approvals and exports",
+  "AdviserPortal uses raw classId string for approvals and file exports"
+);
+
+assert(
+  organizerPortalContent.includes("(m.studentId || \"\").toLowerCase().includes(searchLow)") &&
+  organizerPortalContent.includes("(m.classId || \"\").toLowerCase().includes(searchLow)"),
+  "Batch 54 Issue 2: OrganizerPortal member search must enforce null-safety on studentId and classId",
+  "OrganizerPortal member search calls toLowerCase directly on undefined fields causing runtime crash"
+);
+
+assert(
+  studentPortalContent.includes("classId: normalizeClassId(sObj?.classId || \"\"),") &&
+  studentPortalContent.includes("submitGradeAppeal({") &&
+  studentPortalContent.includes("studentId: sObj?.id || currentUser?.targetId || currentUser?.username || \"\","),
+  "Batch 54 Issue 3: StudentPortal must normalize classId in evidence and grade appeal submissions",
+  "StudentPortal sends raw unnormalized classId in evidence or grade appeal submissions"
+);
+
+assert(
+  stateContent.includes("classId: normalizeClassId(g.classId || sheet.classId),"),
+  "Batch 54 Issue 4: saveSubjectGradeSheet must normalize classId inside each sanitized student grade",
+  "saveSubjectGradeSheet leaves unnormalized classId on student grades within grade sheets"
+);
+
+assert(
+  stateContent.includes("const item = excelData.find(item => item && item.id && (item.id.trim().toUpperCase() === s.id.trim().toUpperCase() || item.id === s.id));") &&
+  stateContent.includes("if (safeFields.classId) {\n      safeFields.classId = normalizeClassId(safeFields.classId);\n    }") &&
+  stateContent.includes("if (/^data:(text\\/html|application\\/)/i.test(cleanAvatar)) {"),
+  "Batch 54 Issue 5: importAcademicData must support case/whitespace-insensitive ID matching and updateStudentProfile must sanitize classId & avatar",
+  "importAcademicData misses students with lowercase/spaced IDs or updateStudentProfile allows unnormalized classId and malicious data URIs"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 53 SECURITY & INTEGRITY REGRESSION TESTS PASSED (273 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 54 SECURITY & INTEGRITY REGRESSION TESTS PASSED (278 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

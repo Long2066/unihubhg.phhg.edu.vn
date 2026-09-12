@@ -299,10 +299,10 @@ export const OrganizerPortal: React.FC = () => {
     const sObj = students.find(s => s.id === m.studentId);
     const searchLow = memberSearchQuery.toLowerCase();
     return (
-      m.studentId.toLowerCase().includes(searchLow) ||
+      (m.studentId || "").toLowerCase().includes(searchLow) ||
       (m.studentName && m.studentName.toLowerCase().includes(searchLow)) ||
-      (sObj && sObj.name.toLowerCase().includes(searchLow)) ||
-      m.classId.toLowerCase().includes(searchLow)
+      (sObj && sObj.name && sObj.name.toLowerCase().includes(searchLow)) ||
+      (m.classId || "").toLowerCase().includes(searchLow)
     );
   });
 

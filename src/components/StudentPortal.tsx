@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useUniHub } from "../state";
+import { useUniHub, normalizeClassId } from "../state";
 import { STUDENT_FIELDS_META, Student, convertGoogleDriveUrlToDirectUrl, SEMESTER_LIST, parseWeekRange, isWeekInScheduleSlot, UserRole } from "../types";
 import { 
   Award, 
@@ -629,7 +629,7 @@ export const StudentPortal: React.FC = () => {
     submitEvidence({
       studentId,
       studentName: currentUser?.name || sObj?.name || "Sinh viên",
-      classId: sObj?.classId || "",
+      classId: normalizeClassId(sObj?.classId || ""),
       criteriaId: evCriteriaId,
       activityName: evActivity,
       description: evDesc,
@@ -3448,7 +3448,7 @@ export const StudentPortal: React.FC = () => {
                 submitGradeAppeal({
                   studentId: sObj?.id || currentUser?.targetId || currentUser?.username || "",
                   studentName: sObj?.name || currentUser?.name || "Sinh viên",
-                  classId: sObj?.classId || "",
+                  classId: normalizeClassId(sObj?.classId || ""),
                   semesterId: selectedSemesterId || "HOCKY_2_2025_2026",
                   subjectCode: appealModalSubject.code,
                   subjectName: appealModalSubject.name,
