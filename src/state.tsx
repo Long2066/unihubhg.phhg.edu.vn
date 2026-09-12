@@ -729,7 +729,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let warningsCount = 0;
 
     setStudents(prevStudents => {
-      return prevStudents.map(student => {
+      const nextStudents = prevStudents.map(student => {
         const studentGradesInSemester: { credits: number; tb10: number; tb4: number; isPass: boolean }[] = [];
 
         validSheets.forEach(sheet => {
@@ -823,6 +823,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
         };
       });
+      saveToStorage("unihub_students", nextStudents);
+      return nextStudents;
     });
 
     return { updatedCount, warningsCount };
@@ -951,6 +953,22 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       saveToFirestore("unihub_subject_grade_sheets", next);
       return next;
     });
+
+    if (sheet.semesterId) {
+      aggregateSubjectGradesToSemesterGpa(sheet.semesterId);
+    }
+
+    addGradeAuditLog({
+      semesterId: sheet.semesterId || "HOCKY_2_2025_2026",
+      classId: sheet.classId,
+      subjectCode: sheet.subjectCode,
+      subjectName: sheet.subjectName,
+      action: "CHỐT_NỘP",
+      userEmail: currentUser.email || currentUser.username || "",
+      userName: currentUser.name || currentUser.username || "Giảng viên",
+      userRole: currentUser.role,
+      reason: "Chốt nộp bảng điểm học phần chính thức"
+    });
   };
 
   const requestGradeUnlock = (req: Omit<GradeUnlockRequest, "id" | "requestedAt" | "status">) => {
@@ -997,6 +1015,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setUnlockRequests(prev => {
       const next = [newReq, ...prev];
       localStorage.setItem("unihub_unlock_requests", JSON.stringify(next));
+      saveToFirestore("unihub_unlock_requests", next);
       return next;
     });
   };
@@ -1144,6 +1163,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setGradeAppeals(prev => {
       const next = [newAppeal, ...prev];
       localStorage.setItem("unihub_grade_appeals", JSON.stringify(next));
+      saveToFirestore("unihub_grade_appeals", next);
       return next;
     });
   };
@@ -1269,7 +1289,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           userRole: currentUser.role,
           studentId: targetStudentId,
           studentName: appeal.studentName,
-          oldValue: appeal.oldGrade || "",
+          oldValue: appeal.originalGrade || appeal.oldGrade || "",
           newValue: newGrade || "",
           reason: response || appeal.reason || "Cập nhật điểm sau phúc khảo"
         });

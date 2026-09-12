@@ -2705,9 +2705,50 @@ assert(
   "deleteClass or class mutations bypass saveToStorage leaving phantom data in Firestore"
 );
 
+// ==========================================
+// BATCH 62: GPA Recalculation Persistence, Sheet Submission Automation, Appeal Realtime Sync, Score Sanitization & Appeal Original Grade
+// ==========================================
+console.log("\n--- BATCH 62: GPA Storage, Submit Automation, Appeal Realtime, Score Sanitization & Appeal Original Grade ---");
+
+assert(
+  stateContent.includes("saveToStorage(\"unihub_students\", nextStudents);") &&
+  stateContent.includes("return { updatedCount, warningsCount };"),
+  "Batch 62 Issue 1: aggregateSubjectGradesToSemesterGpa must persist recalculated GPA and warnings via saveToStorage",
+  "aggregateSubjectGradesToSemesterGpa mutates state without saving to storage"
+);
+
+assert(
+  stateContent.includes("if (sheet.semesterId) {\n      aggregateSubjectGradesToSemesterGpa(sheet.semesterId);\n    }") &&
+  stateContent.includes("action: \"CHỐT_NỘP\",") &&
+  stateContent.includes("saveToFirestore(\"unihub_unlock_requests\", next);"),
+  "Batch 62 Issue 2: submitSubjectGradeSheet must recalculate semester GPA and log CHỐT_NỘP, and requestGradeUnlock must sync to Firestore",
+  "submitSubjectGradeSheet skips GPA recalculation or requestGradeUnlock fails to sync to Firestore"
+);
+
+assert(
+  stateContent.includes("const next = [newAppeal, ...prev];\n      localStorage.setItem(\"unihub_grade_appeals\", JSON.stringify(next));\n      saveToFirestore(\"unihub_grade_appeals\", next);"),
+  "Batch 62 Issue 3: submitGradeAppeal must immediately sync submitted grade appeal to Firestore for cross-device visibility",
+  "submitGradeAppeal only stores to localStorage without Firestore synchronization"
+);
+
+assert(
+  teacherPortalContent.includes("parseFloat(String(v).replace(\",\", \".\"));") &&
+  teacherPortalContent.includes("const cleanRawScore = (val: any) => {") &&
+  teacherPortalContent.includes("cc: cleanRawScore(rawCc),"),
+  "Batch 62 Issue 4: TeacherPortal must support comma-separated decimal scores and normalize raw Excel inputs to [0, 10]",
+  "TeacherPortal truncates comma decimals or accepts invalid Excel score formats"
+);
+
+assert(
+  stateContent.includes("oldValue: appeal.originalGrade || appeal.oldGrade || \"\",") &&
+  rootTypesContent.includes("oldGrade?: string;"),
+  "Batch 62 Issue 5: resolveGradeAppeal must read appeal.originalGrade for audit log and types must support oldGrade alias",
+  "resolveGradeAppeal logs empty oldValue due to mismatched originalGrade property"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 61 SECURITY & INTEGRITY REGRESSION TESTS PASSED (313 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 62 SECURITY & INTEGRITY REGRESSION TESTS PASSED (318 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

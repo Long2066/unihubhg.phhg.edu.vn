@@ -631,6 +631,7 @@ export interface GradeAppeal {
   subjectCode: string;
   subjectName: string;
   originalGrade: string; // Điểm ban đầu
+  oldGrade?: string; // Tương thích ngược alias cũ
   reason: string;
   requestedAt: string;
   status: "PENDING" | "REVIEWING" | "UPDATED" | "REJECTED";

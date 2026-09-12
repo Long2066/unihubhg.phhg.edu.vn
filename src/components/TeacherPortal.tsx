@@ -1126,7 +1126,8 @@ export const TeacherPortal: React.FC = () => {
   // Helper auto calculator
   const calculateSingleRow = (grade: SubjectStudentGrade): SubjectStudentGrade => {
     const clampGradeVal = (v: any) => {
-      const parsed = parseFloat(String(v));
+      if (v === undefined || v === null || v === "" || v === "-") return 0;
+      const parsed = parseFloat(String(v).replace(",", "."));
       if (isNaN(parsed)) return 0;
       return Math.max(0, Math.min(10, parsed));
     };
@@ -1399,18 +1400,26 @@ export const TeacherPortal: React.FC = () => {
             }
           });
 
+          const cleanRawScore = (val: any) => {
+            if (val === undefined || val === null || val === "" || val === "-") return "";
+            const s = String(val).trim().replace(",", ".");
+            const num = parseFloat(s);
+            if (isNaN(num)) return s;
+            return Math.max(0, Math.min(10, Math.round(num * 10) / 10)).toString();
+          };
+
           const draftItem: SubjectStudentGrade = {
             studentId: stId,
             studentName: String(row[2] || "").trim(),
             gender,
             dob,
             classId: activeAssignment?.classId || "",
-            cc: rawCc,
-            tx1: rawTx1,
-            tx2: rawTx2,
-            dk1: rawDk1,
-            dk2: rawDk2,
-            exam: rawExam,
+            cc: cleanRawScore(rawCc),
+            tx1: cleanRawScore(rawTx1),
+            tx2: cleanRawScore(rawTx2),
+            dk1: cleanRawScore(rawDk1),
+            dk2: cleanRawScore(rawDk2),
+            exam: cleanRawScore(rawExam),
             tb10: "",
             tb4: "",
             diemChu: "",
