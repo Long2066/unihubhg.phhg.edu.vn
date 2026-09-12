@@ -1393,9 +1393,73 @@ assert(
   "sendGroupReminder allows sending reminders with empty classId or mismatched targetId"
 );
 
+// ==========================================
+// BATCH 30: Faculty Teacher Protection, Unlock Deduplication, Appeal Scope, Member Dedup & Dynamic Grading Rules
+// ==========================================
+console.log("\n--- BATCH 30: Account Protection, Unlock Dedup, Appeal Integrity, Member Dedup & Grading Rules ---");
+
+assert(
+  stateContent.includes("else if (curr.role === UserRole.FACULTY)") &&
+  stateContent.includes("// Keep faculty privileges intact"),
+  "Batch 30 Issue 1: provisionTeacherAccounts must protect FACULTY role alongside ADMIN and TRAINING_DEPT",
+  "provisionTeacherAccounts demotes FACULTY accounts to TEACHER"
+);
+
+assert(
+  stateContent.includes("const cleanReason = (req.reason || \"\").trim();\n    if (!cleanReason) {\n      console.warn(\"Unlock request reason cannot be empty\");") &&
+  stateContent.includes("const pendingExists = unlockRequests.some(ur => ur.sheetId === req.sheetId && ur.status === \"PENDING\");\n    if (pendingExists) {\n      console.warn(\"A pending unlock request already exists for this grade sheet\");"),
+  "Batch 30 Issue 2: requestGradeUnlock must validate non-empty reason and prevent duplicate pending requests",
+  "requestGradeUnlock allows blank reasons or duplicate pending unlock requests"
+);
+
+assert(
+  stateContent.includes("const appeal = gradeAppeals.find(a => a.id === appealId);\n    if (!appeal) return;") &&
+  stateContent.includes("if (!sheet || !sheet.teacherId) {\n        console.warn(\"Cannot resolve appeal: associated subject grade sheet or teacher not found\");\n        return;\n      }"),
+  "Batch 30 Issue 3: resolveGradeAppeal must strictly verify appeal and sheet existence and teacher ownership",
+  "resolveGradeAppeal allows unverified teachers to resolve unassigned grade appeals"
+);
+
+assert(
+  stateContent.includes("const cleanTitle = (announcement.title || \"\").trim();\n    if (!cleanTitle) {\n      throw new Error(\"Tiêu đề thông báo không được để trống.\");\n    }"),
+  "Batch 30 Issue 4: createAnnouncement must validate that announcement title is non-empty",
+  "createAnnouncement allows creating blank announcements"
+);
+
+assert(
+  stateContent.includes("const isDuplicate = members.some(m => m.orgId === member.orgId && m.studentId === member.studentId);\n    if (isDuplicate) {") &&
+  stateContent.includes("const existingKeys = new Set(members.map(m => `${m.orgId}_${m.studentId}`));\n    const deduplicatedMembers: OrganizationMember[] = [];"),
+  "Batch 30 Issue 5: addMemberManual and importMembersExcel must deduplicate member additions",
+  "Member management functions allow duplicate organization memberships"
+);
+
+assert(
+  stateContent.includes("const otherRootAdmins = [\"cthssv@phhg.edu.vn\", \"cthssv@hg.edu.vn\", \"pcthssv@hg.edu.vn\", \"admin@phhg.edu.vn\", \"superadmin\"];") &&
+  stateContent.includes("if (targetUser && otherRootAdmins.includes(targetUser.username.toLowerCase()) && safeAccount.role && safeAccount.role !== UserRole.ADMIN)") &&
+  stateContent.includes("if (userToDelete && otherRootAdmins.includes(userToDelete.username.toLowerCase()))"),
+  "Batch 30 Issue 6: updateUserAccount and deleteUserAccount must protect all root admin accounts",
+  "Root administrative accounts can be deleted or demoted"
+);
+
+assert(
+  teacherPortalContent.includes("const ccW = (gradingRules?.ccWeight ?? 10) / 100;") &&
+  teacherPortalContent.includes("const prW = (gradingRules?.processWeight ?? 30) / 100;") &&
+  teacherPortalContent.includes("const exW = (gradingRules?.examWeight ?? 60) / 100;") &&
+  teacherPortalContent.includes("tb10 >= (gradingRules?.passScoreMin10 ?? 4.0)"),
+  "Batch 30 Issue 7: TeacherPortal must calculate student grades dynamically using gradingRules",
+  "TeacherPortal hardcodes grading weights and pass thresholds ignoring system configuration"
+);
+
+assert(
+  teacherPortalContent.includes("const isAcademicAdmin = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.TRAINING_DEPT;") &&
+  teacherPortalContent.includes("if (!activeGradeSheet || !isAcademicAdmin) return;") &&
+  teacherPortalContent.includes("{isAcademicAdmin && (\n                        <button\n                          onClick={handleTeacherSelfUnlock}"),
+  "Batch 30 Issue 8: TeacherPortal must restrict direct sheet unlock strictly to isAcademicAdmin",
+  "TeacherPortal displays or allows regular teachers to bypass unlock approval"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 29 SECURITY & INTEGRITY REGRESSION TESTS PASSED (158 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 30 SECURITY & INTEGRITY REGRESSION TESTS PASSED (166 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

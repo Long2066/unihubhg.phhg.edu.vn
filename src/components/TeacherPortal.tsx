@@ -903,8 +903,11 @@ export const TeacherPortal: React.FC = () => {
     students,
     addGradeAuditLog,
     gradeAppeals,
-    resolveGradeAppeal
+    resolveGradeAppeal,
+    gradingRules
   } = useUniHub();
+
+  const isAcademicAdmin = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.TRAINING_DEPT;
 
   const [selectedSemester, setSelectedSemester] = useState<string>("HOCKY_2_2025_2026");
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>("");
@@ -1107,13 +1110,19 @@ export const TeacherPortal: React.FC = () => {
       return grade;
     }
 
-    // Process weighted average
+    // Process weighted average using dynamic grading rules
     const processScore = (tx1 + (tx2 || tx1)) / (tx2 ? 2 : 1);
     const midScore = (dk1 + (dk2 || dk1)) / (dk2 ? 2 : 1);
     const processMidAvg = (processScore + midScore) / 2;
 
-    const rawTb10 = (cc * 0.1) + (processMidAvg * 0.3) + (exam * 0.6);
-    const tb10 = Math.round(rawTb10 * 10) / 10;
+    const ccW = (gradingRules?.ccWeight ?? 10) / 100;
+    const prW = (gradingRules?.processWeight ?? 30) / 100;
+    const exW = (gradingRules?.examWeight ?? 60) / 100;
+    const roundDec = gradingRules?.roundingDecimals ?? 1;
+    const factor = Math.pow(10, roundDec);
+
+    const rawTb10 = (cc * ccW) + (processMidAvg * prW) + (exam * exW);
+    const tb10 = Math.round(rawTb10 * factor) / factor;
 
     let tb4 = 0;
     let diemChu = "F";
@@ -1126,12 +1135,12 @@ export const TeacherPortal: React.FC = () => {
     else if (tb10 >= 6.5) { tb4 = 2.5; diemChu = "C"; xepLoai = "Khá"; }
     else if (tb10 >= 5.5) { tb4 = 2.0; diemChu = "C"; xepLoai = "Trung bình"; }
     else if (tb10 >= 5.0) { tb4 = 1.5; diemChu = "D"; xepLoai = "Trung bình"; }
-    else if (tb10 >= 4.0) { tb4 = 1.0; diemChu = "D"; xepLoai = "Yếu"; }
+    else if (tb10 >= (gradingRules?.passScoreMin10 ?? 4.0)) { tb4 = 1.0; diemChu = "D"; xepLoai = "Yếu"; }
     else { tb4 = 0.0; diemChu = "F"; xepLoai = "Kém"; }
 
     return {
       ...grade,
-      tb10: tb10.toFixed(1),
+      tb10: tb10.toFixed(roundDec),
       tb4: tb4.toFixed(1),
       diemChu,
       xepLoai
@@ -1140,12 +1149,18 @@ export const TeacherPortal: React.FC = () => {
 
   const handleAddNewStudentToSheet = () => {
     if (isLocked || !activeAssignment) return;
-    const newStudentId = `DTG_${Date.now().toString().slice(-6)}`;
+    const classStudents = students.filter(s => s.classId === activeAssignment.classId);
+    const existingIds = new Set(currentGrades.map(g => g.studentId));
+    const missingStudent = classStudents.find(s => !existingIds.has(s.id));
+    const newStudentId = missingStudent ? missingStudent.id : `DTG_${Date.now().toString().slice(-6)}`;
+    const newStudentName = missingStudent ? missingStudent.name : "Sinh viên mới";
+    const newGender = missingStudent?.gender || "Nam";
+    const newDob = missingStudent?.dob || "2006-01-01";
     const newStudent: SubjectStudentGrade = {
       studentId: newStudentId,
-      studentName: `Sinh viên mới`,
-      gender: "Nam",
-      dob: "2006-01-01",
+      studentName: newStudentName,
+      gender: newGender,
+      dob: newDob,
       classId: activeAssignment.classId,
       cc: "",
       tx1: "",
@@ -1177,7 +1192,7 @@ export const TeacherPortal: React.FC = () => {
   };
 
   const handleTeacherSelfUnlock = () => {
-    if (!activeGradeSheet) return;
+    if (!activeGradeSheet || !isAcademicAdmin) return;
     const updatedSheet: SubjectGradeSheet = {
       ...activeGradeSheet,
       status: "DRAFT",
@@ -1667,14 +1682,16 @@ export const TeacherPortal: React.FC = () => {
                     </>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={handleTeacherSelfUnlock}
-                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-                        title="Giảng viên chủ động mở lại bảng điểm để nhập và chỉnh sửa"
-                      >
-                        <Unlock size={13} />
-                        <span>Mở lại bảng điểm để nhập</span>
-                      </button>
+                      {isAcademicAdmin && (
+                        <button
+                          onClick={handleTeacherSelfUnlock}
+                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                          title="Quản trị viên mở lại bảng điểm để chỉnh sửa"
+                        >
+                          <Unlock size={13} />
+                          <span>Mở lại bảng điểm</span>
+                        </button>
+                      )}
 
                       <button
                         onClick={() => setShowUnlockModal(true)}

@@ -559,6 +559,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // Enforce UserRole.TEACHER for non-admin/non-training accounts
           if (curr.role === UserRole.ADMIN || curr.role === UserRole.TRAINING_DEPT) {
             // Keep administrative privileges intact
+          } else if (curr.role === UserRole.FACULTY) {
+            // Keep faculty privileges intact
           } else if (curr.role !== UserRole.TEACHER) {
             updatedUser.role = UserRole.TEACHER;
             userChanged = true;
@@ -909,6 +911,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to request grade unlock");
       return;
     }
+    const cleanReason = (req.reason || "").trim();
+    if (!cleanReason) {
+      console.warn("Unlock request reason cannot be empty");
+      return;
+    }
+    const pendingExists = unlockRequests.some(ur => ur.sheetId === req.sheetId && ur.status === "PENDING");
+    if (pendingExists) {
+      console.warn("A pending unlock request already exists for this grade sheet");
+      return;
+    }
     if (currentUser.role === UserRole.TEACHER) {
       const sheet = subjectGradeSheets.find(s => s.id === req.sheetId);
       const tid = (sheet?.teacherId || req.teacherId || "").toLowerCase();
@@ -924,6 +936,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const newReq: GradeUnlockRequest = {
       ...req,
+      reason: cleanReason,
       id: `REQ_${Date.now()}`,
       requestedAt: new Date().toISOString().replace("T", " ").substring(0, 19),
       status: "PENDING"
@@ -1048,21 +1061,23 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to resolve grade appeal");
       return;
     }
+    const appeal = gradeAppeals.find(a => a.id === appealId);
+    if (!appeal) return;
+
     if (currentUser.role === UserRole.TEACHER) {
-      const appeal = gradeAppeals.find(a => a.id === appealId);
-      if (appeal) {
-        const sheet = subjectGradeSheets.find(s => s.id === appeal.sheetId || s.subjectCode === appeal.subjectCode);
-        if (sheet && sheet.teacherId) {
-          const tid = sheet.teacherId.toLowerCase();
-          const match = (currentUser.email && tid === currentUser.email.toLowerCase()) ||
-                        (currentUser.id && tid === currentUser.id.toLowerCase()) ||
-                        (currentUser.username && tid === currentUser.username.toLowerCase()) ||
-                        (currentUser.targetId && tid === currentUser.targetId.toLowerCase());
-          if (!match) {
-            console.warn("Unauthorized attempt to resolve another teacher's grade appeal");
-            return;
-          }
-        }
+      const sheet = subjectGradeSheets.find(s => s.id === appeal.sheetId || s.subjectCode === appeal.subjectCode);
+      if (!sheet || !sheet.teacherId) {
+        console.warn("Cannot resolve appeal: associated subject grade sheet or teacher not found");
+        return;
+      }
+      const tid = sheet.teacherId.toLowerCase();
+      const match = (currentUser.email && tid === currentUser.email.toLowerCase()) ||
+                    (currentUser.id && tid === currentUser.id.toLowerCase()) ||
+                    (currentUser.username && tid === currentUser.username.toLowerCase()) ||
+                    (currentUser.targetId && tid === currentUser.targetId.toLowerCase());
+      if (!match) {
+        console.warn("Unauthorized attempt to resolve another teacher's grade appeal");
+        return;
       }
     }
 
@@ -2453,6 +2468,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || announcement.orgId !== effectiveOrgId)) {
       throw new Error("Không thể tạo thông báo cho tổ chức khác.");
     }
+    const cleanTitle = (announcement.title || "").trim();
+    if (!cleanTitle) {
+      throw new Error("Tiêu đề thông báo không được để trống.");
+    }
     const org = organizations.find(o => o.id === announcement.orgId);
     let resolvedOrgName = org?.name;
     if (!resolvedOrgName) {
@@ -2511,6 +2530,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
     if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || member.orgId !== effectiveOrgId)) {
       console.warn("Unauthorized attempt to add member to another organization");
+      return;
+    }
+    const isDuplicate = members.some(m => m.orgId === member.orgId && m.studentId === member.studentId);
+    if (isDuplicate) {
+      console.warn("Student is already a member of this organization");
       return;
     }
     const newMember: OrganizationMember = {
@@ -2601,7 +2625,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       };
     });
 
-    const updated = [...members, ...cleanMembers];
+    const existingKeys = new Set(members.map(m => `${m.orgId}_${m.studentId}`));
+    const deduplicatedMembers: OrganizationMember[] = [];
+    cleanMembers.forEach(m => {
+      const key = `${m.orgId}_${m.studentId}`;
+      if (!existingKeys.has(key)) {
+        existingKeys.add(key);
+        deduplicatedMembers.push(m);
+      }
+    });
+
+    const updated = [...members, ...deduplicatedMembers];
     setMembers(updated);
     saveToStorage("unihub_members", updated);
   };
@@ -4061,6 +4095,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         alert("Không thể thay đổi vai trò của tài khoản quản trị viên hệ thống mặc định!");
         return;
       }
+      const otherRootAdmins = ["cthssv@phhg.edu.vn", "cthssv@hg.edu.vn", "pcthssv@hg.edu.vn", "admin@phhg.edu.vn", "superadmin"];
+      if (targetUser && otherRootAdmins.includes(targetUser.username.toLowerCase()) && safeAccount.role && safeAccount.role !== UserRole.ADMIN) {
+        alert("Không thể thay đổi vai trò của tài khoản quản trị viên hệ thống mặc định!");
+        return;
+      }
     }
 
     const clean = sanitizeForFirestore(safeAccount);
@@ -4083,6 +4122,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     const userToDelete = users.find(u => u.id === userId);
     if (userToDelete?.username === "admin") {
+      alert("Không thể xóa tài khoản quản trị viên hệ thống mặc định!");
+      return;
+    }
+    const otherRootAdmins = ["cthssv@phhg.edu.vn", "cthssv@hg.edu.vn", "pcthssv@hg.edu.vn", "admin@phhg.edu.vn", "superadmin"];
+    if (userToDelete && otherRootAdmins.includes(userToDelete.username.toLowerCase())) {
       alert("Không thể xóa tài khoản quản trị viên hệ thống mặc định!");
       return;
     }
