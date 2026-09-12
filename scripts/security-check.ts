@@ -1619,9 +1619,36 @@ assert(
   "requestGradeUnlock allows requesting unlock for non-existent sheets"
 );
 
+// ==========================================
+// BATCH 34: Evidence Class Isolation, Appeal Subject Code Guard & Profile Scheme Sanitization
+// ==========================================
+console.log("\n--- BATCH 34: Evidence Isolation, Appeal Subject Code & Profile Sanitization ---");
+
+assert(
+  stateContent.includes("if (!effectiveStudentId) {\n      console.warn(\"Cannot submit evidence without a valid student identity\");") &&
+  stateContent.includes("const resolvedClassId = studentObj?.classId || data.classId || \"\";") &&
+  stateContent.includes("classId: resolvedClassId,"),
+  "Batch 34 Issue 1: submitEvidence must resolve student classId dynamically to prevent cross-class leakage",
+  "submitEvidence allows spoofing or leaking evidence across class boundaries"
+);
+
+assert(
+  stateContent.includes("const cleanSubjectCode = (appeal.subjectCode || \"\").trim();\n    if (!cleanSubjectCode) {") &&
+  stateContent.includes("alert(\"Vui lòng chọn môn học cần đề nghị phúc khảo!\");"),
+  "Batch 34 Issue 2: submitGradeAppeal must validate non-empty subjectCode",
+  "submitGradeAppeal allows submitting appeals with missing subjectCode"
+);
+
+assert(
+  stateContent.includes("const cleanName = (name || \"\").trim() || currentStud?.name || \"Sinh viên\";") &&
+  stateContent.includes("if (/^(javascript|vbscript):/i.test(cleanAvatar) || cleanAvatar.startsWith(\"//\")) {"),
+  "Batch 34 Issue 3: updateStudentProfile must sanitize student name and dangerous avatar protocols",
+  "updateStudentProfile allows unsafe avatar URIs or empty names"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 33 SECURITY & INTEGRITY REGRESSION TESTS PASSED (186 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 34 SECURITY & INTEGRITY REGRESSION TESTS PASSED (189 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

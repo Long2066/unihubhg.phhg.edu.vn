@@ -1027,6 +1027,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       alert("Vui lòng nhập lý do đề nghị phúc khảo điểm môn học!");
       return;
     }
+    const cleanSubjectCode = (appeal.subjectCode || "").trim();
+    if (!cleanSubjectCode) {
+      alert("Vui lòng chọn môn học cần đề nghị phúc khảo!");
+      return;
+    }
 
     const effectiveStudentId = currentUser.role === UserRole.STUDENT
       ? (currentUser.targetId || currentUser.username)
@@ -2158,6 +2163,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
+    if (!effectiveStudentId) {
+      console.warn("Cannot submit evidence without a valid student identity");
+      return;
+    }
+
+    const studentObj = students.find(s => s.id === effectiveStudentId);
+    const resolvedClassId = studentObj?.classId || data.classId || "";
+    const resolvedStudentName = studentObj?.name || data.studentName || currentUser.name || "Sinh viên";
+
     const rawUrl = (data.proofUrl || "").trim();
     if (/^(javascript|vbscript):/i.test(rawUrl) || rawUrl.startsWith("//")) {
       console.warn("Rejected unsafe proofUrl:", rawUrl);
@@ -2167,6 +2181,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const newEvidence: EvidenceSubmission = {
       ...data,
       studentId: effectiveStudentId,
+      studentName: resolvedStudentName,
+      classId: resolvedClassId,
       pointsRequested: Math.max(0, Math.min(100, Number(data.pointsRequested) || 0)),
       proofUrl: rawUrl,
       id: `EV_NEW_${Date.now()}`,
@@ -2266,13 +2282,20 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // 1. Update students array
+    const currentStud = students.find(s => s.id === studentId);
+    const cleanName = (name || "").trim() || currentStud?.name || "Sinh viên";
+    let cleanAvatar = (avatar || "").trim();
+    if (/^(javascript|vbscript):/i.test(cleanAvatar) || cleanAvatar.startsWith("//")) {
+      cleanAvatar = currentStud?.avatar || "";
+    }
+
     const updatedStudents = students.map(s => {
       if (s.id === studentId) {
         return { 
           ...s, 
           ...safeFields, 
-          name, 
-          avatar
+          name: cleanName, 
+          avatar: cleanAvatar
         };
       }
       return s;
