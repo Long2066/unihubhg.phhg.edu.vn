@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { Download, Upload, ShieldCheck, Database, RefreshCw, X, AlertTriangle, CheckCircle2, FileJson } from "lucide-react";
+import { Download, Upload, ShieldCheck, Database, RefreshCw, X, AlertTriangle, CheckCircle2, FileJson, Trash2, RotateCcw, Clock } from "lucide-react";
 import { useUniHub } from "../state";
 import { UserRole } from "../types";
 
@@ -36,7 +36,10 @@ export const DataBackupRestoreModal: React.FC<DataBackupRestoreModalProps> = ({ 
     gradeAppeals,
     unlockRequests,
     gradeAuditLogs,
-    restoreAllDataBackup
+    restoreAllDataBackup,
+    recycleBin,
+    restoreClassFromRecycleBin,
+    purgeClassPermanently
   } = useUniHub();
 
   const [restoreStatus, setRestoreStatus] = useState<string | null>(null);
@@ -325,6 +328,99 @@ export const DataBackupRestoreModal: React.FC<DataBackupRestoreModalProps> = ({ 
               </p>
             </div>
           )}
+
+          {/* Section: Thùng Rác Lớp Học (Lưu trữ ngầm 7 ngày) */}
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 font-extrabold text-slate-900 text-xs">
+                <Trash2 size={14} className="text-rose-600" />
+                <span>Thùng Rác Lớp Học (Tự Động Xóa Sau 7 Ngày)</span>
+              </div>
+              <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-bold rounded-full">
+                {recycleBin.length} mục
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Các lớp đã xóa được đóng gói lưu ngầm trong 7 ngày để đảm bảo an toàn. Chỉ khôi phục khi cán bộ bấm thủ công bên dưới. Sau 7 ngày, hệ thống sẽ tự động tiêu hủy vĩnh viễn.
+            </p>
+
+            {recycleBin.length === 0 ? (
+              <div className="p-3 bg-white border border-dashed border-slate-250 rounded-lg text-center text-slate-400 text-[11px]">
+                Thùng rác trống. Không có lớp nào bị xóa trong 7 ngày qua.
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-56 overflow-y-auto">
+                {recycleBin.map((item) => {
+                  const daysLeft = Math.max(0, Math.ceil((new Date(item.expiresAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+                  return (
+                    <div 
+                      key={item.id} 
+                      className="p-3 bg-white border border-slate-200 rounded-lg flex items-center justify-between gap-3 shadow-2xs"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-slate-900 text-xs truncate">{item.name}</span>
+                          <span className={`px-2 py-0.5 text-[9.5px] font-bold rounded flex items-center gap-1 ${daysLeft <= 2 ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-800"}`}>
+                            <Clock size={10} />
+                            <span>Còn {daysLeft} ngày</span>
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-450 mt-0.5">
+                          {item.itemCount || item.data?.students?.length || 0} SV &bull; Xóa bởi {item.deletedBy} &bull; {new Date(item.deletedAt).toLocaleDateString("vi-VN")}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={async () => {
+                            if (confirm(`Bạn có chắc muốn khôi phục Lớp "${item.name}" cùng toàn bộ sinh viên và dữ liệu học vụ trở lại hệ thống hoạt động?`)) {
+                              setIsProcessing(true);
+                              try {
+                                await restoreClassFromRecycleBin(item.name);
+                                setRestoreStatus(`Đã khôi phục thành công Lớp ${item.name}! Lớp đã xuất hiện trở lại trong danh mục hoạt động.`);
+                              } catch (err: any) {
+                                setRestoreError(`Lỗi khi khôi phục lớp: ${err?.message || err}`);
+                              } finally {
+                                setIsProcessing(false);
+                              }
+                            }
+                          }}
+                          disabled={isProcessing}
+                          className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10.5px] rounded-lg inline-flex items-center gap-1 cursor-pointer shadow-xs transition-all disabled:opacity-50"
+                          title="Khôi phục lớp học này"
+                        >
+                          <RotateCcw size={11} />
+                          <span>Khôi Phục</span>
+                        </button>
+
+                        <button
+                          onClick={async () => {
+                            if (confirm(`CẢNH BÁO: Bạn có chắc muốn XÓA VĨNH VIỄN Lớp "${item.name}" khỏi Thùng rác ngay bây giờ? Hành động này không thể hoàn tác!`)) {
+                              setIsProcessing(true);
+                              try {
+                                await purgeClassPermanently(item.name);
+                                setRestoreStatus(`Đã xóa vĩnh viễn Lớp ${item.name} khỏi Thùng rác!`);
+                              } catch (err: any) {
+                                setRestoreError(`Lỗi khi xóa vĩnh viễn: ${err?.message || err}`);
+                              } finally {
+                                setIsProcessing(false);
+                              }
+                            }
+                          }}
+                          disabled={isProcessing}
+                          className="px-2 py-1.5 bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-700 font-bold text-[10.5px] rounded-lg inline-flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50"
+                          title="Xóa vĩnh viễn khỏi thùng rác ngay"
+                        >
+                          <Trash2 size={11} />
+                          <span>Xóa Luôn</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Result alerts */}
           {restoreStatus && (

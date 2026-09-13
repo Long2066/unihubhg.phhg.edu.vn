@@ -247,7 +247,7 @@ service cloud.firestore {
         isSuperAdmin() || 
         (userId == request.auth.uid && incoming().role == existing().role && incoming().id == existing().id)
       ) && isValidUser(incoming());
-      allow delete: if isVerifiedUser() && isValidId(userId) && (hasRole('ADMIN') || isSuperAdmin());
+      allow delete: if isVerifiedUser() && isValidId(userId) && (hasRole('ADMIN') || isSuperAdmin() || hasRole('TRAINING_DEPT'));
     }
 
     match /students/{studentId} {
@@ -435,7 +435,7 @@ service cloud.firestore {
           )
         )
       ) && isValidEvaluationResult(incoming());
-      allow delete: if isVerifiedUser() && isValidId(resultId) && hasRole('ADMIN');
+      allow delete: if isVerifiedUser() && isValidId(resultId) && (hasRole('ADMIN') || isSuperAdmin() || hasRole('TRAINING_DEPT'));
     }
 
     match /dailyAttendance/{attendanceId} {
@@ -562,7 +562,11 @@ service cloud.firestore {
 
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if isVerifiedUser() && (hasRole('ADMIN') || isSuperAdmin());
+      allow write: if isVerifiedUser() && (hasRole('ADMIN') || isSuperAdmin() || hasRole('TRAINING_DEPT'));
+    }
+
+    match /recycleBin/{itemId} {
+      allow read, write: if isVerifiedUser() && (hasRole('ADMIN') || isSuperAdmin() || hasRole('TRAINING_DEPT'));
     }
 
   }

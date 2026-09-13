@@ -51,7 +51,8 @@ import {
   GradeUnlockRequest,
   GradeAppeal,
   GradeAuditLog,
-  GradingRulesConfig
+  GradingRulesConfig,
+  RecycleBinItem
 } from "./types";
 import { 
   SEED_PERIOD, 
@@ -206,6 +207,9 @@ interface UniHubContextType {
   aggregateSubjectGradesToSemesterGpa: (semesterId: string) => { updatedCount: number; warningsCount: number };
   restoreAllDataBackup: (backupData: any) => Promise<void>;
   normalizeAllAccounts: () => void;
+  recycleBin: RecycleBinItem[];
+  restoreClassFromRecycleBin: (classId: string) => Promise<void>;
+  purgeClassPermanently: (classId: string) => Promise<void>;
 }
 
 export const normalizeClassId = (classId: string | undefined | null): string => {
@@ -428,12 +432,30 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }));
   });
   const [groupAttendances, setGroupAttendances] = useState<GroupAttendanceReport[]>([]);
+  const [recycleBin, setRecycleBin] = useState<RecycleBinItem[]>(() => {
+    const cached = localStorage.getItem("unihub_recycle_bin");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {}
+    }
+    return [];
+  });
   const [customClasses, setCustomClasses] = useState<string[]>(() => {
+    const cachedDeleted = localStorage.getItem("unihub_deleted_classes");
+    let deletedClassList: string[] = [];
+    if (cachedDeleted) {
+      try {
+        const parsed = JSON.parse(cachedDeleted);
+        if (Array.isArray(parsed)) deletedClassList = parsed.map(c => normalizeClassId(c));
+      } catch {}
+    }
     const cached = localStorage.getItem("unihub_custom_classes");
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed)) return parsed.map(c => normalizeClassId(c));
+        if (Array.isArray(parsed)) return parsed.map(c => normalizeClassId(c)).filter(c => !deletedClassList.includes(c));
       } catch {}
     }
     return [];
@@ -1361,12 +1383,38 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return onSnapshot(
       collection(db, key),
       (snap) => {
-        const list = snap.docs.map(d => d.data() as T);
+        let deletedClasses: string[] = [];
+        try {
+          const c = localStorage.getItem("unihub_deleted_classes");
+          if (c) deletedClasses = (JSON.parse(c) as string[]).map(x => normalizeClassId(x));
+        } catch {}
+
+        const removedIds = new Set<string>();
+        snap.docChanges().forEach(change => {
+          if (change.type === "removed") {
+            removedIds.add(change.doc.id);
+          }
+        });
+
+        const list = snap.docs.map(d => ({ ...d.data(), id: d.id } as T));
         const normalized = sorter ? sorter(list) : list;
-        if (normalized.length > 0) {
+        if (normalized.length > 0 || removedIds.size > 0) {
           setter(prev => {
-            const merged = [...prev];
+            let filtered = prev.filter(p => {
+              const pid = (p as any).id || (p as any).studentId || (p as any).username;
+              if (pid && removedIds.has(pid)) return false;
+              const pClass = (p as any).classId || (p as any).targetId;
+              if (pClass && deletedClasses.includes(normalizeClassId(pClass))) return false;
+              return true;
+            });
+
+            const merged = [...filtered];
             normalized.forEach(item => {
+              const itemClass = (item as any).classId || (item as any).targetId;
+              if (itemClass && deletedClasses.includes(normalizeClassId(itemClass))) {
+                return;
+              }
+
               const itemId = (item as any).id || (item as any).studentId || (item as any).username;
               if (itemId) {
                 const idx = merged.findIndex(p => 
@@ -1380,7 +1428,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 merged.push(item);
               }
             });
-            const finalResult = merged.length > 0 ? merged : normalized;
+            const finalResult = merged.filter(item => {
+              const itemClass = (item as any).classId;
+              if (itemClass && deletedClasses.includes(normalizeClassId(itemClass))) return false;
+              return true;
+            });
             localStorage.setItem(`unihub_${key}`, JSON.stringify(finalResult));
             return finalResult;
           });
@@ -1443,6 +1495,65 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
         },
         (error) => console.warn("Firestore listener failed for systemConfig/theme:", error)
+      ),
+      onSnapshot(
+        doc(db, "settings", "deletedClasses"),
+        (snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            const serverDeleted: string[] = Array.isArray(data?.classes) ? data.classes.map((c: string) => normalizeClassId(c)) : [];
+            if (serverDeleted.length > 0) {
+              let localDeleted: string[] = [];
+              try {
+                const c = localStorage.getItem("unihub_deleted_classes");
+                if (c) localDeleted = JSON.parse(c);
+              } catch {}
+              const mergedDeleted = Array.from(new Set([...localDeleted, ...serverDeleted]));
+              localStorage.setItem("unihub_deleted_classes", JSON.stringify(mergedDeleted));
+
+              setStudents(prev => {
+                const next = prev.filter(s => !mergedDeleted.includes(normalizeClassId(s.classId)));
+                localStorage.setItem("unihub_students", JSON.stringify(next));
+                return next;
+              });
+              setCustomClasses(prev => {
+                const next = prev.filter(c => !mergedDeleted.includes(normalizeClassId(c)));
+                localStorage.setItem("unihub_custom_classes", JSON.stringify(next));
+                return next;
+              });
+              setSchedules(prev => {
+                const next = prev.filter(s => !mergedDeleted.includes(normalizeClassId(s.classId)));
+                localStorage.setItem("unihub_schedules", JSON.stringify(next));
+                return next;
+              });
+              setTeacherAssignments(prev => {
+                const next = prev.filter(ta => !mergedDeleted.includes(normalizeClassId(ta.classId)));
+                localStorage.setItem("unihub_teacher_assignments", JSON.stringify(next));
+                return next;
+              });
+            }
+          }
+        },
+        (error) => console.warn("Firestore listener failed for settings/deletedClasses:", error)
+      ),
+      onSnapshot(
+        collection(db, "recycleBin"),
+        (snap) => {
+          const now = Date.now();
+          const items: RecycleBinItem[] = [];
+          snap.docs.forEach(docSnap => {
+            const item = docSnap.data() as RecycleBinItem;
+            // Tự động xóa vĩnh viễn sau 7 ngày
+            if (item.expiresAt && new Date(item.expiresAt).getTime() <= now) {
+              deleteDoc(doc(db, "recycleBin", docSnap.id)).catch(() => {});
+            } else {
+              items.push({ ...item, id: docSnap.id });
+            }
+          });
+          setRecycleBin(items);
+          localStorage.setItem("unihub_recycle_bin", JSON.stringify(items));
+        },
+        (error) => console.warn("Firestore listener failed for recycleBin:", error)
       )
     ];
 
@@ -1820,6 +1931,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } else if (key === "unihub_grading_rules" && data) {
         await setDoc(doc(db, "settings", "gradingRules"), {
           ...data,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      } else if (key === "unihub_deleted_classes" && Array.isArray(data)) {
+        await setDoc(doc(db, "settings", "deletedClasses"), {
+          classes: data,
           updatedAt: serverTimestamp()
         }, { merge: true });
       }
@@ -4972,11 +5088,68 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!classId.trim()) return;
     const norm = normalizeClassId(classId);
 
+    // Đóng gói dữ liệu vào Thùng rác ngầm (hạn 7 ngày)
+    const classStudents = students.filter(s => normalizeClassId(s.classId) === norm);
+    const deletedStudentIds = new Set(classStudents.map(s => s.id));
+    const classUsers = users.filter(u => u.role === UserRole.STUDENT && deletedStudentIds.has(u.targetId));
+    const classResults = results.filter(r => deletedStudentIds.has(r.studentId));
+    const classSchedules = schedules.filter(sch => normalizeClassId(sch.classId) === norm);
+    const classTeacherAssignments = teacherAssignments.filter(ta => normalizeClassId(ta.classId) === norm);
+    const classGradeSheets = subjectGradeSheets.filter(sg => normalizeClassId(sg.classId) === norm);
+    const classReviewsList = classReviews.filter(cr => normalizeClassId(cr.classId) === norm);
+    const classDailyAtt = dailyAttendance.filter(da => normalizeClassId(da.classId) === norm);
+    const classGroupAtt = groupAttendances.filter(ga => normalizeClassId(ga.classId) === norm);
+    const classFeedbacks = feedbacks.filter(fb => normalizeClassId(fb.toClassId) === norm);
+    const classUnlockReqs = unlockRequests.filter(ur => normalizeClassId(ur.classId) === norm);
+    const classGradeAppeals = gradeAppeals.filter(ga => normalizeClassId(ga.classId) === norm);
+    const classEvidence = evidence.filter(ev => normalizeClassId(ev.classId) !== norm && !deletedStudentIds.has(ev.studentId));
+    const classMembers = members.filter(m => !deletedStudentIds.has(m.studentId) && normalizeClassId(m.classId) !== norm);
+    const classAttendance = attendance.filter(a => !deletedStudentIds.has(a.studentId));
+    const isCustom = customClasses.some(c => normalizeClassId(c) === norm);
+
+    const recycleItem: RecycleBinItem = {
+      id: `CLASS_${norm}`,
+      type: "CLASS",
+      name: norm,
+      deletedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      deletedBy: currentUser.email || currentUser.username || "daotao@phhg.edu.vn",
+      itemCount: classStudents.length,
+      data: {
+        students: classStudents,
+        users: classUsers,
+        results: classResults,
+        schedules: classSchedules,
+        teacherAssignments: classTeacherAssignments,
+        subjectGradeSheets: classGradeSheets,
+        classReviews: classReviewsList,
+        dailyAttendance: classDailyAtt,
+        groupAttendances: classGroupAtt,
+        feedbacks: classFeedbacks,
+        unlockRequests: classUnlockReqs,
+        gradeAppeals: classGradeAppeals,
+        evidence: classEvidence,
+        members: classMembers,
+        attendance: classAttendance,
+        isCustomClass: isCustom
+      }
+    };
+
+    if (db) {
+      setDoc(doc(db, "recycleBin", `CLASS_${norm}`), recycleItem).catch(err => {
+        console.warn("Failed to archive class to recycleBin:", err);
+      });
+    }
+    setRecycleBin(prev => {
+      const next = [recycleItem, ...prev.filter(i => i.id !== `CLASS_${norm}`)];
+      localStorage.setItem("unihub_recycle_bin", JSON.stringify(next));
+      return next;
+    });
+
     const updatedCustom = customClasses.filter(c => normalizeClassId(c) !== norm);
     setCustomClasses(updatedCustom);
     saveToStorage("unihub_custom_classes", updatedCustom);
 
-    const deletedStudentIds = new Set(students.filter(s => normalizeClassId(s.classId) === norm).map(s => s.id));
     students.filter(s => normalizeClassId(s.classId) === norm).forEach(s => {
       if (db && s.id) deleteDoc(doc(db, "students", s.id)).catch(() => {});
     });
@@ -4993,6 +5166,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const currentDeleted: string[] = c ? JSON.parse(c) : [];
       const nextDeleted = Array.from(new Set([...currentDeleted, norm]));
       localStorage.setItem("unihub_deleted_classes", JSON.stringify(nextDeleted));
+      if (db) {
+        setDoc(doc(db, "settings", "deletedClasses"), {
+          classes: nextDeleted,
+          updatedAt: serverTimestamp()
+        }, { merge: true }).catch(() => {});
+      }
     } catch {}
     const updatedStudents = students.filter(s => normalizeClassId(s.classId) !== norm);
     setStudents(updatedStudents);
@@ -5069,6 +5248,133 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedAttendance = attendance.filter(a => !deletedStudentIds.has(a.studentId));
     setAttendance(updatedAttendance);
     saveToStorage("unihub_attendance", updatedAttendance);
+  };
+
+  const restoreClassFromRecycleBin = async (classId: string) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to restore class");
+      return;
+    }
+    const norm = normalizeClassId(classId);
+    const item = recycleBin.find(i => i.id === `CLASS_${norm}` || normalizeClassId(i.name) === norm);
+    if (!item) {
+      console.warn(`Class ${norm} not found in recycle bin`);
+      return;
+    }
+
+    const { data } = item;
+
+    if (data.students && data.students.length > 0) {
+      setStudents(prev => {
+        const next = [...prev.filter(s => normalizeClassId(s.classId) !== norm), ...data.students];
+        saveToStorage("unihub_students", next);
+        return next;
+      });
+      if (db) {
+        data.students.forEach(s => {
+          if (s.id) setDoc(doc(db, "students", s.id), s, { merge: true }).catch(() => {});
+        });
+      }
+    }
+
+    if (data.users && data.users.length > 0) {
+      setUsers(prev => {
+        const next = [...prev.filter(u => !(u.role === UserRole.STUDENT && normalizeClassId(u.targetId) === norm)), ...data.users];
+        saveToStorage("unihub_users", next);
+        return next;
+      });
+      if (db) {
+        data.users.forEach(u => {
+          if (u.id) setDoc(doc(db, "users", u.id), u, { merge: true }).catch(() => {});
+        });
+      }
+    }
+
+    if (data.results && data.results.length > 0) {
+      setResults(prev => {
+        const next = [...prev.filter(r => normalizeClassId(r.classId) !== norm), ...data.results];
+        saveToStorage("unihub_results", next);
+        return next;
+      });
+      if (db) {
+        data.results.forEach(r => {
+          const rid = `${r.studentId}_${r.periodId}`;
+          setDoc(doc(db, "results", rid), r, { merge: true }).catch(() => {});
+        });
+      }
+    }
+
+    if (data.schedules && data.schedules.length > 0) {
+      setSchedules(prev => {
+        const next = [...prev.filter(s => normalizeClassId(s.classId) !== norm), ...data.schedules];
+        saveToStorage("unihub_schedules", next);
+        return next;
+      });
+      if (db) {
+        data.schedules.forEach(sch => {
+          if (sch.id) setDoc(doc(db, "schedules", sch.id), sch, { merge: true }).catch(() => {});
+        });
+      }
+    }
+
+    if (data.teacherAssignments && data.teacherAssignments.length > 0) {
+      setTeacherAssignments(prev => {
+        const next = [...prev.filter(ta => normalizeClassId(ta.classId) !== norm), ...data.teacherAssignments];
+        saveToStorage("unihub_teacher_assignments", next);
+        return next;
+      });
+      if (db) {
+        data.teacherAssignments.forEach(ta => {
+          if (ta.id) setDoc(doc(db, "teacherAssignments", ta.id), ta, { merge: true }).catch(() => {});
+        });
+      }
+    }
+
+    if (data.isCustomClass) {
+      setCustomClasses(prev => {
+        const next = Array.from(new Set([...prev, norm]));
+        saveToStorage("unihub_custom_classes", next);
+        return next;
+      });
+    }
+
+    try {
+      const c = localStorage.getItem("unihub_deleted_classes");
+      const currentDeleted: string[] = c ? JSON.parse(c) : [];
+      const nextDeleted = currentDeleted.filter(d => normalizeClassId(d) !== norm);
+      localStorage.setItem("unihub_deleted_classes", JSON.stringify(nextDeleted));
+      if (db) {
+        await setDoc(doc(db, "settings", "deletedClasses"), {
+          classes: nextDeleted,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      }
+    } catch {}
+
+    if (db) {
+      await deleteDoc(doc(db, "recycleBin", `CLASS_${norm}`)).catch(() => {});
+    }
+    setRecycleBin(prev => {
+      const next = prev.filter(i => i.id !== `CLASS_${norm}` && normalizeClassId(i.name) !== norm);
+      localStorage.setItem("unihub_recycle_bin", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const purgeClassPermanently = async (classId: string) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to purge class");
+      return;
+    }
+    const norm = normalizeClassId(classId);
+    if (db) {
+      await deleteDoc(doc(db, "recycleBin", `CLASS_${norm}`)).catch(() => {});
+    }
+    setRecycleBin(prev => {
+      const next = prev.filter(i => i.id !== `CLASS_${norm}` && normalizeClassId(i.name) !== norm);
+      localStorage.setItem("unihub_recycle_bin", JSON.stringify(next));
+      return next;
+    });
   };
 
   const bulkApproveScores = (classId: string, studentIds: string[], role: UserRole) => {
@@ -5290,7 +5596,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       addGradeAuditLog,
       updateGradingRules,
       aggregateSubjectGradesToSemesterGpa,
-      restoreAllDataBackup
+      restoreAllDataBackup,
+      recycleBin,
+      restoreClassFromRecycleBin,
+      purgeClassPermanently
     }}>
       {children}
     </UniHubContext.Provider>

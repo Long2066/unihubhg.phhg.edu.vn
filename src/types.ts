@@ -670,3 +670,33 @@ export interface GradingRulesConfig {
   passScoreMin10: number;   // Điểm tối thiểu đạt môn hệ 10 (vd: 4.0)
 }
 
+/** Dữ liệu đóng gói trong Thùng Rác (lưu ngầm 7 ngày) */
+export interface RecycleBinItem {
+  id: string; // e.g. "CLASS_K20-CNTT"
+  type: "CLASS";
+  name: string;
+  deletedAt: string;
+  expiresAt: string;
+  deletedBy: string;
+  itemCount: number;
+  data: {
+    students: Student[];
+    users: UserAccount[];
+    results: EvaluationResult[];
+    schedules: Schedule[];
+    teacherAssignments: CourseClassAssignment[];
+    subjectGradeSheets?: SubjectGradeSheet[];
+    classReviews?: ClassReview[];
+    dailyAttendance?: DailyAttendanceReport[];
+    groupAttendances?: GroupAttendance[];
+    feedbacks?: ScoreFeedback[];
+    unlockRequests?: UnlockRequest[];
+    gradeAppeals?: GradeAppeal[];
+    evidence?: EvidenceSubmission[];
+    members?: OrganizationMember[];
+    attendance?: ActivityAttendance[];
+    isCustomClass?: boolean;
+  };
+}
+
+

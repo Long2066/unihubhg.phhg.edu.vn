@@ -64,6 +64,7 @@ export const TrainingPortal: React.FC = () => {
     addNewClass,
     renameClass,
     deleteClass,
+    recycleBin,
     selectedSemesterId,
     setSelectedSemesterId,
     teacherAssignments,
@@ -2584,10 +2585,15 @@ export const TrainingPortal: React.FC = () => {
         <div className="flex items-center gap-2.5 flex-wrap shrink-0">
           <button 
             onClick={() => setShowBackupModal(true)}
-            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg flex items-center gap-2 shadow-sm transition-all hover:cursor-pointer shrink-0"
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg flex items-center gap-2 shadow-sm transition-all hover:cursor-pointer shrink-0 relative"
           >
             <Database size={14} />
             <span>Sao lưu & Khôi phục CSDL</span>
+            {recycleBin && recycleBin.length > 0 && (
+              <span className="px-1.5 py-0.2 bg-rose-500 text-white text-[9.5px] font-black rounded-full shadow-xs">
+                {recycleBin.length}
+              </span>
+            )}
           </button>
 
           <button 
@@ -3288,9 +3294,9 @@ export const TrainingPortal: React.FC = () => {
                                 <button 
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (confirm(`Bạn có chắc chắn muốn xóa Lớp "${clsId}" cùng toàn bộ thông tin sinh viên, thời khóa biểu và phân công giảng dạy của lớp này không?`)) {
+                                    if (confirm(`Bạn có chắc chắn muốn xóa Lớp "${clsId}"? Lớp và sinh viên sẽ bị xóa khỏi hệ thống và chuyển vào Thùng rác ngầm lưu trữ 7 ngày (có thể khôi phục thủ công trong mục Sao lưu & Khôi phục CSDL).`)) {
                                       deleteClass(clsId);
-                                      alert(`Đã xóa thành công Lớp ${clsId}!`);
+                                      alert(`Đã xóa Lớp ${clsId} và chuyển vào Thùng rác lưu trữ 7 ngày!`);
                                     }
                                   }}
                                   className="p-1 bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-700 rounded transition-colors"
