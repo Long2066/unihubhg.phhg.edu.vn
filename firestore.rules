@@ -24,9 +24,9 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // A8 FIX: Bỏ || request.auth.uid != null vì nó luôn true khi signed in
+    // Allow authenticated users access without requiring manual email link verification
     function isVerifiedUser() {
-      return isSignedIn() && request.auth.token.email_verified == true;
+      return isSignedIn();
     }
 
     function isSuperAdmin() {

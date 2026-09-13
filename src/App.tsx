@@ -119,7 +119,8 @@ const AppContent: React.FC = () => {
     themeConfig,
     unlockRequests,
     gradeAppeals,
-    teacherAssignments
+    teacherAssignments,
+    syncFreshFromCloud
   } = useUniHub();
 
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
@@ -127,6 +128,19 @@ const AppContent: React.FC = () => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileTab, setProfileTab] = useState<"info" | "password">("info");
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+
+  const handleFreshSync = async () => {
+    setIsSyncingCloud(true);
+    try {
+      await syncFreshFromCloud();
+      alert("Đã làm mới và đồng bộ 100% dữ liệu tươi từ máy chủ đám mây thành công!");
+    } catch (e) {
+      alert("Không thể kết nối máy chủ đám mây. Vui lòng kiểm tra lại kết nối mạng.");
+    } finally {
+      setIsSyncingCloud(false);
+    }
+  };
 
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackCategory, setFeedbackCategory] = useState("Giao diện");
@@ -1244,6 +1258,15 @@ const AppContent: React.FC = () => {
                         >
                           <User size={13} className="text-slate-400" />
                           <span>Sửa hồ sơ & mật khẩu</span>
+                        </button>
+
+                        <button 
+                          onClick={handleFreshSync}
+                          disabled={isSyncingCloud}
+                          className="w-full text-left font-bold text-xs text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50/70 px-3 py-2 rounded-xl border border-emerald-150/60 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                        >
+                          <RefreshCw size={13} className={`text-emerald-600 ${isSyncingCloud ? 'animate-spin' : ''}`} />
+                          <span>{isSyncingCloud ? "Đang đồng bộ..." : "Đồng bộ & Làm mới từ Cloud"}</span>
                         </button>
 
                         <button 

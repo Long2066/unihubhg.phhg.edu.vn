@@ -210,6 +210,7 @@ interface UniHubContextType {
   recycleBin: RecycleBinItem[];
   restoreClassFromRecycleBin: (classId: string) => Promise<void>;
   purgeClassPermanently: (classId: string) => Promise<void>;
+  syncFreshFromCloud: () => Promise<void>;
 }
 
 export const normalizeClassId = (classId: string | undefined | null): string => {
@@ -1399,37 +1400,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const list = snap.docs.map(d => ({ ...d.data(), id: d.id } as T));
         const normalized = sorter ? sorter(list) : list;
         if (normalized.length > 0 || removedIds.size > 0) {
-          setter(prev => {
-            let filtered = prev.filter(p => {
-              const pid = (p as any).id || (p as any).studentId || (p as any).username;
-              if (pid && removedIds.has(pid)) return false;
-              const pClass = (p as any).classId || (p as any).targetId;
-              if (pClass && deletedClasses.includes(normalizeClassId(pClass))) return false;
-              return true;
-            });
-
-            const merged = [...filtered];
-            normalized.forEach(item => {
+          setter(() => {
+            const finalResult = normalized.filter(item => {
               const itemClass = (item as any).classId || (item as any).targetId;
-              if (itemClass && deletedClasses.includes(normalizeClassId(itemClass))) {
-                return;
-              }
-
-              const itemId = (item as any).id || (item as any).studentId || (item as any).username;
-              if (itemId) {
-                const idx = merged.findIndex(p => 
-                  ((p as any).id && (p as any).id === itemId) ||
-                  ((p as any).studentId && (p as any).studentId === itemId) ||
-                  ((p as any).username && (p as any).username === itemId)
-                );
-                if (idx >= 0) merged[idx] = item;
-                else merged.push(item);
-              } else {
-                merged.push(item);
-              }
-            });
-            const finalResult = merged.filter(item => {
-              const itemClass = (item as any).classId;
               if (itemClass && deletedClasses.includes(normalizeClassId(itemClass))) return false;
               return true;
             });
@@ -1635,32 +1608,48 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       // Helper: Smart merge list with local storage items
       const smartMerge = <T,>(cloudList: T[], storageKey: string, idResolver: (item: T) => string): T[] => {
-        let localList: T[] = [];
+        if (cloudList.length === 0) {
+          let localList: T[] = [];
+          try {
+            const cached = localStorage.getItem(storageKey);
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (Array.isArray(parsed)) localList = parsed;
+            }
+          } catch {}
+          return localList;
+        }
+        localStorage.setItem(storageKey, JSON.stringify(cloudList));
+        return cloudList;
+      };
+
+      // 0. Sync deleted classes first from Firestore
+      let deletedClassList: string[] = [];
+      try {
+        const delSnap = await getDoc(doc(db, "settings", "deletedClasses"));
+        if (delSnap.exists()) {
+          const data = delSnap.data();
+          if (Array.isArray(data?.classes)) {
+            const serverDeleted = data.classes.map((c: string) => normalizeClassId(c));
+            let localDeleted: string[] = [];
+            try {
+              const c = localStorage.getItem("unihub_deleted_classes");
+              if (c) localDeleted = JSON.parse(c);
+            } catch {}
+            deletedClassList = Array.from(new Set([...localDeleted, ...serverDeleted]));
+            localStorage.setItem("unihub_deleted_classes", JSON.stringify(deletedClassList));
+          }
+        }
+      } catch {}
+      if (deletedClassList.length === 0) {
         try {
-          const cached = localStorage.getItem(storageKey);
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            if (Array.isArray(parsed)) localList = parsed;
+          const cachedDeleted = localStorage.getItem("unihub_deleted_classes");
+          if (cachedDeleted) {
+            const parsed = JSON.parse(cachedDeleted);
+            if (Array.isArray(parsed)) deletedClassList = parsed.map(c => normalizeClassId(c));
           }
         } catch {}
-
-        const mergedMap = new Map<string, T>();
-        // 1. Put local items into map first
-        localList.forEach(item => {
-          const id = idResolver(item);
-          if (id) mergedMap.set(id, item);
-        });
-        // 2. Overlay cloud items (cloud has latest updates)
-        cloudList.forEach(item => {
-          const id = idResolver(item);
-          if (id) mergedMap.set(id, item);
-          else mergedMap.set(`gen_${Math.random()}`, item);
-        });
-
-        const result = Array.from(mergedMap.values());
-        localStorage.setItem(storageKey, JSON.stringify(result));
-        return result;
-      };
+      }
 
       // 1. Get Users
       const usersSnap = await getDocs(collection(db, "users"));
@@ -1677,14 +1666,6 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // 2. Get Students
       const studsSnap = await getDocs(collection(db, "students"));
       if (!studsSnap.empty) {
-        let deletedClassList: string[] = [];
-        try {
-          const cachedDeleted = localStorage.getItem("unihub_deleted_classes");
-          if (cachedDeleted) {
-            const parsed = JSON.parse(cachedDeleted);
-            if (Array.isArray(parsed)) deletedClassList = parsed.map(c => normalizeClassId(c));
-          }
-        } catch {}
         const list: Student[] = [];
         studsSnap.forEach(d => {
           const s = d.data() as Student;
@@ -4241,7 +4222,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to import schedule data");
       return;
     }
-    const validSlots = (slots || []).filter(s => s && typeof s.classId === "string" && s.classId.trim() && typeof s.subjectName === "string" && s.subjectName.trim()).map(s => ({
+    const validSlots = (slots || []).filter(s => s && typeof s.classId === "string" && s.classId.trim() && typeof s.subjectName === "string" && s.subjectName.trim()).map((s, idx) => ({
       ...s,
       classId: normalizeClassId(s.classId.trim()),
       subjectCode: (s.subjectCode || "").trim(),
@@ -4249,8 +4230,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       credits: Math.max(1, Math.min(20, Number(s.credits) || 1)),
       dayOfWeek: Math.max(2, Math.min(8, Number(s.dayOfWeek) || 2)),
       periodStart: Math.max(1, Math.min(12, Number(s.periodStart) || 1)),
-      periodEnd: Math.max(Math.max(1, Math.min(12, Number(s.periodStart) || 1)), Math.min(12, Number(s.periodEnd) || 1))
+      periodEnd: Math.max(Math.max(1, Math.min(12, Number(s.periodStart) || 1)), Math.min(12, Number(s.periodEnd) || 1)),
+      id: (s.id && String(s.id).trim()) ? String(s.id).trim() : `SCH_${normalizeClassId(s.classId.trim())}_${(s.subjectCode || "SUB").trim()}_${Math.max(2, Math.min(8, Number(s.dayOfWeek) || 2))}_${Math.max(1, Math.min(12, Number(s.periodStart) || 1))}_${idx}`
     }));
+    if (db) {
+      const validIds = new Set(validSlots.map(s => s.id));
+      schedules.forEach(s => {
+        if (s.id && !validIds.has(s.id)) {
+          deleteDoc(doc(db, "schedules", s.id)).catch(() => {});
+        }
+      });
+    }
     setSchedules(validSlots);
     saveToStorage("unihub_schedules", validSlots);
   };
@@ -4278,6 +4268,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     schedules.forEach(s => {
       if (db && s.id) deleteDoc(doc(db, "schedules", s.id)).catch(() => {});
     });
+    if (db) {
+      getDocs(collection(db, "schedules")).then(snap => {
+        snap.forEach(d => deleteDoc(doc(db, "schedules", d.id)).catch(() => {}));
+      }).catch(() => {});
+    }
     setSchedules([]);
     saveToStorage("unihub_schedules", []);
   };
@@ -5377,6 +5372,55 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
+  const syncFreshFromCloud = async () => {
+    try {
+      console.log("Bắt đầu đồng bộ làm mới dữ liệu từ Cloud...");
+      let serverDeleted: string[] = [];
+      try {
+        const delSnap = await getDoc(doc(db, "settings", "deletedClasses"));
+        if (delSnap.exists()) {
+          const data = delSnap.data();
+          if (Array.isArray(data?.classes)) {
+            serverDeleted = data.classes.map((c: string) => normalizeClassId(c));
+            localStorage.setItem("unihub_deleted_classes", JSON.stringify(serverDeleted));
+          }
+        }
+      } catch {}
+
+      await loadFromFirestore();
+
+      try {
+        const schedSnap = await getDocs(collection(db, "schedules"));
+        if (!schedSnap.empty) {
+          const freshSlots: ScheduleSlot[] = [];
+          schedSnap.forEach(d => {
+            const s = { ...d.data(), id: d.id } as ScheduleSlot;
+            if (!serverDeleted.includes(normalizeClassId(s.classId))) {
+              freshSlots.push(s);
+            }
+          });
+          setSchedules(freshSlots);
+          localStorage.setItem("unihub_schedules", JSON.stringify(freshSlots));
+        }
+      } catch {}
+
+      try {
+        const ccSnap = await getDoc(doc(db, "settings", "customClasses"));
+        if (ccSnap.exists()) {
+          const data = ccSnap.data();
+          if (Array.isArray(data?.classes)) {
+            const freshCustom = data.classes.filter((c: string) => !serverDeleted.includes(normalizeClassId(c)));
+            setCustomClasses(freshCustom);
+            localStorage.setItem("unihub_custom_classes", JSON.stringify(freshCustom));
+          }
+        }
+      } catch {}
+      console.log("Hoàn tất đồng bộ làm mới dữ liệu từ Cloud.");
+    } catch (err) {
+      console.warn("Lỗi đồng bộ dữ liệu Cloud:", err);
+    }
+  };
+
   const bulkApproveScores = (classId: string, studentIds: string[], role: UserRole) => {
     if (!currentUser || !classId) return;
     const normTarget = normalizeClassId(currentUser.targetId);
@@ -5599,7 +5643,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       restoreAllDataBackup,
       recycleBin,
       restoreClassFromRecycleBin,
-      purgeClassPermanently
+      purgeClassPermanently,
+      syncFreshFromCloud
     }}>
       {children}
     </UniHubContext.Provider>

@@ -1639,7 +1639,7 @@ export const StudentPortal: React.FC = () => {
           <div className="flex items-center gap-2 ml-auto">
             <button
               type="button"
-              onClick={() => setActiveTab("HO_SO")}
+              onClick={() => setShowProfileModal(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-200 transition-all cursor-pointer"
             >
               <User size={13} className="text-slate-400" />
