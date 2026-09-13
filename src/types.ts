@@ -683,14 +683,14 @@ export interface RecycleBinItem {
     students: Student[];
     users: UserAccount[];
     results: EvaluationResult[];
-    schedules: Schedule[];
+    schedules: ScheduleSlot[];
     teacherAssignments: CourseClassAssignment[];
     subjectGradeSheets?: SubjectGradeSheet[];
-    classReviews?: ClassReview[];
+    classReviews?: ClassReviewState[];
     dailyAttendance?: DailyAttendanceReport[];
-    groupAttendances?: GroupAttendance[];
+    groupAttendances?: GroupAttendanceReport[];
     feedbacks?: ScoreFeedback[];
-    unlockRequests?: UnlockRequest[];
+    unlockRequests?: GradeUnlockRequest[];
     gradeAppeals?: GradeAppeal[];
     evidence?: EvidenceSubmission[];
     members?: OrganizationMember[];

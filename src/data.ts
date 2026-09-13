@@ -236,8 +236,8 @@ export const SEED_STUDENTS: Student[] = [
   {
     id: "SV20CN02",
     name: "Phan Thị Bình",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
+    classId: "K2-GDTH A",
+    facultyId: "K-GDTH",
     email: "binhpt@phhg.edu.vn",
     gpa: 2.15,
     creditsEarned: 15,
@@ -261,8 +261,8 @@ export const SEED_STUDENTS: Student[] = [
   {
     id: "SV20CN03",
     name: "Lâm Minh Triết",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
+    classId: "K2-GDTH B",
+    facultyId: "K-GDTH",
     email: "trietlm@phhg.edu.vn",
     gpa: 3.82,
     creditsEarned: 20,
@@ -286,8 +286,8 @@ export const SEED_STUDENTS: Student[] = [
   {
     id: "SV20CN04",
     name: "Vũ Đăng Khoa",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
+    classId: "K2-GDTH B",
+    facultyId: "K-GDTH",
     email: "khoavd@phhg.edu.vn",
     gpa: 1.48,
     creditsEarned: 11,
@@ -379,8 +379,8 @@ export const SEED_STUDENTS: Student[] = [
   {
     id: "SV20NL01",
     name: "Nông Văn Mạnh",
-    classId: "K20-TA",
-    facultyId: "K-TA",
+    classId: "K3-GDTH G",
+    facultyId: "K-GDTH",
     email: "manhnv@phhg.edu.vn",
     gpa: 3.10,
     creditsEarned: 19,
@@ -460,7 +460,7 @@ export const SEED_MEMBERS: OrganizationMember[] = [
   {
     id: "M_02",
     studentId: "SV20CN03",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH B",
     orgId: "UNITECH",
     role: "CHỦ NHIỆM",
     joinedDate: "2025-09-10",
@@ -471,7 +471,7 @@ export const SEED_MEMBERS: OrganizationMember[] = [
   {
     id: "M_03",
     studentId: "SV20CN04",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH B",
     orgId: "UNITECH",
     role: "THÀNH VIÊN",
     joinedDate: "2026-02-20",
@@ -482,7 +482,7 @@ export const SEED_MEMBERS: OrganizationMember[] = [
   {
     id: "M_04",
     studentId: "SV20CN05",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH B",
     orgId: "TINHNX",
     role: "CHỦ NHIỆM",
     joinedDate: "2025-09-12",
@@ -590,7 +590,7 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     activityId: "ACT_01",
     studentId: "SV20CN03",
     studentName: "Lâm Minh Triết",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH B",
     registeredAt: "2026-03-05",
     role: "BTC", // Ban tổ chức
     attended: true,
@@ -601,7 +601,7 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     activityId: "ACT_01",
     studentId: "SV20CN02",
     studentName: "Phan Thị Bình",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     registeredAt: "2026-03-06",
     role: "MEM",
     attended: true,
@@ -624,7 +624,7 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     activityId: "ACT_02",
     studentId: "SV20CN05",
     studentName: "Trần Bảo Ngọc",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH B",
     registeredAt: "2026-04-10",
     role: "BTC",
     attended: true,
@@ -659,7 +659,7 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     activityId: "ACT_04",
     studentId: "SV20CN02",
     studentName: "Phan Thị Bình",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     registeredAt: "2026-05-21",
     role: "MEM",
     attended: false,
@@ -681,7 +681,7 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     activityId: "ACT_06",
     studentId: "SV20CN03",
     studentName: "Lâm Minh Triết",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH B",
     registeredAt: "2026-05-12",
     role: "BTC",
     attended: true,
@@ -707,7 +707,7 @@ export const SEED_EVIDENCE: EvidenceSubmission[] = [
     id: "EV_02",
     studentId: "SV20CN02",
     studentName: "Phan Thị Bình",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     criteriaId: "TC4.1",
     activityName: "Chiến dịch Môi trường xanh Khu phố",
     description: "Giấy xác nhận tham gia dọn dẹp môi trường khu phố chống dịch sốt xuất huyết tháng 4.",
@@ -722,12 +722,12 @@ export const SEED_EVIDENCE: EvidenceSubmission[] = [
 
 export const SEED_CLASS_REVIEW: ClassReviewState[] = [
   {
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     representativeApproved: false,
     adviserApproved: false
   },
   {
-    classId: "K20-TA",
+    classId: "K2-GDTH B",
     representativeApproved: true,
     representativeApprovedAt: "2026-05-19",
     adviserApproved: true,
@@ -776,8 +776,8 @@ export const SEED_RESULTS: EvaluationResult[] = [
   {
     studentId: "SV20CN02",
     studentName: "Phan Thị Bình",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
+    classId: "K2-GDTH A",
+    facultyId: "K-GDTH",
     periodId: "HOCKY_2_2025_2026",
     studyPoints: 10, // GPA 2.15 -> Trung bình (+10đ)
     violationPoints: 23, // Trực muộn (-2đ) -> 23đ
@@ -798,14 +798,14 @@ export const SEED_RESULTS: EvaluationResult[] = [
   {
     studentId: "SV20CN03",
     studentName: "Lâm Minh Triết",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
+    classId: "K2-GDTH B",
+    facultyId: "K-GDTH",
     periodId: "HOCKY_2_2025_2026",
     studyPoints: 20, // GPA 3.82 -> Xuất sắc (+20đ)
     violationPoints: 25, // No violation
     extracurricularPoints: 18, // CLB Unitech Leader (+10đ) + BTC Hackathon (+8đ) = 18đ
     communityPoints: 5, // BCS trực tuần lớp (+5đ)
-    achievementPoints: 10, // Lớp trưởng K20-CNTT (+10đ)
+    achievementPoints: 10, // Lớp trưởng K2-GDTH B (+10đ)
     totalPoints: 78,
     grade: "TỐT",
     status: "AUTO",
@@ -815,14 +815,14 @@ export const SEED_RESULTS: EvaluationResult[] = [
       { criteriaId: "TC3.3", points: 10, reason: "Chủ nhiệm CLB Sáng tạo Công nghệ UniTech", source: "CLB_ATTENDANCE", timestamp: "2026-05-10" },
       { criteriaId: "TC3.2", points: 8, reason: "Vai trò Ban tổ chức: Hackathon Sáng Tạo Trẻ UniHub 2026", source: "CLB_ATTENDANCE", timestamp: "2026-05-12" },
       { criteriaId: "TC4.2", points: 5, reason: "Ban cán sự lớp xác nhận: Tự đóng góp giữ vững nề nếp học tập", source: "BCS_DUYỆT", timestamp: "2026-05-15" },
-      { criteriaId: "TC5.1", points: 10, reason: "Đảm trách Lớp trưởng điều hành lớp K20-CNTT", source: "BCS_DUYỆT", timestamp: "2026-05-15" }
+      { criteriaId: "TC5.1", points: 10, reason: "Đảm trách Lớp trưởng điều hành lớp K2-GDTH B", source: "BCS_DUYỆT", timestamp: "2026-05-15" }
     ]
   },
   {
     studentId: "SV20CN04",
     studentName: "Vũ Đăng Khoa",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
+    classId: "K2-GDTH B",
+    facultyId: "K-GDTH",
     periodId: "HOCKY_2_2025_2026",
     studyPoints: 5,  // GPA 1.48 (Học lực yếu + Trung bình = +10đ - Cảnh báo 5đ = 5đ)
     violationPoints: 15, // Cảnh báo phòng đào tạo hoặc sự cố kiểm tra (-10đ) = 15đ
@@ -840,22 +840,22 @@ export const SEED_RESULTS: EvaluationResult[] = [
   {
     studentId: "SV20NL01",
     studentName: "Nông Văn Mạnh",
-    classId: "K20-TA",
-    facultyId: "K-TA",
+    classId: "K3-GDTH G",
+    facultyId: "K-GDTH",
     periodId: "HOCKY_2_2025_2026",
     studyPoints: 15, // GPA 3.10 -> Khá (+15đ)
     violationPoints: 25,
     extracurricularPoints: 0,
     communityPoints: 5,
-    achievementPoints: 10, // Lớp trưởng K20-TA (+10đ)
+    achievementPoints: 10, // Lớp trưởng K3-GDTH G (+10đ)
     totalPoints: 55,
     grade: "TRUNG BÌNH",
-    status: "LOCKED", // Locked under class K20-TA and faculty K-TA
+    status: "LOCKED", // Locked under class K3-GDTH G and faculty K-GDTH
     logs: [
       { criteriaId: "TC1.3", points: 15, reason: "Phòng Đào tạo: GPA đạt 3.10", source: "ĐÀO TẠO", timestamp: "2026-05-19" },
       { criteriaId: "TC2.0", points: 25, reason: "Không ghi nhận vi phạm kỷ luật nội quy", source: "ĐÀO TẠO", timestamp: "2026-05-19" },
       { criteriaId: "TC4.2", points: 5, reason: "Tự hoàn thành nhiệm vụ quản nề nếp chung lớp", source: "BCS_DUYỆT", timestamp: "2026-05-19" },
-      { criteriaId: "TC5.1", points: 10, reason: "Đảm trách Lớp trưởng điều hành lớp K20-TA", source: "BCS_DUYỆT", timestamp: "2026-05-19" }
+      { criteriaId: "TC5.1", points: 10, reason: "Đảm trách Lớp trưởng điều hành lớp K3-GDTH G", source: "BCS_DUYỆT", timestamp: "2026-05-19" }
     ]
   }
 ];
@@ -863,7 +863,7 @@ export const SEED_RESULTS: EvaluationResult[] = [
 export const SEED_DAILY_ATTENDANCE: DailyAttendanceReport[] = [
   {
     id: "DAR_1",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     date: "2026-05-24",
     totalStudents: 5,
     presentCount: 4,
@@ -876,7 +876,7 @@ export const SEED_DAILY_ATTENDANCE: DailyAttendanceReport[] = [
   },
   {
     id: "DAR_2",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     date: "2026-05-23",
     totalStudents: 5,
     presentCount: 3,
@@ -890,7 +890,7 @@ export const SEED_DAILY_ATTENDANCE: DailyAttendanceReport[] = [
   },
   {
     id: "DAR_3",
-    classId: "K20-TA",
+    classId: "K2-GDTH B",
     date: "2026-05-24",
     totalStudents: 1,
     presentCount: 1,
@@ -901,7 +901,7 @@ export const SEED_DAILY_ATTENDANCE: DailyAttendanceReport[] = [
   },
   {
     id: "DAR_4",
-    classId: "K20-TA",
+    classId: "K2-GDTH B",
     date: "2026-05-23",
     totalStudents: 1,
     presentCount: 1,
@@ -915,8 +915,8 @@ export const SEED_DAILY_ATTENDANCE: DailyAttendanceReport[] = [
 export const SEED_SCHEDULES: ScheduleSlot[] = [
   {
     id: "SCH_01",
-    classId: "K20-CNTT",
-    className: "K20 Công nghệ thông tin",
+    classId: "K2-GDTH B",
+    className: "K2-GDTH B",
     subjectName: "Lập trình Web",
     subjectCode: "CNTT201",
     credits: 3,
@@ -937,8 +937,8 @@ export const SEED_SCHEDULES: ScheduleSlot[] = [
   },
   {
     id: "SCH_02",
-    classId: "K20-CNTT",
-    className: "K20 Công nghệ thông tin",
+    classId: "K2-GDTH B",
+    className: "K2-GDTH B",
     subjectName: "Cơ sở dữ liệu",
     subjectCode: "CNTT202",
     credits: 3,
@@ -959,8 +959,8 @@ export const SEED_SCHEDULES: ScheduleSlot[] = [
   },
   {
     id: "SCH_03",
-    classId: "K20-CNTT",
-    className: "K20 Công nghệ thông tin",
+    classId: "K2-GDTH B",
+    className: "K2-GDTH B",
     subjectName: "Cấu trúc dữ liệu",
     subjectCode: "CNTT203",
     credits: 4,
@@ -1028,7 +1028,7 @@ export const SEED_SCHEDULES: ScheduleSlot[] = [
 export const SEED_GROUP_ATTENDANCE: GroupAttendanceReport[] = [
   {
     id: "GR_ATT_01",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     groupName: "Tổ 1",
     date: new Date().toISOString().split("T")[0],
     totalStudents: 5,
@@ -1160,7 +1160,7 @@ export const SEED_SUBJECT_GRADES: SubjectGradeSheet[] = [
         studentName: "Ma Văn Long",
         gender: "Nam",
         dob: "2006-05-20",
-        classId: "K20-CNTT",
+        classId: "K2-GDTH A",
         cc: 9.5,
         tx1: 9.0,
         tx2: 8.5,

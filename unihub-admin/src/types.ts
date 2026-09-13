@@ -12,8 +12,8 @@ export enum UserRole {
   TRAINING_DEPT = "TRAINING_DEPT",     // Phòng Đào tạo
   CLASS_MONITOR = "CLASS_MONITOR",     // Ban cán sự Lớp (BCS)
   ADVISER = "ADVISER",                 // Giáo viên chủ nhiệm (GVCN)
-  TEACHER = "TEACHER",                 // Giảng viên Bộ môn
   FACULTY = "FACULTY",                 // Văn phòng Khoa
+  TEACHER = "TEACHER",                 // Giáo viên / Giảng viên Bộ môn
   ADMIN = "ADMIN"                      // CTHSSV / Admin Hệ thống
 }
 
@@ -23,6 +23,23 @@ export const isOrgRole = (role: UserRole | string): boolean =>
   role === UserRole.CLUB_MANAGER ||
   role === UserRole.YOUTH_UNION ||
   role === UserRole.STUDENT_UNION;
+
+/** Helper: Tự động chuyển link Google Drive sang link xem ảnh trực tiếp (lh3.googleusercontent.com) */
+export const convertGoogleDriveUrlToDirectUrl = (url?: string): string => {
+  if (!url || typeof url !== "string") return "";
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  if (/^(javascript|vbscript):/i.test(trimmed) || trimmed.startsWith("//")) {
+    return "";
+  }
+
+  const driveRegex = /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?export=view&id=|uc\?id=)|lh3\.googleusercontent\.com\/d\/)([a-zA-Z0-9_-]{25,})/;
+  const match = trimmed.match(driveRegex);
+  if (match && match[1]) {
+    return `https://lh3.googleusercontent.com/d/${match[1]}`;
+  }
+  return trimmed;
+};
 
 export interface UserAccount {
   id: string;
@@ -34,24 +51,6 @@ export interface UserAccount {
   isGroupLeader?: boolean;
   groupInCharge?: string;
   monitorTitle?: string;
-}
-
-export interface CourseClassAssignment {
-  id: string;
-  semesterId: string;
-  semesterName?: string;
-  classId: string;
-  className?: string;
-  subjectCode: string;
-  subjectName: string;
-  credits: number;
-  teacherId: string;
-  teacherName: string;
-  status: "PENDING" | "DRAFT" | "SUBMITTED" | "LOCKED" | "UNLOCKED";
-  submittedAt?: string;
-  unlockedAt?: string;
-  unlockReason?: string;
-  updatedAt?: string;
 }
 
 export interface EvaluationPeriod {
@@ -230,6 +229,39 @@ export const STUDENT_FIELDS_META: FieldMeta[] = [
   { key: "updatedAt", label: "Ngày cập nhật", category: "other", type: "text", readOnly: true }
 ];
 
+export const isStudentProfileComplete = (s: any): boolean => {
+  if (!s) return false;
+
+  // 1. Essential key fields required for a complete profile
+  const essentialKeys: string[] = [
+    "name", "gender", "dob", "pob", "ethnicity", "idCard", 
+    "phone", "permanentAddress"
+  ];
+
+  const hasAllEssentials = essentialKeys.every(k => {
+    const val = s[k];
+    if (val === undefined || val === null) return false;
+    const str = String(val).trim();
+    return str !== "" && str !== "-";
+  });
+
+  if (!hasAllEssentials) return false;
+
+  // 2. Count total filled fields out of 44
+  let filled = 0;
+  STUDENT_FIELDS_META.forEach(f => {
+    const val = s[f.key];
+    if (val !== undefined && val !== null) {
+      const str = String(val).trim();
+      if (str !== "" && str !== "-") {
+        filled++;
+      }
+    }
+  });
+
+  return filled >= 20;
+};
+
 export interface Organization {
   id: string;           // Code - e.g. "UNITECH"
   name: string;
@@ -276,6 +308,7 @@ export interface ExtracurricularActivity {
   registrationOpen: boolean;
   status: "UPCOMING" | "ONGOING" | "COMPLETED"; // Completed means attendance list has been verified
   imageUrl?: string;
+  expiryDate?: string; // Customizable display expiry date
   maxParticipants?: number;
 }
 
@@ -433,10 +466,45 @@ export interface ScheduleSlot {
   periodEnd: number;     // Tiết kết thúc (e.g. 3)
   room: string;          // Phòng học (e.g. "102B")
   semester: string;      // Học kỳ (e.g. "II")
+  semesterId?: string;   // Mã học kỳ (e.g. "HOCKY_2_2025_2026")
+  weekRange?: string;    // Chuỗi tuần học (e.g. "1-15", "1-9", "10-18")
+  startWeek?: number;    // Tuần bắt đầu (e.g. 1)
+  endWeek?: number;      // Tuần kết thúc (e.g. 15)
   academicYear?: string; // Năm học (e.g. "2025-2026")
   studyMode?: string;    // Hình thức học (e.g. "Trực tiếp", "Online")
   colorHex?: string;     // Màu sắc đại diện hiển thị trên lịch tuần
 }
+
+export const parseWeekRange = (weekRangeStr?: string): { startWeek: number; endWeek: number; activeWeeks: number[] } => {
+  if (!weekRangeStr) return { startWeek: 1, endWeek: 15, activeWeeks: Array.from({ length: 15 }, (_, i) => i + 1) };
+  
+  const str = weekRangeStr.trim();
+  const rangeMatch = str.match(/(\d+)\s*-\s*(\d+)/);
+  if (rangeMatch) {
+    const start = parseInt(rangeMatch[1]);
+    const end = parseInt(rangeMatch[2]);
+    const activeWeeks: number[] = [];
+    for (let w = Math.min(start, end); w <= Math.max(start, end); w++) {
+      activeWeeks.push(w);
+    }
+    return { startWeek: start, endWeek: end, activeWeeks };
+  }
+
+  const parts = str.split(/[,;\s]+/).map(p => parseInt(p)).filter(p => !isNaN(p));
+  if (parts.length > 0) {
+    const start = Math.min(...parts);
+    const end = Math.max(...parts);
+    return { startWeek: start, endWeek: end, activeWeeks: parts };
+  }
+
+  return { startWeek: 1, endWeek: 15, activeWeeks: Array.from({ length: 15 }, (_, i) => i + 1) };
+};
+
+export const isWeekInScheduleSlot = (slot: ScheduleSlot, targetWeek: number): boolean => {
+  if (!targetWeek || targetWeek === 0) return true;
+  const { activeWeeks } = parseWeekRange(slot.weekRange);
+  return activeWeeks.includes(targetWeek);
+};
 
 export interface GroupAttendanceReport {
   id: string;
@@ -482,4 +550,153 @@ export interface ThemeConfig {
   contactEmail?: string;
   contactPhone?: string;
 }
+
+/** Phân công giảng dạy theo Học kỳ (Do Phòng Đào tạo tạo hoặc Import) */
+export interface CourseClassAssignment {
+  id: string;             // UUID hoặc `HP_${semesterId}_${classId}_${subjectCode}`
+  semesterId: string;     // e.g. "HOCKY_2_2025_2026"
+  semesterName?: string;  // e.g. "Học kỳ II - 2025-2026"
+  classId: string;        // e.g. "K20-CNTT", "K2-GDTH-A"
+  className?: string;     // e.g. "K2 GDTH A"
+  subjectCode: string;    // e.g. "VPS7251"
+  subjectName: string;    // e.g. "Cơ sở Tự nhiên - xã hội", "Tiếng Việt..."
+  credits: number;        // e.g. 4
+  teacherId: string;      // Email hoặc Mã GV được phân công (e.g. "gv_nguyenvana")
+  teacherName: string;    // Họ tên Giảng viên
+  status: "PENDING" | "DRAFT" | "SUBMITTED" | "LOCKED" | "UNLOCKED";
+  updatedAt?: string;
+}
+
+/** Điểm của 1 sinh viên trong 1 môn học phần */
+export interface SubjectStudentGrade {
+  studentId: string;
+  studentName: string;
+  gender?: string;
+  dob?: string;
+  classId: string;
+  cc?: number | string;      // Điểm chuyên cần (0-10 hoặc "-")
+  tx1?: number | string;     // Thường xuyên 1
+  tx2?: number | string;     // Thường xuyên 2
+  dk1?: number | string;     // Định kỳ 1
+  dk2?: number | string;     // Định kỳ 2
+  exam?: number | string;    // Điểm thi học kỳ
+  tb10?: number | string;    // Điểm Trung bình Thang 10
+  tb4?: number | string;     // Điểm Trung bình Thang 4
+  diemChu?: string;          // Điểm chữ (A+, A, B+, B, C+, C, D+, D, F)
+  xepLoai?: string;          // Xếp loại môn (Xuất sắc, Giỏi, Khá, Trung bình, Yếu, Kém, Đạt, Không đạt)
+  notes?: string;
+}
+
+/** Bảng điểm đầy đủ của 1 môn học phần (Giáo viên bộ môn nạp) */
+export interface SubjectGradeSheet {
+  id: string;               // e.g. `GRADE_${semesterId}_${classId}_${subjectCode}`
+  semesterId: string;       // e.g. "HOCKY_2_2025_2026"
+  classId: string;          // e.g. "K2-GDTH-A"
+  subjectCode: string;      // e.g. "VPS7251"
+  subjectName: string;      // e.g. "Cơ sở Tự nhiên - xã hội"
+  credits: number;          // e.g. 4
+  teacherId: string;        // ID / Email giáo viên
+  teacherName: string;      // Họ tên giáo viên
+  status: "DRAFT" | "SUBMITTED" | "LOCKED" | "UNLOCKED";
+  grades: SubjectStudentGrade[];
+  updatedAt: string;
+  submittedAt?: string;
+}
+
+/** Yêu cầu mở khóa nạp lại điểm từ Giảng viên gửi Phòng Đào tạo */
+export interface GradeUnlockRequest {
+  id: string;
+  sheetId: string;
+  semesterId: string;
+  classId: string;
+  subjectCode: string;
+  subjectName: string;
+  teacherId: string;
+  teacherName: string;
+  reason: string;
+  requestedAt: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  reviewedAt?: string;
+  reviewedBy?: string;
+}
+
+/** Đơn nộp phúc khảo điểm môn học từ Sinh viên */
+export interface GradeAppeal {
+  id: string;
+  sheetId?: string;
+  studentId: string;
+  studentName: string;
+  classId: string;
+  semesterId: string;
+  subjectCode: string;
+  subjectName: string;
+  originalGrade: string; // Điểm ban đầu
+  oldGrade?: string; // Tương thích ngược alias cũ
+  reason: string;
+  requestedAt: string;
+  status: "PENDING" | "REVIEWING" | "UPDATED" | "REJECTED";
+  response?: string;
+  newGrade?: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+}
+
+/** Nhật ký thay đổi & lịch sử sửa điểm học phần */
+export interface GradeAuditLog {
+  id: string;
+  semesterId: string;
+  classId: string;
+  subjectCode: string;
+  subjectName: string;
+  action: "NẠP_MỚI" | "SỬA_ĐIỂM" | "LƯU_NHÁP" | "CHỐT_NỘP" | "MỞ_KHÓA" | "PHÚC_KHẢO" | string;
+  actor?: string;
+  userEmail: string;
+  userName: string;
+  userRole: string;
+  studentId?: string;
+  studentName?: string;
+  oldValue?: string;
+  newValue?: string;
+  reason?: string;
+  timestamp: string;
+}
+
+/** Cấu hình Trọng số & Quy tắc làm tròn điểm */
+export interface GradingRulesConfig {
+  ccWeight: number;    // % Chuyên cần (vd: 10)
+  processWeight: number; // % Điểm quá trình/thường xuyên (vd: 30)
+  examWeight: number;   // % Điểm thi kết thúc HP (vd: 60)
+  roundingDecimals: number; // Số chữ số thập phân làm tròn (vd: 1)
+  passScoreMin10: number;   // Điểm tối thiểu đạt môn hệ 10 (vd: 4.0)
+}
+
+/** Dữ liệu đóng gói trong Thùng Rác (lưu ngầm 7 ngày) */
+export interface RecycleBinItem {
+  id: string; // e.g. "CLASS_K20-CNTT"
+  type: "CLASS";
+  name: string;
+  deletedAt: string;
+  expiresAt: string;
+  deletedBy: string;
+  itemCount: number;
+  data: {
+    students: Student[];
+    users: UserAccount[];
+    results: EvaluationResult[];
+    schedules: ScheduleSlot[];
+    teacherAssignments: CourseClassAssignment[];
+    subjectGradeSheets?: SubjectGradeSheet[];
+    classReviews?: ClassReviewState[];
+    dailyAttendance?: DailyAttendanceReport[];
+    groupAttendances?: GroupAttendanceReport[];
+    feedbacks?: ScoreFeedback[];
+    unlockRequests?: GradeUnlockRequest[];
+    gradeAppeals?: GradeAppeal[];
+    evidence?: EvidenceSubmission[];
+    members?: OrganizationMember[];
+    attendance?: ActivityAttendance[];
+    isCustomClass?: boolean;
+  };
+}
+
 

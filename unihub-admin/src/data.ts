@@ -15,7 +15,8 @@ import {
   DailyAttendanceReport,
   ScheduleSlot,
   GroupAttendanceReport,
-  CourseClassAssignment
+  CourseClassAssignment,
+  SubjectGradeSheet
 } from "./types";
 
 export const SEED_PERIOD: EvaluationPeriod = {
@@ -147,65 +148,6 @@ export const SEED_USERS: UserAccount[] = [
   }
 ];
 
-export const SEED_TEACHER_ASSIGNMENTS: CourseClassAssignment[] = [
-  {
-    id: "HP_HOCKY_2_2025_2026_K2-GDTH-A_DFG2544",
-    semesterId: "HOCKY_2_2025_2026",
-    semesterName: "Học kỳ II - 2025-2026",
-    classId: "K2-GDTH A",
-    className: "K2-GDTH A",
-    subjectCode: "DFG2544",
-    subjectName: "Đạo đức và phương pháp dạy học Đạo đức",
-    credits: 2,
-    teacherId: "gv.nguyenminhnguyet@phhg.edu.vn",
-    teacherName: "TS. Nguyễn Minh Nguyệt",
-    status: "PENDING",
-    updatedAt: "2026-08-04"
-  },
-  {
-    id: "HP_HOCKY_2_2025_2026_K2-GDTH-A_SRT5452",
-    semesterId: "HOCKY_2_2025_2026",
-    semesterName: "Học kỳ II - 2025-2026",
-    classId: "K2-GDTH A",
-    className: "K2-GDTH A",
-    subjectCode: "SRT5452",
-    subjectName: "Lịch sử Đảng Cộng sản Việt Nam",
-    credits: 2,
-    teacherId: "gv.nguyenminhnguyet@phhg.edu.vn",
-    teacherName: "TS. Nguyễn Minh Nguyệt",
-    status: "PENDING",
-    updatedAt: "2026-08-04"
-  },
-  {
-    id: "HP_HOCKY_2_2025_2026_K2-GDTH-A_CS01",
-    semesterId: "HOCKY_2_2025_2026",
-    semesterName: "Học kỳ II - 2025-2026",
-    classId: "K2-GDTH A",
-    className: "K2-GDTH A",
-    subjectCode: "CS01",
-    subjectName: "Giáo dục hòa nhập cho học sinh Tiểu học",
-    credits: 2,
-    teacherId: "gv.vuthanhtra@phhg.edu.vn",
-    teacherName: "TS. Vũ Thanh Trà",
-    status: "PENDING",
-    updatedAt: "2026-08-04"
-  },
-  {
-    id: "HP_HOCKY_2_2025_2026_K2-GDTH-A_VPS7251",
-    semesterId: "HOCKY_2_2025_2026",
-    semesterName: "Học kỳ II - 2025-2026",
-    classId: "K2-GDTH A",
-    className: "K2-GDTH A",
-    subjectCode: "VPS7251",
-    subjectName: "Cơ sở Tự nhiên - xã hội",
-    credits: 4,
-    teacherId: "gv.nguyenthilieu@phhg.edu.vn",
-    teacherName: "ThS. Nguyễn Thị Liệu",
-    status: "PENDING",
-    updatedAt: "2026-08-04"
-  }
-];
-
 export const SEED_CRITERIA: PointCriteria[] = [
   {
     id: "TC1",
@@ -269,8 +211,8 @@ export const SEED_STUDENTS: Student[] = [
   {
     id: "DTG245140202053",
     name: "Ma Văn Long",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
+    classId: "K2-GDTH A",
+    facultyId: "K-GDTH",
     email: "DTG245140202053",
     gpa: 3.42,
     creditsEarned: 18,
@@ -284,7 +226,7 @@ export const SEED_STUDENTS: Student[] = [
     idCard: "004206005165",
     idCardDate: "2022-04-12",
     idCardPlace: "Cục Cảnh sát QLHC về TTXH",
-    subjects: "Lập trình Web, Cơ sở dữ liệu, Thiết kế UI/UX",
+    subjects: "Phương pháp dạy học Toán, Phương pháp dạy học Tiếng Việt, Tâm lý học tiểu học",
     subjectGrades: "8.5, 9.0, 7.5, -, -, -, -, -",
     gpa10: 8.55,
     academicGrade: "Giỏi",
@@ -294,8 +236,8 @@ export const SEED_STUDENTS: Student[] = [
   {
     id: "SV20CN02",
     name: "Phan Thị Bình",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
+    classId: "K2-GDTH A",
+    facultyId: "K-GDTH",
     email: "binhpt@phhg.edu.vn",
     gpa: 2.15,
     creditsEarned: 15,
@@ -319,8 +261,8 @@ export const SEED_STUDENTS: Student[] = [
   {
     id: "SV20CN03",
     name: "Lâm Minh Triết",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
+    classId: "K2-GDTH B",
+    facultyId: "K-GDTH",
     email: "trietlm@phhg.edu.vn",
     gpa: 3.82,
     creditsEarned: 20,
@@ -344,8 +286,8 @@ export const SEED_STUDENTS: Student[] = [
   {
     id: "SV20CN04",
     name: "Vũ Đăng Khoa",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
+    classId: "K2-GDTH B",
+    facultyId: "K-GDTH",
     email: "khoavd@phhg.edu.vn",
     gpa: 1.48,
     creditsEarned: 11,
@@ -367,28 +309,84 @@ export const SEED_STUDENTS: Student[] = [
     updatedAt: "2026-06-02"
   },
   {
-    id: "SV20CN05",
-    name: "Trần Bảo Ngọc",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
-    email: "ngoctb@phhg.edu.vn",
-    gpa: 2.95,
-    creditsEarned: 17,
+    id: "DTG2357140202099",
+    name: "Hoàng Hải Nam",
+    classId: "K2-GDTH A",
+    facultyId: "K-GDTH",
+    email: "namhh@phhg.edu.vn",
+    gpa: 3.20,
+    creditsEarned: 16,
     learningWarning: false,
     learningStatus: "Bình thường",
-    learningDataLocked: true
+    learningDataLocked: false,
+    gender: "Nam",
+    dob: "2006-01-01",
+    pob: "Hà Giang",
+    ethnicity: "Kinh",
+    idCard: "001206001099"
+  },
+  {
+    id: "DTG245140202002",
+    name: "Đỗ Thị Huyền Anh",
+    classId: "K2-GDTH A",
+    facultyId: "K-GDTH",
+    email: "anhdth@phhg.edu.vn",
+    gpa: 3.60,
+    creditsEarned: 18,
+    learningWarning: false,
+    learningStatus: "Bình thường",
+    learningDataLocked: false,
+    gender: "Nữ",
+    dob: "2006-03-15",
+    pob: "Hà Giang",
+    ethnicity: "Kinh",
+    idCard: "001206001002"
+  },
+  {
+    id: "DTG245140202004",
+    name: "Hứa Hải Anh",
+    classId: "K2-GDTH A",
+    facultyId: "K-GDTH",
+    email: "anhhh@phhg.edu.vn",
+    gpa: 3.10,
+    creditsEarned: 16,
+    learningWarning: false,
+    learningStatus: "Bình thường",
+    learningDataLocked: false,
+    gender: "Nam",
+    dob: "2006-04-10",
+    pob: "Hà Giang",
+    ethnicity: "Tày",
+    idCard: "001206001004"
+  },
+  {
+    id: "DTG245140202007",
+    name: "Hoàng Thị Ngọc Ánh",
+    classId: "K2-GDTH A",
+    facultyId: "K-GDTH",
+    email: "anhhtn@phhg.edu.vn",
+    gpa: 3.40,
+    creditsEarned: 16,
+    learningWarning: false,
+    learningStatus: "Bình thường",
+    learningDataLocked: false,
+    gender: "Nữ",
+    dob: "2006-08-22",
+    pob: "Hà Giang",
+    ethnicity: "Kinh",
+    idCard: "001206001007"
   },
   {
     id: "SV20NL01",
     name: "Nông Văn Mạnh",
-    classId: "K20-TA",
-    facultyId: "K-TA",
+    classId: "K3-GDTH G",
+    facultyId: "K-GDTH",
     email: "manhnv@phhg.edu.vn",
     gpa: 3.10,
     creditsEarned: 19,
     learningWarning: false,
     learningStatus: "Bình thường",
-    learningDataLocked: true
+    learningDataLocked: false
   }
 ];
 
@@ -436,22 +434,22 @@ export const SEED_ORGANIZATIONS: Organization[] = [
 ];
 
 export const SEED_MEMBERS: OrganizationMember[] = [
-  // Nguyễn Văn An (DTG245140202053) inside UNITECH
+  // Ma Văn Long (DTG245140202053) inside UNITECH
   {
     id: "M_01",
     studentId: "DTG245140202053",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     orgId: "UNITECH",
     role: "THÀNH VIÊN",
     joinedDate: "2025-09-10",
     term: "2025-2026",
     status: "ACTIVE"
   },
-  // Nguyễn Văn An (DTG245140202053) inside DOANTN (BCH Đoàn Phân hiệu)
+  // Ma Văn Long (DTG245140202053) inside DOANTN (BCH Đoàn Phân hiệu)
   {
     id: "M_05",
     studentId: "DTG245140202053",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     orgId: "DOANTN",
     role: "ỦY VIÊN",
     joinedDate: "2025-09-15",
@@ -462,7 +460,7 @@ export const SEED_MEMBERS: OrganizationMember[] = [
   {
     id: "M_02",
     studentId: "SV20CN03",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH B",
     orgId: "UNITECH",
     role: "CHỦ NHIỆM",
     joinedDate: "2025-09-10",
@@ -473,7 +471,7 @@ export const SEED_MEMBERS: OrganizationMember[] = [
   {
     id: "M_03",
     studentId: "SV20CN04",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH B",
     orgId: "UNITECH",
     role: "THÀNH VIÊN",
     joinedDate: "2026-02-20",
@@ -484,7 +482,7 @@ export const SEED_MEMBERS: OrganizationMember[] = [
   {
     id: "M_04",
     studentId: "SV20CN05",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH B",
     orgId: "TINHNX",
     role: "CHỦ NHIỆM",
     joinedDate: "2025-09-12",
@@ -580,8 +578,8 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     id: "AT_01",
     activityId: "ACT_01",
     studentId: "DTG245140202053",
-    studentName: "Nguyễn Văn An",
-    classId: "K20-CNTT",
+    studentName: "Ma Văn Long",
+    classId: "K2-GDTH A",
     registeredAt: "2026-03-05",
     role: "MEM",
     attended: true,
@@ -592,7 +590,7 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     activityId: "ACT_01",
     studentId: "SV20CN03",
     studentName: "Lâm Minh Triết",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH B",
     registeredAt: "2026-03-05",
     role: "BTC", // Ban tổ chức
     attended: true,
@@ -603,7 +601,7 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     activityId: "ACT_01",
     studentId: "SV20CN02",
     studentName: "Phan Thị Bình",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     registeredAt: "2026-03-06",
     role: "MEM",
     attended: true,
@@ -614,8 +612,8 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     id: "AT_04",
     activityId: "ACT_02",
     studentId: "DTG245140202053",
-    studentName: "Nguyễn Văn An",
-    classId: "K20-CNTT",
+    studentName: "Ma Văn Long",
+    classId: "K2-GDTH A",
     registeredAt: "2026-04-10",
     role: "MEM",
     attended: true,
@@ -626,7 +624,7 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     activityId: "ACT_02",
     studentId: "SV20CN05",
     studentName: "Trần Bảo Ngọc",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH B",
     registeredAt: "2026-04-10",
     role: "BTC",
     attended: true,
@@ -637,8 +635,8 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     id: "AT_06",
     activityId: "ACT_03",
     studentId: "DTG245140202053",
-    studentName: "Nguyễn Văn An",
-    classId: "K20-CNTT",
+    studentName: "Ma Văn Long",
+    classId: "K2-GDTH A",
     registeredAt: "2026-05-20",
     role: "MEM",
     attended: false,
@@ -649,8 +647,8 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     id: "AT_07",
     activityId: "ACT_04",
     studentId: "DTG245140202053",
-    studentName: "Nguyễn Văn An",
-    classId: "K20-CNTT",
+    studentName: "Ma Văn Long",
+    classId: "K2-GDTH A",
     registeredAt: "2026-05-21",
     role: "MEM",
     attended: false,
@@ -661,7 +659,7 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     activityId: "ACT_04",
     studentId: "SV20CN02",
     studentName: "Phan Thị Bình",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     registeredAt: "2026-05-21",
     role: "MEM",
     attended: false,
@@ -671,8 +669,8 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     id: "AT_09",
     activityId: "ACT_06",
     studentId: "DTG245140202053",
-    studentName: "Nguyễn Văn An",
-    classId: "K20-CNTT",
+    studentName: "Ma Văn Long",
+    classId: "K2-GDTH A",
     registeredAt: "2026-05-12",
     role: "MEM",
     attended: true,
@@ -683,7 +681,7 @@ export const SEED_ATTENDANCE: ActivityAttendance[] = [
     activityId: "ACT_06",
     studentId: "SV20CN03",
     studentName: "Lâm Minh Triết",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH B",
     registeredAt: "2026-05-12",
     role: "BTC",
     attended: true,
@@ -695,8 +693,8 @@ export const SEED_EVIDENCE: EvidenceSubmission[] = [
   {
     id: "EV_01",
     studentId: "DTG245140202053",
-    studentName: "Nguyễn Văn An",
-    classId: "K20-CNTT",
+    studentName: "Ma Văn Long",
+    classId: "K2-GDTH A",
     criteriaId: "TC4.1",
     activityName: "Tuyên truyền hiến máu ngoài Nhà trường",
     description: "Có tham gia hỗ trợ Ban vận động hiến máu Thành phố Hà Giang vận động hiên máu nhân đạo ngày chủ nhật xanh.",
@@ -709,7 +707,7 @@ export const SEED_EVIDENCE: EvidenceSubmission[] = [
     id: "EV_02",
     studentId: "SV20CN02",
     studentName: "Phan Thị Bình",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     criteriaId: "TC4.1",
     activityName: "Chiến dịch Môi trường xanh Khu phố",
     description: "Giấy xác nhận tham gia dọn dẹp môi trường khu phố chống dịch sốt xuất huyết tháng 4.",
@@ -724,12 +722,12 @@ export const SEED_EVIDENCE: EvidenceSubmission[] = [
 
 export const SEED_CLASS_REVIEW: ClassReviewState[] = [
   {
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     representativeApproved: false,
     adviserApproved: false
   },
   {
-    classId: "K20-TA",
+    classId: "K2-GDTH B",
     representativeApproved: true,
     representativeApprovedAt: "2026-05-19",
     adviserApproved: true,
@@ -755,9 +753,9 @@ export const SEED_FACULTY_REVIEW: FacultyReviewState[] = [
 export const SEED_RESULTS: EvaluationResult[] = [
   {
     studentId: "DTG245140202053",
-    studentName: "Nguyễn Văn An",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
+    studentName: "Ma Văn Long",
+    classId: "K2-GDTH A",
+    facultyId: "K-GDTH",
     periodId: "HOCKY_2_2025_2026",
     studyPoints: 18, // GPA = 3.42 (TC1.2 +18đ)
     violationPoints: 25, // No violation
@@ -778,8 +776,8 @@ export const SEED_RESULTS: EvaluationResult[] = [
   {
     studentId: "SV20CN02",
     studentName: "Phan Thị Bình",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
+    classId: "K2-GDTH A",
+    facultyId: "K-GDTH",
     periodId: "HOCKY_2_2025_2026",
     studyPoints: 10, // GPA 2.15 -> Trung bình (+10đ)
     violationPoints: 23, // Trực muộn (-2đ) -> 23đ
@@ -800,14 +798,14 @@ export const SEED_RESULTS: EvaluationResult[] = [
   {
     studentId: "SV20CN03",
     studentName: "Lâm Minh Triết",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
+    classId: "K2-GDTH B",
+    facultyId: "K-GDTH",
     periodId: "HOCKY_2_2025_2026",
     studyPoints: 20, // GPA 3.82 -> Xuất sắc (+20đ)
     violationPoints: 25, // No violation
     extracurricularPoints: 18, // CLB Unitech Leader (+10đ) + BTC Hackathon (+8đ) = 18đ
     communityPoints: 5, // BCS trực tuần lớp (+5đ)
-    achievementPoints: 10, // Lớp trưởng K20-CNTT (+10đ)
+    achievementPoints: 10, // Lớp trưởng K2-GDTH B (+10đ)
     totalPoints: 78,
     grade: "TỐT",
     status: "AUTO",
@@ -817,14 +815,14 @@ export const SEED_RESULTS: EvaluationResult[] = [
       { criteriaId: "TC3.3", points: 10, reason: "Chủ nhiệm CLB Sáng tạo Công nghệ UniTech", source: "CLB_ATTENDANCE", timestamp: "2026-05-10" },
       { criteriaId: "TC3.2", points: 8, reason: "Vai trò Ban tổ chức: Hackathon Sáng Tạo Trẻ UniHub 2026", source: "CLB_ATTENDANCE", timestamp: "2026-05-12" },
       { criteriaId: "TC4.2", points: 5, reason: "Ban cán sự lớp xác nhận: Tự đóng góp giữ vững nề nếp học tập", source: "BCS_DUYỆT", timestamp: "2026-05-15" },
-      { criteriaId: "TC5.1", points: 10, reason: "Đảm trách Lớp trưởng điều hành lớp K20-CNTT", source: "BCS_DUYỆT", timestamp: "2026-05-15" }
+      { criteriaId: "TC5.1", points: 10, reason: "Đảm trách Lớp trưởng điều hành lớp K2-GDTH B", source: "BCS_DUYỆT", timestamp: "2026-05-15" }
     ]
   },
   {
     studentId: "SV20CN04",
     studentName: "Vũ Đăng Khoa",
-    classId: "K20-CNTT",
-    facultyId: "K-CNTT",
+    classId: "K2-GDTH B",
+    facultyId: "K-GDTH",
     periodId: "HOCKY_2_2025_2026",
     studyPoints: 5,  // GPA 1.48 (Học lực yếu + Trung bình = +10đ - Cảnh báo 5đ = 5đ)
     violationPoints: 15, // Cảnh báo phòng đào tạo hoặc sự cố kiểm tra (-10đ) = 15đ
@@ -842,22 +840,22 @@ export const SEED_RESULTS: EvaluationResult[] = [
   {
     studentId: "SV20NL01",
     studentName: "Nông Văn Mạnh",
-    classId: "K20-TA",
-    facultyId: "K-TA",
+    classId: "K3-GDTH G",
+    facultyId: "K-GDTH",
     periodId: "HOCKY_2_2025_2026",
     studyPoints: 15, // GPA 3.10 -> Khá (+15đ)
     violationPoints: 25,
     extracurricularPoints: 0,
     communityPoints: 5,
-    achievementPoints: 10, // Lớp trưởng K20-TA (+10đ)
+    achievementPoints: 10, // Lớp trưởng K3-GDTH G (+10đ)
     totalPoints: 55,
     grade: "TRUNG BÌNH",
-    status: "LOCKED", // Locked under class K20-TA and faculty K-TA
+    status: "LOCKED", // Locked under class K3-GDTH G and faculty K-GDTH
     logs: [
       { criteriaId: "TC1.3", points: 15, reason: "Phòng Đào tạo: GPA đạt 3.10", source: "ĐÀO TẠO", timestamp: "2026-05-19" },
       { criteriaId: "TC2.0", points: 25, reason: "Không ghi nhận vi phạm kỷ luật nội quy", source: "ĐÀO TẠO", timestamp: "2026-05-19" },
       { criteriaId: "TC4.2", points: 5, reason: "Tự hoàn thành nhiệm vụ quản nề nếp chung lớp", source: "BCS_DUYỆT", timestamp: "2026-05-19" },
-      { criteriaId: "TC5.1", points: 10, reason: "Đảm trách Lớp trưởng điều hành lớp K20-TA", source: "BCS_DUYỆT", timestamp: "2026-05-19" }
+      { criteriaId: "TC5.1", points: 10, reason: "Đảm trách Lớp trưởng điều hành lớp K3-GDTH G", source: "BCS_DUYỆT", timestamp: "2026-05-19" }
     ]
   }
 ];
@@ -865,7 +863,7 @@ export const SEED_RESULTS: EvaluationResult[] = [
 export const SEED_DAILY_ATTENDANCE: DailyAttendanceReport[] = [
   {
     id: "DAR_1",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     date: "2026-05-24",
     totalStudents: 5,
     presentCount: 4,
@@ -878,7 +876,7 @@ export const SEED_DAILY_ATTENDANCE: DailyAttendanceReport[] = [
   },
   {
     id: "DAR_2",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     date: "2026-05-23",
     totalStudents: 5,
     presentCount: 3,
@@ -892,7 +890,7 @@ export const SEED_DAILY_ATTENDANCE: DailyAttendanceReport[] = [
   },
   {
     id: "DAR_3",
-    classId: "K20-TA",
+    classId: "K2-GDTH B",
     date: "2026-05-24",
     totalStudents: 1,
     presentCount: 1,
@@ -903,7 +901,7 @@ export const SEED_DAILY_ATTENDANCE: DailyAttendanceReport[] = [
   },
   {
     id: "DAR_4",
-    classId: "K20-TA",
+    classId: "K2-GDTH B",
     date: "2026-05-23",
     totalStudents: 1,
     presentCount: 1,
@@ -917,8 +915,8 @@ export const SEED_DAILY_ATTENDANCE: DailyAttendanceReport[] = [
 export const SEED_SCHEDULES: ScheduleSlot[] = [
   {
     id: "SCH_01",
-    classId: "K20-CNTT",
-    className: "K20 Công nghệ thông tin",
+    classId: "K2-GDTH B",
+    className: "K2-GDTH B",
     subjectName: "Lập trình Web",
     subjectCode: "CNTT201",
     credits: 3,
@@ -929,14 +927,18 @@ export const SEED_SCHEDULES: ScheduleSlot[] = [
     periodEnd: 3,
     room: "Phòng 302 - Nhà A",
     semester: "II",
+    semesterId: "HOCKY_2_2025_2026",
+    weekRange: "1-15",
+    startWeek: 1,
+    endWeek: 15,
     academicYear: "2025-2026",
     studyMode: "Trực tiếp",
     colorHex: "#4F46E5"
   },
   {
     id: "SCH_02",
-    classId: "K20-CNTT",
-    className: "K20 Công nghệ thông tin",
+    classId: "K2-GDTH B",
+    className: "K2-GDTH B",
     subjectName: "Cơ sở dữ liệu",
     subjectCode: "CNTT202",
     credits: 3,
@@ -947,14 +949,18 @@ export const SEED_SCHEDULES: ScheduleSlot[] = [
     periodEnd: 6,
     room: "Phòng 102 - Nhà B",
     semester: "II",
+    semesterId: "HOCKY_2_2025_2026",
+    weekRange: "1-15",
+    startWeek: 1,
+    endWeek: 15,
     academicYear: "2025-2026",
     studyMode: "Trực tiếp",
     colorHex: "#0EA5E9"
   },
   {
     id: "SCH_03",
-    classId: "K20-CNTT",
-    className: "K20 Công nghệ thông tin",
+    classId: "K2-GDTH B",
+    className: "K2-GDTH B",
     subjectName: "Cấu trúc dữ liệu",
     subjectCode: "CNTT203",
     credits: 4,
@@ -965,13 +971,17 @@ export const SEED_SCHEDULES: ScheduleSlot[] = [
     periodEnd: 2,
     room: "Lab 3 - Nhà C",
     semester: "II",
+    semesterId: "HOCKY_2_2025_2026",
+    weekRange: "1-15",
+    startWeek: 1,
+    endWeek: 15,
     academicYear: "2025-2026",
     studyMode: "Trực tiếp",
     colorHex: "#10B981"
   },
   {
     id: "SCH_04",
-    classId: "K2-GDTH-A",
+    classId: "K2-GDTH A",
     className: "K2 GDTH A",
     subjectName: "Phương pháp dạy học Toán",
     subjectCode: "GDTH204",
@@ -983,13 +993,17 @@ export const SEED_SCHEDULES: ScheduleSlot[] = [
     periodEnd: 3,
     room: "Phòng 201 - Nhà B",
     semester: "II",
+    semesterId: "HOCKY_2_2025_2026",
+    weekRange: "1-15",
+    startWeek: 1,
+    endWeek: 15,
     academicYear: "2025-2026",
     studyMode: "Trực tiếp",
     colorHex: "#F59E0B"
   },
   {
     id: "SCH_05",
-    classId: "K2-GDTH-A",
+    classId: "K2-GDTH A",
     className: "K2 GDTH A",
     subjectName: "Tâm lý học tiểu học",
     subjectCode: "GDTH205",
@@ -1001,6 +1015,10 @@ export const SEED_SCHEDULES: ScheduleSlot[] = [
     periodEnd: 6,
     room: "Phòng 105 - Nhà C",
     semester: "II",
+    semesterId: "HOCKY_2_2025_2026",
+    weekRange: "1-15",
+    startWeek: 1,
+    endWeek: 15,
     academicYear: "2025-2026",
     studyMode: "Trực tiếp",
     colorHex: "#EC4899"
@@ -1010,7 +1028,7 @@ export const SEED_SCHEDULES: ScheduleSlot[] = [
 export const SEED_GROUP_ATTENDANCE: GroupAttendanceReport[] = [
   {
     id: "GR_ATT_01",
-    classId: "K20-CNTT",
+    classId: "K2-GDTH A",
     groupName: "Tổ 1",
     date: new Date().toISOString().split("T")[0],
     totalStudents: 5,
@@ -1029,4 +1047,133 @@ export const SEED_GROUP_ATTENDANCE: GroupAttendanceReport[] = [
     status: "PENDING"
   }
 ];
+
+export const SEED_TEACHER_ASSIGNMENTS: CourseClassAssignment[] = [
+  {
+    id: "HP_HOCKY_2_2025_2026_K2-GDTH-A_DFG2544",
+    semesterId: "HOCKY_2_2025_2026",
+    semesterName: "Học kỳ II - 2025-2026",
+    classId: "K2-GDTH A",
+    className: "K2-GDTH A",
+    subjectCode: "DFG2544",
+    subjectName: "Đạo đức và phương pháp dạy học Đạo đức",
+    credits: 2,
+    teacherId: "gv.nguyenminhnguyet@phhg.edu.vn",
+    teacherName: "TS. Nguyễn Minh Nguyệt",
+    status: "PENDING",
+    updatedAt: "2026-08-04"
+  },
+  {
+    id: "HP_HOCKY_2_2025_2026_K2-GDTH-A_SRT5452",
+    semesterId: "HOCKY_2_2025_2026",
+    semesterName: "Học kỳ II - 2025-2026",
+    classId: "K2-GDTH A",
+    className: "K2-GDTH A",
+    subjectCode: "SRT5452",
+    subjectName: "Lịch sử Đảng Cộng sản Việt Nam",
+    credits: 2,
+    teacherId: "gv.nguyenminhnguyet@phhg.edu.vn",
+    teacherName: "TS. Nguyễn Minh Nguyệt",
+    status: "PENDING",
+    updatedAt: "2026-08-04"
+  },
+  {
+    id: "HP_HOCKY_2_2025_2026_K2-GDTH-A_CS01",
+    semesterId: "HOCKY_2_2025_2026",
+    semesterName: "Học kỳ II - 2025-2026",
+    classId: "K2-GDTH A",
+    className: "K2-GDTH A",
+    subjectCode: "CS01",
+    subjectName: "Giáo dục hòa nhập cho học sinh Tiểu học",
+    credits: 2,
+    teacherId: "gv_vuthanhtra@phhg.edu.vn",
+    teacherName: "TS. Vũ Thanh Trà",
+    status: "PENDING",
+    updatedAt: "2026-08-04"
+  },
+  {
+    id: "HP_HOCKY_2_2025_2026_K2-GDTH-A_VPS7251",
+    semesterId: "HOCKY_2_2025_2026",
+    semesterName: "Học kỳ II - 2025-2026",
+    classId: "K2 - GDTH A",
+    className: "K2 - GDTH A",
+    subjectCode: "VPS7251",
+    subjectName: "Cơ sở Tự nhiên - xã hội",
+    credits: 4,
+    teacherId: "gv_nguyenthilieu@phhg.edu.vn",
+    teacherName: "ThS. Nguyễn Thị Liệu",
+    status: "PENDING",
+    updatedAt: "2026-08-04"
+  }
+];
+
+export const SEED_SUBJECT_GRADES: SubjectGradeSheet[] = [
+  {
+    id: "GRADE_HOCKY_2_2025_2026_K2GDTHA_VPS7251",
+    semesterId: "HOCKY_2_2025_2026",
+    classId: "K2-GDTH A",
+    subjectCode: "VPS7251",
+    subjectName: "Cơ sở Tự nhiên - xã hội",
+    credits: 4,
+    teacherId: "gvbm@phhg.edu.vn",
+    teacherName: "ThS. Ngô Văn Bình",
+    status: "DRAFT",
+    updatedAt: "2026-08-02",
+    submittedAt: "2026-08-02 10:30:00",
+    grades: [
+      {
+        studentId: "DTG2357140202099",
+        studentName: "Hoàng Hải Nam",
+        gender: "Nam",
+        dob: "2006-01-01",
+        classId: "K2-GDTH A",
+        cc: 8.0,
+        tx1: 9.0,
+        tx2: 7.5,
+        dk1: 8.0,
+        dk2: 8.0,
+        exam: 7.5,
+        tb10: 7.8,
+        tb4: 3.0,
+        diemChu: "B",
+        xepLoai: "Khá"
+      },
+      {
+        studentId: "DTG245140202002",
+        studentName: "Đỗ Thị Huyền Anh",
+        gender: "Nữ",
+        dob: "2006-03-15",
+        classId: "K2-GDTH A",
+        cc: 9.0,
+        tx1: 8.5,
+        tx2: 9.0,
+        dk1: 8.5,
+        dk2: 9.0,
+        exam: 8.5,
+        tb10: 8.7,
+        tb4: 3.5,
+        diemChu: "A",
+        xepLoai: "Giỏi"
+      },
+      {
+        studentId: "DTG245140202053",
+        studentName: "Ma Văn Long",
+        gender: "Nam",
+        dob: "2006-05-20",
+        classId: "K2-GDTH A",
+        cc: 9.5,
+        tx1: 9.0,
+        tx2: 8.5,
+        dk1: 9.0,
+        dk2: 9.5,
+        exam: 9.0,
+        tb10: 9.1,
+        tb4: 4.0,
+        diemChu: "A+",
+        xepLoai: "Xuất sắc"
+      }
+    ]
+  }
+];
+
 

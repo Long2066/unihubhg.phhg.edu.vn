@@ -5,7 +5,8 @@ import {
   doc, 
   setDoc, 
   deleteDoc, 
-  getDocs 
+  getDocs,
+  getDoc 
 } from "firebase/firestore";
 import { db, auth, firebaseConfig, storage } from "./firebase";
 import { 
@@ -99,7 +100,20 @@ const formatFileSize = (bytes: number) => {
 
 const normalizeClassId = (classId: string | undefined | null): string => {
   if (!classId) return "";
-  return classId.trim().toUpperCase().replace(/\s+/g, " ");
+  const str = String(classId).trim().toUpperCase().replace(/\s+/g, " ");
+  return str.replace(/^(K\d+)[-_ ]+GDTH[-_ ]+([A-Z0-9]+)$/i, "$1-GDTH $2");
+};
+
+const sanitizeForFirestore = <T extends Record<string, any>>(obj: T): T => {
+  if (!obj || typeof obj !== "object") return obj;
+  const clean: Record<string, any> = {};
+  Object.keys(obj).forEach(key => {
+    if (key === "password") return;
+    if (obj[key] !== undefined && obj[key] !== null) {
+      clean[key] = obj[key];
+    }
+  });
+  return clean as T;
 };
 
 const getJsonSizeBytes = (value: unknown) => {
@@ -797,6 +811,7 @@ export default function App() {
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [systemFeedbacks, setSystemFeedbacks] = useState<SystemFeedback[]>([]);
   const [teacherAssignments, setTeacherAssignments] = useState<CourseClassAssignment[]>(SEED_TEACHER_ASSIGNMENTS);
+  const [deletedClasses, setDeletedClasses] = useState<string[]>([]);
 
   // Feedback tab search & filters state
   const [feedbackSearch, setFeedbackSearch] = useState("");
@@ -860,7 +875,25 @@ export default function App() {
     setLoading(true);
     setStatusMessage("Đang đồng bộ dữ liệu từ Firestore...");
 
+    let cachedDeletedClasses: string[] = [];
+
     const unsubscribes = [
+      onSnapshot(doc(db, "settings", "deletedClasses"), (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          const serverDeleted: string[] = Array.isArray(data?.classes) ? data.classes.map((c: string) => normalizeClassId(c)) : [];
+          cachedDeletedClasses = serverDeleted;
+          setDeletedClasses(serverDeleted);
+          if (serverDeleted.length > 0) {
+            setStudents(prev => prev.filter(s => !serverDeleted.includes(normalizeClassId(s.classId))));
+            setSchedules(prev => prev.filter(s => !serverDeleted.includes(normalizeClassId(s.classId))));
+            setTeacherAssignments(prev => prev.filter(ta => !serverDeleted.includes(normalizeClassId(ta.classId))));
+            setResults(prev => prev.filter(r => !serverDeleted.includes(normalizeClassId(r.classId))));
+            setDailyAttendance(prev => prev.filter(da => !serverDeleted.includes(normalizeClassId(da.classId))));
+          }
+        }
+      }),
+
       onSnapshot(collection(db, "users"), (snap) => {
         setIsFirebaseConnected(true);
         const list: UserAccount[] = [];
@@ -877,7 +910,12 @@ export default function App() {
 
       onSnapshot(collection(db, "students"), (snap) => {
         const list: Student[] = [];
-        snap.forEach(d => list.push(d.data() as Student));
+        snap.forEach(d => {
+          const s = d.data() as Student;
+          if (!cachedDeletedClasses.includes(normalizeClassId(s.classId))) {
+            list.push(s);
+          }
+        });
         setStudents(list);
       }),
 
@@ -909,7 +947,12 @@ export default function App() {
 
       onSnapshot(collection(db, "results"), (snap) => {
         const list: EvaluationResult[] = [];
-        snap.forEach(d => list.push(d.data() as EvaluationResult));
+        snap.forEach(d => {
+          const r = d.data() as EvaluationResult;
+          if (!cachedDeletedClasses.includes(normalizeClassId(r.classId))) {
+            list.push(r);
+          }
+        });
         setResults(list);
       }),
 
@@ -921,27 +964,35 @@ export default function App() {
 
       onSnapshot(collection(db, "dailyAttendance"), (snap) => {
         const list: DailyAttendanceReport[] = [];
-        snap.forEach(d => list.push(d.data() as DailyAttendanceReport));
+        snap.forEach(d => {
+          const da = d.data() as DailyAttendanceReport;
+          if (!cachedDeletedClasses.includes(normalizeClassId(da.classId))) {
+            list.push(da);
+          }
+        });
         setDailyAttendance(list);
       }),
 
       onSnapshot(collection(db, "schedules"), (snap) => {
         const list: ScheduleSlot[] = [];
-        snap.forEach(d => list.push(d.data() as ScheduleSlot));
+        snap.forEach(d => {
+          const sc = d.data() as ScheduleSlot;
+          if (!cachedDeletedClasses.includes(normalizeClassId(sc.classId))) {
+            list.push(sc);
+          }
+        });
         setSchedules(list);
       }),
 
       onSnapshot(collection(db, "teacherAssignments"), (snap) => {
         const list: CourseClassAssignment[] = [];
-        snap.forEach(d => list.push(d.data() as CourseClassAssignment));
-        if (list.length > 0) {
-          setTeacherAssignments(list);
-        } else {
-          setTeacherAssignments(SEED_TEACHER_ASSIGNMENTS);
-          SEED_TEACHER_ASSIGNMENTS.forEach(ta => {
-            setDoc(doc(db, "teacherAssignments", ta.id), ta, { merge: true }).catch(() => {});
-          });
-        }
+        snap.forEach(d => {
+          const ta = d.data() as CourseClassAssignment;
+          if (!cachedDeletedClasses.includes(normalizeClassId(ta.classId))) {
+            list.push(ta);
+          }
+        });
+        setTeacherAssignments(list);
       }),
 
       onSnapshot(collection(db, "members"), (snap) => {
@@ -1214,19 +1265,16 @@ export default function App() {
         userData.monitorTitle = userForm.monitorTitle;
       }
 
+      const firestoreUser = sanitizeForFirestore(userData);
       if (selectedUser) {
         // === EDITING existing user ===
-        userData.id = selectedUser.id;
-        await setDoc(doc(db, "users", selectedUser.id), userData, { merge: true });
+        firestoreUser.id = selectedUser.id;
+        await setDoc(doc(db, "users", selectedUser.id), firestoreUser, { merge: true });
       } else {
         // === CREATING new user ===
         const targetDocId = cleanEmail || `U_GEN_${Date.now()}`;
-        userData.id = targetDocId;
-        await setDoc(doc(db, "users", targetDocId), userData);
-      }
-
-      if (userForm.role === UserRole.STUDENT && resolvedTargetId) {
-        await setDoc(doc(db, "students", resolvedTargetId), { password: targetPassword }, { merge: true });
+        firestoreUser.id = targetDocId;
+        await setDoc(doc(db, "users", targetDocId), firestoreUser);
       }
 
       // Auto-upsert matching Organization document for org accounts so CTHSSV portal renders it
@@ -1510,25 +1558,60 @@ export default function App() {
     setStatusMessage("Đang đồng bộ dữ liệu mẫu cơ bản...");
 
     try {
+      // Fetch latest deleted classes before applying seeds
+      let activeDeletedClasses = deletedClasses;
+      try {
+        const delSnap = await getDoc(doc(db, "settings", "deletedClasses"));
+        if (delSnap.exists()) {
+          const dData = delSnap.data();
+          if (Array.isArray(dData?.classes)) {
+            activeDeletedClasses = dData.classes.map((c: string) => normalizeClassId(c));
+          }
+        }
+      } catch {}
+
       // Upsert baseline Seeds safely with merge: true so user-created records are preserved
       for (const u of SEED_USERS) {
+        if (u.targetId && activeDeletedClasses.includes(normalizeClassId(u.targetId))) continue;
         const { password: _pw, ...cleanUser } = u as any;
         await setDoc(doc(db, "users", u.id), cleanUser, { merge: true });
       }
-      for (const s of SEED_STUDENTS) await setDoc(doc(db, "students", s.id), s, { merge: true });
+      for (const s of SEED_STUDENTS) {
+        if (activeDeletedClasses.includes(normalizeClassId(s.classId))) continue;
+        await setDoc(doc(db, "students", s.id), s, { merge: true });
+      }
       for (const o of SEED_ORGANIZATIONS) await setDoc(doc(db, "organizations", o.id), o, { merge: true });
       for (const c of SEED_CRITERIA) await setDoc(doc(db, "criteria", c.id), c, { merge: true });
       for (const a of SEED_ACTIVITIES) await setDoc(doc(db, "activities", a.id), a, { merge: true });
-      for (const att of SEED_ATTENDANCE) await setDoc(doc(db, "attendance", att.id), att, { merge: true });
-      for (const ev of SEED_EVIDENCE) await setDoc(doc(db, "evidence", ev.id), ev, { merge: true });
+      for (const att of SEED_ATTENDANCE) {
+        if (att.classId && activeDeletedClasses.includes(normalizeClassId(att.classId))) continue;
+        await setDoc(doc(db, "attendance", att.id), att, { merge: true });
+      }
+      for (const ev of SEED_EVIDENCE) {
+        if (ev.classId && activeDeletedClasses.includes(normalizeClassId(ev.classId))) continue;
+        await setDoc(doc(db, "evidence", ev.id), ev, { merge: true });
+      }
       for (const r of SEED_RESULTS) {
+        if (activeDeletedClasses.includes(normalizeClassId(r.classId))) continue;
         const docId = `${r.studentId}_${r.periodId}`;
         await setDoc(doc(db, "results", docId), r, { merge: true });
       }
-      for (const da of SEED_DAILY_ATTENDANCE) await setDoc(doc(db, "dailyAttendance", da.id), da, { merge: true });
-      for (const sc of SEED_SCHEDULES) await setDoc(doc(db, "schedules", sc.id), sc, { merge: true });
-      for (const m of SEED_MEMBERS) await setDoc(doc(db, "members", m.id), m, { merge: true });
-      for (const ta of SEED_TEACHER_ASSIGNMENTS) await setDoc(doc(db, "teacherAssignments", ta.id), ta, { merge: true });
+      for (const da of SEED_DAILY_ATTENDANCE) {
+        if (activeDeletedClasses.includes(normalizeClassId(da.classId))) continue;
+        await setDoc(doc(db, "dailyAttendance", da.id), da, { merge: true });
+      }
+      for (const sc of SEED_SCHEDULES) {
+        if (activeDeletedClasses.includes(normalizeClassId(sc.classId))) continue;
+        await setDoc(doc(db, "schedules", sc.id), sc, { merge: true });
+      }
+      for (const m of SEED_MEMBERS) {
+        if (m.classId && activeDeletedClasses.includes(normalizeClassId(m.classId))) continue;
+        await setDoc(doc(db, "members", m.id), m, { merge: true });
+      }
+      for (const ta of SEED_TEACHER_ASSIGNMENTS) {
+        if (activeDeletedClasses.includes(normalizeClassId(ta.classId))) continue;
+        await setDoc(doc(db, "teacherAssignments", ta.id), ta, { merge: true });
+      }
 
       // Add default super admin account
       const superadminAccount: UserAccount = {

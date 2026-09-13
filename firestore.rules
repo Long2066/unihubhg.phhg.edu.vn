@@ -32,7 +32,10 @@ service cloud.firestore {
     function isSuperAdmin() {
       return isSignedIn() && (
         request.auth.token.email == "superadmin@unihub.edu.vn" ||
-        request.auth.token.email == "admin@phhg.edu.vn"
+        request.auth.token.email == "admin@phhg.edu.vn" ||
+        request.auth.token.email == "cthssv@phhg.edu.vn" ||
+        request.auth.token.email == "admin@unihub.edu.vn" ||
+        request.auth.token.email == "pcthssv@hg.edu.vn"
       );
     }
 
@@ -176,7 +179,7 @@ service cloud.firestore {
         && data.achievementPoints is number
         && data.totalPoints is number
         && data.grade is string && (data.grade == 'XUẤT SẮC' || data.grade == 'TỐT' || data.grade == 'KHÁ' || data.grade == 'TRUNG BÌNH' || data.grade == 'YẾU' || data.grade == 'KÉM')
-        && data.status is string && (data.status == 'AUTO' || data.status == 'PENDING_CLASS' || data.status == 'APPROVED_CLASS' || data.status == 'APPROVED_ADVISER' || data.status == 'LOCKED');
+        && data.status is string && (data.status == 'AUTO' || data.status == 'PENDING_CLASS' || data.status == 'APPROVED_CLASS' || data.status == 'APPROVED_ADVISER' || data.status == 'APPROVED_FACULTY' || data.status == 'APPROVED_ADMIN' || data.status == 'LOCKED');
     }
 
     function isValidDailyAttendanceReport(data) {

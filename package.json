@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --port=4000 --host=0.0.0.0",
     "dev:main": "vite --port=4000 --host=0.0.0.0",
-    "dev:admin": "vite --port=4001 --host=0.0.0.0",
+    "dev:admin": "npm --prefix unihub-admin run dev",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
