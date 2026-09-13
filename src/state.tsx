@@ -351,12 +351,23 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return str;
     };
 
+    const cachedDeleted = localStorage.getItem("unihub_deleted_classes");
+    let deletedClassList: string[] = [];
+    if (cachedDeleted) {
+      try {
+        const parsed = JSON.parse(cachedDeleted);
+        if (Array.isArray(parsed)) deletedClassList = parsed.map(c => normalizeClassId(c));
+      } catch {}
+    }
+
     const cached = localStorage.getItem("unihub_students");
-    let list: Student[] = SEED_STUDENTS;
+    let list: Student[] = SEED_STUDENTS.filter(s => !deletedClassList.includes(normalizeClassId(s.classId)));
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) list = parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          list = parsed.filter(s => !deletedClassList.includes(normalizeClassId(s.classId)));
+        }
       } catch {}
     }
     return list.map((s: Student) => {
@@ -1555,11 +1566,25 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // 2. Get Students
       const studsSnap = await getDocs(collection(db, "students"));
       if (!studsSnap.empty) {
+        let deletedClassList: string[] = [];
+        try {
+          const cachedDeleted = localStorage.getItem("unihub_deleted_classes");
+          if (cachedDeleted) {
+            const parsed = JSON.parse(cachedDeleted);
+            if (Array.isArray(parsed)) deletedClassList = parsed.map(c => normalizeClassId(c));
+          }
+        } catch {}
         const list: Student[] = [];
-        studsSnap.forEach(d => list.push(d.data() as Student));
+        studsSnap.forEach(d => {
+          const s = d.data() as Student;
+          if (!deletedClassList.includes(normalizeClassId(s.classId))) {
+            list.push(s);
+          }
+        });
         const merged = smartMerge(list, "unihub_students", s => s.id);
-        setStudents(merged);
-        localStorage.setItem("unihub_students_backup", JSON.stringify(merged));
+        const filteredMerged = merged.filter(s => !deletedClassList.includes(normalizeClassId(s.classId)));
+        setStudents(filteredMerged);
+        localStorage.setItem("unihub_students_backup", JSON.stringify(filteredMerged));
       }
 
       // 3. Get Organizations
@@ -4952,6 +4977,23 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveToStorage("unihub_custom_classes", updatedCustom);
 
     const deletedStudentIds = new Set(students.filter(s => normalizeClassId(s.classId) === norm).map(s => s.id));
+    students.filter(s => normalizeClassId(s.classId) === norm).forEach(s => {
+      if (db && s.id) deleteDoc(doc(db, "students", s.id)).catch(() => {});
+    });
+    users.filter(u => u.role === UserRole.STUDENT && deletedStudentIds.has(u.targetId)).forEach(u => {
+      if (db && u.id) deleteDoc(doc(db, "users", u.id)).catch(() => {});
+    });
+    results.filter(r => deletedStudentIds.has(r.studentId)).forEach(r => {
+      if (db) {
+        deleteDoc(doc(db, "results", `${r.studentId}_${r.periodId}`)).catch(() => {});
+      }
+    });
+    try {
+      const c = localStorage.getItem("unihub_deleted_classes");
+      const currentDeleted: string[] = c ? JSON.parse(c) : [];
+      const nextDeleted = Array.from(new Set([...currentDeleted, norm]));
+      localStorage.setItem("unihub_deleted_classes", JSON.stringify(nextDeleted));
+    } catch {}
     const updatedStudents = students.filter(s => normalizeClassId(s.classId) !== norm);
     setStudents(updatedStudents);
     saveToStorage("unihub_students", updatedStudents);
