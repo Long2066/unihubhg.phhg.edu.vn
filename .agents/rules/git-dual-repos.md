@@ -12,8 +12,14 @@ Dự án này bao gồm 2 Repository Git độc lập:
    - Remote: `https://github.com/Long2066/admin-unihubhg-phhg`
    - Vercel URL: `unihub-admin.vercel.app`
 
-## Quy tắc bắt buộc:
-- Khi thực hiện thay đổi code liên quan đến cả 2 portal (hoặc khi build/deploy), **BẮT BUỘC** phải chuyển tới từng thư mục repo tương ứng để commit và push lên cả 2 Git Repositories riêng biệt:
-  1. `unihubhg` root -> `git add .` -> `git commit` -> `git push`
-  2. `unihub-admin` subfolder -> `git add .` -> `git commit` -> `git push`
-- Tuyệt đối không quên push repo `unihub-admin` để tránh Vercel admin bị bỏ sót bản build mới.
+## Quy tắc bắt buộc khi Deploy:
+1. **Đồng bộ cả Web PC và Mobile**:
+   - Mọi lần deploy phải đảm bảo phiên bản mới hiển thị đồng thời trên cả trình duyệt Web PC lẫn thiết bị di động (Mobile).
+   - Tệp `vercel.json` ở cả 2 dự án phải cấu hình `Cache-Control: public, max-age=0, must-revalidate` cho tài liệu HTML để trình duyệt di động (Safari iOS, Chrome Android, Zalo browser) không lưu cache cũ và lập tức tải bản cập nhật mới nhất.
+   - Các tài nguyên băm `/assets/*` sử dụng `Cache-Control: public, max-age=31536000, immutable`.
+
+2. **Đồng bộ cả 2 Repository Git**:
+   - Khi thực hiện thay đổi code hoặc deploy, **BẮT BUỘC** phải commit và push lên cả 2 Git Repositories:
+     - `unihubhg` (root): `git add -A && git commit -m "..." && git push origin main`
+     - `unihub-admin` (sub-repo): `git -C unihub-admin add -A && git -C unihub-admin commit -m "..." && git -C unihub-admin push origin main`
+   - Tuyệt đối không được bỏ sót `unihub-admin` để cả 2 hệ thống trên Vercel luôn cùng phiên bản.
