@@ -572,5 +572,34 @@ service cloud.firestore {
       allow read, write: if isVerifiedUser() && (hasRole('ADMIN') || isSuperAdmin() || hasRole('TRAINING_DEPT'));
     }
 
+    // Grade audit logs: only ADMIN, TRAINING_DEPT, TEACHER can access
+    match /gradeAuditLogs/{logId} {
+      allow read: if isVerifiedUser() && (hasRole('ADMIN') || isSuperAdmin() || hasRole('TRAINING_DEPT') || hasRole('TEACHER'));
+      allow write: if isVerifiedUser() && (hasRole('ADMIN') || isSuperAdmin() || hasRole('TRAINING_DEPT') || hasRole('TEACHER'));
+    }
+
+    // User notification states: each user can only access their own document
+    match /userNotificationStates/{userId} {
+      allow read, write: if isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    // Module Đăng ký Tín chỉ (Credit Registration)
+    match /registrationPeriods/{periodId} {
+      allow read: if true;
+      allow write: if isVerifiedUser() && (hasRole('ADMIN') || isSuperAdmin() || hasRole('TRAINING_DEPT'));
+    }
+
+    match /courseOfferings/{offeringId} {
+      allow read: if true;
+      allow write: if isVerifiedUser() && (hasRole('ADMIN') || isSuperAdmin() || hasRole('TRAINING_DEPT'));
+    }
+
+    match /creditEnrollments/{enrollmentId} {
+      allow read: if isVerifiedUser();
+      allow write: if isVerifiedUser();
+    }
+
+
+
   }
 }

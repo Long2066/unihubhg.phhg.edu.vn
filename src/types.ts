@@ -699,4 +699,58 @@ export interface RecycleBinItem {
   };
 }
 
+/** Đợt đăng ký tín chỉ học kỳ */
+export interface RegistrationPeriod {
+  id: string;                    // e.g. "REGPERIOD_HOCKY_2_2025_2026"
+  semesterId: string;            // FK: "HOCKY_2_2025_2026"
+  name: string;                  // "Đăng ký tín chỉ HK II năm 2025-2026"
+  startDate: string;             // ISO 8601
+  endDate: string;               // ISO 8601
+  status: "UPCOMING" | "OPEN" | "CLOSED";
+  maxCreditsPerStudent: number;  // Giới hạn tín chỉ tối đa
+  minCreditsPerStudent: number;  // Giới hạn tín chỉ tối thiểu
+  instructions?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Môn học mở đăng ký tín chỉ */
+export interface CourseOffering {
+  id: string;                    // e.g. "OFFERING_HOCKY_2_2025_VPS7251"
+  periodId: string;              // FK: RegistrationPeriod.id
+  semesterId: string;            // FK: "HOCKY_2_2025_2026"
+  subjectCode: string;           // Mã HP: "VPS7251"
+  subjectName: string;           // Tên học phần
+  credits: number;               // Số tín chỉ
+  teacherId?: string;            // Mã/Email GV
+  teacherName: string;           // Họ tên GV
+  targetClasses?: string[];      // Lớp áp dụng (rỗng = tất cả)
+  targetYears?: number[];        // Năm học áp dụng (1, 2, 3, 4)
+  isActive: boolean;
+  notes?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Bản ghi sinh viên đăng ký môn tín chỉ */
+export interface CreditEnrollment {
+  id: string;                    // e.g. "ENROLL_DTG001_HOCKY_2_2025_VPS7251"
+  periodId: string;              // FK: RegistrationPeriod.id
+  semesterId: string;            // FK: "HOCKY_2_2025_2026"
+  offeringId: string;            // FK: CourseOffering.id
+  studentId: string;             // Mã SV
+  studentName: string;
+  classId: string;
+  subjectCode: string;
+  subjectName: string;
+  credits: number;
+  teacherName: string;
+  registeredAt: string;
+  registeredBy: "STUDENT" | "TRAINING_DEPT" | "ADMIN";
+  isActive: boolean;
+}
+
+
 

@@ -924,6 +924,7 @@ const AppContent: React.FC = () => {
         return [
           { id: "TRANG_CHU", label: "Trang chủ", icon: Home },
           { id: "DIEM", label: "Điểm số", icon: Award },
+          { id: "DANG_KY_TIN_CHI", label: "Đăng ký tín chỉ", icon: BookOpen },
           { id: "THOI_KHOA_BIEU", label: "Thời khóa biểu", icon: Clock },
           { id: "HOATDONG", label: "Sự kiện & ngoại khóa", icon: Calendar },
           { id: "CLB", label: "Câu lạc bộ", icon: Users },
@@ -943,6 +944,7 @@ const AppContent: React.FC = () => {
       case UserRole.TRAINING_DEPT:
         return [
           { id: "IMPORT", label: "Nạp & Tổng Hợp Điểm HK", icon: FileSpreadsheet },
+          { id: "DANG_KY_TIN_CHI", label: "Đăng Ký Tín Chỉ", icon: BookOpen },
           { id: "TEACHER_ASSIGNMENTS", label: "Phân Công Giảng Dạy", icon: Users },
           { id: "UNLOCK_REQUESTS", label: "Duyệt Mở Khóa Điểm", icon: Lock },
           { id: "GRADE_APPEALS", label: "Xử Lý Phúc Khảo", icon: Bell },

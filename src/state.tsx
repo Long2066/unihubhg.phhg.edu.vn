@@ -52,7 +52,10 @@ import {
   GradeAppeal,
   GradeAuditLog,
   GradingRulesConfig,
-  RecycleBinItem
+  RecycleBinItem,
+  RegistrationPeriod,
+  CourseOffering,
+  CreditEnrollment
 } from "./types";
 import { 
   SEED_PERIOD, 
@@ -211,6 +214,19 @@ interface UniHubContextType {
   restoreClassFromRecycleBin: (classId: string) => Promise<void>;
   purgeClassPermanently: (classId: string) => Promise<void>;
   syncFreshFromCloud: () => Promise<void>;
+
+  // Credit Registration
+  registrationPeriods: RegistrationPeriod[];
+  courseOfferings: CourseOffering[];
+  creditEnrollments: CreditEnrollment[];
+  saveRegistrationPeriod: (period: RegistrationPeriod) => Promise<void>;
+  deleteRegistrationPeriod: (id: string) => Promise<void>;
+  toggleRegistrationPeriodStatus: (id: string, newStatus: "UPCOMING" | "OPEN" | "CLOSED") => Promise<void>;
+  saveCourseOffering: (offering: CourseOffering) => Promise<void>;
+  deleteCourseOffering: (id: string) => Promise<void>;
+  importCourseOfferingsExcel: (offerings: CourseOffering[]) => Promise<void>;
+  enrollCreditCourses: (studentId: string, studentName: string, classId: string, offeringIds: string[]) => Promise<{ success: boolean; message: string }>;
+  cancelCreditEnrollment: (enrollmentId: string) => Promise<void>;
 }
 
 export const normalizeClassId = (classId: string | undefined | null): string => {
@@ -557,6 +573,40 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   });
 
+  const [registrationPeriods, setRegistrationPeriods] = useState<RegistrationPeriod[]>(() => {
+    const cached = localStorage.getItem("unihub_registration_periods");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {}
+    }
+    return [];
+  });
+
+  const [courseOfferings, setCourseOfferings] = useState<CourseOffering[]>(() => {
+    const cached = localStorage.getItem("unihub_course_offerings");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {}
+    }
+    return [];
+  });
+
+  const [creditEnrollments, setCreditEnrollments] = useState<CreditEnrollment[]>(() => {
+    const cached = localStorage.getItem("unihub_credit_enrollments");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {}
+    }
+    return [];
+  });
+
+
   const persistTeacherAssignmentsToFirestore = (assignments: (CourseClassAssignment & { teacherPassword?: string })[]) => {
     assignments.forEach(assign => {
       if (!assign?.id) return;
@@ -715,7 +765,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     provisionTeacherAccounts(validItems);
   };
 
-  const addGradeAuditLog = (log: Omit<GradeAuditLog, "id" | "timestamp">) => {
+  const addGradeAuditLog = async (log: Omit<GradeAuditLog, "id" | "timestamp">) => {
     if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT && currentUser.role !== UserRole.TEACHER)) {
       console.warn("Unauthorized attempt to add grade audit log");
       return;
@@ -732,11 +782,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       id: `LOG_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       timestamp: new Date().toISOString().replace("T", " ").substring(0, 19)
     };
-    setGradeAuditLogs(prev => {
-      const next = [item, ...prev];
-      localStorage.setItem("unihub_grade_audit_logs", JSON.stringify(next));
-      return next;
-    });
+    
+    // Save to Firestore first
+    try {
+      await setDoc(doc(db, "gradeAuditLogs", item.id), item);
+    } catch (err) {
+      console.warn("Failed to save audit log to Firestore:", err);
+    }
+    
+    // State update (listener will auto-sync)
+    setGradeAuditLogs(prev => [item, ...prev]);
   };
 
   const updateGradingRules = (rules: GradingRulesConfig) => {
@@ -1447,6 +1502,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       cacheCollection<PointCriteria>("criteria", setCriteria, items => items.sort((a, b) => a.id.localeCompare(b.id))),
       cacheCollection<ClassReviewState>("classReviews", setClassReviews),
       cacheCollection<FacultyReviewState>("facultyReviews", setFacultyReviews),
+      cacheCollection<GradeAuditLog>("gradeAuditLogs", setGradeAuditLogs, items => items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())),
+      cacheCollection<RegistrationPeriod>("registrationPeriods", setRegistrationPeriods, items => items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())),
+      cacheCollection<CourseOffering>("courseOfferings", setCourseOfferings, items => items.sort((a, b) => a.subjectCode.localeCompare(b.subjectCode))),
+      cacheCollection<CreditEnrollment>("creditEnrollments", setCreditEnrollments, items => items.sort((a, b) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime())),
       onSnapshot(
         doc(db, "settings", "period"),
         (snap) => {
@@ -1909,6 +1968,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         for (const item of data) {
           if (item?.id) await setDoc(doc(db, "gradeAppeals", item.id), item, { merge: true });
         }
+      } else if (key === "unihub_grade_audit_logs" && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.id) await setDoc(doc(db, "gradeAuditLogs", item.id), item, { merge: true });
+        }
       } else if (key === "unihub_grading_rules" && data) {
         await setDoc(doc(db, "settings", "gradingRules"), {
           ...data,
@@ -1919,6 +1982,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           classes: data,
           updatedAt: serverTimestamp()
         }, { merge: true });
+      } else if (key === "unihub_registration_periods" && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.id) await setDoc(doc(db, "registrationPeriods", item.id), sanitizeForFirestore(item), { merge: true });
+        }
+      } else if (key === "unihub_course_offerings" && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.id) await setDoc(doc(db, "courseOfferings", item.id), sanitizeForFirestore(item), { merge: true });
+        }
+      } else if (key === "unihub_credit_enrollments" && Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.id) await setDoc(doc(db, "creditEnrollments", item.id), sanitizeForFirestore(item), { merge: true });
+        }
       }
     } catch (error) {
       console.warn(`Firestore upload failed for key ${key}:`, error);
@@ -2795,12 +2870,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       throw new Error("Hoạt động chưa được lưu lên CSDL. Sinh viên sẽ chưa thấy sự kiện này. Vui lòng kiểm tra quyền tài khoản Đoàn/Hội hoặc kết nối mạng rồi thử lại.");
     }
 
-    setActivities(prev => {
-      const updated = [...prev.filter(a => a.id !== cleanAct.id), cleanAct as ExtracurricularActivity];
-      localStorage.setItem("unihub_activities", JSON.stringify(updated));
-      return updated;
-    });
-
+    // Listener (1441) will auto-sync state + localStorage
     return cleanAct.id;
   };
 
@@ -5527,6 +5597,193 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveToStorage("unihub_results", updatedResults);
   };
 
+  // ─── CREDIT REGISTRATION ACTIONS ──────────────────────────────
+  const saveRegistrationPeriod = async (regPeriod: RegistrationPeriod) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to save registration period");
+      return;
+    }
+    const cleanPeriod = sanitizeForFirestore({
+      ...regPeriod,
+      id: regPeriod.id || `REGPERIOD_${regPeriod.semesterId || Date.now()}`,
+      updatedAt: new Date().toISOString()
+    });
+    setRegistrationPeriods(prev => {
+      const idx = prev.findIndex(p => p.id === cleanPeriod.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = cleanPeriod;
+        return next;
+      }
+      return [cleanPeriod, ...prev];
+    });
+    await setDoc(doc(db, "registrationPeriods", cleanPeriod.id), cleanPeriod, { merge: true });
+  };
+
+  const deleteRegistrationPeriod = async (id: string) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to delete registration period");
+      return;
+    }
+    setRegistrationPeriods(prev => prev.filter(p => p.id !== id));
+    await deleteDoc(doc(db, "registrationPeriods", id));
+  };
+
+  const toggleRegistrationPeriodStatus = async (id: string, newStatus: "UPCOMING" | "OPEN" | "CLOSED") => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to update registration period status");
+      return;
+    }
+    setRegistrationPeriods(prev => prev.map(p => p.id === id ? { ...p, status: newStatus, updatedAt: new Date().toISOString() } : p));
+    await setDoc(doc(db, "registrationPeriods", id), {
+      status: newStatus,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  };
+
+  const saveCourseOffering = async (offering: CourseOffering) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to save course offering");
+      return;
+    }
+    const id = offering.id || `OFFERING_${offering.semesterId}_${offering.subjectCode}`;
+    const cleanOffering = sanitizeForFirestore({
+      ...offering,
+      id,
+      updatedAt: new Date().toISOString()
+    });
+    setCourseOfferings(prev => {
+      const idx = prev.findIndex(o => o.id === id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = cleanOffering;
+        return next;
+      }
+      return [...prev, cleanOffering];
+    });
+    await setDoc(doc(db, "courseOfferings", id), cleanOffering, { merge: true });
+  };
+
+  const deleteCourseOffering = async (id: string) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to delete course offering");
+      return;
+    }
+    setCourseOfferings(prev => prev.filter(o => o.id !== id));
+    await deleteDoc(doc(db, "courseOfferings", id));
+  };
+
+  const importCourseOfferingsExcel = async (offerings: CourseOffering[]) => {
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
+      console.warn("Unauthorized attempt to import course offerings");
+      return;
+    }
+    for (const off of offerings) {
+      if (!off.subjectCode || !off.subjectName) continue;
+      const id = off.id || `OFFERING_${off.semesterId}_${off.subjectCode}`;
+      const cleanOffering = sanitizeForFirestore({
+        ...off,
+        id,
+        updatedAt: new Date().toISOString()
+      });
+      await setDoc(doc(db, "courseOfferings", id), cleanOffering, { merge: true });
+    }
+  };
+
+  const enrollCreditCourses = async (
+    studentId: string,
+    studentName: string,
+    classId: string,
+    offeringIds: string[]
+  ): Promise<{ success: boolean; message: string }> => {
+    const activePeriod = registrationPeriods.find(p => p.status === "OPEN");
+    if (!activePeriod) {
+      return { success: false, message: "Hiện tại không có đợt đăng ký tín chỉ nào đang mở." };
+    }
+
+    const existingEnrollments = creditEnrollments.filter(
+      e => e.studentId === studentId && e.semesterId === activePeriod.semesterId && e.isActive
+    );
+    const existingOfferingIds = new Set(existingEnrollments.map(e => e.offeringId));
+    const targetOfferings = courseOfferings.filter(o => offeringIds.includes(o.id) && o.isActive);
+
+    const existingCredits = existingEnrollments.reduce((sum, e) => sum + (Number(e.credits) || 0), 0);
+    const newOfferings = targetOfferings.filter(o => !existingOfferingIds.has(o.id));
+    const newCredits = newOfferings.reduce((sum, o) => sum + (Number(o.credits) || 0), 0);
+    const totalCreditsAfter = existingCredits + newCredits;
+
+    if (totalCreditsAfter > activePeriod.maxCreditsPerStudent) {
+      return {
+        success: false,
+        message: `Tổng số tín chỉ sau khi đăng ký (${totalCreditsAfter} TC) vượt quá giới hạn tối đa cho phép (${activePeriod.maxCreditsPerStudent} TC).`
+      };
+    }
+
+    for (const off of newOfferings) {
+      const enrollmentId = `ENROLL_${studentId}_${activePeriod.semesterId}_${off.subjectCode}`;
+      const item: CreditEnrollment = {
+        id: enrollmentId,
+        periodId: activePeriod.id,
+        semesterId: activePeriod.semesterId,
+        offeringId: off.id,
+        studentId,
+        studentName,
+        classId: normalizeClassId(classId),
+        subjectCode: off.subjectCode,
+        subjectName: off.subjectName,
+        credits: off.credits,
+        teacherName: off.teacherName,
+        registeredAt: new Date().toISOString(),
+        registeredBy: (currentUser?.role === UserRole.STUDENT) ? "STUDENT" : "TRAINING_DEPT",
+        isActive: true
+      };
+      await setDoc(doc(db, "creditEnrollments", enrollmentId), sanitizeForFirestore(item), { merge: true });
+    }
+
+    // Tự động cập nhật số học phần đã đăng ký và danh sách lớp tín chỉ của SV
+    const targetStudent = students.find(s => s.id === studentId);
+    if (targetStudent) {
+      const allSubjCodes = Array.from(new Set([
+        ...existingEnrollments.map(e => e.subjectCode),
+        ...newOfferings.map(o => o.subjectCode)
+      ]));
+      await setDoc(doc(db, "students", targetStudent.id), {
+        registeredSubjectsCount: allSubjCodes.length,
+        creditClassesList: allSubjCodes.join(", "),
+        updatedAt: new Date().toISOString().split("T")[0]
+      }, { merge: true });
+    }
+
+    return { success: true, message: `Đã đăng ký thành công ${newOfferings.length} môn học phần (${newCredits} tín chỉ).` };
+  };
+
+  const cancelCreditEnrollment = async (enrollmentId: string) => {
+    const enrollment = creditEnrollments.find(e => e.id === enrollmentId);
+    if (!enrollment) return;
+
+    if (currentUser?.role === UserRole.STUDENT) {
+      const period = registrationPeriods.find(p => p.id === enrollment.periodId || p.semesterId === enrollment.semesterId);
+      if (!period || period.status !== "OPEN") {
+        throw new Error("Đợt đăng ký đã đóng, không thể hủy môn học này.");
+      }
+    }
+
+    await deleteDoc(doc(db, "creditEnrollments", enrollmentId));
+
+    const student = students.find(s => s.id === enrollment.studentId);
+    if (student) {
+      const remaining = creditEnrollments.filter(
+        e => e.studentId === enrollment.studentId && e.semesterId === enrollment.semesterId && e.id !== enrollmentId && e.isActive
+      );
+      const allSubjCodes = remaining.map(e => e.subjectCode);
+      await setDoc(doc(db, "students", student.id), {
+        registeredSubjectsCount: allSubjCodes.length,
+        creditClassesList: allSubjCodes.join(", "),
+        updatedAt: new Date().toISOString().split("T")[0]
+      }, { merge: true });
+    }
+  };
+
   return (
     <UniHubContext.Provider value={{
       currentUser,
@@ -5644,7 +5901,20 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       recycleBin,
       restoreClassFromRecycleBin,
       purgeClassPermanently,
-      syncFreshFromCloud
+      syncFreshFromCloud,
+
+      // Credit Registration
+      registrationPeriods,
+      courseOfferings,
+      creditEnrollments,
+      saveRegistrationPeriod,
+      deleteRegistrationPeriod,
+      toggleRegistrationPeriodStatus,
+      saveCourseOffering,
+      deleteCourseOffering,
+      importCourseOfferingsExcel,
+      enrollCreditCourses,
+      cancelCreditEnrollment
     }}>
       {children}
     </UniHubContext.Provider>

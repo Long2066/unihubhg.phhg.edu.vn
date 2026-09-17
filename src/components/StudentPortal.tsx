@@ -33,6 +33,7 @@ import {
   BookOpen,
   ShieldCheck
 } from "lucide-react";
+import { CreditRegistrationStudentView } from "./CreditRegistrationStudentView";
 
 interface PdfMakeInstance {
   vfs?: Record<string, string>;
@@ -376,8 +377,8 @@ export const StudentPortal: React.FC = () => {
   const [showTranscriptModal, setShowTranscriptModal] = useState<boolean>(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
 
-  const activeTab = (activePortletTab as "TRANG_CHU" | "DIEM" | "HOATDONG" | "CLB" | "MINHCHUNG" | "THOI_KHOA_BIEU") || "TRANG_CHU";
-  const setActiveTab = (tab: "TRANG_CHU" | "DIEM" | "HOATDONG" | "CLB" | "MINHCHUNG" | "THOI_KHOA_BIEU") => {
+  const activeTab = (activePortletTab as "TRANG_CHU" | "DIEM" | "DANG_KY_TIN_CHI" | "HOATDONG" | "CLB" | "MINHCHUNG" | "THOI_KHOA_BIEU") || "TRANG_CHU";
+  const setActiveTab = (tab: "TRANG_CHU" | "DIEM" | "DANG_KY_TIN_CHI" | "HOATDONG" | "CLB" | "MINHCHUNG" | "THOI_KHOA_BIEU") => {
     setActivePortletTab(tab);
   };
 
@@ -2114,8 +2115,15 @@ export const StudentPortal: React.FC = () => {
             </div>
           )}
 
+          {/* TAB: ĐĂNG KÝ TÍN CHỈ HỌC PHẦN */}
+          {activeTab === "DANG_KY_TIN_CHI" && (
+            <div className="p-4 sm:p-6 animate-fade-in">
+              <CreditRegistrationStudentView />
+            </div>
+          )}
+
           {/* DYNAMIC CONTENT CONTAINER WRAPPER FOR BACKEND DETAILED TABS */}
-          {activeTab !== "TRANG_CHU" && activeTab !== "DIEM" && (
+          {activeTab !== "TRANG_CHU" && activeTab !== "DIEM" && activeTab !== "DANG_KY_TIN_CHI" && (
             <div className="flex flex-col justify-between min-h-[460px] overflow-hidden">
               {/* Tab contents */}
               <div className="p-6 flex-1 overflow-y-auto max-h-[640px] custom-scrollbar">

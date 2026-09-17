@@ -36,6 +36,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { DataBackupRestoreModal } from "./DataBackupRestoreModal";
+import { CreditRegistrationTrainingView } from "./CreditRegistrationTrainingView";
 
 export const formatStudentId = (id: any) => {
   const str = String(id || "").trim();
@@ -93,8 +94,8 @@ export const TrainingPortal: React.FC = () => {
     );
   }
 
-  const activeTab = (activePortletTab as "IMPORT" | "TEACHER_ASSIGNMENTS" | "UNLOCK_REQUESTS" | "GRADE_APPEALS" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU") || "IMPORT";
-  const setActiveTab = (tab: "IMPORT" | "TEACHER_ASSIGNMENTS" | "UNLOCK_REQUESTS" | "GRADE_APPEALS" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU") => {
+  const activeTab = (activePortletTab as "IMPORT" | "DANG_KY_TIN_CHI" | "TEACHER_ASSIGNMENTS" | "UNLOCK_REQUESTS" | "GRADE_APPEALS" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU") || "IMPORT";
+  const setActiveTab = (tab: "IMPORT" | "DANG_KY_TIN_CHI" | "TEACHER_ASSIGNMENTS" | "UNLOCK_REQUESTS" | "GRADE_APPEALS" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU") => {
     setActivePortletTab(tab);
   };
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -2823,6 +2824,11 @@ export const TrainingPortal: React.FC = () => {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* TAB: CREDIT REGISTRATION */}
+          {activeTab === "DANG_KY_TIN_CHI" && (
+            <CreditRegistrationTrainingView />
           )}
 
           {/* TAB: TEACHER ASSIGNMENTS */}
