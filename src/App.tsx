@@ -58,7 +58,8 @@ const AdviserIcon = ShieldAlert;
 
 import { LoginScreen } from "./components/LoginScreen";
 const StudentPortal = lazy(() => import("./components/StudentPortal").then(module => ({ default: module.StudentPortal })));
-import studentCardTemplate from "./assets/the-sinh-vien-template.png";
+const studentCardTemplate = "/the-sinh-vien-template.png";
+import { SEED_STUDENTS } from "./data";
 const OrganizerPortal = lazy(() => import("./components/OrganizerPortal").then(module => ({ default: module.OrganizerPortal })));
 const TrainingPortal = lazy(() => import("./components/TrainingPortal").then(module => ({ default: module.TrainingPortal })));
 const ClassPortal = lazy(() => import("./components/ClassPortal").then(module => ({ default: module.ClassPortal })));
@@ -178,13 +179,26 @@ const AppContent: React.FC = () => {
       setEditName(currentUser.name);
       setEditAvatar(studentObj?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.username}`);
       
-      if (studentObj) {
-        const fields: Partial<any> = {};
-        STUDENT_FIELDS_META.forEach(f => {
-          (fields as any)[f.key] = (studentObj as any)[f.key] || "";
-        });
-        setProfileFields(fields);
-      }
+      const effectiveStudent = studentObj || SEED_STUDENTS.find(s => 
+        (currentUser.targetId && s.id === currentUser.targetId) ||
+        (currentUser.username && (s.id === currentUser.username || (s as any).code === currentUser.username)) ||
+        (currentUser.email && s.email === currentUser.email)
+      );
+
+      const fields: Partial<any> = {};
+      STUDENT_FIELDS_META.forEach(f => {
+        let val = (effectiveStudent as any)?.[f.key];
+        if (val === undefined || val === null || val === "") {
+          if (f.key === "id") val = currentUser.targetId || currentUser.username || currentUser.id;
+          if (f.key === "name") val = currentUser.name;
+          if (f.key === "email") val = currentUser.email;
+          if (f.key === "avatar") val = currentUser.avatar;
+          if (f.key === "classId") val = (currentUser as any).classId;
+          if (f.key === "facultyId") val = (currentUser as any).facultyId;
+        }
+        fields[f.key] = val || "";
+      });
+      setProfileFields(fields);
     }
   }, [currentUser, studentObj, showProfileModal]);
 
@@ -796,8 +810,29 @@ const AppContent: React.FC = () => {
   };
 
   const openProfileEditModal = () => {
-    setEditName(currentUser.name);
-    setEditAvatar(studentObj?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.username}`);
+    const effectiveStudent = studentObj || SEED_STUDENTS.find(s => 
+      (currentUser?.targetId && s.id === currentUser.targetId) ||
+      (currentUser?.username && (s.id === currentUser.username || (s as any).code === currentUser.username)) ||
+      (currentUser?.email && s.email === currentUser.email)
+    );
+    setEditName(currentUser?.name || effectiveStudent?.name || "");
+    setEditAvatar(effectiveStudent?.avatar || currentUser?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.username}`);
+    
+    const fields: Partial<any> = {};
+    STUDENT_FIELDS_META.forEach(f => {
+      let val = (effectiveStudent as any)?.[f.key];
+      if (val === undefined || val === null || val === "") {
+        if (f.key === "id") val = currentUser?.targetId || currentUser?.username || currentUser?.id;
+        if (f.key === "name") val = currentUser?.name;
+        if (f.key === "email") val = currentUser?.email;
+        if (f.key === "avatar") val = currentUser?.avatar;
+        if (f.key === "classId") val = (currentUser as any)?.classId;
+        if (f.key === "facultyId") val = (currentUser as any)?.facultyId;
+      }
+      fields[f.key] = val || "";
+    });
+    setProfileFields(fields);
+
     setEditPassword("");
     setEditOldPassword("");
     setEditPasswordConfirm("");

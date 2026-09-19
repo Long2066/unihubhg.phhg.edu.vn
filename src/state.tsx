@@ -1513,6 +1513,47 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
           list = Array.from(userMap.values()) as T[];
         }
+        if (key === "students") {
+          const studentMap = new Map<string, Student>();
+          // 1. Base seed data
+          SEED_STUDENTS.forEach(s => {
+            studentMap.set(s.id.toLowerCase().trim(), s);
+          });
+          // 2. Local storage cache
+          try {
+            const cached = localStorage.getItem("unihub_students");
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (Array.isArray(parsed)) {
+                parsed.forEach((s: Student) => {
+                  if (s.id) {
+                    const idKey = s.id.toLowerCase().trim();
+                    const existing = studentMap.get(idKey);
+                    studentMap.set(idKey, { ...existing, ...s });
+                  }
+                });
+              }
+            }
+          } catch {}
+          // 3. Firestore snapshot items override
+          for (const item of (list as any[])) {
+            const idKey = ((item.id || item.code) as string)?.toLowerCase()?.trim();
+            if (!idKey) continue;
+            const existing = studentMap.get(idKey);
+            if (!existing) {
+              studentMap.set(idKey, item);
+            } else {
+              const cleanItem: any = {};
+              Object.entries(item).forEach(([k, v]) => {
+                if (v !== undefined && v !== null && v !== "") {
+                  cleanItem[k] = v;
+                }
+              });
+              studentMap.set(idKey, { ...existing, ...cleanItem });
+            }
+          }
+          list = Array.from(studentMap.values()) as T[];
+        }
         const normalized = sorter ? sorter(list) : list;
         if (normalized.length > 0 || removedIds.size > 0) {
           setter(() => {
