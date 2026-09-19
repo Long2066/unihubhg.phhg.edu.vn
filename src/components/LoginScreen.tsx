@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useUniHub } from "../state";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { auth, db } from "../firebase";
 import { convertGoogleDriveUrlToDirectUrl } from "../types";
 import { TnuLogo } from "./TnuLogo";
 import { 
@@ -53,6 +56,15 @@ export const LoginScreen: React.FC = () => {
   const [newsFilter, setNewsFilter] = useState<"ALL" | "ANNOUNCEMENT" | "ACTIVITY">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Forgot password state
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotCccd, setForgotCccd] = useState("");
+  const [forgotMssv, setForgotMssv] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotStep, setForgotStep] = useState<"form" | "confirm" | "sending" | "done">("form");
+  const [foundStudentName, setFoundStudentName] = useState("");
+  const [forgotError, setForgotError] = useState("");
 
   // Background carousel state
   const [currentBgIndex, setCurrentBgIndex] = useState(0);
@@ -206,6 +218,51 @@ export const LoginScreen: React.FC = () => {
       setErrorMsg("Lỗi hệ thống khi đăng nhập. Vui lòng thử lại.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyForgotInfo = async () => {
+    if (!forgotCccd || !forgotMssv || !forgotEmail) {
+      setForgotError("Vui lòng nhập đầy đủ CCCD, Mã SV và Email.");
+      return;
+    }
+    setForgotError("");
+    setForgotStep("sending");
+    try {
+      // Direct firestore query client side
+      const studentsRef = collection(db, "students");
+      const snapshot = await getDocs(studentsRef);
+      const studentDoc = snapshot.docs.find(doc => {
+        const data = doc.data();
+        return (
+          data.idCard?.trim().toLowerCase() === forgotCccd.trim().toLowerCase() &&
+          data.id?.trim().toLowerCase() === forgotMssv.trim().toLowerCase() &&
+          data.email?.trim().toLowerCase() === forgotEmail.trim().toLowerCase()
+        );
+      });
+
+      if (studentDoc) {
+        setFoundStudentName(studentDoc.data().name || "");
+        setForgotStep("confirm");
+      } else {
+        setForgotError("Thông tin không khớp. Vui lòng kiểm tra lại CCCD, Mã SV và Email.");
+        setForgotStep("form");
+      }
+    } catch (err) {
+      setForgotError("Lỗi hệ thống. Vui lòng thử lại sau.");
+      setForgotStep("form");
+    }
+  };
+
+  const handleSendResetLink = async () => {
+    setForgotError("");
+    setForgotStep("sending");
+    try {
+      await sendPasswordResetEmail(auth, forgotEmail.trim());
+      setForgotStep("done");
+    } catch (err: any) {
+      setForgotError("Lỗi gửi email: " + err.message);
+      setForgotStep("confirm");
     }
   };
 
@@ -690,7 +747,14 @@ export const LoginScreen: React.FC = () => {
                   <label className="block text-xs font-bold text-slate-700">Mật khẩu</label>
                   <button
                     type="button" 
-                    onClick={() => alert("Nếu quên mật khẩu hoặc đăng nhập lần đầu, vui lòng nhập số CCCD hoặc liên hệ Phòng Đào tạo & Quản lý Sinh viên.")}
+                    onClick={() => { 
+                      setShowForgotModal(true); 
+                      setForgotStep("form"); 
+                      setForgotError(""); 
+                      setForgotCccd(""); 
+                      setForgotMssv(""); 
+                      setForgotEmail(""); 
+                    }}
                     className="text-xs text-[#0c529c] hover:underline cursor-pointer"
                   >
                     Quên mật khẩu?
@@ -911,6 +975,120 @@ export const LoginScreen: React.FC = () => {
                 <LogIn size={14} />
                 <span>Đăng nhập ngay</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showForgotModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-800">Lấy lại mật khẩu</h3>
+              <button onClick={() => setShowForgotModal(false)} className="p-1 hover:bg-slate-100 rounded-lg cursor-pointer">
+                <X size={16} className="text-slate-400" />
+              </button>
+            </div>
+            {/* Body */}
+            <div className="px-6 py-5">
+              {forgotStep === "form" && (
+                <div className="space-y-4">
+                  {forgotError && (
+                    <div className="p-3 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600 mb-2">
+                      {forgotError}
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Số căn cước công dân</label>
+                    <input 
+                      type="text" 
+                      value={forgotCccd} 
+                      onChange={e => setForgotCccd(e.target.value)} 
+                      className="w-full bg-white border border-slate-200 text-sm font-semibold rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 focus:border-indigo-500 transition-all placeholder-slate-400"
+                      placeholder="Nhập CCCD..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Mã sinh viên</label>
+                    <input 
+                      type="text" 
+                      value={forgotMssv} 
+                      onChange={e => setForgotMssv(e.target.value)} 
+                      className="w-full bg-white border border-slate-200 text-sm font-semibold rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 focus:border-indigo-500 transition-all placeholder-slate-400"
+                      placeholder="Nhập mã sinh viên..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Email cá nhân</label>
+                    <input 
+                      type="email" 
+                      value={forgotEmail} 
+                      onChange={e => setForgotEmail(e.target.value)} 
+                      className="w-full bg-white border border-slate-200 text-sm font-semibold rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 focus:border-indigo-500 transition-all placeholder-slate-400"
+                      placeholder="Nhập email..."
+                    />
+                  </div>
+                  <button 
+                    onClick={handleVerifyForgotInfo}
+                    className="w-full mt-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm transition-colors cursor-pointer shadow-md shadow-indigo-200"
+                  >
+                    Xác minh thông tin
+                  </button>
+                </div>
+              )}
+              {forgotStep === "confirm" && (
+                <div className="space-y-4">
+                  {forgotError && (
+                    <div className="p-3 rounded-lg bg-red-50 border border-red-100 text-xs text-red-600 mb-2">
+                      {forgotError}
+                    </div>
+                  )}
+                  <p className="text-sm text-slate-600">
+                    Lấy lại mật khẩu cho <strong>{foundStudentName}</strong>
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    Hệ thống sẽ gửi link đặt lại mật khẩu về email: <strong>{forgotEmail}</strong>
+                  </p>
+                  <div className="flex gap-3 mt-4">
+                    <button 
+                      onClick={() => setShowForgotModal(false)}
+                      className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition-colors cursor-pointer"
+                    >
+                      Hủy
+                    </button>
+                    <button 
+                      onClick={handleSendResetLink}
+                      className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm transition-colors cursor-pointer shadow-md shadow-indigo-200"
+                    >
+                      Gửi link đặt lại mật khẩu
+                    </button>
+                  </div>
+                </div>
+              )}
+              {forgotStep === "sending" && (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+                  <p className="text-sm text-slate-600 font-medium">Đang xử lý...</p>
+                </div>
+              )}
+              {forgotStep === "done" && (
+                <div className="text-center space-y-4 py-4">
+                  <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                  </div>
+                  <h4 className="text-lg font-bold text-slate-800">Đã gửi link đặt lại mật khẩu</h4>
+                  <p className="text-sm text-slate-600">
+                    Vui lòng kiểm tra hộp thư email <strong>{forgotEmail}</strong> và làm theo hướng dẫn.
+                  </p>
+                  <button 
+                    onClick={() => setShowForgotModal(false)}
+                    className="w-full mt-4 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm transition-colors cursor-pointer shadow-md shadow-indigo-200"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

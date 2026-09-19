@@ -33,7 +33,8 @@ import {
   Check,
   Copy,
   Database,
-  AlertCircle
+  AlertCircle,
+  Award
 } from "lucide-react";
 import { DataBackupRestoreModal } from "./DataBackupRestoreModal";
 import { CreditRegistrationTrainingView } from "./CreditRegistrationTrainingView";
@@ -45,6 +46,205 @@ export const formatStudentId = (id: any) => {
     return `DTG${str}`;
   }
   return str;
+};
+
+
+const ScholarshipAssessmentView: React.FC = () => {
+  const { students, results, customClasses } = useUniHub();
+  const [selectedSemester, setSelectedSemester] = useState<string>("HOCKY_2_2025_2026");
+  const [selectedFaculty, setSelectedFaculty] = useState<string>("ALL");
+  const [assessmentData, setAssessmentData] = useState<any[]>([]);
+
+  // Unique faculties from classId
+  const allFaculties = Array.from(new Set(
+    [...students.map(s => normalizeClassId(s.classId)), ...customClasses.map(c => normalizeClassId(c))]
+  )).filter(Boolean).sort();
+
+  const handleAssessment = () => {
+    const data = students.filter(student => {
+      const cls = normalizeClassId(student.classId);
+      if (selectedFaculty !== "ALL" && cls !== selectedFaculty) return false;
+      return true;
+    }).map((student, index) => {
+      // 1. Calculate GPA
+      let gpa = student.gpa || 0;
+      if (student.gpa10 && !student.gpa) {
+        gpa = (student.gpa10 / 10) * 4;
+      }
+
+      // 2. Conduct Score
+      const conduct = results.find(r => r.studentId === student.id && r.semesterId === selectedSemester);
+      const drl = conduct?.totalPoints || 0;
+
+      // 3. Status checks
+      const hasFGrade = student.subjectGrades?.some(sg => sg.grade === "F") || false;
+      const isDisciplined = student.learningWarning === true || (student.learningStatus && (student.learningStatus.toLowerCase().includes("cảnh báo") || student.learningStatus.toLowerCase().includes("đình chỉ")));
+
+      // 4. Classification
+      let rank = "Không đạt";
+      let rankClass = "text-slate-500 bg-slate-50 border-slate-200";
+      let rowClass = "";
+
+      if (!hasFGrade && !isDisciplined) {
+        if (gpa >= 3.6 && drl >= 90) {
+          rank = "Xuất sắc";
+          rankClass = "text-amber-700 bg-amber-50 border-amber-200 font-bold shadow-sm";
+          rowClass = "bg-amber-50/30";
+        } else if (gpa >= 3.2 && drl >= 80) {
+          rank = "Giỏi";
+          rankClass = "text-blue-700 bg-blue-50 border-blue-200 font-bold shadow-sm";
+          rowClass = "bg-blue-50/30";
+        } else if (gpa >= 2.5 && drl >= 70) {
+          rank = "Khá";
+          rankClass = "text-emerald-700 bg-emerald-50 border-emerald-200 font-bold shadow-sm";
+        }
+      }
+
+      return {
+        stt: index + 1,
+        mssv: student.id,
+        name: student.name,
+        className: normalizeClassId(student.classId),
+        gpa: gpa.toFixed(2),
+        drl,
+        rank,
+        rankClass,
+        rowClass,
+        note: isDisciplined ? "Bị kỷ luật/Cảnh báo" : (hasFGrade ? "Có điểm F" : "")
+      };
+    }).filter(s => s.rank !== "Không đạt").sort((a, b) => b.gpa - a.gpa);
+
+    setAssessmentData(data);
+  };
+
+  const handleExportExcel = () => {
+    if (assessmentData.length === 0) return;
+    
+    const wsData = assessmentData.map(d => ({
+      "STT": d.stt,
+      "MSSV": d.mssv,
+      "Họ Tên": d.name,
+      "Lớp": d.className,
+      "GPA (4.0)": d.gpa,
+      "ĐRL": d.drl,
+      "Xếp loại": d.rank,
+      "Ghi chú": d.note
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Ket_Qua_Xet_Hoc_Bong");
+    XLSX.writeFile(wb, `Ket_Qua_Xet_Hoc_Bong_${selectedSemester}.xlsx`);
+  };
+
+  return (
+    <div className="space-y-6 text-left font-sans animate-fade-in">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+        <div>
+          <h3 className="text-sm font-bold text-slate-800 uppercase mb-1">Hệ thống Xét Học Bổng Khuyến Khích Học Tập</h3>
+          <p className="text-[11px] text-slate-500">Tiêu chuẩn: Xuất sắc (GPA ≥3.6, ĐRL ≥90), Giỏi (GPA ≥3.2, ĐRL ≥80), Khá (GPA ≥2.5, ĐRL ≥70). Không xét SV có điểm F hoặc bị cảnh báo học vụ.</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-4 items-end bg-white p-4 rounded-xl border shadow-sm">
+        <div className="space-y-1 w-full md:w-1/3">
+          <label className="block text-[11px] font-bold text-slate-500 uppercase">Học kỳ xét:</label>
+          <select 
+            value={selectedSemester}
+            onChange={e => setSelectedSemester(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg font-bold text-slate-800 focus:outline-none focus:ring-1"
+          >
+            {SEMESTER_LIST.map(sem => (
+              <option key={sem.id} value={sem.id}>{sem.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1 w-full md:w-1/3">
+          <label className="block text-[11px] font-bold text-slate-500 uppercase">Lọc theo Khoa/Lớp:</label>
+          <select 
+            value={selectedFaculty}
+            onChange={e => setSelectedFaculty(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg font-bold text-slate-800 focus:outline-none focus:ring-1"
+          >
+            <option value="ALL">Tất cả Phân hiệu</option>
+            {allFaculties.map(f => (
+              <option key={f} value={f}>{f}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex gap-2 w-full md:w-auto mt-4 md:mt-0">
+          <button 
+            onClick={handleAssessment}
+            className="flex-1 md:flex-none px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <Award size={14} />
+            <span>Xét Học Bổng</span>
+          </button>
+          <button 
+            onClick={handleExportExcel}
+            disabled={assessmentData.length === 0}
+            className="flex-1 md:flex-none px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 text-xs font-bold rounded-lg transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <Download size={14} />
+            <span>Xuất Excel</span>
+          </button>
+        </div>
+      </div>
+
+      {assessmentData.length > 0 ? (
+        <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
+          <div className="p-4 bg-slate-50 border-b flex justify-between items-center">
+            <span className="text-xs font-bold text-slate-700">Tìm thấy <strong className="text-indigo-600">{assessmentData.length}</strong> sinh viên đạt tiêu chuẩn</span>
+            <div className="flex gap-3 text-[10px] font-bold uppercase">
+              <span className="text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-200 shadow-sm">Xuất sắc: {assessmentData.filter(d => d.rank === "Xuất sắc").length}</span>
+              <span className="text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-200 shadow-sm">Giỏi: {assessmentData.filter(d => d.rank === "Giỏi").length}</span>
+              <span className="text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200 shadow-sm">Khá: {assessmentData.filter(d => d.rank === "Khá").length}</span>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-black border-b border-slate-200">
+                <tr>
+                  <th className="px-4 py-3 whitespace-nowrap w-10 text-center">STT</th>
+                  <th className="px-4 py-3 whitespace-nowrap">MSSV</th>
+                  <th className="px-4 py-3 min-w-[150px]">Họ tên</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Lớp</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-center text-indigo-700">GPA</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-center text-emerald-700">ĐRL</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-center">Xếp loại HB</th>
+                  <th className="px-4 py-3">Ghi chú</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {assessmentData.map((d, idx) => (
+                  <tr key={idx} className={`hover:bg-slate-50/50 transition-colors ${d.rowClass}`}>
+                    <td className="px-4 py-3 text-center text-xs text-slate-500 font-mono">{d.stt}</td>
+                    <td className="px-4 py-3 text-xs font-mono font-bold text-indigo-600">{d.mssv}</td>
+                    <td className="px-4 py-3 font-bold text-slate-800">{d.name}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{d.className}</td>
+                    <td className="px-4 py-3 text-center font-mono font-bold text-indigo-700">{d.gpa}</td>
+                    <td className="px-4 py-3 text-center font-mono font-bold text-emerald-700">{d.drl}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-2 py-0.5 rounded text-[10px] uppercase border tracking-wider ${d.rankClass}`}>
+                        {d.rank}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-[11px] text-slate-500 italic">{d.note}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="p-12 text-center bg-white rounded-xl shadow-xs border border-slate-100 flex flex-col items-center justify-center">
+          <Award className="w-16 h-16 text-slate-200 mb-4" />
+          <h4 className="text-slate-600 font-bold mb-1">Chưa có kết quả xét học bổng</h4>
+          <p className="text-slate-400 text-xs">Vui lòng chọn học kỳ, lớp và nhấn "Xét Học Bổng" để xem kết quả.</p>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export const TrainingPortal: React.FC = () => {
@@ -81,7 +281,8 @@ export const TrainingPortal: React.FC = () => {
     resolveGradeAppeal,
     gradingRules,
     updateGradingRules,
-    addGradeAuditLog
+    addGradeAuditLog,
+    results
   } = useUniHub();
 
   if (currentUser && currentUser.role !== UserRole.TRAINING_DEPT && currentUser.role !== UserRole.ADMIN) {
@@ -94,8 +295,8 @@ export const TrainingPortal: React.FC = () => {
     );
   }
 
-  const activeTab = (activePortletTab as "IMPORT" | "DANG_KY_TIN_CHI" | "TEACHER_ASSIGNMENTS" | "UNLOCK_REQUESTS" | "GRADE_APPEALS" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU") || "IMPORT";
-  const setActiveTab = (tab: "IMPORT" | "DANG_KY_TIN_CHI" | "TEACHER_ASSIGNMENTS" | "UNLOCK_REQUESTS" | "GRADE_APPEALS" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU") => {
+  const activeTab = (activePortletTab as "IMPORT" | "DANG_KY_TIN_CHI" | "TEACHER_ASSIGNMENTS" | "UNLOCK_REQUESTS" | "GRADE_APPEALS" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU" | "XET_HOC_BONG") || "IMPORT";
+  const setActiveTab = (tab: "IMPORT" | "DANG_KY_TIN_CHI" | "TEACHER_ASSIGNMENTS" | "UNLOCK_REQUESTS" | "GRADE_APPEALS" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU" | "XET_HOC_BONG") => {
     setActivePortletTab(tab);
   };
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -3557,7 +3758,13 @@ export const TrainingPortal: React.FC = () => {
           )}
 
           {/* TAB 4: THOI_KHOA_BIEU */}
-          {activeTab === "THOI_KHOA_BIEU" && (() => {
+          
+            {/* TAB: XET_HOC_BONG */}
+            {activeTab === "XET_HOC_BONG" && (
+              <ScholarshipAssessmentView />
+            )}
+            
+            {activeTab === "THOI_KHOA_BIEU" && (() => {
             const availableScheduleClasses = Array.from(new Set([
               ...students.map(s => normalizeClassId(s.classId)),
               ...customClasses.map(c => normalizeClassId(c))

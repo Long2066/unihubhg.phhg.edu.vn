@@ -487,6 +487,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [groupCriteria, setGroupCriteria] = useState<GroupEvaluationCriteria[]>([]);
   const [announcements, setAnnouncements] = useState<ClubAnnouncement[]>([]);
   const [systemFeedbacks, setSystemFeedbacks] = useState<SystemFeedback[]>([]);
+  const [systemNotifications, setSystemNotifications] = useState<{id: string; title: string; message: string; type: "info" | "warning" | "alert"; createdAt: string; createdBy: string;}[]>([]);
   const [themeConfig, setThemeConfig] = useState<ThemeConfig>(() => {
     const cached = localStorage.getItem("unihub_theme_config");
     if (cached) {
@@ -1558,6 +1559,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       cacheCollection<GroupEvaluationCriteria>("groupCriteria", setGroupCriteria),
       cacheCollection<GroupAttendanceReport>("groupAttendances", setGroupAttendances, items => items.sort((a, b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime())),
       cacheCollection<SystemFeedback>("systemFeedbacks", setSystemFeedbacks, items => items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())),
+      cacheCollection<any>("systemNotifications", setSystemNotifications, items => items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())),
       cacheCollection<PointCriteria>("criteria", setCriteria, items => items.sort((a, b) => a.id.localeCompare(b.id))),
       cacheCollection<ClassReviewState>("classReviews", setClassReviews),
       cacheCollection<FacultyReviewState>("facultyReviews", setFacultyReviews),
@@ -2877,7 +2879,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveToStorage("unihub_students", updatedStudents);
     const targetStud = updatedStudents.find(s => s.id === studentId);
     if (targetStud) {
-      setDoc(doc(db, "students", studentId), sanitizeForFirestore(targetStud), { merge: true }).catch(() => {});
+      const studData = sanitizeForFirestore(targetStud);
+      if (trimmedNewPass) (studData as any).password = trimmedNewPass;
+      setDoc(doc(db, "students", studentId), studData, { merge: true }).catch(() => {});
     }
 
     // 2. Update Firebase Auth password if requested
@@ -2899,10 +2903,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // 3. Update users array
     const updatedUsers = users.map(u => {
       if (u.targetId === studentId || u.username === studentId || u.email === studentId || u.id === studentId) {
-        return { 
-          ...u, 
-          name
-        };
+        const updated: any = { ...u, name };
+        if (trimmedNewPass) updated.password = trimmedNewPass;
+        return updated;
       }
       return u;
     });
@@ -2910,13 +2913,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveToStorage("unihub_users", updatedUsers);
     const targetUser = updatedUsers.find(u => u.targetId === studentId || u.username === studentId || u.id === studentId);
     if (targetUser) {
-      setDoc(doc(db, "users", targetUser.id), sanitizeForFirestore(targetUser), { merge: true }).catch(() => {});
+      const userData = sanitizeForFirestore(targetUser);
+      if (trimmedNewPass) (userData as any).password = trimmedNewPass;
+      setDoc(doc(db, "users", targetUser.id), userData, { merge: true }).catch(() => {});
     }
 
-    // 4. Keep current user in sync (no password)
+    // 4. Keep current user in sync
     if (currentUser && (currentUser.targetId === studentId || currentUser.username === studentId || currentUser.id === studentId)) {
       const { password: _pw, ...cleanCur } = currentUser as any;
-      const updatedCur = { ...cleanCur, name };
+      const updatedCur: any = { ...cleanCur, name };
+      if (trimmedNewPass) updatedCur.password = trimmedNewPass;
       setCurrentUser(updatedCur);
       saveToStorage("unihub_current_user", updatedCur);
     }
@@ -4659,6 +4665,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.setItem("unihub_system_feedbacks", JSON.stringify(updated));
   };
 
+  const addSystemNotification = async (title: string, message: string, type: "info" | "warning" | "alert" = "info") => {
+    if (!currentUser || currentUser.role !== UserRole.ADMIN) return;
+    const id = `sysnotif_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const notif = { id, title: title.trim(), message: message.trim(), type, createdAt: new Date().toISOString(), createdBy: currentUser.name };
+    try {
+      await setDoc(doc(db, "systemNotifications", id), notif);
+    } catch (err) {
+      console.warn("Lỗi lưu systemNotifications:", err);
+    }
+    setSystemNotifications(prev => [notif, ...prev]);
+  };
+
   const importGroupCriteria = (criteriaList: GroupEvaluationCriteria[]) => {
     if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY)) {
       console.warn("Unauthorized attempt to import group criteria");
@@ -6013,6 +6031,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       schedules,
       groupAttendances,
       systemFeedbacks,
+      systemNotifications,
       themeConfig,
       
       login,
@@ -6060,6 +6079,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       sendFeedback,
       resolveFeedback,
       sendSystemFeedback,
+      addSystemNotification,
       adjustStudentScoreSpecific,
       updateCriteriaScore,
       bulkUpdateCriteria,

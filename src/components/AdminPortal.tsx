@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useUniHub, normalizeClassId } from "../state";
+import { deleteDoc, doc } from "firebase/firestore";
+import { db } from "../firebase";
 import { SEED_USERS } from "../data";
 import { UserRole, isOrgRole, UserAccount, Organization } from "../types";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { 
   Settings, 
   Trash2, 
@@ -27,7 +30,8 @@ import {
   Plus,
   Copy,
   Database,
-  RefreshCw
+  RefreshCw,
+  Megaphone
 } from "lucide-react";
 import { DataBackupRestoreModal } from "./DataBackupRestoreModal";
 
@@ -53,7 +57,9 @@ export const AdminPortal: React.FC = () => {
     createUserAccount,
     updateUserAccount,
     deleteUserAccount,
-    normalizeAllAccounts
+    normalizeAllAccounts,
+    addSystemNotification,
+    systemNotifications
   } = useUniHub();
 
   if (currentUser && currentUser.role !== UserRole.ADMIN) {
@@ -70,6 +76,69 @@ export const AdminPortal: React.FC = () => {
   const setActiveTab = (tab: "CONFIG" | "PERIOD" | "STATIONS" | "CLUBS") => {
     setActivePortletTab(tab);
   };
+
+  // --- FEATURE A: Admin System Notification ---
+  const [notifTitle, setNotifTitle] = useState("");
+  const [notifMessage, setNotifMessage] = useState("");
+  const [notifType, setNotifType] = useState<"info" | "warning" | "alert">("info");
+
+  const handleSendNotification = async () => {
+    if (!notifTitle.trim() || !notifMessage.trim()) { alert("Vui lòng điền đầy đủ tiêu đề và nội dung!"); return; }
+    await addSystemNotification(notifTitle, notifMessage, notifType);
+    setNotifTitle(""); setNotifMessage(""); setNotifType("info");
+    alert("Đã gửi thông báo toàn trường thành công!");
+  };
+
+  const handleDeleteNotification = async (id: string) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa thông báo này?")) return;
+    try {
+      if (db) await deleteDoc(doc(db, "systemNotifications", id));
+      // Trạng thái sẽ tự cập nhật do có onSnapshot listener trong state.tsx
+    } catch (err) {
+      console.error("Lỗi khi xóa thông báo:", err);
+      alert("Không thể xóa thông báo. Vui lòng thử lại.");
+    }
+  };
+
+  // --- FEATURE B: Analytics Dashboard ---
+  const academicDist = useMemo(() => {
+    const counts = { 'Giỏi': 0, 'Khá': 0, 'Trung bình': 0, 'Yếu': 0 };
+    students.forEach(s => {
+      const gpa = s.gpa || 0;
+      if (gpa >= 3.2) counts['Giỏi']++;
+      else if (gpa >= 2.5) counts['Khá']++;
+      else if (gpa >= 2.0) counts['Trung bình']++;
+      else if (gpa > 0) counts['Yếu']++;
+    });
+    return Object.entries(counts).map(([name, value]) => ({ name, value })).filter(d => d.value > 0);
+  }, [students]);
+  const academicColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
+
+  const conductDist = useMemo(() => {
+    const buckets: Record<string, number> = { 'Xuất sắc (90-100)': 0, 'Tốt (80-89)': 0, 'Khá (65-79)': 0, 'TB (50-64)': 0, 'Yếu (<50)': 0 };
+    const latestByStudent: Record<string, number> = {};
+    results.forEach(r => {
+      if (r.totalScore != null) latestByStudent[r.studentId] = r.totalScore;
+    });
+    Object.values(latestByStudent).forEach(score => {
+      if (score >= 90) buckets['Xuất sắc (90-100)']++;
+      else if (score >= 80) buckets['Tốt (80-89)']++;
+      else if (score >= 65) buckets['Khá (65-79)']++;
+      else if (score >= 50) buckets['TB (50-64)']++;
+      else buckets['Yếu (<50)']++;
+    });
+    return Object.entries(buckets).map(([name, value]) => ({ name, value }));
+  }, [results]);
+
+  const classDist = useMemo(() => {
+    const counts: Record<string, number> = {};
+    students.forEach(s => {
+      const cls = s.classId || 'Không xác định';
+      counts[cls] = (counts[cls] || 0) + 1;
+    });
+    return Object.entries(counts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 10);
+  }, [students]);
+
 
   // Edit point value local state
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
@@ -1106,6 +1175,114 @@ export const AdminPortal: React.FC = () => {
           {/* TAB 1: DYNAMIC CRITERIA RULES EDITOR (Section 1.1) */}
           {activeTab === "CONFIG" && (
             <div className="space-y-6">
+              {/* Dashboard & Notifications */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white rounded-2xl p-6 ring-1 ring-slate-900/5 shadow-sm space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Megaphone className="w-5 h-5 text-blue-500" />
+                    <h3 className="text-sm font-bold text-slate-800">Thông báo toàn trường</h3>
+                  </div>
+                  <div>
+                    <input 
+                      type="text" 
+                      placeholder="Tiêu đề thông báo..." 
+                      className="w-full text-sm border border-slate-200 rounded-lg p-2.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+                      value={notifTitle} 
+                      onChange={e => setNotifTitle(e.target.value)} 
+                    />
+                  </div>
+                  <div>
+                    <textarea 
+                      placeholder="Nội dung chi tiết..." 
+                      className="w-full text-sm border border-slate-200 rounded-lg p-2.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 min-h-[80px]"
+                      value={notifMessage} 
+                      onChange={e => setNotifMessage(e.target.value)} 
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <select 
+                      className="text-sm border border-slate-200 rounded-lg p-2 outline-none focus:border-blue-500"
+                      value={notifType}
+                      onChange={e => setNotifType(e.target.value as any)}
+                    >
+                      <option value="info">Thông tin</option>
+                      <option value="warning">Cảnh báo</option>
+                      <option value="alert">Khẩn cấp</option>
+                    </select>
+                    <button 
+                      onClick={handleSendNotification}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 hover:cursor-pointer text-white text-xs font-bold rounded-lg transition-colors"
+                    >
+                      Gửi thông báo
+                    </button>
+                  </div>
+
+                  {systemNotifications && systemNotifications.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-slate-100 max-h-[160px] overflow-y-auto space-y-2">
+                      <h4 className="text-xs font-bold text-slate-500 mb-2">Đã gửi gần đây</h4>
+                      {systemNotifications.map((n: any) => (
+                        <div key={n.id} className="flex justify-between items-start p-2 bg-slate-50 rounded-lg border border-slate-100 group">
+                          <div className="flex-1 mr-2">
+                            <p className="text-xs font-semibold text-slate-800">{n.title}</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">{n.message}</p>
+                          </div>
+                          <button 
+                            onClick={() => handleDeleteNotification(n.id)}
+                            className="p-1.5 text-slate-400 hover:bg-rose-100 hover:text-rose-600 rounded-md transition-colors opacity-0 group-hover:opacity-100 shrink-0 cursor-pointer"
+                            title="Xóa thông báo"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white rounded-2xl p-6 ring-1 ring-slate-900/5 shadow-sm">
+                  <h3 className="text-sm font-bold text-slate-800 mb-4">Phân bổ xếp loại học tập</h3>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie data={academicDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} label>
+                        {academicDist.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={academicColors[index % academicColors.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="bg-white rounded-2xl p-6 ring-1 ring-slate-900/5 shadow-sm">
+                  <h3 className="text-sm font-bold text-slate-800 mb-4">Phân bổ điểm rèn luyện</h3>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={conductDist}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="name" tick={{fontSize: 10}} />
+                      <YAxis tick={{fontSize: 10}} />
+                      <Tooltip />
+                      <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="bg-white rounded-2xl p-6 ring-1 ring-slate-900/5 shadow-sm">
+                  <h3 className="text-sm font-bold text-slate-800 mb-4">Sinh viên theo Lớp (Top 10)</h3>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={classDist} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" tick={{fontSize: 10}} />
+                      <YAxis dataKey="name" type="category" tick={{fontSize: 10}} width={80} />
+                      <Tooltip />
+                      <Bar dataKey="value" fill="#10b981" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <hr className="border-slate-100" />
+
               <div>
                 <h3 className="text-sm font-bold text-slate-800 uppercase mb-1 font-sans">Sửa quy chế chấm điểm rèn luyện đồng quy</h3>
                 <p className="text-[11px] text-slate-400 leading-relaxed">Admin có quyền tăng/giảm định mức số điểm quy định cho từng hoạt động, học lực, nề nếp tập thể mà hệ thống tự động ánh xạ, duy trì tính pháp lý của thang điểm 100.</p>

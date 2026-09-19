@@ -120,7 +120,8 @@ const AppContent: React.FC = () => {
     unlockRequests,
     gradeAppeals,
     teacherAssignments,
-    syncFreshFromCloud
+    syncFreshFromCloud,
+    systemNotifications
   } = useUniHub();
 
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
@@ -152,6 +153,10 @@ const AppContent: React.FC = () => {
   const [editName, setEditName] = useState("");
   const [editAvatar, setEditAvatar] = useState("");
   const [editPassword, setEditPassword] = useState("");
+  const [editOldPassword, setEditOldPassword] = useState("");
+  const [editPasswordConfirm, setEditPasswordConfirm] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [showStudentIdCard, setShowStudentIdCard] = useState(false);
   const [profileSuccessMsg, setProfileSuccessMsg] = useState("");
   const [profileFields, setProfileFields] = useState<Partial<any>>({});
   const [activeSubProfileTab, setActiveSubProfileTab] = useState<"personal" | "family" | "education" | "account">("personal");
@@ -634,8 +639,20 @@ const AppContent: React.FC = () => {
       isRead: readNotifIds.includes("welcome-notif")
     });
 
+    // System-wide notifications from Admin (visible to all users)
+    systemNotifications.forEach(sn => {
+      list.push({
+        id: `sysnotif-${sn.id}`,
+        title: `📢 ${sn.title}`,
+        message: sn.message,
+        time: sn.createdAt,
+        type: sn.type === "alert" ? "alert" : sn.type === "warning" ? "warning" : "info",
+        isRead: readNotifIds.includes(`sysnotif-${sn.id}`)
+      });
+    });
+
     return list.filter(n => !deletedNotifIds.includes(n.id));
-  }, [currentUser, evidence, members, organizations, announcements, feedbacks, students, classReviews, facultyReviews, period, readNotifIds, deletedNotifIds, gradeAppeals, unlockRequests, teacherAssignments, studentObj]);
+  }, [currentUser, evidence, members, organizations, announcements, feedbacks, students, classReviews, facultyReviews, period, readNotifIds, deletedNotifIds, gradeAppeals, unlockRequests, teacherAssignments, studentObj, systemNotifications]);
 
   // Reactively mark notifications/activities as seen/read when visiting tabs
   React.useEffect(() => {
@@ -781,6 +798,9 @@ const AppContent: React.FC = () => {
     setEditName(currentUser.name);
     setEditAvatar(studentObj?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.username}`);
     setEditPassword("");
+    setEditOldPassword("");
+    setEditPasswordConfirm("");
+    setPasswordError("");
     setProfileSuccessMsg("");
     setProfileTab("info");
     setShowProfileModal(true);
@@ -804,12 +824,30 @@ const AppContent: React.FC = () => {
 
   const handleSavePassword = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editPassword.trim()) {
-      alert("Mật khẩu mới không được để trống!");
+    setPasswordError("");
+    
+    // Verify old password
+    const currentPassword = (currentUser as any)?.password?.trim() 
+      || (studentObj as any)?.password?.trim() 
+      || studentObj?.idCard?.trim() 
+      || "123456";
+    if (editOldPassword.trim() !== currentPassword) {
+      setPasswordError("Mật khẩu hiện tại không chính xác!");
       return;
     }
+    
+    // Validate new password
+    if (!editPassword.trim() || editPassword.trim().length < 6) {
+      setPasswordError("Mật khẩu mới phải có ít nhất 6 ký tự!");
+      return;
+    }
+    if (editPassword !== editPasswordConfirm) {
+      setPasswordError("Mật khẩu mới và xác nhận không khớp!");
+      return;
+    }
+    
     const targetUserId = currentUser.targetId || currentUser.username || currentUser.id;
-    updateStudentProfile(targetUserId, currentUser.name, studentObj?.avatar || editAvatar, editPassword);
+    updateStudentProfile(targetUserId, currentUser.name, studentObj?.avatar || editAvatar, editPassword.trim());
     setProfileSuccessMsg("Đã cập nhật mật khẩu đăng nhập thành công!");
     setTimeout(() => {
       setProfileSuccessMsg("");
@@ -951,7 +989,8 @@ const AppContent: React.FC = () => {
           { id: "IMPORT_CLASSES", label: "Nạp Danh Sách SV Lớp Mới", icon: UploadCloud },
           { id: "LIST", label: "Danh Sách Học Vụ SV", icon: Grid },
           { id: "THOI_KHOA_BIEU", label: "Thời khóa biểu lớp", icon: Clock },
-          { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList }
+          { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList },
+          { id: "XET_HOC_BONG", label: "Xét Học Bổng", icon: Award }
         ];
       case UserRole.FACULTY:
         return [
@@ -1261,6 +1300,16 @@ const AppContent: React.FC = () => {
                           <User size={13} className="text-slate-400" />
                           <span>Sửa hồ sơ & mật khẩu</span>
                         </button>
+
+                        {isStudentOrMonitor && (
+                          <button 
+                            onClick={() => { setShowStudentIdCard(true); setShowProfileDropdown(false); }}
+                            className="w-full text-left font-bold text-xs text-slate-705 hover:text-indigo-600 hover:bg-indigo-50/50 px-3 py-2 rounded-xl border border-transparent hover:border-indigo-100 transition-all flex items-center gap-2 cursor-pointer"
+                          >
+                            <Award size={13} className="text-slate-400" />
+                            <span>🪪 Thẻ sinh viên điện tử</span>
+                          </button>
+                        )}
 
                         <button 
                           onClick={handleFreshSync}
@@ -1944,14 +1993,48 @@ const AppContent: React.FC = () => {
                 </form>
               ) : (
                 <form onSubmit={handleSavePassword} className="space-y-4">
-                  {/* Password Input */}
+                  {passwordError && (
+                    <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-2">
+                      <AlertCircle size={14} />
+                      {passwordError}
+                    </div>
+                  )}
+
+                  {/* Old Password */}
                   <div className="space-y-1.5">
-                    <label className="block text-[10px] font-black uppercase text-slate-455 tracking-wider">Mật khẩu mới</label>
+                    <label className="block text-[10px] font-black uppercase text-slate-455 tracking-wider">Mật khẩu hiện tại</label>
+                    <input
+                      type="password"
+                      value={editOldPassword}
+                      onChange={(e) => setEditOldPassword(e.target.value)}
+                      placeholder="Nhập mật khẩu hiện tại..."
+                      className="w-full bg-white border border-slate-250 text-xs font-bold rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/15 text-slate-800 focus:border-indigo-500 transition-all placeholder-slate-350"
+                      required
+                    />
+                  </div>
+
+                  {/* New Password */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-black uppercase text-slate-455 tracking-wider">Mật khẩu mới <span className="text-slate-400 normal-case">(tối thiểu 6 ký tự)</span></label>
                     <input
                       type="password"
                       value={editPassword}
                       onChange={(e) => setEditPassword(e.target.value)}
                       placeholder="Nhập mật khẩu mới..."
+                      className="w-full bg-white border border-slate-250 text-xs font-bold rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/15 text-slate-800 focus:border-indigo-500 transition-all placeholder-slate-350"
+                      required
+                      minLength={6}
+                    />
+                  </div>
+
+                  {/* Confirm Password */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-black uppercase text-slate-455 tracking-wider">Xác nhận mật khẩu mới</label>
+                    <input
+                      type="password"
+                      value={editPasswordConfirm}
+                      onChange={(e) => setEditPasswordConfirm(e.target.value)}
+                      placeholder="Nhập lại mật khẩu mới..."
                       className="w-full bg-white border border-slate-250 text-xs font-bold rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/15 text-slate-800 focus:border-indigo-500 transition-all placeholder-slate-350"
                       required
                     />
@@ -1977,6 +2060,73 @@ const AppContent: React.FC = () => {
               )}
             </div>
 
+          </div>
+        </div>
+      )}
+      {/* Student ID Card Modal */}
+      {showStudentIdCard && isStudentOrMonitor && studentObj && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setShowStudentIdCard(false)}>
+          <div className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            {/* Card */}
+            <div className="bg-gradient-to-br from-white via-blue-50/30 to-white rounded-2xl shadow-2xl overflow-hidden ring-1 ring-slate-200/80" id="student-id-card">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-[#1a5276] to-[#2980b9] px-6 py-4 text-center text-white">
+                <div className="text-[11px] font-bold tracking-wider uppercase">ĐẠI HỌC THÁI NGUYÊN</div>
+                <div className="text-sm font-black tracking-wide">PHÂN HIỆU ĐHTN TẠI HÀ GIANG</div>
+              </div>
+
+              {/* Title */}
+              <div className="text-center py-3 border-b border-blue-100">
+                <h2 className="text-xl font-black text-[#1a5276] tracking-wide">THẺ SINH VIÊN ĐIỆN TỬ</h2>
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-5 flex gap-5">
+                {/* Info */}
+                <div className="flex-1 space-y-2.5 text-sm">
+                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Họ tên:</span><span className="font-black text-slate-900">{studentObj.name}</span></div>
+                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Ngày sinh:</span><span className="font-semibold text-slate-800">{studentObj.dob || "—"}</span></div>
+                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Lớp:</span><span className="font-semibold text-slate-800">{studentObj.classId}</span></div>
+                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Khoa:</span><span className="font-semibold text-slate-800">{studentObj.facultyInCharge || studentObj.facultyId || "—"}</span></div>
+                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Khóa học:</span><span className="font-semibold text-slate-800">{studentObj.academicYears || studentObj.trainingCourse || "—"}</span></div>
+                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">MSSV:</span><span className="font-black text-[#1a5276] text-base tabular-nums font-mono">{studentObj.id}</span></div>
+                </div>
+
+                {/* Avatar */}
+                <div className="shrink-0">
+                  <div className="w-28 h-36 rounded-xl border-2 border-blue-200 overflow-hidden bg-blue-50 flex items-center justify-center shadow-inner">
+                    {studentObj.avatar ? (
+                      <img src={studentObj.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="text-center">
+                        <User size={40} className="text-blue-300 mx-auto" />
+                        <span className="text-[9px] text-blue-400 font-bold mt-1 block">Chưa có ảnh</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 pb-4 flex items-center justify-between">
+                <div className="text-[10px] text-slate-400 font-mono font-bold tabular-nums">
+                  {(() => { const now = new Date(); return `${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`; })()} — {(() => { const now = new Date(); return `${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()+6}`; })()}
+                </div>
+                <div className="text-[10px] font-bold text-blue-600">
+                  Website: hagiang.tnu.edu.vn
+                </div>
+              </div>
+            </div>
+
+            {/* Close button */}
+            <div className="flex justify-center mt-4">
+              <button
+                onClick={() => setShowStudentIdCard(false)}
+                className="px-6 py-2.5 bg-white/90 backdrop-blur text-slate-700 font-bold rounded-xl text-sm hover:bg-white transition-colors cursor-pointer shadow-lg ring-1 ring-slate-200"
+              >
+                Đóng thẻ
+              </button>
+            </div>
           </div>
         </div>
       )}
