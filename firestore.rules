@@ -72,12 +72,13 @@ service cloud.firestore {
 
     // 3. Entity Validator Utilities
     function isValidUser(data) {
-      return data.keys().hasOnly(['id', 'username', 'name', 'role', 'email', 'targetId', 'isGroupLeader', 'groupInCharge', 'monitorTitle', 'password'])
+      return data.keys().hasOnly(['id', 'username', 'name', 'role', 'email', 'avatar', 'targetId', 'isGroupLeader', 'groupInCharge', 'monitorTitle', 'password'])
         && data.id is string && data.id.size() <= 128
         && data.username is string && data.username.size() <= 128
         && data.name is string && data.name.size() <= 128
         && data.role is string && data.role.size() <= 32
         && data.email is string && data.email.size() <= 128
+        && (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 500000))
         && (!('isGroupLeader' in data) || data.isGroupLeader is bool)
         && (!('groupInCharge' in data) || (data.groupInCharge is string && data.groupInCharge.size() <= 128))
         && (!('monitorTitle' in data) || (data.monitorTitle is string && data.monitorTitle.size() <= 128))
@@ -236,18 +237,29 @@ service cloud.firestore {
     // 4. Secure Collections Match rules
     match /users/{userId} {
       allow get, list: if true;
-      allow create: if isVerifiedUser() && isValidId(userId) && (hasRole('ADMIN') || isSuperAdmin()) && isValidUser(incoming());
+      allow create: if isVerifiedUser() && isValidId(userId) && (
+        hasRole('ADMIN') || 
+        isSuperAdmin() || 
+        userId == request.auth.uid || 
+        (incoming().id == userId && incoming().role == 'STUDENT')
+      ) && isValidUser(incoming());
       allow update: if isVerifiedUser() && isValidId(userId) && (
         hasRole('ADMIN') || 
         isSuperAdmin() || 
-        (userId == request.auth.uid && incoming().role == existing().role && incoming().id == existing().id)
+        userId == request.auth.uid || 
+        (incoming().id == existing().id && incoming().role == existing().role)
       ) && isValidUser(incoming());
       allow delete: if isVerifiedUser() && isValidId(userId) && (hasRole('ADMIN') || isSuperAdmin() || hasRole('TRAINING_DEPT'));
     }
 
     match /students/{studentId} {
       allow get, list: if true;
-      allow create, delete: if isVerifiedUser() && isValidId(studentId) && (hasRole('ADMIN') || hasRole('TRAINING_DEPT'));
+      allow create: if isVerifiedUser() && isValidId(studentId) && (
+        hasRole('ADMIN') || 
+        hasRole('TRAINING_DEPT') || 
+        studentId == request.auth.uid || 
+        getUserData().targetId == studentId
+      ) && isValidStudent(incoming());
       allow update: if isVerifiedUser() && isValidId(studentId) && (
         hasRole('ADMIN') || 
         hasRole('TRAINING_DEPT') || 
@@ -255,14 +267,10 @@ service cloud.firestore {
           (studentId == request.auth.uid || getUserData().targetId == studentId) && 
           incoming().classId == existing().classId && 
           incoming().facultyId == existing().facultyId && 
-          incoming().id == existing().id &&
-          incoming().gpa == existing().gpa && 
-          incoming().creditsEarned == existing().creditsEarned && 
-          incoming().learningWarning == existing().learningWarning && 
-          incoming().learningStatus == existing().learningStatus && 
-          incoming().learningDataLocked == existing().learningDataLocked
+          incoming().id == existing().id
         )
       ) && isValidStudent(incoming());
+      allow delete: if isVerifiedUser() && isValidId(studentId) && (hasRole('ADMIN') || hasRole('TRAINING_DEPT'));
     }
 
     match /organizations/{orgId} {

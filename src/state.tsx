@@ -360,7 +360,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (Array.isArray(parsed) && parsed.length > 0) list = parsed;
       } catch {}
     }
-    const normalized = list.map(normalizeUserAccount);
+    let customAvatars: Record<string, string> = {};
+    try {
+      const ca = localStorage.getItem("unihub_custom_avatars");
+      if (ca) customAvatars = JSON.parse(ca);
+    } catch {}
+    const normalized = list.map(u => {
+      const norm = normalizeUserAccount(u);
+      const targetId = norm.targetId || norm.username || norm.id;
+      const preservedAvatar = norm.avatar || customAvatars[norm.id] || customAvatars[targetId] || (targetId ? customAvatars[targetId.toLowerCase()] : "") || (targetId ? localStorage.getItem(`unihub_avatar_${targetId}`) : "") || "";
+      return preservedAvatar ? { ...norm, avatar: preservedAvatar } : norm;
+    });
     try {
       localStorage.setItem("unihub_users", JSON.stringify(normalized));
     } catch {}
@@ -417,6 +427,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       } catch {}
     }
+    let customAvatars: Record<string, string> = {};
+    try {
+      const ca = localStorage.getItem("unihub_custom_avatars");
+      if (ca) customAvatars = JSON.parse(ca);
+    } catch {}
+
     const list = Array.from(studentMap.values());
     return list.map((s: Student) => {
       const stdId = formatStudentId(s.id);
@@ -431,12 +447,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         subjects = "Phương pháp dạy học Toán, Phương pháp dạy học Tiếng Việt, Tâm lý học tiểu học";
       }
 
+      const preservedAvatar = s.avatar || customAvatars[s.id] || customAvatars[stdId] || customAvatars[stdId.toLowerCase()] || localStorage.getItem(`unihub_avatar_${stdId}`) || "";
+
       return {
         ...s,
         id: stdId,
         classId,
         facultyId,
-        subjects: subjects || s.subjects
+        subjects: subjects || s.subjects,
+        ...(preservedAvatar ? { avatar: preservedAvatar } : {})
       };
     });
   });
@@ -1768,12 +1787,28 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               name: foundStudent.name,
               role: UserRole.STUDENT,
               targetId: foundStudent.id,
-              email: authUser.email
+              email: authUser.email,
+              avatar: foundStudent.avatar
             };
           }
         }
         if (found) {
+          const targetId = found.targetId || found.username || found.id;
+          let customAvatars: Record<string, string> = {};
+          try {
+            const ca = localStorage.getItem("unihub_custom_avatars");
+            if (ca) customAvatars = JSON.parse(ca);
+          } catch {}
+          const preservedAvatar = found.avatar || 
+            (targetId ? customAvatars[targetId] : "") || 
+            (targetId ? customAvatars[targetId.toLowerCase()] : "") || 
+            (targetId ? localStorage.getItem(`unihub_avatar_${targetId}`) : "") || 
+            "";
+
           const { password, ...safeUser } = found as any;
+          if (preservedAvatar) {
+            safeUser.avatar = preservedAvatar;
+          }
           setCurrentUser(safeUser as UserAccount);
           localStorage.setItem("unihub_current_user", JSON.stringify(safeUser));
         } else {
@@ -1862,7 +1897,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const list: UserAccount[] = [];
         usersSnap.forEach(d => list.push(normalizeUserAccount(d.data() as UserAccount)));
         const merged = smartMerge(list, "unihub_users", u => u.id || u.username || u.email);
-        normalizedMergedUsers = merged.map(normalizeUserAccount);
+
+        let customAvatars: Record<string, string> = {};
+        try {
+          const cachedAvatarsStr = localStorage.getItem("unihub_custom_avatars");
+          if (cachedAvatarsStr) customAvatars = JSON.parse(cachedAvatarsStr);
+        } catch {}
+
+        normalizedMergedUsers = merged.map(u => {
+          const norm = normalizeUserAccount(u);
+          const targetId = norm.targetId || norm.username || norm.id;
+          const preservedAvatar = norm.avatar || customAvatars[norm.id] || customAvatars[targetId] || (targetId ? customAvatars[targetId.toLowerCase()] : "") || (targetId ? localStorage.getItem(`unihub_avatar_${targetId}`) : "") || "";
+          return preservedAvatar ? { ...norm, avatar: preservedAvatar } : norm;
+        });
         setUsers(normalizedMergedUsers);
         localStorage.setItem("unihub_users_backup", JSON.stringify(normalizedMergedUsers));
         localStorage.setItem("unihub_users", JSON.stringify(normalizedMergedUsers));
@@ -1880,24 +1927,51 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
         const merged = smartMerge(list, "unihub_students", s => s.id);
         const filteredMerged = merged.filter(s => !deletedClassList.includes(normalizeClassId(s.classId)));
-        setStudents(filteredMerged);
-        localStorage.setItem("unihub_students_backup", JSON.stringify(filteredMerged));
 
-        // Tự động đồng bộ avatar và thông tin mới nhất từ Cloud vào currentUser
+        // Đọc customAvatars đã lưu từ local storage để bảo vệ avatar vĩnh viễn
+        let customAvatars: Record<string, string> = {};
+        try {
+          const cachedAvatarsStr = localStorage.getItem("unihub_custom_avatars");
+          if (cachedAvatarsStr) customAvatars = JSON.parse(cachedAvatarsStr);
+        } catch {}
+
+        // Đọc danh sách avatar hiện có trong local storage/state
+        const currentAvatarsMap = new Map<string, string>();
+        students.forEach(s => {
+          if (s.id && s.avatar) currentAvatarsMap.set(s.id.toLowerCase().trim(), s.avatar);
+        });
+
+        const protectedMerged = filteredMerged.map(s => {
+          const sId = (s.id || "").toLowerCase().trim();
+          const preservedAvatar = s.avatar || customAvatars[s.id] || customAvatars[sId] || currentAvatarsMap.get(sId) || localStorage.getItem(`unihub_avatar_${s.id}`) || "";
+          if (preservedAvatar) {
+            return { ...s, avatar: preservedAvatar };
+          }
+          return s;
+        });
+
+        setStudents(protectedMerged);
+        localStorage.setItem("unihub_students", JSON.stringify(protectedMerged));
+        localStorage.setItem("unihub_students_backup", JSON.stringify(protectedMerged));
+
+        // Tự động đồng bộ avatar và thông tin mới nhất từ Cloud vào currentUser nhưng KHÔNG BAO GIỜ xóa avatar
         try {
           const cachedCur = localStorage.getItem("unihub_current_user");
           if (cachedCur) {
             const cur = JSON.parse(cachedCur);
             if (cur?.id) {
-              const freshStudent = filteredMerged.find(s => s.id === cur.id || s.id === cur.targetId || (s.email && s.email === cur.email));
+              const freshStudent = protectedMerged.find(s => s.id === cur.id || s.id === cur.targetId || (s.email && s.email === cur.email));
               const freshUser = (normalizedMergedUsers || []).find(u => u.id === cur.id || u.username === cur.username || (cur.targetId && u.targetId === cur.targetId));
-              const cloudAvatar = freshStudent?.avatar || freshUser?.avatar;
+              const cloudAvatar = freshStudent?.avatar || freshUser?.avatar || customAvatars[cur.targetId] || customAvatars[cur.username] || customAvatars[cur.id];
               const cloudName = freshStudent?.name || freshUser?.name;
-              if ((cloudAvatar && cloudAvatar !== cur.avatar) || (cloudName && cloudName !== cur.name)) {
+              
+              const finalAvatar = cloudAvatar || cur.avatar || "";
+              const finalName = cloudName || cur.name;
+              if (finalAvatar !== cur.avatar || finalName !== cur.name) {
                 const updatedCur = {
                   ...cur,
-                  ...(cloudName ? { name: cloudName } : {}),
-                  ...(cloudAvatar ? { avatar: cloudAvatar } : {})
+                  name: finalName,
+                  ...(finalAvatar ? { avatar: finalAvatar } : {})
                 };
                 setCurrentUser(updatedCur);
                 localStorage.setItem("unihub_current_user", JSON.stringify(updatedCur));
@@ -3010,6 +3084,20 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         ...safeFields
       };
       updatedStudents.push(newStud);
+    }
+
+    if (cleanAvatar) {
+      try {
+        const cachedAvatarsStr = localStorage.getItem("unihub_custom_avatars");
+        const avatarsMap = cachedAvatarsStr ? JSON.parse(cachedAvatarsStr) : {};
+        avatarsMap[studentId] = cleanAvatar;
+        avatarsMap[studentId.toLowerCase()] = cleanAvatar;
+        if (currentUser?.targetId) avatarsMap[currentUser.targetId] = cleanAvatar;
+        if (currentUser?.username) avatarsMap[currentUser.username] = cleanAvatar;
+        if (currentUser?.id) avatarsMap[currentUser.id] = cleanAvatar;
+        localStorage.setItem("unihub_custom_avatars", JSON.stringify(avatarsMap));
+        localStorage.setItem(`unihub_avatar_${studentId}`, cleanAvatar);
+      } catch {}
     }
 
     setStudents(updatedStudents);

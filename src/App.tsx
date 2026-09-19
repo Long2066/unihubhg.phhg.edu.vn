@@ -175,19 +175,28 @@ const AppContent: React.FC = () => {
 
   const isStudentOrMonitor = currentUser?.role === UserRole.STUDENT || currentUser?.role === UserRole.CLASS_MONITOR;
   const studentObj = isStudentOrMonitor 
-    ? (students.find(s => 
-        (currentUser?.targetId && s.id === currentUser.targetId) ||
-        (currentUser?.username && (s.id === currentUser.username || (s as any).code === currentUser.username)) ||
-        (currentUser?.email && s.email === currentUser.email)
-      ) || students.find(s => 
-        (currentUser?.targetId && s.id?.toLowerCase() === currentUser.targetId.toLowerCase()) ||
-        (currentUser?.username && (s.id?.toLowerCase() === currentUser.username.toLowerCase() || (s as any).code?.toLowerCase() === currentUser.username.toLowerCase())) ||
-        (currentUser?.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
-      ) || SEED_STUDENTS.find(s => 
-        (currentUser?.targetId && s.id?.toLowerCase() === currentUser.targetId.toLowerCase()) ||
-        (currentUser?.username && (s.id?.toLowerCase() === currentUser.username.toLowerCase() || (s as any).code?.toLowerCase() === currentUser.username.toLowerCase())) ||
-        (currentUser?.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
-      ))
+    ? (() => {
+        const found = (students.find(s => 
+          (currentUser?.targetId && s.id === currentUser.targetId) ||
+          (currentUser?.username && (s.id === currentUser.username || (s as any).code === currentUser.username)) ||
+          (currentUser?.email && s.email === currentUser.email)
+        ) || students.find(s => 
+          (currentUser?.targetId && s.id?.toLowerCase() === currentUser.targetId.toLowerCase()) ||
+          (currentUser?.username && (s.id?.toLowerCase() === currentUser.username.toLowerCase() || (s as any).code?.toLowerCase() === currentUser.username.toLowerCase())) ||
+          (currentUser?.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
+        ) || SEED_STUDENTS.find(s => 
+          (currentUser?.targetId && s.id?.toLowerCase() === currentUser.targetId.toLowerCase()) ||
+          (currentUser?.username && (s.id?.toLowerCase() === currentUser.username.toLowerCase() || (s as any).code?.toLowerCase() === currentUser.username.toLowerCase())) ||
+          (currentUser?.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
+        ));
+        if (!found) return undefined;
+        const targetId = found.id || currentUser?.targetId || currentUser?.username || "";
+        const persistentAvatar = found.avatar || currentUser?.avatar || (targetId ? localStorage.getItem(`unihub_avatar_${targetId}`) : null) || "";
+        return {
+          ...found,
+          avatar: persistentAvatar || found.avatar
+        };
+      })()
     : undefined;
   const studentId = studentObj?.id || (isStudentOrMonitor ? currentUser?.targetId : undefined);
 
@@ -195,7 +204,7 @@ const AppContent: React.FC = () => {
   React.useEffect(() => {
     if (currentUser) {
       setEditName(currentUser.name);
-      setEditAvatar(studentObj?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.username}`);
+      setEditAvatar(studentObj?.avatar || currentUser?.avatar || (studentId ? localStorage.getItem(`unihub_avatar_${studentId}`) : null) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.username}`);
       
       const seedMatch = SEED_STUDENTS.find(s => 
         (currentUser.targetId && s.id === currentUser.targetId) ||
@@ -847,8 +856,10 @@ const AppContent: React.FC = () => {
       ...(seedMatch || {}),
       ...(studentObj || {})
     };
+    const targetUserId = currentUser?.targetId || currentUser?.username || currentUser?.id || "";
+    const persistentAvatar = effectiveStudent?.avatar || currentUser?.avatar || (targetUserId ? localStorage.getItem(`unihub_avatar_${targetUserId}`) : null) || "";
     setEditName(currentUser?.name || effectiveStudent?.name || "");
-    setEditAvatar(effectiveStudent?.avatar || currentUser?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.username}`);
+    setEditAvatar(persistentAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.username}`);
     
     const fields: Partial<any> = {};
     STUDENT_FIELDS_META.forEach(f => {
@@ -857,7 +868,7 @@ const AppContent: React.FC = () => {
         if (f.key === "id") val = currentUser?.targetId || currentUser?.username || currentUser?.id;
         if (f.key === "name") val = currentUser?.name;
         if (f.key === "email") val = currentUser?.email;
-        if (f.key === "avatar") val = currentUser?.avatar;
+        if (f.key === "avatar") val = persistentAvatar || currentUser?.avatar;
         if (f.key === "classId") val = (currentUser as any)?.classId;
         if (f.key === "facultyId") val = (currentUser as any)?.facultyId;
       }
@@ -1282,7 +1293,7 @@ const AppContent: React.FC = () => {
                   {studentObj?.avatar || isStudentOrMonitor ? (
                     <img 
                       referrerPolicy="no-referrer"
-                      src={studentObj?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name}`} 
+                      src={studentObj?.avatar || currentUser?.avatar || (studentId ? localStorage.getItem(`unihub_avatar_${studentId}`) : null) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name}`} 
                       alt={currentUser.name} 
                       className="w-8 h-8 rounded-xl object-cover border border-slate-100 group-hover:scale-105 transition-transform"
                       onError={(e) => {
@@ -1316,7 +1327,7 @@ const AppContent: React.FC = () => {
                         {studentObj?.avatar || isStudentOrMonitor ? (
                           <img 
                             referrerPolicy="no-referrer"
-                            src={studentObj?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name || currentUser.username}`} 
+                            src={studentObj?.avatar || currentUser?.avatar || (studentId ? localStorage.getItem(`unihub_avatar_${studentId}`) : null) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name || currentUser.username}`} 
                             alt={currentUser.name || currentUser.username} 
                             className="w-11 h-11 rounded-full object-cover border border-slate-100 shadow-sm"
                           />

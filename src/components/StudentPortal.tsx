@@ -403,9 +403,15 @@ export const StudentPortal: React.FC = () => {
       (currentUser?.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
     );
     if (!found && !seed) return undefined;
-    return {
+    const base = {
       ...(seed || {}),
       ...(found || {})
+    };
+    const targetId = base.id || currentUser?.targetId || currentUser?.username || "";
+    const localAvatar = targetId ? (localStorage.getItem("unihub_avatar_" + targetId) || "") : "";
+    return {
+      ...base,
+      avatar: base.avatar || currentUser?.avatar || localAvatar || undefined
     };
   }, [students, currentUser]);
   const studentId = sObj?.id || currentUser?.targetId || (currentUser?.role === "STUDENT" ? currentUser?.username : "") || "";
