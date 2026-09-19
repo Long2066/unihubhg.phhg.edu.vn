@@ -2833,9 +2833,46 @@ assert(
   "ClassPortal passes unconstrained adjustment points to state dispatcher"
 );
 
+// ==========================================
+// BATCH 65: Intentional Profile Field Clearing
+// ==========================================
+console.log("\n--- BATCH 65: Intentional Profile Field Clearing ---");
+
+assert(
+  stateContent.includes("Object.entries(safeFields).forEach(([k, v]) => {\n          if (v !== undefined && v !== null) {\n            mergedFields[k] = v;\n          }\n        });") &&
+  !stateContent.includes("else if (v === \"\" && (s as any)[k] !== undefined"),
+  "Batch 65 Issue 1: Student profile save/merge must preserve intentional empty-string edits",
+  "Found empty-string filtering that prevents users from clearing profile fields"
+);
+
+assert(
+  !stateContent.includes("(studData as any)[key] === \"\"") &&
+  stateContent.includes("if ((studData as any)[key] === undefined || (studData as any)[key] === null)"),
+  "Batch 65 Issue 2: Student Firestore payload must write empty strings with merge:true so cleared fields persist",
+  "Student Firestore write deletes empty strings, leaving old cloud values untouched"
+);
+
+assert(
+  rootAppContent.includes("if (val === undefined || val === null) {") &&
+  studentPortalContent.includes("if (val === undefined || val === null) {") &&
+  !rootAppContent.includes("val === undefined || val === null || val === \"\"") &&
+  !studentPortalContent.includes("val === undefined || val === null || val === \"\""),
+  "Batch 65 Issue 3: Profile edit forms must not refill intentionally cleared fields",
+  "Profile form still treats empty saved values as missing and refills them"
+);
+
+assert(
+  rootAppContent.includes("meta.type === \"number\" ? (e.target.value === \"\" ? \"\" : Number(e.target.value)) : e.target.value") &&
+  studentPortalContent.includes("meta.type === \"number\" ? (e.target.value === \"\" ? \"\" : Number(e.target.value)) : e.target.value") &&
+  !rootAppContent.includes("meta.type === \"number\" ? Number(e.target.value) : e.target.value") &&
+  !studentPortalContent.includes("meta.type === \"number\" ? Number(e.target.value) : e.target.value"),
+  "Batch 65 Issue 4: Profile number fields must clear to blank instead of coercing to 0",
+  "Profile number inputs still convert empty input to 0"
+);
+
 console.log("\n=========================================");
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 64 SECURITY & INTEGRITY REGRESSION TESTS PASSED (328 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 65 SECURITY & INTEGRITY REGRESSION TESTS PASSED (332 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

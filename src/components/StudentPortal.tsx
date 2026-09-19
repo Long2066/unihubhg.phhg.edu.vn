@@ -521,7 +521,7 @@ export const StudentPortal: React.FC = () => {
       const fields: Partial<any> = {};
       STUDENT_FIELDS_META.forEach(f => {
         let val = (sObj as any)?.[f.key];
-        if (val === undefined || val === null || val === "") {
+        if (val === undefined || val === null) {
           if (f.key === "id") val = currentUser.targetId || currentUser.username || currentUser.id;
           if (f.key === "name") val = currentUser.name;
           if (f.key === "email") val = currentUser.email;
@@ -3448,7 +3448,7 @@ export const StudentPortal: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {STUDENT_FIELDS_META.filter(meta => meta.category === "personal").map(meta => {
                       const isReadOnly = meta.readOnly;
-                      const value = (profileFields as any)[meta.key] || "";
+                      const value = (profileFields as any)[meta.key] ?? "";
                       
                       return (
                         <div key={meta.key} className={meta.key === "permanentAddress" || meta.key === "temporaryAddress" ? "sm:col-span-2" : ""}>
@@ -3479,7 +3479,7 @@ export const StudentPortal: React.FC = () => {
                               value={value}
                               disabled={isReadOnly}
                               onChange={(e) => {
-                                const val = meta.type === "number" ? Number(e.target.value) : e.target.value;
+                                const val = meta.type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value;
                                 setProfileFields(prev => ({ ...prev, [meta.key]: val }));
                                 if (meta.key === "name") {
                                   setEditName(e.target.value);
@@ -3499,7 +3499,7 @@ export const StudentPortal: React.FC = () => {
                 {activeProfileTab === "family" && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {STUDENT_FIELDS_META.filter(meta => meta.category === "family").map(meta => {
-                      const value = (profileFields as any)[meta.key] || "";
+                      const value = (profileFields as any)[meta.key] ?? "";
                       return (
                         <div key={meta.key}>
                           <label className="block text-xs font-bold text-slate-700 mb-1">{meta.label}</label>
@@ -3519,7 +3519,7 @@ export const StudentPortal: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {STUDENT_FIELDS_META.filter(meta => meta.category === "education" || meta.category === "finance").map(meta => {
                       const isReadOnly = meta.readOnly;
-                      const value = (profileFields as any)[meta.key] || "";
+                      const value = (profileFields as any)[meta.key] ?? "";
                       return (
                         <div key={meta.key} className={meta.key === "creditClassesList" || meta.key === "enrollmentNotes" ? "sm:col-span-2" : ""}>
                           <label className="block text-xs font-bold text-slate-700 mb-1">{meta.label}</label>
@@ -3527,7 +3527,7 @@ export const StudentPortal: React.FC = () => {
                             type={meta.type === "number" ? "number" : "text"}
                             value={value}
                             disabled={isReadOnly}
-                            onChange={(e) => setProfileFields(prev => ({ ...prev, [meta.key]: meta.type === "number" ? Number(e.target.value) : e.target.value }))}
+                            onChange={(e) => setProfileFields(prev => ({ ...prev, [meta.key]: meta.type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value }))}
                             className={`w-full px-3 py-2 text-xs rounded-lg border focus:outline-none text-slate-800 ${
                               isReadOnly ? "bg-slate-50 border-slate-250/60 text-slate-450 cursor-not-allowed font-semibold" : "border-slate-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-655"
                             }`}

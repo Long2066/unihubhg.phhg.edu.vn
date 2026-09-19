@@ -454,11 +454,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               } else {
                 const cleanItem: any = {};
                 Object.entries(s).forEach(([k, v]) => {
-                  if (v !== undefined && v !== null && v !== "") {
+                  if (v !== undefined && v !== null) {
                     cleanItem[k] = v;
                   }
                 });
-                studentMap.set(idKey, { ...existing, ...cleanItem });
+                const avatar = existing.avatar || cleanItem.avatar || getCachedAvatar(existing.id, (existing as any).code, cleanItem.id, cleanItem.code);
+                studentMap.set(idKey, { ...existing, ...cleanItem, ...(avatar ? { avatar } : {}) });
               }
             }
           });
@@ -1622,7 +1623,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     } else {
                       const cleanItem: any = {};
                       Object.entries(s).forEach(([k, v]) => {
-                        if (v !== undefined && v !== null && v !== "") {
+                        if (v !== undefined && v !== null) {
                           cleanItem[k] = v;
                         }
                       });
@@ -1645,7 +1646,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             } else {
               const cleanItem: any = {};
               Object.entries(item).forEach(([k, v]) => {
-                if (v !== undefined && v !== null && v !== "") {
+                if (v !== undefined && v !== null) {
                   cleanItem[k] = v;
                 }
               });
@@ -1905,19 +1906,41 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       // Helper: Smart merge list with local storage items
       const smartMerge = <T,>(cloudList: T[], storageKey: string, idResolver: (item: T) => string): T[] => {
+        let localList: T[] = [];
+        try {
+          const cached = localStorage.getItem(storageKey);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed)) localList = parsed;
+          }
+        } catch {}
+
         if (cloudList.length === 0) {
-          let localList: T[] = [];
-          try {
-            const cached = localStorage.getItem(storageKey);
-            if (cached) {
-              const parsed = JSON.parse(cached);
-              if (Array.isArray(parsed)) localList = parsed;
-            }
-          } catch {}
           return localList;
         }
-        localStorage.setItem(storageKey, JSON.stringify(cloudList));
-        return cloudList;
+
+        const localById = new Map<string, T>();
+        localList.forEach(item => {
+          const id = (idResolver(item) || "").toString().trim().toLowerCase();
+          if (id) localById.set(id, item);
+        });
+
+        const mergedList = cloudList.map(item => {
+          const id = (idResolver(item) || "").toString().trim().toLowerCase();
+          const localItem = id ? localById.get(id) : undefined;
+          if (!localItem || typeof localItem !== "object" || !item || typeof item !== "object") return item;
+
+          const cleanCloud: Record<string, any> = {};
+          Object.entries(item as Record<string, any>).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+              cleanCloud[key] = value;
+            }
+          });
+          return { ...(localItem as Record<string, any>), ...cleanCloud } as T;
+        });
+
+        localStorage.setItem(storageKey, JSON.stringify(mergedList));
+        return mergedList;
       };
 
       // 0. Sync deleted classes first from Firestore
@@ -3117,11 +3140,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         found = true;
         const mergedFields: any = {};
         Object.entries(safeFields).forEach(([k, v]) => {
-          if (v !== undefined && v !== null && v !== "") {
-            mergedFields[k] = v;
-          } else if (v === "" && (s as any)[k] !== undefined && (s as any)[k] !== null && (s as any)[k] !== "") {
-            mergedFields[k] = (s as any)[k];
-          } else {
+          if (v !== undefined && v !== null) {
             mergedFields[k] = v;
           }
         });
@@ -3170,7 +3189,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (targetStud) {
       const studData = sanitizeForFirestore(targetStud);
       Object.keys(studData).forEach(key => {
-        if ((studData as any)[key] === "" || (studData as any)[key] === undefined) {
+        if ((studData as any)[key] === undefined || (studData as any)[key] === null) {
           delete (studData as any)[key];
         }
       });

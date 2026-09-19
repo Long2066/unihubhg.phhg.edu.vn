@@ -226,7 +226,7 @@ const AppContent: React.FC = () => {
       const fields: Partial<any> = {};
       STUDENT_FIELDS_META.forEach(f => {
         let val = (effectiveStudent as any)?.[f.key];
-        if (val === undefined || val === null || val === "") {
+        if (val === undefined || val === null) {
           if (f.key === "id") val = currentUser.targetId || currentUser.username || currentUser.id;
           if (f.key === "name") val = currentUser.name;
           if (f.key === "email") val = currentUser.email;
@@ -868,7 +868,7 @@ const AppContent: React.FC = () => {
     const fields: Partial<any> = {};
     STUDENT_FIELDS_META.forEach(f => {
       let val = (effectiveStudent as any)?.[f.key];
-      if (val === undefined || val === null || val === "") {
+      if (val === undefined || val === null) {
         if (f.key === "id") val = currentUser?.targetId || currentUser?.username || currentUser?.id;
         if (f.key === "name") val = currentUser?.name;
         if (f.key === "email") val = currentUser?.email;
@@ -1905,7 +1905,7 @@ const AppContent: React.FC = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[45vh] overflow-y-auto pr-1 py-1 animate-fade-in">
                           {STUDENT_FIELDS_META.filter(meta => meta.category === "personal").map(meta => {
                             const isReadOnly = meta.readOnly;
-                            const value = (profileFields as any)[meta.key] || "";
+                            const value = (profileFields as any)[meta.key] ?? "";
                             
                             return (
                               <div key={meta.key} className={meta.key === "permanentAddress" || meta.key === "temporaryAddress" ? "sm:col-span-2" : ""}>
@@ -1936,7 +1936,7 @@ const AppContent: React.FC = () => {
                                     value={value}
                                     disabled={isReadOnly}
                                     onChange={(e) => {
-                                      const val = meta.type === "number" ? Number(e.target.value) : e.target.value;
+                                      const val = meta.type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value;
                                       setProfileFields(prev => ({ ...prev, [meta.key]: val }));
                                       if (meta.key === "name") {
                                         setEditName(e.target.value);
@@ -1956,7 +1956,7 @@ const AppContent: React.FC = () => {
                       {activeSubProfileTab === "family" && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[45vh] overflow-y-auto pr-1 py-1 animate-fade-in">
                           {STUDENT_FIELDS_META.filter(meta => meta.category === "family").map(meta => {
-                            const value = (profileFields as any)[meta.key] || "";
+                            const value = (profileFields as any)[meta.key] ?? "";
                             return (
                               <div key={meta.key}>
                                 <label className="block text-[10px] font-black uppercase text-slate-455 tracking-wider mb-1">{meta.label}</label>
@@ -1976,7 +1976,7 @@ const AppContent: React.FC = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[45vh] overflow-y-auto pr-1 py-1 animate-fade-in">
                           {STUDENT_FIELDS_META.filter(meta => meta.category === "education" || meta.category === "finance").map(meta => {
                             const isReadOnly = meta.readOnly;
-                            const value = (profileFields as any)[meta.key] || "";
+                            const value = (profileFields as any)[meta.key] ?? "";
                             return (
                               <div key={meta.key} className={meta.key === "creditClassesList" || meta.key === "enrollmentNotes" ? "sm:col-span-2" : ""}>
                                 <label className="block text-[10px] font-black uppercase text-slate-455 tracking-wider mb-1">{meta.label}</label>
@@ -1984,7 +1984,7 @@ const AppContent: React.FC = () => {
                                   type={meta.type === "number" ? "number" : "text"}
                                   value={value}
                                   disabled={isReadOnly}
-                                  onChange={(e) => setProfileFields(prev => ({ ...prev, [meta.key]: meta.type === "number" ? Number(e.target.value) : e.target.value }))}
+                                  onChange={(e) => setProfileFields(prev => ({ ...prev, [meta.key]: meta.type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value }))}
                                   className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none text-slate-800 bg-white ${
                                     isReadOnly ? "bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed font-semibold" : "border-slate-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-650"
                                   }`}
