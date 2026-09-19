@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -2251,7 +2251,7 @@ const AppContent: React.FC = () => {
               >
                 {/* 1. Default/avatar layer stays below transparent photo window in official frame */}
                 <div 
-                  style={{ position: 'absolute', top: '26.6%', left: '75.2%', width: '21.3%', height: '40.4%' }}
+                  style={{ position: 'absolute', top: '25.3%', left: '74.3%', width: '23%', height: '43%' }}
                   className="z-0 overflow-hidden rounded-[10px] sm:rounded-[14px] md:rounded-[18px] bg-slate-100 pointer-events-none"
                 >
                   <img 
@@ -2262,7 +2262,7 @@ const AppContent: React.FC = () => {
                 </div>
                 {cardAvatar && (
                   <div 
-                    style={{ position: 'absolute', top: '26.6%', left: '75.2%', width: '21.3%', height: '40.4%' }}
+                    style={{ position: 'absolute', top: '25.3%', left: '74.3%', width: '23%', height: '43%' }}
                     className="z-10 overflow-hidden rounded-[10px] sm:rounded-[14px] md:rounded-[18px] bg-slate-100 pointer-events-none"
                   >
                     <img 
