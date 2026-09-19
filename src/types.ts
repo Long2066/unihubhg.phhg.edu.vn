@@ -88,7 +88,13 @@ export interface StudentPeriodAcademicData {
   updatedAt?: string;
 }
 
-export const SEMESTER_LIST = [
+export interface SemesterItem {
+  id: string;
+  name: string;
+  isCustom?: boolean;
+}
+
+export const SEMESTER_LIST: SemesterItem[] = [
   { id: "HOCKY_2_2025_2026", name: "Học kỳ II - 2025-2026" },
   { id: "HOCKY_1_2025_2026", name: "Học kỳ I - 2025-2026" },
   { id: "HOCKY_2_2024_2025", name: "Học kỳ II - 2024-2025" },
@@ -703,6 +709,7 @@ export interface RecycleBinItem {
 export interface RegistrationPeriod {
   id: string;                    // e.g. "REGPERIOD_HOCKY_2_2025_2026"
   semesterId: string;            // FK: "HOCKY_2_2025_2026"
+  semesterName?: string;         // e.g. "Học kỳ II - 2025-2026"
   name: string;                  // "Đăng ký tín chỉ HK II năm 2025-2026"
   startDate: string;             // ISO 8601
   endDate: string;               // ISO 8601

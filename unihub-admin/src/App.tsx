@@ -111,7 +111,6 @@ const sanitizeForFirestore = <T extends Record<string, any>>(obj: T): T => {
   if (!obj || typeof obj !== "object") return obj;
   const clean: Record<string, any> = {};
   Object.keys(obj).forEach(key => {
-    if (key === "password") return;
     if (obj[key] !== undefined && obj[key] !== null) {
       clean[key] = obj[key];
     }
@@ -1311,6 +1310,17 @@ export default function App() {
         const targetDocId = cleanEmail || `U_GEN_${Date.now()}`;
         firestoreUser.id = targetDocId;
         await setDoc(doc(db, "users", targetDocId), firestoreUser);
+      }
+
+      // Sync any duplicate docs for the same email/username so credentials remain synchronized
+      const otherMatchingDocs = users.filter(u => 
+        u.id !== firestoreUser.id && (
+          (u.email && u.email.trim().toLowerCase() === cleanEmail.toLowerCase()) ||
+          (u.username && u.username.trim().toLowerCase() === cleanUsername.toLowerCase())
+        )
+      );
+      for (const dup of otherMatchingDocs) {
+        await setDoc(doc(db, "users", dup.id), { ...firestoreUser, id: dup.id }, { merge: true }).catch(() => {});
       }
 
       // Auto-upsert matching Organization document for org accounts so CTHSSV portal renders it

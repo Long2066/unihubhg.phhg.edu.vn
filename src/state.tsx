@@ -55,7 +55,9 @@ import {
   RecycleBinItem,
   RegistrationPeriod,
   CourseOffering,
-  CreditEnrollment
+  CreditEnrollment,
+  SemesterItem,
+  SEMESTER_LIST
 } from "./types";
 import { 
   SEED_PERIOD, 
@@ -216,6 +218,10 @@ interface UniHubContextType {
   syncFreshFromCloud: () => Promise<void>;
 
   // Credit Registration
+  customSemesters: SemesterItem[];
+  allSemesters: SemesterItem[];
+  addCustomSemester: (name: string, id?: string) => Promise<SemesterItem>;
+  deleteCustomSemester: (id: string) => Promise<void>;
   registrationPeriods: RegistrationPeriod[];
   courseOfferings: CourseOffering[];
   creditEnrollments: CreditEnrollment[];
@@ -573,6 +579,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   });
 
+  const [customSemesters, setCustomSemesters] = useState<SemesterItem[]>(() => {
+    const cached = localStorage.getItem("unihub_custom_semesters");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {}
+    }
+    return [];
+  });
+
   const [registrationPeriods, setRegistrationPeriods] = useState<RegistrationPeriod[]>(() => {
     const cached = localStorage.getItem("unihub_registration_periods");
     if (cached) {
@@ -605,6 +622,28 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     return [];
   });
+
+  const allSemesters = React.useMemo<SemesterItem[]>(() => {
+    const map = new Map<string, SemesterItem>();
+    for (const sem of SEMESTER_LIST) {
+      map.set(sem.id, sem);
+    }
+    for (const sem of customSemesters) {
+      if (sem?.id) {
+        map.set(sem.id, { ...sem, isCustom: true });
+      }
+    }
+    for (const p of registrationPeriods) {
+      if (p.semesterId && !map.has(p.semesterId)) {
+        map.set(p.semesterId, {
+          id: p.semesterId,
+          name: p.semesterName || p.name || p.semesterId,
+          isCustom: true
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [customSemesters, registrationPeriods]);
 
 
   const persistTeacherAssignmentsToFirestore = (assignments: (CourseClassAssignment & { teacherPassword?: string })[]) => {
@@ -1587,6 +1626,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
         },
         (error) => console.warn("Firestore listener failed for settings/deletedClasses:", error)
+      ),
+      onSnapshot(
+        doc(db, "settings", "semesters"),
+        (snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            const list: SemesterItem[] = Array.isArray(data?.list) ? data.list : [];
+            setCustomSemesters(list);
+            localStorage.setItem("unihub_custom_semesters", JSON.stringify(list));
+          }
+        },
+        (error) => console.warn("Firestore listener failed for settings/semesters:", error)
       ),
       onSnapshot(
         collection(db, "recycleBin"),
@@ -5676,12 +5727,74 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveToStorage("unihub_results", updatedResults);
   };
 
+  // ─── CUSTOM SEMESTER ACTIONS ───────────────────────────────────
+  const addCustomSemester = async (name: string, customId?: string): Promise<SemesterItem> => {
+    const trimmedName = name.trim();
+    if (!trimmedName) throw new Error("Tên học kỳ không được để trống!");
+
+    let id = customId?.trim();
+    if (!id) {
+      const ascii = trimmedName
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/đ/g, "d")
+        .replace(/Đ/g, "D")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+      id = `HOCKY_${ascii}`;
+    }
+
+    const newSem: SemesterItem = { id, name: trimmedName, isCustom: true };
+
+    setCustomSemesters(prev => {
+      const filtered = prev.filter(s => s.id !== id);
+      const next = [...filtered, newSem];
+      localStorage.setItem("unihub_custom_semesters", JSON.stringify(next));
+      return next;
+    });
+
+    try {
+      const currentList = customSemesters.filter(s => s.id !== id);
+      const updatedList = [...currentList, newSem];
+      await setDoc(doc(db, "settings", "semesters"), { list: updatedList }, { merge: true });
+    } catch (e) {
+      console.warn("Lỗi lưu học kỳ tùy chỉnh lên Firestore:", e);
+    }
+
+    return newSem;
+  };
+
+  const deleteCustomSemester = async (id: string): Promise<void> => {
+    setCustomSemesters(prev => {
+      const next = prev.filter(s => s.id !== id);
+      localStorage.setItem("unihub_custom_semesters", JSON.stringify(next));
+      return next;
+    });
+
+    try {
+      const updatedList = customSemesters.filter(s => s.id !== id);
+      await setDoc(doc(db, "settings", "semesters"), { list: updatedList }, { merge: true });
+    } catch (e) {
+      console.warn("Lỗi xóa học kỳ tùy chỉnh trên Firestore:", e);
+    }
+  };
+
   // ─── CREDIT REGISTRATION ACTIONS ──────────────────────────────
   const saveRegistrationPeriod = async (regPeriod: RegistrationPeriod) => {
     if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.TRAINING_DEPT)) {
       console.warn("Unauthorized attempt to save registration period");
       return;
     }
+
+    // Tự động ghi nhận học kỳ tùy chỉnh nếu chưa có trong danh mục cố định
+    if (regPeriod.semesterId && !SEMESTER_LIST.some(s => s.id === regPeriod.semesterId)) {
+      const semName = regPeriod.semesterName || regPeriod.name;
+      if (semName) {
+        addCustomSemester(semName, regPeriod.semesterId).catch(() => {});
+      }
+    }
+
     const cleanPeriod = sanitizeForFirestore({
       ...regPeriod,
       id: regPeriod.id || `REGPERIOD_${regPeriod.semesterId || Date.now()}`,
@@ -5775,19 +5888,34 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     classId: string,
     offeringIds: string[]
   ): Promise<{ success: boolean; message: string }> => {
-    const activePeriod = registrationPeriods.find(p => p.status === "OPEN");
+    if (!offeringIds || offeringIds.length === 0) {
+      return { success: false, message: "Vui lòng chọn ít nhất một học phần để đăng ký." };
+    }
+
+    const targetOfferings = courseOfferings.filter(o => offeringIds.includes(o.id) && o.isActive);
+    if (targetOfferings.length === 0) {
+      return { success: false, message: "Không tìm thấy học phần hợp lệ hoặc học phần đã tạm dừng." };
+    }
+
+    const targetSemesterId = targetOfferings[0]?.semesterId || selectedSemesterId;
+    const activePeriod = registrationPeriods.find(p => p.semesterId === targetSemesterId && p.status === "OPEN") ||
+      registrationPeriods.find(p => p.status === "OPEN");
+
     if (!activePeriod) {
-      return { success: false, message: "Hiện tại không có đợt đăng ký tín chỉ nào đang mở." };
+      return { success: false, message: "Hiện tại đợt đăng ký tín chỉ của học kỳ này đang đóng." };
     }
 
     const existingEnrollments = creditEnrollments.filter(
       e => e.studentId === studentId && e.semesterId === activePeriod.semesterId && e.isActive
     );
     const existingOfferingIds = new Set(existingEnrollments.map(e => e.offeringId));
-    const targetOfferings = courseOfferings.filter(o => offeringIds.includes(o.id) && o.isActive);
+    const newOfferings = targetOfferings.filter(o => !existingOfferingIds.has(o.id));
+
+    if (newOfferings.length === 0) {
+      return { success: false, message: "Học phần này đã được đăng ký trước đó rồi." };
+    }
 
     const existingCredits = existingEnrollments.reduce((sum, e) => sum + (Number(e.credits) || 0), 0);
-    const newOfferings = targetOfferings.filter(o => !existingOfferingIds.has(o.id));
     const newCredits = newOfferings.reduce((sum, o) => sum + (Number(o.credits) || 0), 0);
     const totalCreditsAfter = existingCredits + newCredits;
 
@@ -5983,6 +6111,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       syncFreshFromCloud,
 
       // Credit Registration
+      customSemesters,
+      allSemesters,
+      addCustomSemester,
+      deleteCustomSemester,
       registrationPeriods,
       courseOfferings,
       creditEnrollments,

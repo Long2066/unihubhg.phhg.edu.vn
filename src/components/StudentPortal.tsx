@@ -368,7 +368,9 @@ export const StudentPortal: React.FC = () => {
     subjectGradeSheets,
     submitGradeAppeal,
     gradeAppeals,
-    schedules
+    schedules,
+    registrationPeriods,
+    allSemesters
   } = useUniHub();
 
   const [appealModalSubject, setAppealModalSubject] = useState<{ code: string; name: string; grade: string } | null>(null);
@@ -381,6 +383,10 @@ export const StudentPortal: React.FC = () => {
   const setActiveTab = (tab: "TRANG_CHU" | "DIEM" | "DANG_KY_TIN_CHI" | "HOATDONG" | "CLB" | "MINHCHUNG" | "THOI_KHOA_BIEU") => {
     setActivePortletTab(tab);
   };
+
+  const openCreditPeriod = useMemo(() => {
+    return registrationPeriods?.find(p => p.status === "OPEN") || null;
+  }, [registrationPeriods]);
 
   const sObj = students?.find(s => 
     (currentUser?.targetId && s.id.toLowerCase() === currentUser.targetId.toLowerCase()) ||
@@ -2096,6 +2102,42 @@ export const StudentPortal: React.FC = () => {
           {/* TAB 1: TRANG CHỦ - CHỈ CHỨA HỒ SƠ SINH VIÊN VÀ BẢNG TIN QUAN TRỌNG */}
           {activeTab === "TRANG_CHU" && (
             <div className="space-y-6 animate-fade-in text-slate-800">
+
+              {/* BANNER THÔNG BÁO CỔNG ĐĂNG KÝ TÍN CHỈ ĐANG MỞ */}
+              {openCreditPeriod && (
+                <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-blue-700 text-white rounded-2xl p-5 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in slide-in-from-top-3 duration-300">
+                  <div className="flex items-start gap-3.5">
+                    <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-xs text-white shrink-0">
+                      <BookOpen className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-black uppercase tracking-wider">
+                          🟢 ĐANG MỞ ĐĂNG KÝ
+                        </span>
+                        <h4 className="font-bold text-white text-base">{openCreditPeriod.name}</h4>
+                      </div>
+                      <p className="text-xs text-indigo-100 mt-1">
+                        Thời hạn đăng ký: Đến hết ngày <strong className="text-white font-semibold">{openCreditPeriod.endDate}</strong> • Giới hạn: <strong className="text-amber-300 font-semibold">{openCreditPeriod.minCreditsPerStudent} - {openCreditPeriod.maxCreditsPerStudent} TC</strong> / sinh viên
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (openCreditPeriod.semesterId) {
+                        setSelectedSemesterId(openCreditPeriod.semesterId);
+                      }
+                      setActiveTab("DANG_KY_TIN_CHI");
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black shadow-md transition-all cursor-pointer whitespace-nowrap active:scale-95 flex items-center justify-center gap-2 self-start sm:self-auto min-h-[44px]"
+                  >
+                    <span>VÀO ĐĂNG KÝ TÍN CHỈ NGAY</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
 
               {/* News Board container */}
               <div className="overflow-hidden space-y-4 border-b border-slate-100 pb-6">

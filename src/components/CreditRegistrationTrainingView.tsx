@@ -4,7 +4,7 @@ import {
   RegistrationPeriod, 
   CourseOffering, 
   CreditEnrollment, 
-  SEMESTER_LIST, 
+  SemesterItem, 
   UserRole 
 } from "../types";
 import { 
@@ -33,7 +33,8 @@ import {
   AlertTriangle,
   RefreshCw,
   Eye,
-  Sliders
+  Sliders,
+  Settings
 } from "lucide-react";
 
 export const CreditRegistrationTrainingView: React.FC = () => {
@@ -45,6 +46,9 @@ export const CreditRegistrationTrainingView: React.FC = () => {
     registrationPeriods,
     courseOfferings,
     creditEnrollments,
+    allSemesters,
+    addCustomSemester,
+    deleteCustomSemester,
     saveRegistrationPeriod,
     deleteRegistrationPeriod,
     toggleRegistrationPeriodStatus,
@@ -65,6 +69,12 @@ export const CreditRegistrationTrainingView: React.FC = () => {
   // Modal Thêm/Sửa Đợt
   const [showPeriodModal, setShowPeriodModal] = useState<boolean>(false);
   const [editingPeriod, setEditingPeriod] = useState<Partial<RegistrationPeriod> | null>(null);
+  const [isCustomPeriodSemester, setIsCustomPeriodSemester] = useState<boolean>(false);
+  const [customPeriodSemesterName, setCustomPeriodSemesterName] = useState<string>("");
+
+  // Modal Quản lý Học kỳ tùy chỉnh
+  const [showSemesterManagerModal, setShowSemesterManagerModal] = useState<boolean>(false);
+  const [newSemesterInput, setNewSemesterInput] = useState<string>("");
 
   // Modal Thêm/Sửa Môn
   const [showOfferingModal, setShowOfferingModal] = useState<boolean>(false);
@@ -165,10 +175,20 @@ export const CreditRegistrationTrainingView: React.FC = () => {
     if (!editingPeriod?.name) return;
     try {
       setActionLoading(true);
-      const semObj = SEMESTER_LIST.find(s => s.id === (editingPeriod.semesterId || selectedSemesterId));
+      let targetSemesterId = editingPeriod.semesterId || selectedSemesterId;
+      let targetSemesterName = allSemesters.find(s => s.id === targetSemesterId)?.name;
+
+      if (isCustomPeriodSemester && customPeriodSemesterName.trim()) {
+        const created = await addCustomSemester(customPeriodSemesterName.trim());
+        targetSemesterId = created.id;
+        targetSemesterName = created.name;
+        setSelectedSemesterId(created.id);
+      }
+
       const payload: RegistrationPeriod = {
-        id: editingPeriod.id || `REGPERIOD_${editingPeriod.semesterId || selectedSemesterId}`,
-        semesterId: editingPeriod.semesterId || selectedSemesterId,
+        id: editingPeriod.id || `REGPERIOD_${targetSemesterId}`,
+        semesterId: targetSemesterId,
+        semesterName: targetSemesterName,
         name: editingPeriod.name.trim(),
         startDate: editingPeriod.startDate || new Date().toISOString().split("T")[0],
         endDate: editingPeriod.endDate || new Date(Date.now() + 15 * 86400000).toISOString().split("T")[0],
@@ -183,6 +203,8 @@ export const CreditRegistrationTrainingView: React.FC = () => {
       await saveRegistrationPeriod(payload);
       setShowPeriodModal(false);
       setEditingPeriod(null);
+      setIsCustomPeriodSemester(false);
+      setCustomPeriodSemesterName("");
       showFeedback("Đã lưu đợt đăng ký tín chỉ thành công và đồng bộ đám mây!");
     } catch (err: any) {
       showFeedback("Lỗi khi lưu đợt đăng ký: " + err.message, "error");
@@ -248,7 +270,7 @@ export const CreditRegistrationTrainingView: React.FC = () => {
 
   // Xuất file báo cáo Excel
   const handleExportReport = async () => {
-    const semName = SEMESTER_LIST.find(s => s.id === selectedSemesterId)?.name || selectedSemesterId;
+    const semName = allSemesters.find(s => s.id === selectedSemesterId)?.name || selectedSemesterId;
     try {
       setActionLoading(true);
       await exportCreditEnrollmentsReport({
@@ -297,17 +319,29 @@ export const CreditRegistrationTrainingView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <label className="text-xs font-semibold text-slate-600 whitespace-nowrap">Học kỳ làm việc:</label>
           <select
             value={selectedSemesterId}
             onChange={(e) => setSelectedSemesterId(e.target.value)}
             className="text-sm font-semibold bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 shadow-2xs"
           >
-            {SEMESTER_LIST.map(sem => (
-              <option key={sem.id} value={sem.id}>{sem.name}</option>
+            {allSemesters.map(sem => (
+              <option key={sem.id} value={sem.id}>
+                {sem.name} {sem.isCustom ? " (Tùy chỉnh)" : ""}
+              </option>
             ))}
           </select>
+
+          <button
+            type="button"
+            onClick={() => setShowSemesterManagerModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+            title="Quản lý và thêm học kỳ tùy chỉnh"
+          >
+            <Settings className="w-3.5 h-3.5 text-slate-500" />
+            <span>Quản lý Học kỳ</span>
+          </button>
         </div>
       </div>
 
@@ -384,6 +418,8 @@ export const CreditRegistrationTrainingView: React.FC = () => {
                 <button
                   onClick={() => {
                     setEditingPeriod(currentPeriod);
+                    setIsCustomPeriodSemester(false);
+                    setCustomPeriodSemesterName("");
                     setShowPeriodModal(true);
                   }}
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
@@ -397,7 +433,7 @@ export const CreditRegistrationTrainingView: React.FC = () => {
                 onClick={() => {
                   setEditingPeriod({
                     semesterId: selectedSemesterId,
-                    name: `Đăng ký tín chỉ ${SEMESTER_LIST.find(s => s.id === selectedSemesterId)?.name || ""}`,
+                    name: `Đăng ký tín chỉ ${allSemesters.find(s => s.id === selectedSemesterId)?.name || ""}`,
                     startDate: new Date().toISOString().split("T")[0],
                     endDate: new Date(Date.now() + 15 * 86400000).toISOString().split("T")[0],
                     status: "OPEN",
@@ -405,6 +441,8 @@ export const CreditRegistrationTrainingView: React.FC = () => {
                     maxCreditsPerStudent: 24,
                     instructions: "Sinh viên lựa chọn các học phần mở trong học kỳ để tích lũy đủ số tín chỉ quy định."
                   });
+                  setIsCustomPeriodSemester(false);
+                  setCustomPeriodSemesterName("");
                   setShowPeriodModal(true);
                 }}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer active:scale-95"
@@ -669,7 +707,7 @@ export const CreditRegistrationTrainingView: React.FC = () => {
               {/* Tải tệp mẫu Excel */}
               <button
                 onClick={() => {
-                  const semName = SEMESTER_LIST.find(s => s.id === selectedSemesterId)?.name;
+                  const semName = allSemesters.find(s => s.id === selectedSemesterId)?.name;
                   downloadCourseOfferingsTemplate(semName);
                 }}
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
@@ -800,26 +838,38 @@ export const CreditRegistrationTrainingView: React.FC = () => {
       {/* ─── TAB 3: LỊCH SỬ ĐỢT ĐĂNG KÝ ─────────────────────────────── */}
       {activeSubTab === "PERIODS" && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-wrap justify-between items-center gap-3">
             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Danh Sách Các Đợt Đăng Ký Tín Chỉ</h3>
-            <button
-              onClick={() => {
-                setEditingPeriod({
-                  semesterId: selectedSemesterId,
-                  name: `Đăng ký tín chỉ ${SEMESTER_LIST.find(s => s.id === selectedSemesterId)?.name || ""}`,
-                  startDate: new Date().toISOString().split("T")[0],
-                  endDate: new Date(Date.now() + 15 * 86400000).toISOString().split("T")[0],
-                  status: "OPEN",
-                  minCreditsPerStudent: 12,
-                  maxCreditsPerStudent: 24
-                });
-                setShowPeriodModal(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Tạo Đợt Mới
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSemesterManagerModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+              >
+                <Settings className="w-3.5 h-3.5 text-slate-500" />
+                Quản lý Học kỳ
+              </button>
+              <button
+                onClick={() => {
+                  setEditingPeriod({
+                    semesterId: selectedSemesterId,
+                    name: `Đăng ký tín chỉ ${allSemesters.find(s => s.id === selectedSemesterId)?.name || ""}`,
+                    startDate: new Date().toISOString().split("T")[0],
+                    endDate: new Date(Date.now() + 15 * 86400000).toISOString().split("T")[0],
+                    status: "OPEN",
+                    minCreditsPerStudent: 12,
+                    maxCreditsPerStudent: 24
+                  });
+                  setIsCustomPeriodSemester(false);
+                  setCustomPeriodSemesterName("");
+                  setShowPeriodModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Tạo Đợt Mới
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -829,7 +879,7 @@ export const CreditRegistrationTrainingView: React.FC = () => {
                   <div>
                     <h4 className="font-bold text-slate-900 text-sm">{p.name}</h4>
                     <span className="text-xs text-slate-500">
-                      Học kỳ: {SEMESTER_LIST.find(s => s.id === p.semesterId)?.name || p.semesterId}
+                      Học kỳ: {p.semesterName || allSemesters.find(s => s.id === p.semesterId)?.name || p.semesterId}
                     </span>
                   </div>
                   <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
@@ -853,6 +903,8 @@ export const CreditRegistrationTrainingView: React.FC = () => {
                   <button
                     onClick={() => {
                       setEditingPeriod(p);
+                      setIsCustomPeriodSemester(false);
+                      setCustomPeriodSemesterName("");
                       setShowPeriodModal(true);
                     }}
                     className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium cursor-pointer"
@@ -880,8 +932,8 @@ export const CreditRegistrationTrainingView: React.FC = () => {
       {/* ─── MODAL TẠO / SỬA ĐỢT ĐĂNG KÝ ─────────────────────────────── */}
       {showPeriodModal && editingPeriod && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <h3 className="font-bold text-slate-900 text-base">
                 {editingPeriod.id ? "Cấu Hình Đợt Đăng Ký Tín Chỉ" : "Tạo Đợt Đăng Ký Tín Chỉ Mới"}
               </h3>
@@ -893,7 +945,7 @@ export const CreditRegistrationTrainingView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSavePeriod} className="p-6 space-y-4 text-xs">
+            <form onSubmit={handleSavePeriod} className="p-6 space-y-4 text-xs overflow-y-auto flex-1">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Tên đợt đăng ký *</label>
                 <input
@@ -906,30 +958,69 @@ export const CreditRegistrationTrainingView: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Học kỳ áp dụng</label>
-                  <select
-                    value={editingPeriod.semesterId || selectedSemesterId}
-                    onChange={(e) => setEditingPeriod({ ...editingPeriod, semesterId: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-medium text-slate-900"
-                  >
-                    {SEMESTER_LIST.map(sem => (
-                      <option key={sem.id} value={sem.id}>{sem.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Trạng thái cổng</label>
-                  <select
-                    value={editingPeriod.status || "OPEN"}
-                    onChange={(e) => setEditingPeriod({ ...editingPeriod, status: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-900"
-                  >
-                    <option value="OPEN">Đang mở (Sinh viên được đăng ký)</option>
-                    <option value="UPCOMING">Sắp mở (Hiển thị đếm ngược)</option>
-                    <option value="CLOSED">Đã đóng sổ (Chỉ xem)</option>
-                  </select>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block font-semibold text-slate-700">Học kỳ áp dụng</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomPeriodSemester(!isCustomPeriodSemester);
+                          if (!isCustomPeriodSemester) {
+                            setCustomPeriodSemesterName("");
+                          }
+                        }}
+                        className="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
+                      >
+                        {isCustomPeriodSemester ? "← Chọn có sẵn" : "+ Viết học kỳ mới"}
+                      </button>
+                    </div>
+
+                    {!isCustomPeriodSemester ? (
+                      <select
+                        value={editingPeriod.semesterId || selectedSemesterId}
+                        onChange={(e) => {
+                          if (e.target.value === "__NEW_CUSTOM__") {
+                            setIsCustomPeriodSemester(true);
+                            setCustomPeriodSemesterName("");
+                          } else {
+                            setEditingPeriod({ ...editingPeriod, semesterId: e.target.value });
+                          }
+                        }}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-medium text-slate-900"
+                      >
+                        {allSemesters.map(sem => (
+                          <option key={sem.id} value={sem.id}>
+                            {sem.name} {sem.isCustom ? " (Tùy chỉnh)" : ""}
+                          </option>
+                        ))}
+                        <option value="__NEW_CUSTOM__">+ Thêm học kỳ tùy chỉnh khác...</option>
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        required
+                        placeholder="Nhập tên học kỳ (VD: Học kỳ Phụ 2025-2026)"
+                        value={customPeriodSemesterName}
+                        onChange={(e) => setCustomPeriodSemesterName(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-indigo-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-medium text-slate-900 bg-indigo-50/30"
+                      />
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Trạng thái cổng</label>
+                    <select
+                      value={editingPeriod.status || "OPEN"}
+                      onChange={(e) => setEditingPeriod({ ...editingPeriod, status: e.target.value as any })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-900"
+                    >
+                      <option value="OPEN">Đang mở (Sinh viên được đăng ký)</option>
+                      <option value="UPCOMING">Sắp mở (Hiển thị đếm ngược)</option>
+                      <option value="CLOSED">Đã đóng sổ (Chỉ xem)</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -1224,6 +1315,149 @@ export const CreditRegistrationTrainingView: React.FC = () => {
           </div>
         );
       })()}
+
+      {/* ─── MODAL QUẢN LÝ HỌC KỲ TÙY CHỈNH ───────────────────────── */}
+      {showSemesterManagerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Quản Lý Danh Sách Học Kỳ</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Thêm học kỳ tùy chỉnh mới hoặc xóa học kỳ không còn áp dụng</p>
+              </div>
+              <button
+                onClick={() => setShowSemesterManagerModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 text-xs overflow-y-auto flex-1">
+              {/* Form thêm mới */}
+              <div className="bg-indigo-50/60 p-4 rounded-xl border border-indigo-100 space-y-3">
+                <label className="block font-semibold text-indigo-950">
+                  Thêm học kỳ tùy chỉnh mới
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="VD: Học kỳ Phụ (Hè) 2025-2026..."
+                    value={newSemesterInput}
+                    onChange={(e) => setNewSemesterInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (newSemesterInput.trim()) {
+                          (async () => {
+                            try {
+                              setActionLoading(true);
+                              const created = await addCustomSemester(newSemesterInput.trim());
+                              setNewSemesterInput("");
+                              setSelectedSemesterId(created.id);
+                              showFeedback(`Đã thêm học kỳ "${created.name}" thành công!`);
+                            } catch (err: any) {
+                              showFeedback("Lỗi: " + err.message, "error");
+                            } finally {
+                              setActionLoading(false);
+                            }
+                          })();
+                        }
+                      }
+                    }}
+                    className="flex-1 px-3.5 py-2.5 rounded-xl bg-white border border-indigo-200 text-slate-900 placeholder:text-slate-400 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    disabled={!newSemesterInput.trim() || actionLoading}
+                    onClick={async () => {
+                      if (!newSemesterInput.trim()) return;
+                      try {
+                        setActionLoading(true);
+                        const created = await addCustomSemester(newSemesterInput.trim());
+                        setNewSemesterInput("");
+                        setSelectedSemesterId(created.id);
+                        showFeedback(`Đã thêm học kỳ "${created.name}" thành công!`);
+                      } catch (err: any) {
+                        showFeedback("Lỗi: " + err.message, "error");
+                      } finally {
+                        setActionLoading(false);
+                      }
+                    }}
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold rounded-xl text-xs shadow-xs transition-all cursor-pointer whitespace-nowrap active:scale-95"
+                  >
+                    + Thêm mới
+                  </button>
+                </div>
+                <p className="text-[11px] text-indigo-700/80">
+                  Mã học kỳ (ID) sẽ tự động tạo và lưu trữ đồng bộ lên CSDL đám mây cho cả sinh viên và phòng ban.
+                </p>
+              </div>
+
+              {/* Danh sách học kỳ */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-slate-700 font-semibold">
+                  <span>Danh sách tất cả học kỳ ({allSemesters.length})</span>
+                  <span className="text-[11px] text-slate-400">Gồm cố định & tùy chỉnh</span>
+                </div>
+                <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                  {allSemesters.map(sem => (
+                    <div key={sem.id} className="p-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                      <div>
+                        <div className="font-semibold text-slate-900 text-xs flex items-center gap-2">
+                          <span>{sem.name}</span>
+                          {sem.isCustom ? (
+                            <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200">
+                              Tùy chỉnh
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-medium">
+                              Cố định
+                            </span>
+                          )}
+                        </div>
+                        <div className="font-mono text-[10px] text-slate-400 mt-0.5">ID: {sem.id}</div>
+                      </div>
+                      {sem.isCustom && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (window.confirm(`Xác nhận xóa học kỳ tùy chỉnh "${sem.name}"?`)) {
+                              try {
+                                setActionLoading(true);
+                                await deleteCustomSemester(sem.id);
+                                showFeedback(`Đã xóa học kỳ "${sem.name}"`);
+                              } catch (err: any) {
+                                showFeedback("Lỗi khi xóa: " + err.message, "error");
+                              } finally {
+                                setActionLoading(false);
+                              }
+                            }
+                          }}
+                          className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title="Xóa học kỳ tùy chỉnh"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowSemesterManagerModal(false)}
+                className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold cursor-pointer text-xs"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
