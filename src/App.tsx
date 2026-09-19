@@ -2313,13 +2313,13 @@ const AppContent: React.FC = () => {
                 {/* 3. Avatar Overlay: If student has uploaded avatar, show it; else template's built-in silhouette placeholder shows through */}
                 {cardAvatar && (
                   <div 
-                    style={{ position: 'absolute', top: '26.8%', left: '75.4%', width: '21.0%', height: '39.8%' }}
-                    className="rounded-[10px] sm:rounded-[14px] md:rounded-[18px] overflow-hidden bg-white shadow-inner pointer-events-none"
+                    style={{ position: 'absolute', top: '26.0%', left: '74.8%', width: '22.0%', height: '40.8%' }}
+                    className="rounded-[12px] sm:rounded-[16px] md:rounded-[20px] overflow-hidden bg-sky-100 pointer-events-none"
                   >
                     <img 
                       src={cardAvatar} 
                       alt="Ảnh thẻ sinh viên" 
-                      className="w-full h-full object-cover" 
+                      className="w-full h-full object-cover object-center scale-[1.02]"
                     />
                   </div>
                 )}
