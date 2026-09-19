@@ -81,7 +81,10 @@ import {
   BookOpen,
   Mail,
   Image,
-  Palette
+  Palette,
+  Menu,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -574,6 +577,39 @@ export default function App() {
 
   // Sidebar navigation
   const [activeTab, setActiveTab] = useState<ActiveTab>("DASHBOARD");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const [isDesktopCollapsed, setIsDesktopCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("unihub_admin_sidebar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleDesktopSidebar = () => {
+    setIsDesktopCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem("unihub_admin_sidebar_collapsed", String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const getTabTitle = (tab: ActiveTab) => {
+    switch (tab) {
+      case "DASHBOARD": return "Tổng quan hệ thống";
+      case "USERS": return "Tài khoản & Phân quyền";
+      case "DATABASE": return "Khám phá dữ liệu thô";
+      case "RULES": return "Quy chế chấm điểm";
+      case "TOOLS": return "Công cụ Hạt nhân";
+      case "FEEDBACK": return "Hòm thư góp ý";
+      case "THEME": return "Ảnh giao diện";
+      default: return "Admin";
+    }
+  };
 
   // Interface custom theme state
   const [themeConfig, setThemeConfig] = useState<ThemeConfig>({
@@ -2011,103 +2047,172 @@ export default function App() {
 
   return (
     <div>
-      {/* 1. Sidebar Navigation */}
-      <div className="sidebar">
-        <div className="sidebar-logo">
-          {themeConfig.logoUrl ? (
-            <img 
-              src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
-              alt="Logo" 
-              style={{ width: "26px", height: "26px", objectFit: "contain", borderRadius: "50%", background: "#fff", padding: "2px", border: "1px solid var(--border-normal)" }} 
-            />
-          ) : (
-            <Shield size={24} style={{ color: "var(--accent-cyan)" }} />
-          )}
-          <span>UNIHUB CORE</span>
+      {/* Mobile Navigation Header */}
+      <header className="mobile-header">
+        <div className="mobile-header-left">
+          <button 
+            type="button" 
+            className="mobile-menu-btn" 
+            onClick={() => setIsMobileMenuOpen(true)}
+            aria-label="Mở menu quản trị"
+          >
+            <Menu size={22} />
+          </button>
+          <div className="mobile-brand">
+            {themeConfig.logoUrl ? (
+              <img 
+                src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
+                alt="Logo" 
+                style={{ width: "24px", height: "24px", objectFit: "contain", borderRadius: "50%", background: "#fff", padding: "2px", border: "1px solid var(--border-normal)" }} 
+              />
+            ) : (
+              <Shield size={20} style={{ color: "var(--accent-cyan)" }} />
+            )}
+            <span className="mobile-brand-title">UNIHUB</span>
+          </div>
+        </div>
+
+        <div className="mobile-header-right">
+          <span className="mobile-current-tab-badge">{getTabTitle(activeTab)}</span>
+        </div>
+      </header>
+
+      {/* Mobile Sidebar Overlay Backdrop */}
+      {isMobileMenuOpen && (
+        <div 
+          className="sidebar-backdrop" 
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true" 
+        />
+      )}
+
+      {/* 1. Sidebar Navigation (Collapsible & Mobile Drawer) */}
+      <aside className={`sidebar ${isMobileMenuOpen ? "mobile-open" : ""} ${isDesktopCollapsed ? "collapsed" : ""}`}>
+        <div className="sidebar-header-row">
+          <div className="sidebar-logo">
+            {themeConfig.logoUrl ? (
+              <img 
+                src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
+                alt="Logo" 
+                style={{ width: "26px", height: "26px", objectFit: "contain", borderRadius: "50%", background: "#fff", padding: "2px", border: "1px solid var(--border-normal)", flexShrink: 0 }} 
+              />
+            ) : (
+              <Shield size={24} style={{ color: "var(--accent-cyan)", flexShrink: 0 }} />
+            )}
+            <span className="sidebar-logo-text">UNIHUB CORE</span>
+          </div>
+
+          {/* Mobile Close Drawer Button */}
+          <button 
+            type="button" 
+            className="sidebar-close-btn-mobile" 
+            onClick={() => setIsMobileMenuOpen(false)}
+            aria-label="Đóng menu"
+          >
+            <X size={20} />
+          </button>
+
+          {/* Desktop Collapse/Expand Toggle Button */}
+          <button 
+            type="button" 
+            className="sidebar-collapse-btn-desktop" 
+            onClick={toggleDesktopSidebar}
+            title={isDesktopCollapsed ? "Mở rộng thanh menu" : "Thu gọn thanh menu"}
+            aria-label="Thu gọn thanh menu"
+          >
+            {isDesktopCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </button>
         </div>
 
         <div className="sidebar-menu">
           <div 
             className={`sidebar-item ${activeTab === "DASHBOARD" ? "active" : ""}`}
-            onClick={() => setActiveTab("DASHBOARD")}
+            onClick={() => { setActiveTab("DASHBOARD"); setIsMobileMenuOpen(false); }}
+            title="Tổng quan hệ thống"
           >
-            <LayoutDashboard size={18} />
-            <span>Tổng quan hệ thống</span>
+            <LayoutDashboard size={18} style={{ flexShrink: 0 }} />
+            <span className="sidebar-item-label">Tổng quan hệ thống</span>
           </div>
 
           <div 
             className={`sidebar-item ${activeTab === "USERS" ? "active" : ""}`}
-            onClick={() => setActiveTab("USERS")}
+            onClick={() => { setActiveTab("USERS"); setIsMobileMenuOpen(false); }}
+            title="Tài khoản & Phân quyền"
           >
-            <Users size={18} />
-            <span>Tài khoản & Phân quyền</span>
+            <Users size={18} style={{ flexShrink: 0 }} />
+            <span className="sidebar-item-label">Tài khoản & Phân quyền</span>
           </div>
 
           <div 
             className={`sidebar-item ${activeTab === "DATABASE" ? "active" : ""}`}
-            onClick={() => setActiveTab("DATABASE")}
+            onClick={() => { setActiveTab("DATABASE"); setIsMobileMenuOpen(false); }}
+            title="Khám phá dữ liệu thô"
           >
-            <Database size={18} />
-            <span>Khám phá dữ liệu thô</span>
+            <Database size={18} style={{ flexShrink: 0 }} />
+            <span className="sidebar-item-label">Khám phá dữ liệu thô</span>
           </div>
 
           <div 
             className={`sidebar-item ${activeTab === "RULES" ? "active" : ""}`}
-            onClick={() => setActiveTab("RULES")}
+            onClick={() => { setActiveTab("RULES"); setIsMobileMenuOpen(false); }}
+            title="Quy chế chấm điểm"
           >
-            <Settings size={18} />
-            <span>Quy chế chấm điểm</span>
+            <Settings size={18} style={{ flexShrink: 0 }} />
+            <span className="sidebar-item-label">Quy chế chấm điểm</span>
           </div>
 
           <div 
             className={`sidebar-item ${activeTab === "TOOLS" ? "active" : ""}`}
-            onClick={() => setActiveTab("TOOLS")}
+            onClick={() => { setActiveTab("TOOLS"); setIsMobileMenuOpen(false); }}
+            title="Công cụ Hạt nhân"
           >
-            <Cpu size={18} />
-            <span>Công cụ Hạt nhân</span>
+            <Cpu size={18} style={{ flexShrink: 0 }} />
+            <span className="sidebar-item-label">Công cụ Hạt nhân</span>
           </div>
 
           <div 
             className={`sidebar-item ${activeTab === "FEEDBACK" ? "active" : ""}`}
-            onClick={() => setActiveTab("FEEDBACK")}
+            onClick={() => { setActiveTab("FEEDBACK"); setIsMobileMenuOpen(false); }}
+            title="Hòm thư góp ý"
           >
-            <Mail size={18} />
-            <span>Hòm thư góp ý</span>
+            <Mail size={18} style={{ flexShrink: 0 }} />
+            <span className="sidebar-item-label">Hòm thư góp ý</span>
           </div>
 
           <div 
             className={`sidebar-item ${activeTab === "THEME" ? "active" : ""}`}
-            onClick={() => setActiveTab("THEME")}
+            onClick={() => { setActiveTab("THEME"); setIsMobileMenuOpen(false); }}
+            title="Ảnh giao diện"
           >
-            <Image size={18} />
-            <span>Ảnh giao diện</span>
+            <Image size={18} style={{ flexShrink: 0 }} />
+            <span className="sidebar-item-label">Ảnh giao diện</span>
           </div>
         </div>
 
-        <div style={{ borderTop: "1px solid var(--border-normal)", paddingTop: "16px" }}>
+        <div className="sidebar-footer">
           {statusMessage && (
             <div style={{ fontSize: "11px", color: "var(--accent-cyan)", marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
               <RefreshCw size={12} className="animate-spin" />
-              <span>{statusMessage}</span>
+              <span className="sidebar-footer-text">{statusMessage}</span>
             </div>
           )}
           
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", padding: "0 8px" }}>
+          <div className="sidebar-footer-connection" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", padding: "0 8px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: isFirebaseConnected ? "var(--success)" : "var(--danger)" }}></div>
-              <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{isFirebaseConnected ? "Firestore: Live" : "Firestore: Offline"}</span>
+              <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: isFirebaseConnected ? "var(--success)" : "var(--danger)", flexShrink: 0 }}></div>
+              <span className="sidebar-footer-text" style={{ fontSize: "11px", color: "var(--text-muted)" }}>{isFirebaseConnected ? "Firestore: Live" : "Firestore: Offline"}</span>
             </div>
           </div>
 
-          <button className="btn-solid-danger" onClick={handleLogout} style={{ width: "100%", justifyContent: "center" }}>
-            <LogOut size={16} />
-            <span>Đăng xuất Admin</span>
+          <button className="btn-solid-danger sidebar-logout-btn" onClick={handleLogout} style={{ width: "100%", justifyContent: "center" }} title="Đăng xuất Admin">
+            <LogOut size={16} style={{ flexShrink: 0 }} />
+            <span className="sidebar-footer-text">Đăng xuất Admin</span>
           </button>
         </div>
-      </div>
+      </aside>
 
       {/* 2. Main Area */}
-      <div className="main-content">
+      <main className={`main-content ${isDesktopCollapsed ? "sidebar-collapsed" : ""}`}>
         {loading && (
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px", color: "var(--accent-cyan)" }}>
             <RefreshCw className="animate-spin" />
@@ -2124,7 +2229,7 @@ export default function App() {
             </div>
 
             {/* KPI Cards Grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px" }}>
+            <div className="kpi-grid-responsive">
               <div className="glass-card" style={{ borderLeft: "4px solid var(--accent-cyan)" }}>
                 <span style={{ fontSize: "11px", textTransform: "uppercase", color: "#475569", fontWeight: 700 }}>Tổng số Sinh viên</span>
                 <h3 style={{ margin: "12px 0 0 0", fontSize: "32px", fontWeight: 800, color: "#0f172a" }}>{statsSummary.totalStudents}</h3>
@@ -2144,7 +2249,7 @@ export default function App() {
             </div>
 
             {/* Visual Charts & Approval progress */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "24px" }}>
+            <div className="charts-grid-responsive">
               {/* Chart: Grade Distribution */}
               <div className="glass-card">
                 <h3 style={{ margin: "0 0 20px 0", fontSize: "16px", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
@@ -2211,7 +2316,7 @@ export default function App() {
         {/* ================= TAB: USERS ================= */}
         {activeTab === "USERS" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="admin-header-row">
               <div>
                 <h1 style={{ margin: "0 0 4px 0", fontSize: "28px", fontWeight: 800 }}>Tài khoản & Phân quyền</h1>
                 <p style={{ margin: "0", color: "var(--text-muted)", fontSize: "14px" }}>Quản lý thông tin đăng nhập, phân bổ quyền cho các cán bộ quản lý và tính năng Giả lập đăng nhập.</p>
@@ -2230,8 +2335,8 @@ export default function App() {
             </div>
 
             {/* Filter and Search Bar */}
-            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", background: "rgba(15,22,38,0.4)", padding: "16px", borderRadius: "12px", border: "1px solid var(--border-normal)" }}>
-              <div style={{ flex: 1, minWidth: "240px", position: "relative" }}>
+            <div className="filter-bar-responsive">
+              <div style={{ flex: 1, minWidth: "200px", position: "relative" }}>
                 <Search size={16} style={{ position: "absolute", left: "12px", top: "14px", color: "var(--text-muted)" }} />
                 <input 
                   type="text" 
@@ -2243,7 +2348,7 @@ export default function App() {
                 />
               </div>
 
-              <div style={{ width: "200px" }}>
+              <div className="filter-role-select" style={{ width: "200px" }}>
                 <select 
                   className="select-dark"
                   value={userRoleFilter}
@@ -2265,8 +2370,10 @@ export default function App() {
             </div>
 
             {/* Users list table */}
-            <div className="custom-table-container">
-              <table className="custom-table">
+            <div>
+              <div className="mobile-scroll-hint"><span>⇄ Vuốt ngang để xem đầy đủ cột và thao tác</span></div>
+              <div className="custom-table-container">
+                <table className="custom-table">
                 <thead>
                   <tr>
                     <th>Họ và tên</th>
@@ -2347,13 +2454,14 @@ export default function App() {
                 </tbody>
               </table>
             </div>
+            </div>
           </div>
         )}
 
         {/* ================= TAB: DATABASE EXPLORER ================= */}
         {activeTab === "DATABASE" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+            <div className="admin-header-row">
               <div>
                 <h1 style={{ margin: "0 0 4px 0", fontSize: "28px", fontWeight: 800 }}>Khám phá cơ sở dữ liệu thô</h1>
                 <p style={{ margin: "0", color: "var(--text-muted)", fontSize: "14px" }}>Trình duyệt và cập nhật dữ liệu trực tiếp trong các bộ sưu tập Firestore của UniHub.</p>
@@ -2368,7 +2476,7 @@ export default function App() {
             </div>
 
             {/* Select Table Grid and Search Bar */}
-            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", background: "rgba(15,22,38,0.4)", padding: "16px", borderRadius: "12px", border: "1px solid var(--border-normal)" }}>
+            <div className="filter-bar-responsive">
               <div style={{ width: "260px" }}>
                 <label style={{ display: "block", fontSize: "10px", color: "var(--text-muted)", marginBottom: "4px", textTransform: "uppercase" }}>Chọn Bảng Dữ Liệu</label>
                 <select 
@@ -2388,7 +2496,7 @@ export default function App() {
                 </select>
               </div>
 
-              <div style={{ flex: 1, minWidth: "240px" }}>
+              <div style={{ flex: 1, minWidth: "220px" }}>
                 <label style={{ display: "block", fontSize: "10px", color: "var(--text-muted)", marginBottom: "4px", textTransform: "uppercase" }}>Bộ Lọc Tìm Kiếm</label>
                 <div style={{ position: "relative" }}>
                   <Search size={16} style={{ position: "absolute", left: "12px", top: "12px", color: "var(--text-muted)" }} />
@@ -2405,8 +2513,10 @@ export default function App() {
             </div>
 
             {/* Render selected Table */}
-            <div className="custom-table-container">
-              <table className="custom-table">
+            <div>
+              <div className="mobile-scroll-hint"><span>⇄ Vuốt ngang để xem đầy đủ cột và dữ liệu</span></div>
+              <div className="custom-table-container">
+                <table className="custom-table">
                 {/* 1. Table Students */}
                 {dbSelectedCollection === "students" && (
                   <>
@@ -2719,13 +2829,14 @@ export default function App() {
                 )}
               </table>
             </div>
+            </div>
           </div>
         )}
 
         {/* ================= TAB: RULES ENGINE ================= */}
         {activeTab === "RULES" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="admin-header-row">
               <div>
                 <h1 style={{ margin: "0 0 4px 0", fontSize: "28px", fontWeight: 800 }}>Cấu hình quy chế chấm ĐRL</h1>
                 <p style={{ margin: "0", color: "var(--text-muted)", fontSize: "14px" }}>Điều chỉnh trực tiếp khung trọng số điểm, hệ thống tự động tính lại điểm rèn luyện thời gian thực.</p>
@@ -2840,7 +2951,7 @@ export default function App() {
 
           return (
             <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+              <div className="admin-header-row">
                 <div>
                   <h1 style={{ margin: "0 0 4px 0", fontSize: "28px", fontWeight: 800 }}>Hòm thư góp ý hệ thống</h1>
                   <p style={{ margin: "0", color: "var(--text-muted)", fontSize: "14px" }}>Xem và quản lý các đóng góp ý kiến để hoàn thiện tính năng của hệ thống UniHub.</p>
@@ -2857,7 +2968,7 @@ export default function App() {
               </div>
 
               {/* Stats row */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px" }}>
+              <div className="kpi-grid-responsive">
                 <div className="glass-card" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                   <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Tổng số góp ý</span>
                   <span style={{ fontSize: "24px", fontWeight: 800, color: "var(--accent-cyan)" }}>{systemFeedbacks.length} thư</span>
@@ -2877,7 +2988,7 @@ export default function App() {
               </div>
 
               {/* Filter controls */}
-              <div className="glass-card" style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "center", padding: "16px" }}>
+              <div className="filter-bar-responsive">
                 <div style={{ flex: 1, minWidth: "200px" }}>
                   <input
                     type="text"
@@ -2889,7 +3000,7 @@ export default function App() {
                   />
                 </div>
 
-                <div style={{ display: "flex", gap: "12px" }}>
+                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                     <span style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase" }}>Phân loại</span>
                     <select
@@ -3033,7 +3144,7 @@ export default function App() {
               </p>
             </div>
 
-            <form onSubmit={handleSaveThemeConfig} style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: "24px", alignItems: "start" }}>
+            <form onSubmit={handleSaveThemeConfig} className="theme-form-responsive">
               {/* Left Column: Form settings */}
               <div className="glass-card" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
                 <h3 style={{ margin: "0 0 8px 0", borderBottom: "1px solid var(--border-normal)", paddingBottom: "10px", fontSize: "18px", color: "var(--accent-cyan)" }}>
@@ -3455,7 +3566,7 @@ export default function App() {
             </form>
           </div>
         )}
-      </div>
+      </main>
 
       {/* ================= MODAL: USER DETAILS (ADD/EDIT) ================= */}
       {showUserModal && (
@@ -3511,7 +3622,7 @@ export default function App() {
                 />
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+              <div className="modal-grid-2col">
                 <div>
                   <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>Vai trò người dùng</label>
                   <select 
