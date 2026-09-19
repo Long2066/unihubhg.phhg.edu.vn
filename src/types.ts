@@ -47,6 +47,7 @@ export interface UserAccount {
   name: string;
   role: UserRole;
   email: string;
+  avatar?: string;
   targetId?: string; // Links to Student ID, Organization ID, Class ID, or Faculty ID if applicable
   isGroupLeader?: boolean;
   groupInCharge?: string;

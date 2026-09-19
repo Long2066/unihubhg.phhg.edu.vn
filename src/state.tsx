@@ -1856,15 +1856,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       // 1. Get Users
+      let normalizedMergedUsers: UserAccount[] = [];
       const usersSnap = await getDocs(collection(db, "users"));
       if (!usersSnap.empty) {
         const list: UserAccount[] = [];
         usersSnap.forEach(d => list.push(normalizeUserAccount(d.data() as UserAccount)));
         const merged = smartMerge(list, "unihub_users", u => u.id || u.username || u.email);
-        const normalizedMerged = merged.map(normalizeUserAccount);
-        setUsers(normalizedMerged);
-        localStorage.setItem("unihub_users_backup", JSON.stringify(normalizedMerged));
-        localStorage.setItem("unihub_users", JSON.stringify(normalizedMerged));
+        normalizedMergedUsers = merged.map(normalizeUserAccount);
+        setUsers(normalizedMergedUsers);
+        localStorage.setItem("unihub_users_backup", JSON.stringify(normalizedMergedUsers));
+        localStorage.setItem("unihub_users", JSON.stringify(normalizedMergedUsers));
       }
       
       // 2. Get Students
@@ -1881,6 +1882,29 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const filteredMerged = merged.filter(s => !deletedClassList.includes(normalizeClassId(s.classId)));
         setStudents(filteredMerged);
         localStorage.setItem("unihub_students_backup", JSON.stringify(filteredMerged));
+
+        // Tự động đồng bộ avatar và thông tin mới nhất từ Cloud vào currentUser
+        try {
+          const cachedCur = localStorage.getItem("unihub_current_user");
+          if (cachedCur) {
+            const cur = JSON.parse(cachedCur);
+            if (cur?.id) {
+              const freshStudent = filteredMerged.find(s => s.id === cur.id || s.id === cur.targetId || (s.email && s.email === cur.email));
+              const freshUser = (normalizedMergedUsers || []).find(u => u.id === cur.id || u.username === cur.username || (cur.targetId && u.targetId === cur.targetId));
+              const cloudAvatar = freshStudent?.avatar || freshUser?.avatar;
+              const cloudName = freshStudent?.name || freshUser?.name;
+              if ((cloudAvatar && cloudAvatar !== cur.avatar) || (cloudName && cloudName !== cur.name)) {
+                const updatedCur = {
+                  ...cur,
+                  ...(cloudName ? { name: cloudName } : {}),
+                  ...(cloudAvatar ? { avatar: cloudAvatar } : {})
+                };
+                setCurrentUser(updatedCur);
+                localStorage.setItem("unihub_current_user", JSON.stringify(updatedCur));
+              }
+            }
+          }
+        } catch {}
       }
 
       // 3. Get Organizations
@@ -2684,6 +2708,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const { password: _, ...safeUser } = userDoc as any;
     setCurrentUser(safeUser as UserAccount);
     localStorage.setItem("unihub_current_user", JSON.stringify(safeUser));
+
+    // Tự động làm mới và đồng bộ 100% dữ liệu tươi từ Cloud khi đăng nhập thành công
+    setTimeout(() => {
+      syncFreshFromCloud().catch(err => {
+        console.warn("Lỗi auto fresh sync sau login:", err);
+      });
+    }, 50);
+
     return true;
   };
 
@@ -3028,6 +3060,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const userData = sanitizeForFirestore(targetUser);
       if (trimmedNewPass) (userData as any).password = trimmedNewPass;
       setDoc(doc(db, "users", targetUser.id), userData, { merge: true }).catch(() => {});
+    }
+    if (auth.currentUser?.uid) {
+      setDoc(doc(db, "users", auth.currentUser.uid), {
+        name: effectiveName,
+        avatar: cleanAvatar
+      }, { merge: true }).catch(() => {});
     }
 
     // 4. Keep current user in sync

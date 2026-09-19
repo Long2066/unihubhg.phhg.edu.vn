@@ -32,8 +32,10 @@ import {
   AlertTriangle,
   Download,
   BookOpen,
-  ShieldCheck
+  ShieldCheck,
+  RefreshCw
 } from "lucide-react";
+import { uploadAvatarHybrid } from "../utils/imageCompressor";
 import { CreditRegistrationStudentView } from "./CreditRegistrationStudentView";
 
 interface PdfMakeInstance {
@@ -477,6 +479,7 @@ export const StudentPortal: React.FC = () => {
   const [profileSuccessMsg, setProfileSuccessMsg] = useState("");
   const [profileFields, setProfileFields] = useState<Partial<any>>({});
   const [activeProfileTab, setActiveProfileTab] = useState<"personal" | "family" | "education" | "account">("personal");
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   // Modal State for Evidence Upload
   const [showEvModal, setShowEvModal] = useState(false);
@@ -3371,25 +3374,39 @@ export const StudentPortal: React.FC = () => {
                           )}
                           <label className="flex-1 cursor-pointer">
                             <div className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-indigo-750 text-xs text-center font-bold transition-colors flex items-center justify-center gap-1.5">
-                              <Upload size={12} />
-                              <span>Tải ảnh từ máy</span>
+                              {isUploadingAvatar ? (
+                                <>
+                                  <RefreshCw size={12} className="animate-spin text-indigo-600" />
+                                  <span>Đang nén...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Upload size={12} />
+                                  <span>Tải ảnh từ máy</span>
+                                </>
+                              )}
                             </div>
                             <input 
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => {
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              disabled={isUploadingAvatar}
+                              onChange={async (e) => {
                                 const file = e.target.files?.[0];
                                 if (file) {
-                                  const reader = new FileReader();
-                                  reader.onload = (event) => {
-                                    if (event.target?.result) {
-                                      const dataUrl = event.target.result as string;
-                                      setEditAvatar(dataUrl);
-                                      setProfileFields(prev => ({ ...prev, avatar: dataUrl }));
+                                  setIsUploadingAvatar(true);
+                                  try {
+                                    const targetId = sObj?.id || currentUser?.targetId || currentUser?.username || "student";
+                                    const avatarUrl = await uploadAvatarHybrid(file, targetId);
+                                    if (avatarUrl) {
+                                      setEditAvatar(avatarUrl);
+                                      setProfileFields(prev => ({ ...prev, avatar: avatarUrl }));
                                     }
-                                  };
-                                  reader.readAsDataURL(file);
+                                  } catch (err) {
+                                    console.warn("Lỗi upload avatar:", err);
+                                  } finally {
+                                    setIsUploadingAvatar(false);
+                                  }
                                 }
                               }}
                             />

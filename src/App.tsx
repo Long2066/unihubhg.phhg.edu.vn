@@ -56,6 +56,7 @@ import {
 
 const AdviserIcon = ShieldAlert;
 
+import { uploadAvatarHybrid } from "./utils/imageCompressor";
 import { LoginScreen } from "./components/LoginScreen";
 const StudentPortal = lazy(() => import("./components/StudentPortal").then(module => ({ default: module.StudentPortal })));
 const studentCardTemplate = "/the-sinh-vien-template.png";
@@ -132,14 +133,23 @@ const AppContent: React.FC = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileTab, setProfileTab] = useState<"info" | "password">("info");
   const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  // Tự động làm mới dữ liệu từ Cloud khi người dùng truy cập / có phiên đăng nhập
+  React.useEffect(() => {
+    if (currentUser?.id) {
+      syncFreshFromCloud().catch(err => {
+        console.warn("Auto fresh sync cloud error:", err);
+      });
+    }
+  }, [currentUser?.id]);
 
   const handleFreshSync = async () => {
     setIsSyncingCloud(true);
     try {
       await syncFreshFromCloud();
-      alert("Đã làm mới và đồng bộ 100% dữ liệu tươi từ máy chủ đám mây thành công!");
     } catch (e) {
-      alert("Không thể kết nối máy chủ đám mây. Vui lòng kiểm tra lại kết nối mạng.");
+      console.warn("Lỗi sync cloud:", e);
     } finally {
       setIsSyncingCloud(false);
     }
@@ -1370,15 +1380,6 @@ const AppContent: React.FC = () => {
                         )}
 
                         <button 
-                          onClick={handleFreshSync}
-                          disabled={isSyncingCloud}
-                          className="w-full text-left font-bold text-xs text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50/70 px-3 py-2 rounded-xl border border-emerald-150/60 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                        >
-                          <RefreshCw size={13} className={`text-emerald-600 ${isSyncingCloud ? 'animate-spin' : ''}`} />
-                          <span>{isSyncingCloud ? "Đang đồng bộ..." : "Đồng bộ & Làm mới từ Cloud"}</span>
-                        </button>
-
-                        <button 
                           onClick={() => {
                             if (confirm("Hành động này sẽ tải lại toàn bộ hạt giáo dữ liệu rèn luyện mẫu, xóa sạch các lịch sử kiểm định học kỳ của bạn. Bạn có muốn khôi phục không?")) {
                               resetToSeeds();
@@ -1841,25 +1842,39 @@ const AppContent: React.FC = () => {
                               />
                               <label className="cursor-pointer shrink-0">
                                 <div className="px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 h-full">
-                                  <Upload size={14} />
-                                  <span>Tải ảnh</span>
+                                  {isUploadingAvatar ? (
+                                    <>
+                                      <RefreshCw size={14} className="animate-spin text-indigo-600" />
+                                      <span>Đang nén...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Upload size={14} />
+                                      <span>Tải ảnh</span>
+                                    </>
+                                  )}
                                 </div>
                                 <input
                                   type="file"
                                   accept="image/*"
                                   className="hidden"
-                                  onChange={(e) => {
+                                  disabled={isUploadingAvatar}
+                                  onChange={async (e) => {
                                     const file = e.target.files?.[0];
                                     if (file) {
-                                      const reader = new FileReader();
-                                      reader.onload = (event) => {
-                                        if (event.target?.result) {
-                                          const dataUrl = event.target.result as string;
-                                          setEditAvatar(dataUrl);
-                                          setProfileFields(prev => ({ ...prev, avatar: dataUrl }));
+                                      setIsUploadingAvatar(true);
+                                      try {
+                                        const targetId = studentId || currentUser?.targetId || currentUser?.username || "student";
+                                        const avatarUrl = await uploadAvatarHybrid(file, targetId);
+                                        if (avatarUrl) {
+                                          setEditAvatar(avatarUrl);
+                                          setProfileFields(prev => ({ ...prev, avatar: avatarUrl }));
                                         }
-                                      };
-                                      reader.readAsDataURL(file);
+                                      } catch (err) {
+                                        console.warn("Lỗi upload avatar:", err);
+                                      } finally {
+                                        setIsUploadingAvatar(false);
+                                      }
                                     }
                                   }}
                                 />
@@ -2005,24 +2020,38 @@ const AppContent: React.FC = () => {
                           />
                           <label className="cursor-pointer shrink-0">
                             <div className="px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 h-full">
-                              <Upload size={14} />
-                              <span>Tải ảnh</span>
+                              {isUploadingAvatar ? (
+                                <>
+                                  <RefreshCw size={14} className="animate-spin text-indigo-600" />
+                                  <span>Đang nén...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Upload size={14} />
+                                  <span>Tải ảnh</span>
+                                </>
+                              )}
                             </div>
                             <input
                               type="file"
                               accept="image/*"
                               className="hidden"
-                              onChange={(e) => {
+                              disabled={isUploadingAvatar}
+                              onChange={async (e) => {
                                 const file = e.target.files?.[0];
                                 if (file) {
-                                  const reader = new FileReader();
-                                  reader.onload = (event) => {
-                                    if (event.target?.result) {
-                                      const dataUrl = event.target.result as string;
-                                      setEditAvatar(dataUrl);
+                                  setIsUploadingAvatar(true);
+                                  try {
+                                    const targetId = currentUser?.targetId || currentUser?.username || currentUser?.id || "user";
+                                    const avatarUrl = await uploadAvatarHybrid(file, targetId);
+                                    if (avatarUrl) {
+                                      setEditAvatar(avatarUrl);
                                     }
-                                  };
-                                  reader.readAsDataURL(file);
+                                  } catch (err) {
+                                    console.warn("Lỗi upload avatar:", err);
+                                  } finally {
+                                    setIsUploadingAvatar(false);
+                                  }
                                 }
                               }}
                             />
