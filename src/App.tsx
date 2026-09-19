@@ -2145,14 +2145,6 @@ const AppContent: React.FC = () => {
                 />
 
                 {/* 2. Dynamic Field Overlays - Exact positions immediately next to labels */}
-                {/* Patch label Lớp: to guarantee correct spelling */}
-                <div 
-                  style={{ position: 'absolute', top: '48.8%', left: '25.5%', width: '6.0%', height: '3.6%' }} 
-                  className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] leading-none pointer-events-none select-none"
-                >
-                  Lớp:
-                </div>
-
                 {/* Họ tên: sits immediately after colon (35.2%) */}
                 <div 
                   style={{ position: 'absolute', top: '37.8%', left: '35.3%', width: '38.5%' }} 
