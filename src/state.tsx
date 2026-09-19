@@ -387,16 +387,37 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch {}
     }
 
+    const studentMap = new Map<string, Student>();
+    SEED_STUDENTS.filter(s => !deletedClassList.includes(normalizeClassId(s.classId))).forEach(s => {
+      studentMap.set(s.id.toLowerCase().trim(), s);
+    });
+
     const cached = localStorage.getItem("unihub_students");
-    let list: Student[] = SEED_STUDENTS.filter(s => !deletedClassList.includes(normalizeClassId(s.classId)));
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          list = parsed.filter(s => !deletedClassList.includes(normalizeClassId(s.classId)));
+          parsed.filter(s => !deletedClassList.includes(normalizeClassId(s.classId))).forEach((s: Student) => {
+            if (s && s.id) {
+              const idKey = s.id.toLowerCase().trim();
+              const existing = studentMap.get(idKey);
+              if (!existing) {
+                studentMap.set(idKey, s);
+              } else {
+                const cleanItem: any = {};
+                Object.entries(s).forEach(([k, v]) => {
+                  if (v !== undefined && v !== null && v !== "") {
+                    cleanItem[k] = v;
+                  }
+                });
+                studentMap.set(idKey, { ...existing, ...cleanItem });
+              }
+            }
+          });
         }
       } catch {}
     }
+    const list = Array.from(studentMap.values());
     return list.map((s: Student) => {
       const stdId = formatStudentId(s.id);
       let classId = normalizeClassId(s.classId);
@@ -1529,7 +1550,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   if (s.id) {
                     const idKey = s.id.toLowerCase().trim();
                     const existing = studentMap.get(idKey);
-                    studentMap.set(idKey, { ...existing, ...s });
+                    if (!existing) {
+                      studentMap.set(idKey, s);
+                    } else {
+                      const cleanItem: any = {};
+                      Object.entries(s).forEach(([k, v]) => {
+                        if (v !== undefined && v !== null && v !== "") {
+                          cleanItem[k] = v;
+                        }
+                      });
+                      studentMap.set(idKey, { ...existing, ...cleanItem });
+                    }
                   }
                 });
               }
@@ -2914,9 +2945,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedStudents = students.map(s => {
       if (matchId(s.id, studentId) || matchId((s as any).code, studentId)) {
         found = true;
+        const mergedFields: any = {};
+        Object.entries(safeFields).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && v !== "") {
+            mergedFields[k] = v;
+          } else if (v === "" && (s as any)[k] !== undefined && (s as any)[k] !== null && (s as any)[k] !== "") {
+            mergedFields[k] = (s as any)[k];
+          } else {
+            mergedFields[k] = v;
+          }
+        });
         return { 
           ...s, 
-          ...safeFields, 
+          ...mergedFields, 
           name: effectiveName, 
           avatar: cleanAvatar
         };
@@ -2925,13 +2966,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     if (!found) {
+      const seedMatch = SEED_STUDENTS.find(s => matchId(s.id, studentId) || matchId((s as any).code, studentId));
       const newStud: Student = {
+        ...(seedMatch || {}),
         id: studentId,
         name: effectiveName,
         avatar: cleanAvatar,
-        classId: safeFields.classId || (currentUser as any)?.classId || "",
-        facultyId: safeFields.facultyId || "",
-        email: currentUser?.email || studentId,
+        classId: safeFields.classId || (currentUser as any)?.classId || seedMatch?.classId || "",
+        facultyId: safeFields.facultyId || seedMatch?.facultyId || "",
+        email: currentUser?.email || seedMatch?.email || studentId,
         ...safeFields
       };
       updatedStudents.push(newStud);
@@ -2942,6 +2985,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const targetStud = updatedStudents.find(s => matchId(s.id, studentId));
     if (targetStud) {
       const studData = sanitizeForFirestore(targetStud);
+      Object.keys(studData).forEach(key => {
+        if ((studData as any)[key] === "" || (studData as any)[key] === undefined) {
+          delete (studData as any)[key];
+        }
+      });
       if (trimmedNewPass) (studData as any).password = trimmedNewPass;
       setDoc(doc(db, "students", targetStud.id), studData, { merge: true }).catch(err => {
         console.warn("Lỗi đồng bộ students Firestore:", err);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useUniHub, normalizeClassId } from "../state";
 import { STUDENT_FIELDS_META, Student, convertGoogleDriveUrlToDirectUrl, SEMESTER_LIST, parseWeekRange, isWeekInScheduleSlot, UserRole } from "../types";
+import { SEED_STUDENTS } from "../data";
 import { 
   Award, 
   Calendar, 
@@ -388,11 +389,23 @@ export const StudentPortal: React.FC = () => {
     return registrationPeriods?.find(p => p.status === "OPEN") || null;
   }, [registrationPeriods]);
 
-  const sObj = students?.find(s => 
-    (currentUser?.targetId && s.id.toLowerCase() === currentUser.targetId.toLowerCase()) ||
-    (currentUser?.username && (s.id.toLowerCase() === currentUser.username.toLowerCase() || (s.email && s.email.toLowerCase() === currentUser.username.toLowerCase()))) ||
-    (currentUser?.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
-  );
+  const sObj = useMemo(() => {
+    const seed = SEED_STUDENTS.find(s => 
+      (currentUser?.targetId && s.id.toLowerCase() === currentUser.targetId.toLowerCase()) ||
+      (currentUser?.username && (s.id.toLowerCase() === currentUser.username.toLowerCase() || (s as any).code?.toLowerCase() === currentUser.username.toLowerCase())) ||
+      (currentUser?.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
+    );
+    const found = students?.find(s => 
+      (currentUser?.targetId && s.id.toLowerCase() === currentUser.targetId.toLowerCase()) ||
+      (currentUser?.username && (s.id.toLowerCase() === currentUser.username.toLowerCase() || (s.email && s.email.toLowerCase() === currentUser.username.toLowerCase()))) ||
+      (currentUser?.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
+    );
+    if (!found && !seed) return undefined;
+    return {
+      ...(seed || {}),
+      ...(found || {})
+    };
+  }, [students, currentUser]);
   const studentId = sObj?.id || currentUser?.targetId || (currentUser?.role === "STUDENT" ? currentUser?.username : "") || "";
 
   const isDoanBCH = members.some(m => 
@@ -489,17 +502,24 @@ export const StudentPortal: React.FC = () => {
   // Sync profile editing states
   useEffect(() => {
     if (currentUser) {
-      setEditName(currentUser.name);
-      setEditAvatar(sObj?.avatar || "");
+      setEditName(currentUser.name || sObj?.name || "");
+      setEditAvatar(sObj?.avatar || currentUser.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.username}`);
       setEditPassword("");
       
-      if (sObj) {
-        const fields: Partial<any> = {};
-        STUDENT_FIELDS_META.forEach(f => {
-          (fields as any)[f.key] = (sObj as any)[f.key] || "";
-        });
-        setProfileFields(fields);
-      }
+      const fields: Partial<any> = {};
+      STUDENT_FIELDS_META.forEach(f => {
+        let val = (sObj as any)?.[f.key];
+        if (val === undefined || val === null || val === "") {
+          if (f.key === "id") val = currentUser.targetId || currentUser.username || currentUser.id;
+          if (f.key === "name") val = currentUser.name;
+          if (f.key === "email") val = currentUser.email;
+          if (f.key === "avatar") val = currentUser.avatar;
+          if (f.key === "classId") val = (currentUser as any).classId;
+          if (f.key === "facultyId") val = (currentUser as any).facultyId;
+        }
+        fields[f.key] = val || "";
+      });
+      setProfileFields(fields);
     }
   }, [currentUser, sObj, showProfileModal]);
 
@@ -1624,9 +1644,9 @@ export const StudentPortal: React.FC = () => {
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-500 text-[11px] mt-0.5">
-                <span>Lớp: <strong className="text-slate-700 font-mono">{sObj?.classId || "Chưa cập nhật"}</strong></span>
+                <span>Lớp: <strong className="text-slate-700 font-mono">{sObj?.classId || (currentUser as any)?.classId || "Chưa cập nhật"}</strong></span>
                 <span>•</span>
-                <span>Khoa: <strong className="text-slate-700">{sObj?.faculty || "Chưa cập nhật"}</strong></span>
+                <span>Khoa: <strong className="text-slate-700">{sObj?.facultyInCharge || (sObj?.facultyId === "K-GDTH" ? "Khoa Sư phạm" : sObj?.facultyId === "K-CNTT" ? "Khoa Công nghệ Thông tin" : sObj?.facultyId === "K-KINHTE" ? "Khoa Kinh tế & Du lịch" : sObj?.facultyId) || (currentUser as any)?.facultyId || "Chưa cập nhật"}</strong></span>
                 {sObj?.dob && (
                   <>
                     <span>•</span>

@@ -165,11 +165,19 @@ const AppContent: React.FC = () => {
 
   const isStudentOrMonitor = currentUser?.role === UserRole.STUDENT || currentUser?.role === UserRole.CLASS_MONITOR;
   const studentObj = isStudentOrMonitor 
-    ? students.find(s => 
+    ? (students.find(s => 
         (currentUser?.targetId && s.id === currentUser.targetId) ||
         (currentUser?.username && (s.id === currentUser.username || (s as any).code === currentUser.username)) ||
         (currentUser?.email && s.email === currentUser.email)
-      ) 
+      ) || students.find(s => 
+        (currentUser?.targetId && s.id?.toLowerCase() === currentUser.targetId.toLowerCase()) ||
+        (currentUser?.username && (s.id?.toLowerCase() === currentUser.username.toLowerCase() || (s as any).code?.toLowerCase() === currentUser.username.toLowerCase())) ||
+        (currentUser?.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
+      ) || SEED_STUDENTS.find(s => 
+        (currentUser?.targetId && s.id?.toLowerCase() === currentUser.targetId.toLowerCase()) ||
+        (currentUser?.username && (s.id?.toLowerCase() === currentUser.username.toLowerCase() || (s as any).code?.toLowerCase() === currentUser.username.toLowerCase())) ||
+        (currentUser?.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
+      ))
     : undefined;
   const studentId = studentObj?.id || (isStudentOrMonitor ? currentUser?.targetId : undefined);
 
@@ -179,11 +187,18 @@ const AppContent: React.FC = () => {
       setEditName(currentUser.name);
       setEditAvatar(studentObj?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.username}`);
       
-      const effectiveStudent = studentObj || SEED_STUDENTS.find(s => 
+      const seedMatch = SEED_STUDENTS.find(s => 
         (currentUser.targetId && s.id === currentUser.targetId) ||
         (currentUser.username && (s.id === currentUser.username || (s as any).code === currentUser.username)) ||
-        (currentUser.email && s.email === currentUser.email)
+        (currentUser.email && s.email === currentUser.email) ||
+        (currentUser.targetId && s.id.toLowerCase() === currentUser.targetId.toLowerCase()) ||
+        (currentUser.username && (s.id.toLowerCase() === currentUser.username.toLowerCase() || (s as any).code?.toLowerCase() === currentUser.username.toLowerCase())) ||
+        (currentUser.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
       );
+      const effectiveStudent = {
+        ...(seedMatch || {}),
+        ...(studentObj || {})
+      };
 
       const fields: Partial<any> = {};
       STUDENT_FIELDS_META.forEach(f => {
@@ -810,11 +825,18 @@ const AppContent: React.FC = () => {
   };
 
   const openProfileEditModal = () => {
-    const effectiveStudent = studentObj || SEED_STUDENTS.find(s => 
+    const seedMatch = SEED_STUDENTS.find(s => 
       (currentUser?.targetId && s.id === currentUser.targetId) ||
       (currentUser?.username && (s.id === currentUser.username || (s as any).code === currentUser.username)) ||
-      (currentUser?.email && s.email === currentUser.email)
+      (currentUser?.email && s.email === currentUser.email) ||
+      (currentUser?.targetId && s.id.toLowerCase() === currentUser.targetId.toLowerCase()) ||
+      (currentUser?.username && (s.id.toLowerCase() === currentUser.username.toLowerCase() || (s as any).code?.toLowerCase() === currentUser.username.toLowerCase())) ||
+      (currentUser?.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
     );
+    const effectiveStudent = {
+      ...(seedMatch || {}),
+      ...(studentObj || {})
+    };
     setEditName(currentUser?.name || effectiveStudent?.name || "");
     setEditAvatar(effectiveStudent?.avatar || currentUser?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.username}`);
     
@@ -2100,7 +2122,18 @@ const AppContent: React.FC = () => {
         </div>
       )}
       {showStudentIdCard && isStudentOrMonitor && (() => {
-        const s = studentObj || ({} as Partial<Student>);
+        const seedMatch = SEED_STUDENTS.find(sm => 
+          (currentUser?.targetId && sm.id === currentUser.targetId) ||
+          (currentUser?.username && (sm.id === currentUser.username || (sm as any).code === currentUser.username)) ||
+          (currentUser?.email && sm.email === currentUser.email) ||
+          (currentUser?.targetId && sm.id.toLowerCase() === currentUser.targetId.toLowerCase()) ||
+          (currentUser?.username && (sm.id.toLowerCase() === currentUser.username.toLowerCase() || (sm as any).code?.toLowerCase() === currentUser.username.toLowerCase())) ||
+          (currentUser?.email && sm.email && sm.email.toLowerCase() === currentUser.email.toLowerCase())
+        );
+        const s: Partial<Student> = {
+          ...(seedMatch || {}),
+          ...(studentObj || {})
+        };
         const cardName = (s.name || currentUser?.name || "").trim();
         const cardId = (s.id || currentUser?.targetId || currentUser?.username || "").trim();
         const cardClass = (s.classId || (currentUser as any)?.classId || "").trim();
