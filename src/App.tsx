@@ -2187,11 +2187,13 @@ const AppContent: React.FC = () => {
             const num = parseInt(mId[1], 10);
             if (num >= 15 && num <= 40) return 2000 + num;
           }
-          return null;
+          return 2024;
         })();
 
-        const startDateStr = admissionYear ? `01/${String(admissionYear).slice(-2)}` : "";
-        const expiryDateStr = admissionYear ? `01/${String(admissionYear + 5).slice(-2)}` : "";
+        const startYear = admissionYear ? admissionYear + 1 : 2025;
+        const expiryYear = startYear + 6;
+        const startDateStr = `01/${String(startYear).slice(-2)}`;
+        const expiryDateStr = `01/${String(expiryYear).slice(-2)}`;
 
         return (
           <div 
@@ -2212,51 +2214,51 @@ const AppContent: React.FC = () => {
                   className="absolute inset-0 w-full h-full object-fill pointer-events-none" 
                 />
 
-                {/* 2. Dynamic Field Overlays - Exact positions immediately next to labels */}
-                {/* Họ tên: sits immediately after colon (35.2%) */}
+                {/* 2. Dynamic Field Overlays - Aligned horizontally with labels */}
+                {/* Họ tên: sits immediately after colon (34.60% colon right) -> 35.4%, mid 39.5% */}
                 <div 
-                  style={{ position: 'absolute', top: '37.8%', left: '35.3%', width: '38.5%' }} 
+                  style={{ position: 'absolute', top: '39.5%', left: '35.4%', width: '38.5%', transform: 'translateY(-50%)' }} 
                   className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
                 >
                   {cardName}
                 </div>
 
-                {/* Ngày sinh: sits immediately after colon (39.8%) */}
+                {/* Ngày sinh: sits immediately after colon (39.09% colon right) -> 39.9%, mid 45.1% */}
                 <div 
-                  style={{ position: 'absolute', top: '43.5%', left: '39.8%', width: '34.0%' }} 
+                  style={{ position: 'absolute', top: '45.1%', left: '39.9%', width: '34.0%', transform: 'translateY(-50%)' }} 
                   className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
                 >
                   {cardDob}
                 </div>
 
-                {/* Lớp: sits immediately after colon (31.8%) */}
+                {/* Lớp: sits immediately after colon (31.15% colon right) -> 32.0%, mid 50.8% */}
                 <div 
-                  style={{ position: 'absolute', top: '49.2%', left: '31.8%', width: '42.0%' }} 
+                  style={{ position: 'absolute', top: '50.8%', left: '32.0%', width: '42.0%', transform: 'translateY(-50%)' }} 
                   className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
                 >
                   {cardClass}
                 </div>
 
-                {/* Khoa: sits immediately after colon (33.6%) */}
+                {/* Khoa: sits immediately after colon (32.94% colon right) -> 33.8%, mid 56.1% */}
                 <div 
-                  style={{ position: 'absolute', top: '55.0%', left: '33.6%', width: '40.0%' }} 
+                  style={{ position: 'absolute', top: '56.1%', left: '33.8%', width: '40.0%', transform: 'translateY(-50%)' }} 
                   className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
                 >
                   {cardFaculty}
                 </div>
 
-                {/* Khóa học: sits immediately after colon (39.4%) */}
+                {/* Khóa học: sits immediately after colon (38.60% colon right) -> 39.4%, mid 61.7% */}
                 <div 
-                  style={{ position: 'absolute', top: '60.6%', left: '39.4%', width: '34.5%' }} 
+                  style={{ position: 'absolute', top: '61.7%', left: '39.4%', width: '34.5%', transform: 'translateY(-50%)' }} 
                   className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
                 >
                   {cardCourse}
                 </div>
 
-                {/* MSSV: sits immediately after colon (34.5%) */}
+                {/* MSSV: sits immediately after colon (33.84% colon right) -> 34.7%, mid 67.4% */}
                 <div 
-                  style={{ position: 'absolute', top: '66.2%', left: '34.5%', width: '39.0%' }} 
-                  className="text-slate-900 font-black font-mono text-[11px] sm:text-[13px] md:text-[16px] truncate leading-none pointer-events-none"
+                  style={{ position: 'absolute', top: '67.4%', left: '34.7%', width: '39.0%', transform: 'translateY(-50%)' }} 
+                  className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
                 >
                   {cardId}
                 </div>
@@ -2275,10 +2277,10 @@ const AppContent: React.FC = () => {
                   </div>
                 )}
 
-                {/* 4. Dates Overlay (Start date & Expiry date after 5 years) */}
+                {/* 4. Dates Overlay (Start date & Expiry date after 6 years: 01/25  01/31) */}
                 <div 
-                  style={{ position: 'absolute', top: '79.0%', left: '16.8%', width: '25.5%', height: '5.8%' }}
-                  className="bg-[#eff8fe] flex items-center justify-between px-1 text-slate-900 font-extrabold font-mono text-[11px] sm:text-[13px] md:text-[15.5px] tracking-wider pointer-events-none"
+                  style={{ position: 'absolute', top: '81.8%', left: '17.0%', width: '23.4%', height: '5.8%', transform: 'translateY(-50%)' }} 
+                  className="bg-[#eff8fe] flex items-center justify-between px-0.5 text-slate-900 font-extrabold font-mono text-[11px] sm:text-[13px] md:text-[15.5px] tracking-wider pointer-events-none"
                 >
                   <span>{startDateStr}</span>
                   <span>{expiryDateStr}</span>
