@@ -4,7 +4,7 @@
  */
 
 import React, { Component, Suspense, lazy, useState } from "react";
-import { UniHubProvider, useUniHub, normalizeClassId } from "./state";
+import { UniHubProvider, useUniHub, normalizeClassId, getCachedAvatar, rememberAvatar } from "./state";
 import { UserRole, isOrgRole, STUDENT_FIELDS_META, Student, SEMESTER_LIST, convertGoogleDriveUrlToDirectUrl } from "./types";
 import { TnuLogo } from "./components/TnuLogo";
 import { 
@@ -191,7 +191,10 @@ const AppContent: React.FC = () => {
         ));
         if (!found) return undefined;
         const targetId = found.id || currentUser?.targetId || currentUser?.username || "";
-        const persistentAvatar = found.avatar || currentUser?.avatar || (targetId ? localStorage.getItem(`unihub_avatar_${targetId}`) : null) || "";
+        const persistentAvatar = found.avatar || currentUser?.avatar || getCachedAvatar(targetId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
+        if (persistentAvatar) {
+          rememberAvatar(persistentAvatar, targetId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
+        }
         return {
           ...found,
           avatar: persistentAvatar || found.avatar
@@ -202,9 +205,10 @@ const AppContent: React.FC = () => {
 
   // Sync profile editing states for detailed student fields
   React.useEffect(() => {
-    if (currentUser) {
+    if (currentUser && !showProfileModal) {
+      const persistentAvatar = studentObj?.avatar || currentUser?.avatar || getCachedAvatar(studentId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.username}`;
       setEditName(currentUser.name);
-      setEditAvatar(studentObj?.avatar || currentUser?.avatar || (studentId ? localStorage.getItem(`unihub_avatar_${studentId}`) : null) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.username}`);
+      setEditAvatar(persistentAvatar);
       
       const seedMatch = SEED_STUDENTS.find(s => 
         (currentUser.targetId && s.id === currentUser.targetId) ||
@@ -226,7 +230,7 @@ const AppContent: React.FC = () => {
           if (f.key === "id") val = currentUser.targetId || currentUser.username || currentUser.id;
           if (f.key === "name") val = currentUser.name;
           if (f.key === "email") val = currentUser.email;
-          if (f.key === "avatar") val = currentUser.avatar;
+          if (f.key === "avatar") val = persistentAvatar;
           if (f.key === "classId") val = (currentUser as any).classId;
           if (f.key === "facultyId") val = (currentUser as any).facultyId;
         }
@@ -1879,6 +1883,7 @@ const AppContent: React.FC = () => {
                                         const avatarUrl = await uploadAvatarHybrid(file, targetId);
                                         if (avatarUrl) {
                                           setEditAvatar(avatarUrl);
+                                          rememberAvatar(avatarUrl, targetId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
                                           setProfileFields(prev => ({ ...prev, avatar: avatarUrl }));
                                         }
                                       } catch (err) {
@@ -2058,6 +2063,7 @@ const AppContent: React.FC = () => {
                                     const avatarUrl = await uploadAvatarHybrid(file, targetId);
                                     if (avatarUrl) {
                                       setEditAvatar(avatarUrl);
+                                      rememberAvatar(avatarUrl, targetId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
                                     }
                                   } catch (err) {
                                     console.warn("Lỗi upload avatar:", err);

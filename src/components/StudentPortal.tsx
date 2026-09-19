@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useUniHub, normalizeClassId } from "../state";
+import { useUniHub, normalizeClassId, getCachedAvatar, rememberAvatar } from "../state";
 import { STUDENT_FIELDS_META, Student, convertGoogleDriveUrlToDirectUrl, SEMESTER_LIST, parseWeekRange, isWeekInScheduleSlot, UserRole } from "../types";
 import { SEED_STUDENTS } from "../data";
 import { 
@@ -408,10 +408,12 @@ export const StudentPortal: React.FC = () => {
       ...(found || {})
     };
     const targetId = base.id || currentUser?.targetId || currentUser?.username || "";
-    const localAvatar = targetId ? (localStorage.getItem("unihub_avatar_" + targetId) || "") : "";
+    const localAvatar = getCachedAvatar(targetId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
+    const avatar = base.avatar || currentUser?.avatar || localAvatar || undefined;
+    if (avatar) rememberAvatar(avatar, targetId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
     return {
       ...base,
-      avatar: base.avatar || currentUser?.avatar || localAvatar || undefined
+      avatar
     };
   }, [students, currentUser]);
   const studentId = sObj?.id || currentUser?.targetId || (currentUser?.role === "STUDENT" ? currentUser?.username : "") || "";
@@ -510,9 +512,10 @@ export const StudentPortal: React.FC = () => {
 
   // Sync profile editing states
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && !showProfileModal) {
+      const persistentAvatar = sObj?.avatar || currentUser.avatar || getCachedAvatar(studentId, currentUser.targetId, currentUser.username, currentUser.id, currentUser.email) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.username}`;
       setEditName(currentUser.name || sObj?.name || "");
-      setEditAvatar(sObj?.avatar || currentUser.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.username}`);
+      setEditAvatar(persistentAvatar);
       setEditPassword("");
       
       const fields: Partial<any> = {};
@@ -522,7 +525,7 @@ export const StudentPortal: React.FC = () => {
           if (f.key === "id") val = currentUser.targetId || currentUser.username || currentUser.id;
           if (f.key === "name") val = currentUser.name;
           if (f.key === "email") val = currentUser.email;
-          if (f.key === "avatar") val = currentUser.avatar;
+          if (f.key === "avatar") val = persistentAvatar;
           if (f.key === "classId") val = (currentUser as any).classId;
           if (f.key === "facultyId") val = (currentUser as any).facultyId;
         }
@@ -3406,6 +3409,7 @@ export const StudentPortal: React.FC = () => {
                                     const avatarUrl = await uploadAvatarHybrid(file, targetId);
                                     if (avatarUrl) {
                                       setEditAvatar(avatarUrl);
+                                      rememberAvatar(avatarUrl, targetId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
                                       setProfileFields(prev => ({ ...prev, avatar: avatarUrl }));
                                     }
                                   } catch (err) {

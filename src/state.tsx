@@ -306,6 +306,44 @@ export const normalizeUserAccount = (u: UserAccount): UserAccount => {
   };
 };
 
+const readAvatarCache = (): Record<string, string> => {
+  try {
+    const cached = localStorage.getItem("unihub_custom_avatars");
+    return cached ? JSON.parse(cached) : {};
+  } catch {
+    return {};
+  }
+};
+
+export const getCachedAvatar = (...ids: Array<string | undefined | null>): string => {
+  const cache = readAvatarCache();
+  for (const raw of ids) {
+    const id = String(raw || "").trim();
+    if (!id) continue;
+    const lower = id.toLowerCase();
+    const direct = cache[id] || cache[lower] || localStorage.getItem(`unihub_avatar_${id}`) || localStorage.getItem(`unihub_avatar_${lower}`);
+    if (direct) return direct;
+  }
+  return "";
+};
+
+export const rememberAvatar = (avatar: string, ...ids: Array<string | undefined | null>) => {
+  const cleanAvatar = (avatar || "").trim();
+  if (!cleanAvatar) return;
+  try {
+    const cache = readAvatarCache();
+    ids.forEach(raw => {
+      const id = String(raw || "").trim();
+      if (!id) return;
+      cache[id] = cleanAvatar;
+      cache[id.toLowerCase()] = cleanAvatar;
+      localStorage.setItem(`unihub_avatar_${id}`, cleanAvatar);
+      localStorage.setItem(`unihub_avatar_${id.toLowerCase()}`, cleanAvatar);
+    });
+    localStorage.setItem("unihub_custom_avatars", JSON.stringify(cache));
+  } catch {}
+};
+
 const UniHubContext = createContext<UniHubContextType | undefined>(undefined);
 
 export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -1544,14 +1582,24 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             } else {
               const existingHasPass = Boolean(existing.password && existing.password.trim());
               const itemHasPass = Boolean(item.password && item.password.trim());
+              const preservedAvatar = existing.avatar || item.avatar || getCachedAvatar(existing.targetId, item.targetId, existing.username, item.username, existing.id, item.id);
               if (!existingHasPass && itemHasPass) {
-                userMap.set(emailKey, item);
+                userMap.set(emailKey, { ...item, ...(preservedAvatar ? { avatar: preservedAvatar } : {}) });
               } else if (item.name && !existing.name) {
-                userMap.set(emailKey, { ...existing, ...item });
+                userMap.set(emailKey, { ...existing, ...item, ...(preservedAvatar ? { avatar: preservedAvatar } : {}) });
+              } else if (preservedAvatar && !existing.avatar) {
+                userMap.set(emailKey, { ...existing, avatar: preservedAvatar });
               }
             }
           }
-          list = Array.from(userMap.values()) as T[];
+          list = Array.from(userMap.values()).map((u: any) => {
+            const avatar = u.avatar || getCachedAvatar(u.targetId, u.username, u.id, u.email);
+            if (avatar) {
+              rememberAvatar(avatar, u.targetId, u.username, u.id, u.email);
+              return { ...u, avatar };
+            }
+            return u;
+          }) as T[];
         }
         if (key === "students") {
           const studentMap = new Map<string, Student>();
@@ -1578,20 +1626,22 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                           cleanItem[k] = v;
                         }
                       });
-                      studentMap.set(idKey, { ...existing, ...cleanItem });
+                      const avatar = existing.avatar || cleanItem.avatar || getCachedAvatar(existing.id, (existing as any).code, cleanItem.id, cleanItem.code);
+                      studentMap.set(idKey, { ...existing, ...cleanItem, ...(avatar ? { avatar } : {}) });
                     }
                   }
                 });
               }
             }
           } catch {}
-          // 3. Firestore snapshot items override
+          // 3. Firestore snapshot items override, except empty/missing avatar never wins
           for (const item of (list as any[])) {
             const idKey = ((item.id || item.code) as string)?.toLowerCase()?.trim();
             if (!idKey) continue;
             const existing = studentMap.get(idKey);
             if (!existing) {
-              studentMap.set(idKey, item);
+              const avatar = item.avatar || getCachedAvatar(item.id, item.code);
+              studentMap.set(idKey, { ...item, ...(avatar ? { avatar } : {}) });
             } else {
               const cleanItem: any = {};
               Object.entries(item).forEach(([k, v]) => {
@@ -1599,10 +1649,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   cleanItem[k] = v;
                 }
               });
-              studentMap.set(idKey, { ...existing, ...cleanItem });
+              const avatar = existing.avatar || cleanItem.avatar || getCachedAvatar(existing.id, (existing as any).code, cleanItem.id, cleanItem.code);
+              studentMap.set(idKey, { ...existing, ...cleanItem, ...(avatar ? { avatar } : {}) });
             }
           }
-          list = Array.from(studentMap.values()) as T[];
+          list = Array.from(studentMap.values()).map((s: any) => {
+            const avatar = s.avatar || getCachedAvatar(s.id, s.code);
+            if (avatar) {
+              rememberAvatar(avatar, s.id, s.code);
+              return { ...s, avatar };
+            }
+            return s;
+          }) as T[];
         }
         const normalized = sorter ? sorter(list) : list;
         if (normalized.length > 0 || removedIds.size > 0) {
@@ -3034,12 +3092,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // 1. Update students array
     const cleanName = (name || "").trim() || currentStud?.name || "Sinh viên";
     const effectiveName = (!isAdmin && isAdviserOfClass) ? (currentStud?.name || "Sinh viên") : cleanName;
-    let cleanAvatar = (!isAdmin && isAdviserOfClass) ? (currentStud?.avatar || "") : (avatar || "").trim();
+    const currentUserAvatar = currentUser?.avatar || getCachedAvatar(currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
+    let cleanAvatar = (!isAdmin && isAdviserOfClass)
+      ? (currentStud?.avatar || "")
+      : ((avatar || "").trim() || currentStud?.avatar || currentUserAvatar || getCachedAvatar(studentId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email));
     if (/^(javascript|vbscript):/i.test(cleanAvatar) || cleanAvatar.startsWith("//")) {
-      cleanAvatar = currentStud?.avatar || "";
+      cleanAvatar = currentStud?.avatar || currentUserAvatar || getCachedAvatar(studentId) || "";
     }
     if (/^data:(text\/html|application\/)/i.test(cleanAvatar)) {
-      cleanAvatar = currentStud?.avatar || "";
+      cleanAvatar = currentStud?.avatar || currentUserAvatar || getCachedAvatar(studentId) || "";
+    }
+    if (cleanAvatar) {
+      rememberAvatar(cleanAvatar, studentId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
     }
 
     const matchId = (a?: string, b?: string) => {
