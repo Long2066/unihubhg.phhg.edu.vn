@@ -2063,8 +2063,16 @@ const AppContent: React.FC = () => {
           </div>
         </div>
       )}
-      {/* Student ID Card Modal */}
-      {showStudentIdCard && isStudentOrMonitor && studentObj && (
+      {showStudentIdCard && isStudentOrMonitor && (() => {
+        const s = studentObj || {} as any;
+        const cardName = s.name || currentUser.name || "—";
+        const cardId = s.id || currentUser.targetId || currentUser.username || "—";
+        const cardClass = s.classId || "—";
+        const cardFaculty = s.facultyInCharge || s.facultyId || "—";
+        const cardDob = s.dob || "—";
+        const cardCourse = s.academicYears || s.trainingCourse || "—";
+        const cardAvatar = s.avatar || "";
+        return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setShowStudentIdCard(false)}>
           <div className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
             {/* Card */}
@@ -2084,19 +2092,19 @@ const AppContent: React.FC = () => {
               <div className="px-6 py-5 flex gap-5">
                 {/* Info */}
                 <div className="flex-1 space-y-2.5 text-sm">
-                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Họ tên:</span><span className="font-black text-slate-900">{studentObj.name}</span></div>
-                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Ngày sinh:</span><span className="font-semibold text-slate-800">{studentObj.dob || "—"}</span></div>
-                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Lớp:</span><span className="font-semibold text-slate-800">{studentObj.classId}</span></div>
-                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Khoa:</span><span className="font-semibold text-slate-800">{studentObj.facultyInCharge || studentObj.facultyId || "—"}</span></div>
-                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Khóa học:</span><span className="font-semibold text-slate-800">{studentObj.academicYears || studentObj.trainingCourse || "—"}</span></div>
-                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">MSSV:</span><span className="font-black text-[#1a5276] text-base tabular-nums font-mono">{studentObj.id}</span></div>
+                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Họ tên:</span><span className="font-black text-slate-900">{cardName}</span></div>
+                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Ngày sinh:</span><span className="font-semibold text-slate-800">{cardDob}</span></div>
+                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Lớp:</span><span className="font-semibold text-slate-800">{cardClass}</span></div>
+                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Khoa:</span><span className="font-semibold text-slate-800">{cardFaculty}</span></div>
+                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Khóa học:</span><span className="font-semibold text-slate-800">{cardCourse}</span></div>
+                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">MSSV:</span><span className="font-black text-[#1a5276] text-base tabular-nums font-mono">{cardId}</span></div>
                 </div>
 
                 {/* Avatar */}
                 <div className="shrink-0">
                   <div className="w-28 h-36 rounded-xl border-2 border-blue-200 overflow-hidden bg-blue-50 flex items-center justify-center shadow-inner">
-                    {studentObj.avatar ? (
-                      <img src={studentObj.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                    {cardAvatar ? (
+                      <img src={cardAvatar} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
                       <div className="text-center">
                         <User size={40} className="text-blue-300 mx-auto" />
@@ -2129,7 +2137,8 @@ const AppContent: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Mobile Navigation Bottom Bar for high-quality universal platform layout */}
       {(() => {
