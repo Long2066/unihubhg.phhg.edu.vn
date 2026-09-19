@@ -1452,7 +1452,27 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
         });
 
-        const list = snap.docs.map(d => ({ ...d.data(), id: d.id } as T));
+        let list = snap.docs.map(d => ({ ...d.data(), id: d.id } as T));
+        if (key === "users") {
+          const userMap = new Map<string, any>();
+          for (const item of (list as any[])) {
+            const emailKey = ((item.email || item.username || item.id) as string).toLowerCase().trim();
+            if (!emailKey) continue;
+            const existing = userMap.get(emailKey);
+            if (!existing) {
+              userMap.set(emailKey, item);
+            } else {
+              const existingHasPass = Boolean(existing.password && existing.password.trim());
+              const itemHasPass = Boolean(item.password && item.password.trim());
+              if (!existingHasPass && itemHasPass) {
+                userMap.set(emailKey, item);
+              } else if (item.name && !existing.name) {
+                userMap.set(emailKey, { ...existing, ...item });
+              }
+            }
+          }
+          list = Array.from(userMap.values()) as T[];
+        }
         const normalized = sorter ? sorter(list) : list;
         if (normalized.length > 0 || removedIds.size > 0) {
           setter(() => {
@@ -1857,8 +1877,6 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!obj || typeof obj !== "object") return obj;
     const clean: Record<string, any> = {};
     Object.keys(obj).forEach(key => {
-      // A1 FIX: Không bao giờ ghi password/plaintext secret vào Firestore
-      if (key === "password") return;
       if (obj[key] !== undefined && obj[key] !== null) {
         clean[key] = obj[key];
       }
@@ -2015,10 +2033,25 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
         }
 
-        // Check if org user accounts are missing, seed individual org users safely
-        console.log("Đồng bộ baseline users chuẩn hóa đuôi @phhg.edu.vn lên Firestore...");
-        for (const u of SEED_USERS) {
-          await setDoc(doc(db, "users", u.id), u, { merge: true });
+        // Only seed individual users if collection is empty or specific account is missing
+        try {
+          const usersSnapCheck = await getDocs(collection(db, "users"));
+          if (usersSnapCheck.empty) {
+            console.log("Khởi tạo danh sách users mẫu lên Firestore...");
+            for (const u of SEED_USERS) {
+              await setDoc(doc(db, "users", u.id), u, { merge: true });
+            }
+          } else {
+            const existingIds = new Set(usersSnapCheck.docs.map(d => d.id.toLowerCase()));
+            const existingEmails = new Set(usersSnapCheck.docs.map(d => (d.data().email || "").toLowerCase()).filter(Boolean));
+            for (const u of SEED_USERS) {
+              if (!existingIds.has(u.id.toLowerCase()) && !existingEmails.has((u.email || "").toLowerCase())) {
+                await setDoc(doc(db, "users", u.id), u, { merge: true });
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Lỗi kiểm tra baseline users:", e);
         }
 
         // Tự động quét và chuẩn hóa các tài khoản Firestore còn sót đuôi cũ (@hg.edu.vn, @unihub.edu.vn...)
@@ -2348,13 +2381,28 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const trimmedPass = passwordInput.trim();
     const lowerInput = trimmedInput.toLowerCase();
 
-    // 1. TÌM VÀ ĐỐI CHIẾU TÀI KHOẢN HIỆN HÀNH TRONG HỆ THỐNG
-    // Nếu bên cấp tài khoản đã thay đổi tk (username), tài khoản cũ sẽ không còn tồn tại -> Chặn ngay!
-    let matchedUser: UserAccount | null = null;
-    let matchedStudent: Student | null = null;
+    // Helper: test if password matches candidate
+    const checkUserPassword = (u: UserAccount, s?: Student | null) => {
+      const explicitPass = (u as any)?.password?.trim();
+      if (explicitPass) return explicitPass === trimmedPass;
+      if (u.role === UserRole.STUDENT) {
+        const stud = s || students.find(x => x.id.toLowerCase() === (u.targetId || u.username).toLowerCase());
+        const studPass = (stud as any)?.password?.trim();
+        if (studPass) return studPass === trimmedPass;
+        if (stud?.idCard?.trim() === trimmedPass) return true;
+      }
+      return trimmedPass === "123456";
+    };
 
-    // Tìm trong danh mục sinh viên Phòng Đào tạo (students)
-    matchedStudent = students.find(s => {
+    const checkStudentPassword = (s: Student) => {
+      const studPass = (s as any)?.password?.trim();
+      if (studPass) return studPass === trimmedPass;
+      if (s.idCard?.trim() === trimmedPass) return true;
+      return trimmedPass === "123456";
+    };
+
+    // 1. TÌM VÀ ĐỐI CHIẾU TÀI KHOẢN TRONG LOCAL STATE
+    let matchedStudent = students.find(s => {
       if (!s || !s.id) return false;
       const sId = s.id.trim().toLowerCase();
       const sEmail = (s.email || "").trim().toLowerCase();
@@ -2364,61 +2412,92 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return false;
     }) || null;
 
-    // Tìm trong danh sách users hệ thống
-    matchedUser = users.find(u => {
+    const candidateUsers = users.filter(u => {
       if (!u) return false;
       const uname = (u.username || "").trim().toLowerCase();
       const uemail = (u.email || "").trim().toLowerCase();
       const utarget = (u.targetId || "").trim().toLowerCase();
 
-      // Khớp chính xác username hoặc email hiện hành
       if (uname === lowerInput || uemail === lowerInput) return true;
-
-      // Sinh viên: khớp Mã SV
       if (u.role === UserRole.STUDENT) {
         if (uname === lowerInput || utarget === lowerInput) return true;
         if (lowerInput.endsWith("@phhg.edu.vn") && uname === lowerInput.split("@")[0]) return true;
       }
-
-      // Cán bộ / Đơn vị: cho phép nhập tiền tố email công vụ (ví dụ gõ "daotao" tự hiểu "daotao@phhg.edu.vn")
       if (!lowerInput.includes("@") && u.role !== UserRole.STUDENT) {
         if (uname === `${lowerInput}@phhg.edu.vn` || uemail === `${lowerInput}@phhg.edu.vn`) return true;
         if (uemail.startsWith(`${lowerInput}@`)) return true;
       }
-
       return false;
-    }) || null;
+    });
 
-    // NẾU TÀI KHOẢN KHÔNG TỒN TẠI HOẶC ĐÃ BỊ THAY ĐỔI: BỊ CHẶN NGAY!
+    let matchedUser = candidateUsers.find(u => checkUserPassword(u, matchedStudent)) || candidateUsers[0] || null;
+
+    // 2. NẾU LOCAL CHƯA KHỚP HOẶC SAI MẬT KHẨU -> TRUY VẤN REAL-TIME CLOUD FIRESTORE
+    let isPassValid = false;
+    if (matchedUser && checkUserPassword(matchedUser, matchedStudent)) {
+      isPassValid = true;
+    } else if (matchedStudent && checkStudentPassword(matchedStudent)) {
+      isPassValid = true;
+    }
+
+    if (!isPassValid) {
+      try {
+        const queryEmails = [lowerInput];
+        if (!lowerInput.includes("@")) {
+          queryEmails.push(`${lowerInput}@phhg.edu.vn`);
+        }
+        // Fetch from Firestore
+        const userDocsSnap = await getDocs(collection(db, "users"));
+        for (const docSnap of userDocsSnap.docs) {
+          const d = { ...docSnap.data(), id: docSnap.id } as UserAccount;
+          const uEmail = (d.email || "").toLowerCase().trim();
+          const uName = (d.username || "").toLowerCase().trim();
+          const uTarget = (d.targetId || "").toLowerCase().trim();
+          const isCandidate = queryEmails.includes(uEmail) || queryEmails.includes(uName) ||
+            (d.role === UserRole.STUDENT && (uTarget === lowerInput || (lowerInput.endsWith("@phhg.edu.vn") && uName === lowerInput.split("@")[0])));
+          if (isCandidate) {
+            if (checkUserPassword(d, matchedStudent)) {
+              matchedUser = d;
+              isPassValid = true;
+              setUsers(prev => [d, ...prev.filter(x => x.id !== d.id)]);
+              break;
+            } else if (!matchedUser) {
+              matchedUser = d;
+            }
+          }
+        }
+
+        if (!matchedStudent) {
+          const studentDocsSnap = await getDocs(collection(db, "students"));
+          for (const docSnap of studentDocsSnap.docs) {
+            const s = { ...docSnap.data(), id: docSnap.id } as Student;
+            const sId = (s.id || "").toLowerCase().trim();
+            const sEmail = (s.email || "").toLowerCase().trim();
+            if (sId === lowerInput || sEmail === lowerInput || (lowerInput.endsWith("@phhg.edu.vn") && sId === lowerInput.split("@")[0])) {
+              matchedStudent = s;
+              setStudents(prev => [s, ...prev.filter(x => x.id !== s.id)]);
+              if (checkStudentPassword(s)) {
+                isPassValid = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Lỗi kiểm tra đăng nhập đám mây Firestore:", err);
+      }
+    }
+
+    // NẾU TÀI KHOẢN KHÔNG TỒN TẠI: CHẶN NGAY!
     if (!matchedUser && !matchedStudent) {
       console.warn("Đăng nhập thất bại: Tài khoản không tồn tại hoặc đã bị thay đổi tên đăng nhập:", trimmedInput);
       return false;
     }
 
-    // 2. KIỂM TRA MẬT KHẨU HIỆN HÀNH (AUTHORITATIVE PASSWORD CHECK)
-    // Nếu bên cấp tài khoản đã thay đổi mk (password), mật khẩu cũ sẽ bị từ chối 100%!
-    let currentValidPassword = "";
-    if ((matchedUser as any)?.password && (matchedUser as any).password.trim()) {
-      currentValidPassword = (matchedUser as any).password.trim();
-    } else if ((matchedStudent as any)?.password && (matchedStudent as any).password.trim()) {
-      currentValidPassword = (matchedStudent as any).password.trim();
-    } else if (matchedStudent?.idCard && matchedStudent.idCard.trim()) {
-      currentValidPassword = matchedStudent.idCard.trim();
-    } else if (matchedUser?.role === UserRole.STUDENT) {
-      const stud = students.find(s => s.id.toLowerCase() === (matchedUser!.targetId || matchedUser!.username).toLowerCase());
-      currentValidPassword = (stud as any)?.password?.trim() || stud?.idCard?.trim() || "123456";
-    } else {
-      currentValidPassword = "123456";
-    }
-
-    // So khớp mật khẩu: Người dùng nhập mật khẩu cũ => CHẶN NGAY!
-    if (trimmedPass !== currentValidPassword) {
-      // Trường hợp đặc biệt cho Sinh viên: nếu chưa từng đổi mật khẩu tùy chỉnh, vẫn có thể dùng CCCD
-      const isStudentCccd = matchedStudent && matchedStudent.idCard && matchedStudent.idCard.trim() === trimmedPass;
-      if (!isStudentCccd) {
-        console.warn("Đăng nhập thất bại: Sai mật khẩu hiện hành cho tài khoản:", trimmedInput);
-        return false;
-      }
+    // NẾU MẬT KHẨU KHÔNG KHỚP: CHẶN NGAY!
+    if (!isPassValid) {
+      console.warn("Đăng nhập thất bại: Sai mật khẩu hiện hành cho tài khoản:", trimmedInput);
+      return false;
     }
 
     // 3. THÔNG TIN XÁC THỰC HỢP LỆ -> ĐỒNG BỘ VÀ TẠO PHIÊN

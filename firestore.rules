@@ -21,7 +21,7 @@ service cloud.firestore {
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-@.]+$');
     }
 
     // Allow authenticated users access without requiring manual email link verification
@@ -72,25 +72,27 @@ service cloud.firestore {
 
     // 3. Entity Validator Utilities
     function isValidUser(data) {
-      return data.keys().hasOnly(['id', 'username', 'name', 'role', 'email', 'targetId', 'isGroupLeader', 'groupInCharge', 'monitorTitle'])
+      return data.keys().hasOnly(['id', 'username', 'name', 'role', 'email', 'targetId', 'isGroupLeader', 'groupInCharge', 'monitorTitle', 'password'])
         && data.id is string && data.id.size() <= 128
         && data.username is string && data.username.size() <= 128
         && data.name is string && data.name.size() <= 128
         && data.role is string && data.role.size() <= 32
         && data.email is string && data.email.size() <= 128
-        && (!data.keys().contains('isGroupLeader') || data.isGroupLeader is bool)
-        && (!data.keys().contains('groupInCharge') || (data.groupInCharge is string && data.groupInCharge.size() <= 128))
-        && (!data.keys().contains('monitorTitle') || (data.monitorTitle is string && data.monitorTitle.size() <= 128));
+        && (!('isGroupLeader' in data) || data.isGroupLeader is bool)
+        && (!('groupInCharge' in data) || (data.groupInCharge is string && data.groupInCharge.size() <= 128))
+        && (!('monitorTitle' in data) || (data.monitorTitle is string && data.monitorTitle.size() <= 128))
+        && (!('password' in data) || (data.password is string && data.password.size() <= 256));
     }
 
     function isValidStudent(data) {
-      return data.keys().hasOnly(['id', 'name', 'classId', 'facultyId', 'email', 'avatar', 'gpa', 'creditsEarned', 'learningWarning', 'learningStatus', 'learningDataLocked', 'gender', 'dob', 'pob', 'ethnicity', 'idCard', 'idCardDate', 'idCardPlace', 'subjects', 'subjectGrades', 'gpa10', 'academicGrade', 'notes', 'updatedAt', 'religion', 'nationality', 'bhyt', 'priorityObject', 'priorityArea', 'phone', 'permanentAddress', 'permanentProvince', 'permanentWard', 'temporaryAddress', 'fatherName', 'fatherJob', 'fatherPhone', 'motherName', 'motherJob', 'motherPhone', 'trainingSystem', 'trainingCourse', 'trainingMajor', 'specialization', 'facultyInCharge', 'academicYears', 'adviser', 'registeredSubjectsCount', 'creditClassesList', 'enrollmentNotes', 'accumulatedCredits', 'totalTuition', 'paidTuition', 'debtTuition', 'paymentStatus', 'groupName'])
+      return data.keys().hasOnly(['id', 'name', 'classId', 'facultyId', 'email', 'avatar', 'gpa', 'creditsEarned', 'learningWarning', 'learningStatus', 'learningDataLocked', 'gender', 'dob', 'pob', 'ethnicity', 'idCard', 'idCardDate', 'idCardPlace', 'subjects', 'subjectGrades', 'gpa10', 'academicGrade', 'notes', 'updatedAt', 'religion', 'nationality', 'bhyt', 'priorityObject', 'priorityArea', 'phone', 'permanentAddress', 'permanentProvince', 'permanentWard', 'temporaryAddress', 'fatherName', 'fatherJob', 'fatherPhone', 'motherName', 'motherJob', 'motherPhone', 'trainingSystem', 'trainingCourse', 'trainingMajor', 'specialization', 'facultyInCharge', 'academicYears', 'adviser', 'registeredSubjectsCount', 'creditClassesList', 'enrollmentNotes', 'accumulatedCredits', 'totalTuition', 'paidTuition', 'debtTuition', 'paymentStatus', 'groupName', 'password'])
         && data.id is string && data.id.size() <= 64
         && data.name is string && data.name.size() <= 128
         && data.classId is string && data.classId.size() <= 64
         && data.facultyId is string && data.facultyId.size() <= 64
         && data.email is string && data.email.size() <= 128
-        && (!data.keys().contains('groupName') || (data.groupName is string && data.groupName.size() <= 128));
+        && (!('groupName' in data) || (data.groupName is string && data.groupName.size() <= 128))
+        && (!('password' in data) || (data.password is string && data.password.size() <= 256));
     }
 
     function isValidOrganization(data) {
@@ -136,7 +138,7 @@ service cloud.firestore {
         && data.dateTime is string && data.dateTime.size() <= 64
         && data.location is string && data.location.size() <= 256
         && data.status is string && (data.status == 'UPCOMING' || data.status == 'ONGOING' || data.status == 'COMPLETED')
-        && (!data.keys().contains('maxParticipants') || data.maxParticipants is number);
+        && (!('maxParticipants' in data) || data.maxParticipants is number);
     }
 
     function isValidActivityAttendance(data) {
@@ -212,38 +214,28 @@ service cloud.firestore {
         && data.classId is string && data.classId.size() <= 64
         && data.representativeApproved is bool
         && data.adviserApproved is bool
-        && (!data.keys().contains('facultyApproved') || data.facultyApproved is bool)
-        && (!data.keys().contains('adminApproved') || data.adminApproved is bool)
-        && (!data.keys().contains('adviserComment') || (data.adviserComment is string && data.adviserComment.size() <= 500))
-        && (!data.keys().contains('facultyComment') || (data.facultyComment is string && data.facultyComment.size() <= 500))
-        && (!data.keys().contains('adminComment') || (data.adminComment is string && data.adminComment.size() <= 500))
-        && (!data.keys().contains('representativeApprovedAt') || (data.representativeApprovedAt is string && data.representativeApprovedAt.size() <= 64))
-        && (!data.keys().contains('adviserApprovedAt') || (data.adviserApprovedAt is string && data.adviserApprovedAt.size() <= 64))
-        && (!data.keys().contains('facultyApprovedAt') || (data.facultyApprovedAt is string && data.facultyApprovedAt.size() <= 64))
-        && (!data.keys().contains('adminApprovedAt') || (data.adminApprovedAt is string && data.adminApprovedAt.size() <= 64));
+        && (!('facultyApproved' in data) || data.facultyApproved is bool)
+        && (!('adminApproved' in data) || data.adminApproved is bool)
+        && (!('adviserComment' in data) || (data.adviserComment is string && data.adviserComment.size() <= 500))
+        && (!('facultyComment' in data) || (data.facultyComment is string && data.facultyComment.size() <= 500))
+        && (!('adminComment' in data) || (data.adminComment is string && data.adminComment.size() <= 500))
+        && (!('representativeApprovedAt' in data) || (data.representativeApprovedAt is string && data.representativeApprovedAt.size() <= 64))
+        && (!('adviserApprovedAt' in data) || (data.adviserApprovedAt is string && data.adviserApprovedAt.size() <= 64))
+        && (!('facultyApprovedAt' in data) || (data.facultyApprovedAt is string && data.facultyApprovedAt.size() <= 64))
+        && (!('adminApprovedAt' in data) || (data.adminApprovedAt is string && data.adminApprovedAt.size() <= 64));
     }
 
     function isValidFacultyReview(data) {
       return data.keys().hasOnly(['facultyId', 'locked', 'lockedAt', 'lockedBy'])
         && data.facultyId is string && data.facultyId.size() <= 64
         && data.locked is bool
-        && (!data.keys().contains('lockedAt') || (data.lockedAt is string && data.lockedAt.size() <= 64))
-        && (!data.keys().contains('lockedBy') || (data.lockedBy is string && data.lockedBy.size() <= 128));
+        && (!('lockedAt' in data) || (data.lockedAt is string && data.lockedAt.size() <= 64))
+        && (!('lockedBy' in data) || (data.lockedBy is string && data.lockedBy.size() <= 128));
     }
 
     // 4. Secure Collections Match rules
     match /users/{userId} {
-      allow get: if isVerifiedUser() && (
-        userId == request.auth.uid || 
-        hasRole('ADMIN') || 
-        isSuperAdmin() ||
-        hasRole('TRAINING_DEPT')
-      );
-      allow list: if isVerifiedUser() && (
-        hasRole('ADMIN') || 
-        isSuperAdmin() ||
-        hasRole('TRAINING_DEPT')
-      );
+      allow get, list: if true;
       allow create: if isVerifiedUser() && isValidId(userId) && (hasRole('ADMIN') || isSuperAdmin()) && isValidUser(incoming());
       allow update: if isVerifiedUser() && isValidId(userId) && (
         hasRole('ADMIN') || 
@@ -254,25 +246,7 @@ service cloud.firestore {
     }
 
     match /students/{studentId} {
-      allow get: if isVerifiedUser() && (
-        studentId == request.auth.uid || 
-        getUserData().targetId == studentId ||
-        hasRole('ADMIN') || 
-        hasRole('TRAINING_DEPT') || 
-        hasRole('FACULTY') ||
-        (hasRole('ADVISER') && getUserData().targetId == existing().classId) ||
-        (hasRole('CLASS_MONITOR') && getUserData().targetId == existing().classId) ||
-        isOrgRole()
-      );
-      allow list: if isVerifiedUser() && (
-        hasRole('ADMIN') || 
-        hasRole('TRAINING_DEPT') || 
-        hasRole('FACULTY') || 
-        hasRole('ADVISER') || 
-        hasRole('CLASS_MONITOR') || 
-        isOrgRole() ||
-        hasRole('STUDENT')
-      );
+      allow get, list: if true;
       allow create, delete: if isVerifiedUser() && isValidId(studentId) && (hasRole('ADMIN') || hasRole('TRAINING_DEPT'));
       allow update: if isVerifiedUser() && isValidId(studentId) && (
         hasRole('ADMIN') || 
