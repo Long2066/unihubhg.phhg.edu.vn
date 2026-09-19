@@ -3406,6 +3406,7 @@ export const StudentPortal: React.FC = () => {
                                     console.warn("Lỗi upload avatar:", err);
                                   } finally {
                                     setIsUploadingAvatar(false);
+                                    try { e.target.value = ""; } catch {}
                                   }
                                 }
                               }}
