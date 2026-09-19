@@ -57,6 +57,14 @@ const rootAppPath = path.join(rootDir, "src", "App.tsx");
 const rootAppContent = fs.readFileSync(rootAppPath, "utf-8");
 const classStatisticsBottomPath = path.join(rootDir, "src", "components", "ClassStatisticsBottom.tsx");
 const classStatisticsBottomContent = fs.readFileSync(classStatisticsBottomPath, "utf-8");
+const packageJsonPath = path.join(rootDir, "package.json");
+const packageJsonContent = fs.readFileSync(packageJsonPath, "utf-8");
+const studentVerificationPath = path.join(rootDir, "src", "components", "StudentVerificationPage.tsx");
+const studentVerificationContent = fs.readFileSync(studentVerificationPath, "utf-8");
+const studentCardHelperPath = path.join(rootDir, "src", "utils", "studentCard.ts");
+const studentCardHelperContent = fs.readFileSync(studentCardHelperPath, "utf-8");
+const studentCardTemplatePath = path.join(rootDir, "public", "the-sinh-vien-template.png");
+const studentCardDefaultAvatarPath = path.join(rootDir, "public", "student-card-default-avatar.jpg");
 
 // =========================================================
 // BATCH 1 CHECKS
@@ -2871,8 +2879,64 @@ assert(
 );
 
 console.log("\n=========================================");
+// =========================================================
+// BATCH 66: Verified Student Card QR & Public Verification
+// =========================================================
+
+console.log("\n--- BATCH 66: Verified Student Card QR & Public Verification ---");
+
+assert(
+  packageJsonContent.includes('"qrcode"') && packageJsonContent.includes('"@types/qrcode"'),
+  "Batch 66 Issue 1: Student card QR generation uses local qrcode package with TypeScript types",
+  "Missing qrcode runtime dependency or @types/qrcode dev dependency"
+);
+
+assert(
+  rootAppContent.includes('QRCode.toDataURL(getStudentVerificationUrl(studentId)') &&
+  rootAppContent.includes('window.location.pathname === STUDENT_VERIFICATION_PATH') &&
+  rootAppContent.includes('<StudentVerificationPage />'),
+  "Batch 66 Issue 2: App.tsx renders public verification route before login and generates per-student QR",
+  "QR route or QR generation missing in src/App.tsx"
+);
+
+assert(
+  rootAppContent.includes('src={STUDENT_CARD_DEFAULT_AVATAR}') &&
+  rootAppContent.includes('src={STUDENT_CARD_TEMPLATE}') &&
+  rootAppContent.indexOf('src={STUDENT_CARD_DEFAULT_AVATAR}') < rootAppContent.indexOf('src={STUDENT_CARD_TEMPLATE}') &&
+  rootAppContent.includes('studentCardQrDataUrl'),
+  "Batch 66 Issue 3: Student card layers default/avatar below official template and QR above template",
+  "Student card image layer order or QR overlay missing"
+);
+
+assert(
+  studentVerificationContent.includes('THÔNG TIN XÁC THỰC SINH VIÊN') &&
+  studentVerificationContent.includes('Họ và tên') &&
+  studentVerificationContent.includes('MSSV') &&
+  studentVerificationContent.includes('Lớp') &&
+  studentVerificationContent.includes('Khoa') &&
+  studentVerificationContent.includes('Ngành') &&
+  studentVerificationContent.includes('Trạng thái sinh viên') &&
+  studentVerificationContent.includes('Trạng thái thẻ') &&
+  studentVerificationContent.includes('Hiệu lực đến') &&
+  studentVerificationContent.includes('Mã xác thực') &&
+  studentVerificationContent.includes('Cập nhật lúc') &&
+  studentVerificationContent.includes('Đại học Thái Nguyên – Phân hiệu tại ĐHTN tại Hà Giang'),
+  "Batch 66 Issue 4: Verification page renders all required student authentication fields",
+  "StudentVerificationPage misses required QR verification fields"
+);
+
+assert(
+  studentCardHelperContent.includes('export const getStudentVerificationCode') &&
+  studentCardHelperContent.includes('digits.slice(-2)') &&
+  studentCardHelperContent.includes('expiryDisplay: `31/01/${expiryYear}`') &&
+  fs.existsSync(studentCardTemplatePath) &&
+  fs.existsSync(studentCardDefaultAvatarPath),
+  "Batch 66 Issue 5: Student card helper derives code from last two MSSV digits and public assets exist",
+  "Verification code, expiry display, or student card public assets missing"
+);
+
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 65 SECURITY & INTEGRITY REGRESSION TESTS PASSED (332 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 66 SECURITY & INTEGRITY REGRESSION TESTS PASSED (337 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

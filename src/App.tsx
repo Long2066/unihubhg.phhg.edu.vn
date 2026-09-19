@@ -1,12 +1,14 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { Component, Suspense, lazy, useState } from "react";
+import * as QRCode from "qrcode";
 import { UniHubProvider, useUniHub, normalizeClassId, getCachedAvatar, rememberAvatar } from "./state";
 import { UserRole, isOrgRole, STUDENT_FIELDS_META, Student, SEMESTER_LIST, convertGoogleDriveUrlToDirectUrl } from "./types";
 import { TnuLogo } from "./components/TnuLogo";
+import { StudentVerificationPage } from "./components/StudentVerificationPage";
 import { 
   LogOut, 
   School, 
@@ -58,8 +60,17 @@ const AdviserIcon = ShieldAlert;
 
 import { uploadAvatarHybrid } from "./utils/imageCompressor";
 import { LoginScreen } from "./components/LoginScreen";
+import {
+  STUDENT_CARD_DEFAULT_AVATAR,
+  STUDENT_CARD_TEMPLATE,
+  STUDENT_VERIFICATION_PATH,
+  formatFacultyName,
+  formatStudentDob,
+  getStudentCardCourse,
+  getStudentCardValidity,
+  getStudentVerificationUrl
+} from "./utils/studentCard";
 const StudentPortal = lazy(() => import("./components/StudentPortal").then(module => ({ default: module.StudentPortal })));
-const studentCardTemplate = "/the-sinh-vien-template.png";
 import { SEED_STUDENTS } from "./data";
 const OrganizerPortal = lazy(() => import("./components/OrganizerPortal").then(module => ({ default: module.OrganizerPortal })));
 const TrainingPortal = lazy(() => import("./components/TrainingPortal").then(module => ({ default: module.TrainingPortal })));
@@ -169,6 +180,7 @@ const AppContent: React.FC = () => {
   const [editPasswordConfirm, setEditPasswordConfirm] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [showStudentIdCard, setShowStudentIdCard] = useState(false);
+  const [studentCardQrDataUrl, setStudentCardQrDataUrl] = useState("");
   const [profileSuccessMsg, setProfileSuccessMsg] = useState("");
   const [profileFields, setProfileFields] = useState<Partial<any>>({});
   const [activeSubProfileTab, setActiveSubProfileTab] = useState<"personal" | "family" | "education" | "account">("personal");
@@ -802,6 +814,37 @@ const AppContent: React.FC = () => {
       }
     }
   }, [activePortletTab, currentUser, notifications, activities, attendance, studentId, evidence, members, classReviews, facultyReviews, students, seenActivityIds, seenRejectedEvidenceIds, seenPendingMemberIds, seenPendingEvidenceIds, seenClassReviewIds, seenAdviserReviews, seenFacultyReviewIds, readNotifIds]);
+
+  React.useEffect(() => {
+    if (!showStudentIdCard || !studentId) {
+      setStudentCardQrDataUrl("");
+      return;
+    }
+
+    let ignore = false;
+    QRCode.toDataURL(getStudentVerificationUrl(studentId), {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 220,
+      color: { dark: "#0f172aff", light: "#ffffffff" }
+    })
+      .then(url => {
+        if (!ignore) setStudentCardQrDataUrl(url);
+      })
+      .catch(err => {
+        console.warn("Student card QR generation failed:", err);
+        if (!ignore) setStudentCardQrDataUrl("");
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [showStudentIdCard, studentId]);
+
+  const isStudentVerificationRoute = window.location.pathname === STUDENT_VERIFICATION_PATH;
+  if (isStudentVerificationRoute) {
+    return <StudentVerificationPage />;
+  }
 
   if (!currentUser) {
     return <LoginScreen />;
@@ -2184,63 +2227,15 @@ const AppContent: React.FC = () => {
         const cardName = (s.name || currentUser?.name || "").trim();
         const cardId = (s.id || currentUser?.targetId || currentUser?.username || "").trim();
         const cardClass = (s.classId || (currentUser as any)?.classId || "").trim();
-        
-        // Faculty: format code to full name if standard
+        const cardData: Partial<Student> = { ...s, id: cardId, classId: cardClass };
         const rawFaculty = (s.facultyInCharge || s.facultyId || (currentUser as any)?.facultyId || "").trim();
-        const cardFaculty = rawFaculty === "K-GDTH" 
-          ? "Khoa Sư phạm" 
-          : rawFaculty === "K-CNTT" 
-          ? "Khoa Công nghệ Thông tin" 
-          : rawFaculty === "K-KINHTE" 
-          ? "Khoa Kinh tế & Du lịch"
-          : rawFaculty;
-
-        // Date of birth: format DD/MM/YYYY
-        const rawDob = (s.dob || (currentUser as any)?.dob || "").trim();
-        const cardDob = (() => {
-          if (!rawDob) return "";
-          const parts = rawDob.split("-");
-          if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-          return rawDob;
-        })();
-
-        // Course / Academic years
-        const cardCourse = (s.academicYears || s.trainingCourse || (cardClass.startsWith("K2-") ? "2024 - 2028" : "")).trim();
-        const cardAvatar = (s.avatar || currentUser?.avatar || "").trim();
-
-        // Calculate admission year & 5-year expiry
-        const admissionYear = (() => {
-          if (s.academicYears) {
-            const m = s.academicYears.match(/\b(20\d{2})\b/);
-            if (m) return parseInt(m[1], 10);
-          }
-          if (s.trainingCourse) {
-            const mYear = s.trainingCourse.match(/\b(20\d{2})\b/);
-            if (mYear) return parseInt(mYear[1], 10);
-            const mK = s.trainingCourse.match(/K(\d{1,2})/i);
-            if (mK) {
-              const kNum = parseInt(mK[1], 10);
-              return kNum > 50 ? 1900 + kNum : 2000 + kNum;
-            }
-          }
-          if (s.classId) {
-            const mK = s.classId.match(/K(\d{2})/i);
-            if (mK) return 2000 + parseInt(mK[1], 10);
-            if (s.classId.startsWith("K2-")) return 2024;
-          }
-          const idStr = (s.id || currentUser?.targetId || currentUser?.username || "").trim();
-          const mId = idStr.match(/(?:DTG|SV|K)?(\d{2})\d{4,}/i) || idStr.match(/[A-Z]{2,4}(\d{2})/i);
-          if (mId) {
-            const num = parseInt(mId[1], 10);
-            if (num >= 15 && num <= 40) return 2000 + num;
-          }
-          return 2024;
-        })();
-
-        const startYear = admissionYear ? admissionYear + 1 : 2025;
-        const expiryYear = startYear + 6;
-        const startDateStr = `01/${String(startYear).slice(-2)}`;
-        const expiryDateStr = `01/${String(expiryYear).slice(-2)}`;
+        const cardFaculty = formatFacultyName(rawFaculty);
+        const cardDob = formatStudentDob(s.dob || (currentUser as any)?.dob || "");
+        const cardCourse = getStudentCardCourse(cardData, cardClass);
+        const cachedCardAvatar = getCachedAvatar(cardId, (s as any).code, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
+        const cardAvatar = (s.avatar || currentUser?.avatar || cachedCardAvatar || "").trim();
+        const { startDateStr, expiryDateStr } = getStudentCardValidity(cardData, cardId);
+        const verificationUrl = getStudentVerificationUrl(cardId);
 
         return (
           <div 
@@ -2254,18 +2249,55 @@ const AppContent: React.FC = () => {
                 className="relative w-full aspect-[1448/954] rounded-2xl sm:rounded-3xl overflow-hidden shadow-[0_25px_60px_-15px_rgba(0,0,0,0.6)] ring-1 ring-white/30 select-none bg-white"
                 id="student-id-card-view"
               >
-                {/* 1. Official Background Template Image (100% Identical to Official Phôi Thẻ) */}
+                {/* 1. Default/avatar layer stays below transparent photo window in official frame */}
+                <div 
+                  style={{ position: 'absolute', top: '26.6%', left: '75.2%', width: '21.3%', height: '40.4%' }}
+                  className="z-0 overflow-hidden rounded-[10px] sm:rounded-[14px] md:rounded-[18px] bg-slate-100 pointer-events-none"
+                >
+                  <img 
+                    src={STUDENT_CARD_DEFAULT_AVATAR}
+                    alt="Ảnh mặc định thẻ sinh viên"
+                    className="w-full h-full object-cover object-center"
+                  />
+                </div>
+                {cardAvatar && (
+                  <div 
+                    style={{ position: 'absolute', top: '26.6%', left: '75.2%', width: '21.3%', height: '40.4%' }}
+                    className="z-10 overflow-hidden rounded-[10px] sm:rounded-[14px] md:rounded-[18px] bg-slate-100 pointer-events-none"
+                  >
+                    <img 
+                      src={cardAvatar} 
+                      alt="Ảnh thẻ sinh viên" 
+                      className="w-full h-full object-cover object-center"
+                    />
+                  </div>
+                )}
+
+                {/* 2. Official template frame sits above avatar layers */}
                 <img 
-                  src={studentCardTemplate} 
+                  src={STUDENT_CARD_TEMPLATE} 
                   alt="Thẻ sinh viên điện tử" 
-                  className="absolute inset-0 w-full h-full object-fill pointer-events-none" 
+                  className="absolute inset-0 z-20 w-full h-full object-fill pointer-events-none" 
                 />
 
-                {/* 2. Dynamic Field Overlays - Aligned horizontally with labels */}
+                {/* 3. Per-student QR stays above non-transparent QR area on template */}
+                <div
+                  style={{ position: 'absolute', top: '35.1%', left: '6.8%', width: '14.0%', height: '21.2%' }}
+                  className="absolute z-30 flex items-center justify-center rounded-[6px] bg-white p-[2px] shadow-sm ring-1 ring-slate-900/10 pointer-events-none"
+                  title={verificationUrl}
+                >
+                  {studentCardQrDataUrl ? (
+                    <img src={studentCardQrDataUrl} alt={`QR xác thực sinh viên ${cardId}`} className="h-full w-full object-contain" />
+                  ) : (
+                    <div className="h-full w-full animate-pulse rounded bg-slate-200" aria-label="Đang tạo QR xác thực" />
+                  )}
+                </div>
+
+                {/* 4. Dynamic Field Overlays - Aligned horizontally with labels */}
                 {/* Họ tên: sits immediately after colon (34.60% colon right) -> 35.4%, mid 39.5% */}
                 <div 
                   style={{ position: 'absolute', top: '39.5%', left: '35.4%', width: '38.5%', transform: 'translateY(-50%)' }} 
-                  className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
+                  className="z-30 text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
                 >
                   {cardName}
                 </div>
@@ -2273,7 +2305,7 @@ const AppContent: React.FC = () => {
                 {/* Ngày sinh: sits immediately after colon (39.09% colon right) -> 39.9%, mid 45.1% */}
                 <div 
                   style={{ position: 'absolute', top: '45.1%', left: '39.9%', width: '34.0%', transform: 'translateY(-50%)' }} 
-                  className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
+                  className="z-30 text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
                 >
                   {cardDob}
                 </div>
@@ -2281,7 +2313,7 @@ const AppContent: React.FC = () => {
                 {/* Lớp: sits immediately after colon (31.15% colon right) -> 32.0%, mid 50.8% */}
                 <div 
                   style={{ position: 'absolute', top: '50.8%', left: '32.0%', width: '42.0%', transform: 'translateY(-50%)' }} 
-                  className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
+                  className="z-30 text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
                 >
                   {cardClass}
                 </div>
@@ -2289,7 +2321,7 @@ const AppContent: React.FC = () => {
                 {/* Khoa: sits immediately after colon (32.94% colon right) -> 33.8%, mid 56.1% */}
                 <div 
                   style={{ position: 'absolute', top: '56.1%', left: '33.8%', width: '40.0%', transform: 'translateY(-50%)' }} 
-                  className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
+                  className="z-30 text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
                 >
                   {cardFaculty}
                 </div>
@@ -2297,7 +2329,7 @@ const AppContent: React.FC = () => {
                 {/* Khóa học: sits immediately after colon (38.60% colon right) -> 39.4%, mid 61.7% */}
                 <div 
                   style={{ position: 'absolute', top: '61.7%', left: '39.4%', width: '34.5%', transform: 'translateY(-50%)' }} 
-                  className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
+                  className="z-30 text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
                 >
                   {cardCourse}
                 </div>
@@ -2305,29 +2337,15 @@ const AppContent: React.FC = () => {
                 {/* MSSV: sits immediately after colon (33.84% colon right) -> 34.7%, mid 67.4% */}
                 <div 
                   style={{ position: 'absolute', top: '67.4%', left: '34.7%', width: '39.0%', transform: 'translateY(-50%)' }} 
-                  className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
+                  className="z-30 text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
                 >
                   {cardId}
                 </div>
 
-                {/* 3. Avatar Overlay: If student has uploaded avatar, show it; else template's built-in silhouette placeholder shows through */}
-                {cardAvatar && (
-                  <div 
-                    style={{ position: 'absolute', top: '26.0%', left: '74.8%', width: '22.0%', height: '40.8%' }}
-                    className="rounded-[12px] sm:rounded-[16px] md:rounded-[20px] overflow-hidden bg-sky-100 pointer-events-none"
-                  >
-                    <img 
-                      src={cardAvatar} 
-                      alt="Ảnh thẻ sinh viên" 
-                      className="w-full h-full object-cover object-center scale-[1.02]"
-                    />
-                  </div>
-                )}
-
-                {/* 4. Dates Overlay (Start date & Expiry date after 6 years: 01/25  01/31) */}
+                {/* 5. Dates Overlay (Start date & Expiry date after 6 years: 01/25  01/31) */}
                 <div 
                   style={{ position: 'absolute', top: '81.8%', left: '17.0%', width: '23.4%', height: '5.8%', transform: 'translateY(-50%)' }} 
-                  className="bg-[#eff8fe] flex items-center justify-between px-0.5 text-slate-900 font-extrabold font-mono text-[11px] sm:text-[13px] md:text-[15.5px] tracking-wider pointer-events-none"
+                  className="z-30 bg-[#eff8fe]/95 flex items-center justify-between px-0.5 text-slate-900 font-extrabold font-mono text-[11px] sm:text-[13px] md:text-[15.5px] tracking-wider pointer-events-none"
                 >
                   <span>{startDateStr}</span>
                   <span>{expiryDateStr}</span>
@@ -2339,7 +2357,7 @@ const AppContent: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowStudentIdCard(false)}
-                  className="px-6 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-sm transition-all cursor-pointer shadow-lg hover:shadow-xl ring-1 ring-slate-200 active:scale-95"
+                  className="px-6 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-sm transition-all cursor-pointer shadow-lg hover:shadow-xl ring-1 ring-slate-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
                 >
                   Đóng thẻ
                 </button>
@@ -2349,7 +2367,6 @@ const AppContent: React.FC = () => {
           </div>
         );
       })()}
-
       {/* Mobile Navigation Bottom Bar for high-quality universal platform layout */}
       {(() => {
         const isScrollableNav = sidebarTabs.length > 4;
@@ -2629,3 +2646,4 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+
