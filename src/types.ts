@@ -211,7 +211,7 @@ export const STUDENT_FIELDS_META: FieldMeta[] = [
   { key: "motherPhone", label: "SĐT mẹ", category: "family", type: "text" },
   
   // Đào tạo / Học vụ
-  { key: "classId", label: "Lớp", category: "education", type: "text", readOnly: true },
+  { key: "classId", label: "Lớp", category: "education", type: "text" },
   { key: "trainingSystem", label: "Hệ đào tạo", category: "education", type: "text" },
   { key: "trainingCourse", label: "Khóa đào tạo", category: "education", type: "text" },
   { key: "trainingMajor", label: "Ngành đào tạo", category: "education", type: "text" },

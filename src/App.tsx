@@ -2068,10 +2068,10 @@ const AppContent: React.FC = () => {
         const s = studentObj || ({} as Partial<Student>);
         const cardName = (s.name || currentUser?.name || "").trim();
         const cardId = (s.id || currentUser?.targetId || currentUser?.username || "").trim();
-        const cardClass = (s.classId || "").trim();
+        const cardClass = (s.classId || (currentUser as any)?.classId || "").trim();
         
         // Faculty: format code to full name if standard
-        const rawFaculty = (s.facultyInCharge || s.facultyId || "").trim();
+        const rawFaculty = (s.facultyInCharge || s.facultyId || (currentUser as any)?.facultyId || "").trim();
         const cardFaculty = rawFaculty === "K-GDTH" 
           ? "Khoa Sư phạm" 
           : rawFaculty === "K-CNTT" 
@@ -2081,7 +2081,7 @@ const AppContent: React.FC = () => {
           : rawFaculty;
 
         // Date of birth: format DD/MM/YYYY
-        const rawDob = (s.dob || "").trim();
+        const rawDob = (s.dob || (currentUser as any)?.dob || "").trim();
         const cardDob = (() => {
           if (!rawDob) return "";
           const parts = rawDob.split("-");
@@ -2091,7 +2091,7 @@ const AppContent: React.FC = () => {
 
         // Course / Academic years
         const cardCourse = (s.academicYears || s.trainingCourse || (cardClass.startsWith("K2-") ? "2024 - 2028" : "")).trim();
-        const cardAvatar = (s.avatar || "").trim();
+        const cardAvatar = (s.avatar || currentUser?.avatar || "").trim();
 
         // Calculate admission year & 5-year expiry
         const admissionYear = (() => {
@@ -2144,50 +2144,58 @@ const AppContent: React.FC = () => {
                   className="absolute inset-0 w-full h-full object-fill pointer-events-none" 
                 />
 
-                {/* 2. Dynamic Field Overlays - Exact positions aligned with labels */}
-                {/* Họ tên */}
+                {/* 2. Dynamic Field Overlays - Exact positions immediately next to labels */}
+                {/* Patch label Lớp: to guarantee correct spelling */}
                 <div 
-                  style={{ position: 'absolute', top: '37.8%', left: '40.2%', width: '33.5%' }} 
+                  style={{ position: 'absolute', top: '48.8%', left: '25.5%', width: '6.0%', height: '3.6%' }} 
+                  className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] leading-none pointer-events-none select-none"
+                >
+                  Lớp:
+                </div>
+
+                {/* Họ tên: sits immediately after colon (35.2%) */}
+                <div 
+                  style={{ position: 'absolute', top: '37.8%', left: '35.3%', width: '38.5%' }} 
                   className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
                 >
                   {cardName}
                 </div>
 
-                {/* Ngày sinh */}
+                {/* Ngày sinh: sits immediately after colon (39.8%) */}
                 <div 
-                  style={{ position: 'absolute', top: '43.5%', left: '40.2%', width: '33.5%' }} 
+                  style={{ position: 'absolute', top: '43.5%', left: '39.8%', width: '34.0%' }} 
                   className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
                 >
                   {cardDob}
                 </div>
 
-                {/* Lớp */}
+                {/* Lớp: sits immediately after colon (31.8%) */}
                 <div 
-                  style={{ position: 'absolute', top: '49.2%', left: '40.2%', width: '33.5%' }} 
+                  style={{ position: 'absolute', top: '49.2%', left: '31.8%', width: '42.0%' }} 
                   className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
                 >
                   {cardClass}
                 </div>
 
-                {/* Khoa */}
+                {/* Khoa: sits immediately after colon (33.6%) */}
                 <div 
-                  style={{ position: 'absolute', top: '55.0%', left: '40.2%', width: '33.5%' }} 
+                  style={{ position: 'absolute', top: '55.0%', left: '33.6%', width: '40.0%' }} 
                   className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
                 >
                   {cardFaculty}
                 </div>
 
-                {/* Khóa học */}
+                {/* Khóa học: sits immediately after colon (39.4%) */}
                 <div 
-                  style={{ position: 'absolute', top: '60.6%', left: '40.2%', width: '33.5%' }} 
+                  style={{ position: 'absolute', top: '60.6%', left: '39.4%', width: '34.5%' }} 
                   className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
                 >
                   {cardCourse}
                 </div>
 
-                {/* MSSV */}
+                {/* MSSV: sits immediately after colon (34.5%) */}
                 <div 
-                  style={{ position: 'absolute', top: '66.2%', left: '40.2%', width: '33.5%' }} 
+                  style={{ position: 'absolute', top: '66.2%', left: '34.5%', width: '39.0%' }} 
                   className="text-slate-900 font-black font-mono text-[11px] sm:text-[13px] md:text-[16px] truncate leading-none pointer-events-none"
                 >
                   {cardId}

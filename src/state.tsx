@@ -2864,8 +2864,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       cleanAvatar = currentStud?.avatar || "";
     }
 
+    const matchId = (a?: string, b?: string) => {
+      if (!a || !b) return false;
+      return a.trim().toLowerCase() === b.trim().toLowerCase();
+    };
+
+    let found = false;
     const updatedStudents = students.map(s => {
-      if (s.id === studentId) {
+      if (matchId(s.id, studentId) || matchId((s as any).code, studentId)) {
+        found = true;
         return { 
           ...s, 
           ...safeFields, 
@@ -2875,13 +2882,29 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       return s;
     });
+
+    if (!found) {
+      const newStud: Student = {
+        id: studentId,
+        name: effectiveName,
+        avatar: cleanAvatar,
+        classId: safeFields.classId || (currentUser as any)?.classId || "",
+        facultyId: safeFields.facultyId || "",
+        email: currentUser?.email || studentId,
+        ...safeFields
+      };
+      updatedStudents.push(newStud);
+    }
+
     setStudents(updatedStudents);
     saveToStorage("unihub_students", updatedStudents);
-    const targetStud = updatedStudents.find(s => s.id === studentId);
+    const targetStud = updatedStudents.find(s => matchId(s.id, studentId));
     if (targetStud) {
       const studData = sanitizeForFirestore(targetStud);
       if (trimmedNewPass) (studData as any).password = trimmedNewPass;
-      setDoc(doc(db, "students", studentId), studData, { merge: true }).catch(() => {});
+      setDoc(doc(db, "students", targetStud.id), studData, { merge: true }).catch(err => {
+        console.warn("Lỗi đồng bộ students Firestore:", err);
+      });
     }
 
     // 2. Update Firebase Auth password if requested
@@ -2902,8 +2925,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // 3. Update users array
     const updatedUsers = users.map(u => {
-      if (u.targetId === studentId || u.username === studentId || u.email === studentId || u.id === studentId) {
-        const updated: any = { ...u, name };
+      if (matchId(u.targetId, studentId) || matchId(u.username, studentId) || matchId(u.email, studentId) || matchId(u.id, studentId)) {
+        const updated: any = { ...u, name: effectiveName, avatar: cleanAvatar };
         if (trimmedNewPass) updated.password = trimmedNewPass;
         return updated;
       }
@@ -2911,7 +2934,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
     setUsers(updatedUsers);
     saveToStorage("unihub_users", updatedUsers);
-    const targetUser = updatedUsers.find(u => u.targetId === studentId || u.username === studentId || u.id === studentId);
+    const targetUser = updatedUsers.find(u => matchId(u.targetId, studentId) || matchId(u.username, studentId) || matchId(u.id, studentId));
     if (targetUser) {
       const userData = sanitizeForFirestore(targetUser);
       if (trimmedNewPass) (userData as any).password = trimmedNewPass;
@@ -2919,9 +2942,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // 4. Keep current user in sync
-    if (currentUser && (currentUser.targetId === studentId || currentUser.username === studentId || currentUser.id === studentId)) {
+    if (currentUser && (
+      matchId(currentUser.targetId, studentId) || 
+      matchId(currentUser.username, studentId) || 
+      matchId(currentUser.id, studentId)
+    )) {
       const { password: _pw, ...cleanCur } = currentUser as any;
-      const updatedCur: any = { ...cleanCur, name };
+      const updatedCur: any = { 
+        ...cleanCur, 
+        name: effectiveName, 
+        avatar: cleanAvatar,
+        targetId: currentUser.targetId || studentId 
+      };
       if (trimmedNewPass) updatedCur.password = trimmedNewPass;
       setCurrentUser(updatedCur);
       saveToStorage("unihub_current_user", updatedCur);
