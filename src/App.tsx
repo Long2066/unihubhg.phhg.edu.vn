@@ -58,6 +58,7 @@ const AdviserIcon = ShieldAlert;
 
 import { LoginScreen } from "./components/LoginScreen";
 const StudentPortal = lazy(() => import("./components/StudentPortal").then(module => ({ default: module.StudentPortal })));
+import studentCardTemplate from "./assets/the-sinh-vien-template.png";
 const OrganizerPortal = lazy(() => import("./components/OrganizerPortal").then(module => ({ default: module.OrganizerPortal })));
 const TrainingPortal = lazy(() => import("./components/TrainingPortal").then(module => ({ default: module.TrainingPortal })));
 const ClassPortal = lazy(() => import("./components/ClassPortal").then(module => ({ default: module.ClassPortal })));
@@ -2064,79 +2065,171 @@ const AppContent: React.FC = () => {
         </div>
       )}
       {showStudentIdCard && isStudentOrMonitor && (() => {
-        const s = studentObj || {} as any;
-        const cardName = s.name || currentUser.name || "—";
-        const cardId = s.id || currentUser.targetId || currentUser.username || "—";
-        const cardClass = s.classId || "—";
-        const cardFaculty = s.facultyInCharge || s.facultyId || "—";
-        const cardDob = s.dob || "—";
-        const cardCourse = s.academicYears || s.trainingCourse || "—";
-        const cardAvatar = s.avatar || "";
+        const s = studentObj || ({} as Partial<Student>);
+        const cardName = (s.name || currentUser?.name || "").trim();
+        const cardId = (s.id || currentUser?.targetId || currentUser?.username || "").trim();
+        const cardClass = (s.classId || "").trim();
+        
+        // Faculty: format code to full name if standard
+        const rawFaculty = (s.facultyInCharge || s.facultyId || "").trim();
+        const cardFaculty = rawFaculty === "K-GDTH" 
+          ? "Khoa Sư phạm" 
+          : rawFaculty === "K-CNTT" 
+          ? "Khoa Công nghệ Thông tin" 
+          : rawFaculty === "K-KINHTE" 
+          ? "Khoa Kinh tế & Du lịch"
+          : rawFaculty;
+
+        // Date of birth: format DD/MM/YYYY
+        const rawDob = (s.dob || "").trim();
+        const cardDob = (() => {
+          if (!rawDob) return "";
+          const parts = rawDob.split("-");
+          if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+          return rawDob;
+        })();
+
+        // Course / Academic years
+        const cardCourse = (s.academicYears || s.trainingCourse || (cardClass.startsWith("K2-") ? "2024 - 2028" : "")).trim();
+        const cardAvatar = (s.avatar || "").trim();
+
+        // Calculate admission year & 5-year expiry
+        const admissionYear = (() => {
+          if (s.academicYears) {
+            const m = s.academicYears.match(/\b(20\d{2})\b/);
+            if (m) return parseInt(m[1], 10);
+          }
+          if (s.trainingCourse) {
+            const mYear = s.trainingCourse.match(/\b(20\d{2})\b/);
+            if (mYear) return parseInt(mYear[1], 10);
+            const mK = s.trainingCourse.match(/K(\d{1,2})/i);
+            if (mK) {
+              const kNum = parseInt(mK[1], 10);
+              return kNum > 50 ? 1900 + kNum : 2000 + kNum;
+            }
+          }
+          if (s.classId) {
+            const mK = s.classId.match(/K(\d{2})/i);
+            if (mK) return 2000 + parseInt(mK[1], 10);
+            if (s.classId.startsWith("K2-")) return 2024;
+          }
+          const idStr = (s.id || currentUser?.targetId || currentUser?.username || "").trim();
+          const mId = idStr.match(/(?:DTG|SV|K)?(\d{2})\d{4,}/i) || idStr.match(/[A-Z]{2,4}(\d{2})/i);
+          if (mId) {
+            const num = parseInt(mId[1], 10);
+            if (num >= 15 && num <= 40) return 2000 + num;
+          }
+          return null;
+        })();
+
+        const startDateStr = admissionYear ? `01/${String(admissionYear).slice(-2)}` : "";
+        const expiryDateStr = admissionYear ? `01/${String(admissionYear + 5).slice(-2)}` : "";
+
         return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setShowStudentIdCard(false)}>
-          <div className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
-            {/* Card */}
-            <div className="bg-gradient-to-br from-white via-blue-50/30 to-white rounded-2xl shadow-2xl overflow-hidden ring-1 ring-slate-200/80" id="student-id-card">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-[#1a5276] to-[#2980b9] px-6 py-4 text-center text-white">
-                <div className="text-[11px] font-bold tracking-wider uppercase">ĐẠI HỌC THÁI NGUYÊN</div>
-                <div className="text-sm font-black tracking-wide">PHÂN HIỆU ĐHTN TẠI HÀ GIANG</div>
-              </div>
-
-              {/* Title */}
-              <div className="text-center py-3 border-b border-blue-100">
-                <h2 className="text-xl font-black text-[#1a5276] tracking-wide">THẺ SINH VIÊN ĐIỆN TỬ</h2>
-              </div>
-
-              {/* Body */}
-              <div className="px-6 py-5 flex gap-5">
-                {/* Info */}
-                <div className="flex-1 space-y-2.5 text-sm">
-                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Họ tên:</span><span className="font-black text-slate-900">{cardName}</span></div>
-                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Ngày sinh:</span><span className="font-semibold text-slate-800">{cardDob}</span></div>
-                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Lớp:</span><span className="font-semibold text-slate-800">{cardClass}</span></div>
-                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Khoa:</span><span className="font-semibold text-slate-800">{cardFaculty}</span></div>
-                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">Khóa học:</span><span className="font-semibold text-slate-800">{cardCourse}</span></div>
-                  <div className="flex gap-2"><span className="font-bold text-slate-600 shrink-0 w-20">MSSV:</span><span className="font-black text-[#1a5276] text-base tabular-nums font-mono">{cardId}</span></div>
-                </div>
-
-                {/* Avatar */}
-                <div className="shrink-0">
-                  <div className="w-28 h-36 rounded-xl border-2 border-blue-200 overflow-hidden bg-blue-50 flex items-center justify-center shadow-inner">
-                    {cardAvatar ? (
-                      <img src={cardAvatar} alt="Avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="text-center">
-                        <User size={40} className="text-blue-300 mx-auto" />
-                        <span className="text-[9px] text-blue-400 font-bold mt-1 block">Chưa có ảnh</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="px-6 pb-4 flex items-center justify-between">
-                <div className="text-[10px] text-slate-400 font-mono font-bold tabular-nums">
-                  {(() => { const now = new Date(); return `${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`; })()} — {(() => { const now = new Date(); return `${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()+6}`; })()}
-                </div>
-                <div className="text-[10px] font-bold text-blue-600">
-                  Website: hagiang.tnu.edu.vn
-                </div>
-              </div>
-            </div>
-
-            {/* Close button */}
-            <div className="flex justify-center mt-4">
-              <button
-                onClick={() => setShowStudentIdCard(false)}
-                className="px-6 py-2.5 bg-white/90 backdrop-blur text-slate-700 font-bold rounded-xl text-sm hover:bg-white transition-colors cursor-pointer shadow-lg ring-1 ring-slate-200"
+          <div 
+            className="fixed inset-0 bg-slate-950/75 backdrop-blur-md z-[100] flex items-center justify-center p-3 sm:p-4" 
+            onClick={() => setShowStudentIdCard(false)}
+          >
+            <div className="w-full max-w-[620px] flex flex-col items-center gap-4" onClick={e => e.stopPropagation()}>
+              
+              {/* Card Container - Exactly matches 1448 x 954 aspect ratio */}
+              <div 
+                className="relative w-full aspect-[1448/954] rounded-2xl sm:rounded-3xl overflow-hidden shadow-[0_25px_60px_-15px_rgba(0,0,0,0.6)] ring-1 ring-white/30 select-none bg-white"
+                id="student-id-card-view"
               >
-                Đóng thẻ
-              </button>
+                {/* 1. Official Background Template Image (100% Identical to Official Phôi Thẻ) */}
+                <img 
+                  src={studentCardTemplate} 
+                  alt="Thẻ sinh viên điện tử" 
+                  className="absolute inset-0 w-full h-full object-fill pointer-events-none" 
+                />
+
+                {/* 2. Dynamic Field Overlays - Exact positions aligned with labels */}
+                {/* Họ tên */}
+                <div 
+                  style={{ position: 'absolute', top: '37.8%', left: '40.2%', width: '33.5%' }} 
+                  className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
+                >
+                  {cardName}
+                </div>
+
+                {/* Ngày sinh */}
+                <div 
+                  style={{ position: 'absolute', top: '43.5%', left: '40.2%', width: '33.5%' }} 
+                  className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
+                >
+                  {cardDob}
+                </div>
+
+                {/* Lớp */}
+                <div 
+                  style={{ position: 'absolute', top: '49.2%', left: '40.2%', width: '33.5%' }} 
+                  className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
+                >
+                  {cardClass}
+                </div>
+
+                {/* Khoa */}
+                <div 
+                  style={{ position: 'absolute', top: '55.0%', left: '40.2%', width: '33.5%' }} 
+                  className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
+                >
+                  {cardFaculty}
+                </div>
+
+                {/* Khóa học */}
+                <div 
+                  style={{ position: 'absolute', top: '60.6%', left: '40.2%', width: '33.5%' }} 
+                  className="text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
+                >
+                  {cardCourse}
+                </div>
+
+                {/* MSSV */}
+                <div 
+                  style={{ position: 'absolute', top: '66.2%', left: '40.2%', width: '33.5%' }} 
+                  className="text-slate-900 font-black font-mono text-[11px] sm:text-[13px] md:text-[16px] truncate leading-none pointer-events-none"
+                >
+                  {cardId}
+                </div>
+
+                {/* 3. Avatar Overlay: If student has uploaded avatar, show it; else template's built-in silhouette placeholder shows through */}
+                {cardAvatar && (
+                  <div 
+                    style={{ position: 'absolute', top: '26.8%', left: '75.4%', width: '21.0%', height: '39.8%' }}
+                    className="rounded-[10px] sm:rounded-[14px] md:rounded-[18px] overflow-hidden bg-white shadow-inner pointer-events-none"
+                  >
+                    <img 
+                      src={cardAvatar} 
+                      alt="Ảnh thẻ sinh viên" 
+                      className="w-full h-full object-cover" 
+                    />
+                  </div>
+                )}
+
+                {/* 4. Dates Overlay (Start date & Expiry date after 5 years) */}
+                <div 
+                  style={{ position: 'absolute', top: '79.0%', left: '16.8%', width: '25.5%', height: '5.8%' }}
+                  className="bg-[#eff8fe] flex items-center justify-between px-1 text-slate-900 font-extrabold font-mono text-[11px] sm:text-[13px] md:text-[15.5px] tracking-wider pointer-events-none"
+                >
+                  <span>{startDateStr}</span>
+                  <span>{expiryDateStr}</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowStudentIdCard(false)}
+                  className="px-6 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-sm transition-all cursor-pointer shadow-lg hover:shadow-xl ring-1 ring-slate-200 active:scale-95"
+                >
+                  Đóng thẻ
+                </button>
+              </div>
+
             </div>
           </div>
-        </div>
         );
       })()}
 
