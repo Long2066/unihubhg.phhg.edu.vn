@@ -498,8 +498,26 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       };
     });
   });
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [members, setMembers] = useState<OrganizationMember[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>(() => {
+    const cached = localStorage.getItem("unihub_organizations");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return SEED_ORGANIZATIONS;
+  });
+  const [members, setMembers] = useState<OrganizationMember[]>(() => {
+    const cached = localStorage.getItem("unihub_members");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {}
+    }
+    return [];
+  });
   const [activities, setActivities] = useState<ExtracurricularActivity[]>(() => {
     const cached = localStorage.getItem("unihub_activities");
     if (cached) {

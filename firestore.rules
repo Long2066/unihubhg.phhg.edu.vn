@@ -289,16 +289,7 @@ service cloud.firestore {
     }
 
     match /members/{memberId} {
-      allow get: if isVerifiedUser() && (
-        existing().studentId == getUserData().targetId ||
-        hasRole('ADMIN') ||
-        (isOrgRole() && existing().orgId == getUserData().targetId)
-      );
-      allow list: if isVerifiedUser() && (
-        hasRole('ADMIN') ||
-        isOrgRole() ||
-        (hasRole('STUDENT') && resource.data.studentId == getUserData().targetId)
-      );
+      allow get, list: if isVerifiedUser();
       allow create: if isVerifiedUser() && isValidId(memberId) && (
         hasRole('ADMIN') || 
         (hasRole('STUDENT') && incoming().studentId == getUserData().targetId && incoming().status == 'PENDING' && incoming().role == 'THÀNH VIÊN') ||
@@ -306,7 +297,8 @@ service cloud.firestore {
       ) && isValidMember(incoming());
       allow update: if isVerifiedUser() && isValidId(memberId) && (
         hasRole('ADMIN') || 
-        (isOrgRole() && existing().orgId == getUserData().targetId && incoming().orgId == existing().orgId)
+        (isOrgRole() && existing().orgId == getUserData().targetId && incoming().orgId == existing().orgId) ||
+        (hasRole('STUDENT') && existing().studentId == getUserData().targetId && incoming().studentId == existing().studentId && incoming().orgId == existing().orgId && incoming().role == existing().role && incoming().status == existing().status)
       ) && isValidMember(incoming());
       allow delete: if isVerifiedUser() && isValidId(memberId) && (
         hasRole('ADMIN') || 
