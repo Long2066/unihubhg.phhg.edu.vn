@@ -1948,11 +1948,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return { ...(localItem as Record<string, any>), ...cleanCloud } as T;
         });
 
-        // ponytail: preserve local-only items not yet synced to Firestore
-        const localOnlyItems = localList.filter(item => {
-          const id = (idResolver(item) || "").toString().trim().toLowerCase();
-          return id && !cloudIds.has(id);
-        });
+        // ponytail: preserve local-only items not yet synced to Firestore, except members because Firestore deletions are authoritative
+        const preserveLocalOnly = storageKey !== "unihub_members";
+        const localOnlyItems = preserveLocalOnly
+          ? localList.filter(item => {
+              const id = (idResolver(item) || "").toString().trim().toLowerCase();
+              return id && !cloudIds.has(id);
+            })
+          : [];
         const finalList = [...mergedList, ...localOnlyItems];
 
         localStorage.setItem(storageKey, JSON.stringify(finalList));
@@ -3030,16 +3033,25 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const joinOrganizationRequest = (studentId: string, orgId: string, details?: Partial<OrganizationMember>) => {
     if (!currentUser) return;
+    const norm = (value?: string | null) => (value || "").trim().toLowerCase();
+    const requestedKey = norm(studentId);
+    const userKeys = [currentUser.targetId, currentUser.username, currentUser.id, currentUser.email].map(norm).filter(Boolean);
+    const studentObj = students.find(s => {
+      const keys = [s.id, (s as any).code, s.email].map(norm).filter(Boolean);
+      return keys.some(k => requestedKey === k || userKeys.includes(k));
+    });
     const effectiveStudentId = currentUser.role === UserRole.ADMIN
-      ? (studentId || currentUser.targetId || currentUser.username)
-      : (currentUser.targetId || currentUser.username);
+      ? ((studentId || currentUser.targetId || currentUser.username) || "").trim()
+      : (studentObj?.id || currentUser.targetId || currentUser.username || "").trim();
 
-    if (currentUser.role !== UserRole.ADMIN && studentId && effectiveStudentId !== studentId) {
-      console.warn("Unauthorized attempt to join organization for another student");
-      return;
+    if (currentUser.role !== UserRole.ADMIN && requestedKey) {
+      const allowedKeys = new Set([studentObj?.id, (studentObj as any)?.code, studentObj?.email, currentUser.targetId, currentUser.username, currentUser.id, currentUser.email].map(norm).filter(Boolean));
+      if (!allowedKeys.has(requestedKey)) {
+        console.warn("Unauthorized attempt to join organization for another student");
+        return;
+      }
     }
 
-    const studentObj = students.find(s => s.id === effectiveStudentId);
     if (!studentObj) return;
 
     const targetOrg = organizations.find(o => o.id === orgId);
@@ -3048,7 +3060,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    const alreadyExists = members.some(m => m.studentId === effectiveStudentId && m.orgId === orgId && (m.status === "PENDING" || m.status === "ACTIVE"));
+    const studentKeys = new Set([effectiveStudentId, studentObj.id, (studentObj as any).code, studentObj.email].map(norm).filter(Boolean));
+    const alreadyExists = members.some(m => studentKeys.has(norm(m.studentId)) && m.orgId === orgId && (m.status === "PENDING" || m.status === "ACTIVE"));
     if (alreadyExists) {
       console.warn("Member request already exists or active");
       alert("Bạn đã nộp đơn hoặc đang là thành viên chính thức của CLB này!");
@@ -3550,6 +3563,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updated = members.filter(m => m.id !== cleanMemberId);
     setMembers(updated);
     saveToStorage("unihub_members", updated);
+    deleteDoc(doc(db, "members", cleanMemberId)).catch(e => console.warn("Lỗi xóa thành viên CLB Firestore:", e));
   };
 
   const updateMemberDetails = (memberId: string, details: Partial<OrganizationMember>) => {
@@ -3685,6 +3699,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updated = members.filter(m => m.id !== cleanMemberId);
     setMembers(updated);
     saveToStorage("unihub_members", updated);
+    deleteDoc(doc(db, "members", cleanMemberId)).catch(e => console.warn("Lỗi xóa yêu cầu gia nhập CLB Firestore:", e));
   };
 
   const assignMemberRole = (memberId: string, role: "CHỦ NHIỆM" | "BAN CHẤP HÀNH" | "ỦY VIÊN" | "THÀNH VIÊN") => {

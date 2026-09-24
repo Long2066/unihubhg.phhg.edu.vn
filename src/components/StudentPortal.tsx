@@ -417,15 +417,33 @@ export const StudentPortal: React.FC = () => {
     };
   }, [students, currentUser]);
   const studentId = sObj?.id || currentUser?.targetId || (currentUser?.role === "STUDENT" ? currentUser?.username : "") || "";
+  const normalizeStudentKey = (value?: string | null) => (value || "").trim().toLowerCase();
+  const studentIdentityKeys = useMemo(() => {
+    const rawKeys = [
+      studentId,
+      sObj?.id,
+      (sObj as any)?.code,
+      sObj?.email,
+      currentUser?.targetId,
+      currentUser?.username,
+      currentUser?.id,
+      currentUser?.email,
+    ];
+    return new Set(rawKeys.map(normalizeStudentKey).filter(Boolean));
+  }, [studentId, sObj, currentUser]);
+  const isCurrentStudentMember = (m: { studentId?: string }) => {
+    const key = normalizeStudentKey(m.studentId);
+    return Boolean(key && studentIdentityKeys.has(key));
+  };
 
   const isDoanBCH = members.some(m => 
-    m.studentId === studentId && 
+    isCurrentStudentMember(m) && 
     m.orgId === "DOANTN" && 
     m.status === "ACTIVE" && 
     ["BAN CHẤP HÀNH", "ỦY VIÊN", "CHỦ NHIỆM"].includes(m.role)
   );
   const isHoiBCH = members.some(m => 
-    m.studentId === studentId && 
+    isCurrentStudentMember(m) && 
     m.orgId === "HOISV" && 
     m.status === "ACTIVE" && 
     ["BAN CHẤP HÀNH", "ỦY VIÊN", "CHỦ NHIỆM"].includes(m.role)
@@ -577,7 +595,13 @@ export const StudentPortal: React.FC = () => {
 
   const myAttendance = attendance.filter(a => a.studentId === studentId);
   const myEvidence = evidence.filter(e => e.studentId === studentId);
-  const myOrganizations = members.filter(m => m.studentId === studentId);
+  const myOrganizations = members.filter(isCurrentStudentMember);
+  const getMembershipForOrg = (orgId: string) => {
+    const statusRank = { ACTIVE: 0, PENDING: 1, INACTIVE: 2 } as const;
+    return myOrganizations
+      .filter(m => m.orgId === orgId)
+      .sort((a, b) => statusRank[a.status] - statusRank[b.status])[0];
+  };
 
   // Determine current or historic semester selection
   const isSelectedCurrent = selectedSemesterId === "HOCKY_2_2025_2026";
@@ -1124,7 +1148,7 @@ export const StudentPortal: React.FC = () => {
 
   const renderClubNotifications = () => {
     // Filter memberships for current student
-    const studentMemberships = members.filter(m => m.studentId === studentId);
+    const studentMemberships = members.filter(isCurrentStudentMember);
     
     if (studentMemberships.length === 0) return null;
 
@@ -1217,7 +1241,7 @@ export const StudentPortal: React.FC = () => {
   };
 
   const renderClubFeed = () => {
-    const studentMemberships = members.filter(m => m.studentId === studentId && m.status === "ACTIVE");
+    const studentMemberships = members.filter(m => isCurrentStudentMember(m) && m.status === "ACTIVE");
     const joinedClubIds = studentMemberships.map(m => m.orgId);
     const todayStr = new Date().toISOString().split("T")[0];
     const normalizedAnnouncementKeyword = announcementKeyword.trim().toLowerCase();
@@ -2367,7 +2391,7 @@ export const StudentPortal: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {filteredClubs.map(org => {
-                  const membership = myOrganizations.find(m => m.orgId === org.id);
+                  const membership = getMembershipForOrg(org.id);
                   
                   return (
                     <div 
@@ -2418,7 +2442,7 @@ export const StudentPortal: React.FC = () => {
                 const club = organizations.find(o => o.id === selectedClubIdDetail);
                 if (!club) return null;
 
-                const membership = myOrganizations.find(m => m.orgId === club.id);
+                const membership = getMembershipForOrg(club.id);
                 
                 // Get active club announcements (Requirement 4: Có thời hạn hiển thị tùy chỉnh, hết thời hạn sẽ auto biến)
                 const todayStr = new Date().toISOString().split("T")[0];
