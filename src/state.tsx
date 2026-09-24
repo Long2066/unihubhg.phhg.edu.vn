@@ -1666,11 +1666,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const normalized = sorter ? sorter(list) : list;
         if (normalized.length > 0 || removedIds.size > 0) {
           setter(() => {
-            const finalResult = normalized.filter(item => {
-              const itemClass = (item as any).classId || (item as any).targetId;
-              if (itemClass && deletedClasses.includes(normalizeClassId(itemClass))) return false;
-              return true;
-            });
+            // ponytail: deletedClasses filter only applies to students/users — never strip members/attendance/evidence by classId
+            const shouldFilterByDeletedClass = key === "students" || key === "users";
+            const finalResult = shouldFilterByDeletedClass
+              ? normalized.filter(item => {
+                  const itemClass = (item as any).classId || (item as any).targetId;
+                  if (itemClass && deletedClasses.includes(normalizeClassId(itemClass))) return false;
+                  return true;
+                })
+              : normalized;
             localStorage.setItem(`unihub_${key}`, JSON.stringify(finalResult));
             return finalResult;
           });
@@ -1925,6 +1929,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (id) localById.set(id, item);
         });
 
+        const cloudIds = new Set(cloudList.map(item => {
+          const id = (idResolver(item) || "").toString().trim().toLowerCase();
+          return id;
+        }).filter(Boolean));
+
         const mergedList = cloudList.map(item => {
           const id = (idResolver(item) || "").toString().trim().toLowerCase();
           const localItem = id ? localById.get(id) : undefined;
@@ -1939,8 +1948,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return { ...(localItem as Record<string, any>), ...cleanCloud } as T;
         });
 
-        localStorage.setItem(storageKey, JSON.stringify(mergedList));
-        return mergedList;
+        // ponytail: preserve local-only items not yet synced to Firestore
+        const localOnlyItems = localList.filter(item => {
+          const id = (idResolver(item) || "").toString().trim().toLowerCase();
+          return id && !cloudIds.has(id);
+        });
+        const finalList = [...mergedList, ...localOnlyItems];
+
+        localStorage.setItem(storageKey, JSON.stringify(finalList));
+        return finalList;
       };
 
       // 0. Sync deleted classes first from Firestore
