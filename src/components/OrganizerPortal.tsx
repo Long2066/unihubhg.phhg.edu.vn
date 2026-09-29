@@ -867,11 +867,18 @@ export const OrganizerPortal: React.FC = () => {
                     </div>
 
                     <div className="border rounded-xl divide-y divide-slate-100 overflow-hidden bg-slate-50/10">
-                      {pendingMembers.map(m => (
+                      {pendingMembers.map(m => {
+                        const linkedStudent = students.find(s => s.id?.trim().toLowerCase() === (m.studentId || "").trim().toLowerCase());
+                        const linkedUser = users.find(u => (u.targetId || u.username || "").trim().toLowerCase() === (m.studentId || "").trim().toLowerCase());
+                        const realName = (m.studentId && m.studentId.trim().toUpperCase() !== "DTG245140202053" && m.studentName === "Ma Văn Long")
+                          ? (linkedStudent?.name || linkedUser?.name || m.studentId)
+                          : (linkedStudent?.name || linkedUser?.name || m.studentName || "Sinh viên đăng ký");
+                        const realClass = m.classId || linkedStudent?.classId || (linkedUser as any)?.classId || "Chưa phân lớp";
+                        return (
                         <div key={m.id} className="p-3.5 flex justify-between items-center text-xs">
                           <div>
-                            <h5 className="font-extrabold text-slate-900">{m.studentName || "Sinh viên đăng ký"}</h5>
-                            <p className="text-[10px] text-slate-450 font-mono">Mã số Sổ: {m.studentId} • Lớp sinh hoạt: {m.classId}</p>
+                            <h5 className="font-extrabold text-slate-900">{realName}</h5>
+                            <p className="text-[10px] text-slate-450 font-mono">Mã số Sổ: {m.studentId} • Lớp sinh hoạt: {realClass}</p>
                           </div>
                           <div className="flex gap-1.5">
                             <button 
@@ -889,7 +896,8 @@ export const OrganizerPortal: React.FC = () => {
                             </button>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -1169,7 +1177,12 @@ export const OrganizerPortal: React.FC = () => {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {activeMembersArr.map(m => {
-                      const sObj = students.find(s => s.id === m.studentId);
+                      const sObj = students.find(s => s.id?.trim().toLowerCase() === (m.studentId || "").trim().toLowerCase());
+                      const linkedUser = users.find(u => (u.targetId || u.username || "").trim().toLowerCase() === (m.studentId || "").trim().toLowerCase());
+                      const realName = (m.studentId && m.studentId.trim().toUpperCase() !== "DTG245140202053" && m.studentName === "Ma Văn Long")
+                        ? (sObj?.name || linkedUser?.name || m.studentId)
+                        : (m.studentName || sObj?.name || linkedUser?.name || "Sinh viên");
+                      const realClass = m.classId || sObj?.classId || (linkedUser as any)?.classId || "Chưa phân lớp";
                       return (
                         <div 
                           key={m.id} 
@@ -1182,13 +1195,13 @@ export const OrganizerPortal: React.FC = () => {
                                 {sObj?.avatar ? (
                                   <img 
                                     src={sObj.avatar} 
-                                    alt={sObj.name} 
+                                    alt={realName} 
                                     className="h-full w-full object-cover" 
                                     referrerPolicy="no-referrer"
                                   />
                                 ) : (
                                   <div className="bg-gradient-to-br from-indigo-100 to-indigo-50 text-indigo-700 h-full w-full flex items-center justify-center font-black text-xs font-mono uppercase">
-                                    {(m.studentName || sObj?.name || "SV").slice(0, 2)}
+                                    {(realName || "SV").slice(0, 2)}
                                   </div>
                                 )}
                               </div>
@@ -1197,8 +1210,8 @@ export const OrganizerPortal: React.FC = () => {
                                 <span className="text-[9px] font-extrabold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md font-mono select-none">
                                   {m.role}
                                 </span>
-                                <h4 className="text-xs font-black text-slate-900 pt-1 truncate">{m.studentName || sObj?.name || "Sinh viên"}</h4>
-                                <p className="text-[10px] text-slate-450 font-mono truncate">{m.studentId} • Lớp: {m.classId}</p>
+                                <h4 className="text-xs font-black text-slate-900 pt-1 truncate">{realName}</h4>
+                                <p className="text-[10px] text-slate-450 font-mono truncate">{m.studentId} • Lớp: {realClass}</p>
                                 {m.major && <p className="text-[9px] text-indigo-500 font-sans truncate">Chuyên ngành: {m.major}</p>}
                               </div>
                             </div>

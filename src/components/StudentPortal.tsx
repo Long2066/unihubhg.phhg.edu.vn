@@ -407,7 +407,25 @@ export const StudentPortal: React.FC = () => {
       (currentUser?.username && (s.id.toLowerCase() === currentUser.username.toLowerCase() || (s.email && s.email.toLowerCase() === currentUser.username.toLowerCase()))) ||
       (currentUser?.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
     );
-    if (!found && !seed) return undefined;
+    if (!found && !seed) {
+      if (currentUser?.role === UserRole.STUDENT || (currentUser?.role as any) === "STUDENT") {
+        const fallbackTargetId = currentUser?.targetId || currentUser?.username || "";
+        const localAvatar = getCachedAvatar(fallbackTargetId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
+        return {
+          id: fallbackTargetId,
+          name: currentUser.name || "Sinh viên",
+          email: currentUser.email || "",
+          classId: (currentUser as any)?.classId || "Chưa phân lớp",
+          facultyId: (currentUser as any)?.facultyId || "K-GDTH",
+          avatar: currentUser.avatar || localAvatar || undefined,
+          gpa: 0,
+          creditsEarned: 0,
+          learningWarning: false,
+          learningStatus: "Bình thường"
+        } as Student;
+      }
+      return undefined;
+    }
     const base = {
       ...(seed || {}),
       ...(found || {})
@@ -488,9 +506,9 @@ export const StudentPortal: React.FC = () => {
 
   // Sync club registration defaults when active club details open
   useEffect(() => {
-    if (sObj && selectedClubIdDetail) {
-      setApplyName(sObj.name || "");
-      setApplyEmail(sObj.email || "");
+    if (selectedClubIdDetail) {
+      setApplyName(currentUser?.name || sObj?.name || "");
+      setApplyEmail(currentUser?.email || sObj?.email || "");
       // Defaults and resets
       setApplyGender("Nam");
       setApplyDob("2006-01-01");
@@ -502,7 +520,7 @@ export const StudentPortal: React.FC = () => {
       setApplyAttachmentUrl("");
       setIsApplyingClub(false);
     }
-  }, [sObj, selectedClubIdDetail]);
+  }, [sObj, selectedClubIdDetail, currentUser]);
   
   // Profiling Edit Dialog Modal
   const [showProfileModal, setShowProfileModal] = useState(false);

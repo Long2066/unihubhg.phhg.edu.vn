@@ -3130,13 +3130,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const norm = (value?: string | null) => (value || "").trim().toLowerCase();
     const requestedKey = norm(studentId);
     const userKeys = [currentUser.targetId, currentUser.username, currentUser.id, currentUser.email].map(norm).filter(Boolean);
-    const studentObj = students.find(s => {
-      const keys = [s.id, (s as any).code, s.email].map(norm).filter(Boolean);
-      return keys.some(k => requestedKey === k || userKeys.includes(k));
-    });
     const effectiveStudentId = currentUser.role === UserRole.ADMIN
       ? ((studentId || currentUser.targetId || currentUser.username) || "").trim()
-      : (studentObj?.id || currentUser.targetId || currentUser.username || "").trim();
+      : (studentId || currentUser.targetId || currentUser.username || "").trim();
+
+    const studentObj = students.find(s => {
+      const keys = [s.id, (s as any).code, s.email].map(norm).filter(Boolean);
+      return keys.some(k => requestedKey === k || (currentUser.role === UserRole.STUDENT && userKeys.includes(k)));
+    }) || {
+      id: effectiveStudentId,
+      name: currentUser.name || "Sinh viên",
+      classId: (currentUser as any)?.classId || "",
+      facultyId: (currentUser as any)?.facultyId || ""
+    };
 
     if (currentUser.role !== UserRole.ADMIN && requestedKey) {
       const allowedKeys = new Set([studentObj?.id, (studentObj as any)?.code, studentObj?.email, currentUser.targetId, currentUser.username, currentUser.id, currentUser.email].map(norm).filter(Boolean));
@@ -3147,10 +3153,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     const cleanOrgKey = (orgId || "").trim().toUpperCase();
-    const targetOrg = organizations.find(o => o.id.trim().toUpperCase() === cleanOrgKey);
-    const effectiveOrgId = targetOrg ? targetOrg.id : cleanOrgKey;
+    const targetOrg = organizations.find(o => o.id === orgId);
+    if (!targetOrg) {
+      console.warn("Attempt to join non-existent organization:", orgId);
+      return;
+    }
+    const effectiveOrgId = targetOrg.id;
 
-    const studentKeys = new Set([effectiveStudentId, studentObj?.id, (studentObj as any)?.code, studentObj?.email].map(norm).filter(Boolean));
+    const studentKeys = new Set([effectiveStudentId, studentObj.id, (studentObj as any).code, studentObj.email].map(norm).filter(Boolean));
     const alreadyExists = members.some(m => 
       studentKeys.has(norm(m.studentId)) && 
       (m.orgId || "").trim().toUpperCase() === cleanOrgKey && 
@@ -3176,20 +3186,39 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ...safeDetails,
       id: `M_NEW_${Date.now()}`,
       studentId: effectiveStudentId,
-      classId: normalizeClassId(studentObj?.classId || (currentUser as any)?.classId || ""),
+      classId: normalizeClassId(studentObj.classId),
       orgId: effectiveOrgId,
       role: (currentUser.role === UserRole.ADMIN && details?.role) ? details.role : "THÀNH VIÊN",
       joinedDate: new Date().toISOString().split("T")[0],
       term: period?.academicYear || "2025-2026",
       status: (currentUser.role === UserRole.ADMIN && details?.status) ? details.status : "PENDING",
-      studentName: (currentUser.role === UserRole.ADMIN && safeDetails.studentName)
-        ? safeDetails.studentName
-        : (safeDetails.studentName || studentObj?.name || currentUser.name || "Sinh viên"),
+      studentName: (currentUser.role === UserRole.ADMIN && safeDetails.studentName) ? safeDetails.studentName : studentObj.name,
     };
 
     const updated = [...members, pendingMember];
     setMembers(updated);
     saveToStorage("unihub_members", updated);
+
+    // If student entry was missing from local students directory, register synthetic student
+    if (!students.some(s => s.id.toLowerCase() === effectiveStudentId.toLowerCase())) {
+      const newStudentEntry: Student = {
+        id: effectiveStudentId,
+        name: currentUser.name || studentObj.name || "Sinh viên",
+        classId: normalizeClassId(studentObj.classId) || "Chưa phân lớp",
+        facultyId: (currentUser as any)?.facultyId || "K-GDTH",
+        email: currentUser.email || `${effectiveStudentId.toLowerCase()}@phhg.edu.vn`,
+        avatar: currentUser.avatar,
+        gpa: 0,
+        creditsEarned: 0,
+        learningWarning: false,
+        learningStatus: "Bình thường"
+      };
+      setStudents(prev => {
+        const next = [...prev, newStudentEntry];
+        saveToStorage("unihub_students", next);
+        return next;
+      });
+    }
 
     // Direct write to Firestore ensures the pending doc lands in Firestore immediately
     const cleanDoc = sanitizeForFirestore(pendingMember);
@@ -3778,6 +3807,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to approve member of another organization");
       return;
     }
+    const linkedStudent = students.find(s => s.id?.trim().toLowerCase() === (member.studentId || "").trim().toLowerCase());
+    const linkedUser = users.find(u => (u.targetId || u.username || "").trim().toLowerCase() === (member.studentId || "").trim().toLowerCase());
+    const realStudentName = (member.studentId && member.studentId.trim().toUpperCase() !== "DTG245140202053" && member.studentName === "Ma Văn Long")
+      ? (linkedStudent?.name || linkedUser?.name || member.studentId)
+      : (member.studentName || linkedStudent?.name || linkedUser?.name || "Sinh viên");
+
     const updated = members.map(m => {
       if (m.id === cleanMemberId) {
         return { ...m, status: "ACTIVE" as const };
