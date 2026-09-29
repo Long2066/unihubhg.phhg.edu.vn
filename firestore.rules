@@ -56,10 +56,6 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == role;
     }
 
-    function isOwner(targetId) {
-      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().targetId == targetId;
-    }
-
     // Helper: check if user has any organizer-type role (CLB, Đoàn, Hội, or legacy ORGANIZER)
     function isOrgRole() {
       return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (

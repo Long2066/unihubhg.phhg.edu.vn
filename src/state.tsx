@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { 
   doc, 
   getDoc,
@@ -347,43 +347,93 @@ export const rememberAvatar = (avatar: string, ...ids: Array<string | undefined 
 const UniHubContext = createContext<UniHubContextType | undefined>(undefined);
 
 export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
-  const [activePortletTab, setActivePortletTab] = useState<string>("TRANG_CHU");
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
+    try {
+      const cached = localStorage.getItem("unihub_current_user");
+      if (cached) return JSON.parse(cached) as UserAccount;
+    } catch {}
+    return null;
+  });
+
+  const getDefaultTabForRole = (role?: UserRole | string): string => {
+    switch (role) {
+      case UserRole.STUDENT:
+      case UserRole.GROUP_LEADER:
+        return "TRANG_CHU";
+      case UserRole.ORGANIZER:
+      case UserRole.CLUB_MANAGER:
+      case UserRole.YOUTH_UNION:
+      case UserRole.STUDENT_UNION:
+        return "DS_THANHVIEN";
+      case UserRole.ADMIN:
+        return "CONFIG";
+      case UserRole.TRAINING_DEPT:
+        return "IMPORT";
+      case UserRole.FACULTY:
+        return "STAT";
+      case UserRole.ADVISER:
+        return "ADVISER_DUYETDEM";
+      case UserRole.TEACHER:
+        return "TEACHER_GRADES";
+      default:
+        return "TRANG_CHU";
+    }
+  };
+
+  const [activePortletTab, setActivePortletTabState] = useState<string>(() => {
+    try {
+      const cachedUser = localStorage.getItem("unihub_current_user");
+      if (cachedUser) {
+        const u = JSON.parse(cachedUser);
+        const savedTab = sessionStorage.getItem(`unihub_active_tab_${u.role}`);
+        if (savedTab) return savedTab;
+        return getDefaultTabForRole(u.role);
+      }
+    } catch {}
+    return "TRANG_CHU";
+  });
+
+  const setActivePortletTab = useCallback((tab: string) => {
+    setActivePortletTabState(tab);
+    try {
+      const cached = localStorage.getItem("unihub_current_user");
+      const role = currentUser?.role || (cached ? JSON.parse(cached)?.role : "");
+      if (role) {
+        sessionStorage.setItem(`unihub_active_tab_${role}`, tab);
+      }
+    } catch {}
+  }, [currentUser?.role]);
+
   const [selectedSemesterId, setSelectedSemesterId] = useState<string>("HOCKY_2_2025_2026");
+
+  const lastActiveUserKeyRef = useRef<string | null>(() => {
+    try {
+      const cached = localStorage.getItem("unihub_current_user");
+      if (cached) {
+        const u = JSON.parse(cached);
+        return `${u.id}_${u.role}`;
+      }
+    } catch {}
+    return null;
+  });
 
   useEffect(() => {
     if (currentUser) {
-      switch (currentUser.role) {
-        case UserRole.STUDENT:
-        case UserRole.GROUP_LEADER:
-          setActivePortletTab("TRANG_CHU");
-          break;
-        case UserRole.ORGANIZER:
-        case UserRole.CLUB_MANAGER:
-        case UserRole.YOUTH_UNION:
-        case UserRole.STUDENT_UNION:
-          setActivePortletTab("DS_THANHVIEN");
-          break;
-        case UserRole.ADMIN:
-          setActivePortletTab("CONFIG");
-          break;
-        case UserRole.TRAINING_DEPT:
-          setActivePortletTab("IMPORT");
-          break;
-        case UserRole.FACULTY:
-          setActivePortletTab("STAT");
-          break;
-        case UserRole.ADVISER:
-          setActivePortletTab("ADVISER_DUYETDEM");
-          break;
-        case UserRole.TEACHER:
-          setActivePortletTab("TEACHER_GRADES");
-          break;
-        default:
-          setActivePortletTab("TRANG_CHU");
+      const userKey = `${currentUser.id}_${currentUser.role}`;
+      // ONLY set default tab if user identity actually changed (e.g. initial login or role switch)
+      if (lastActiveUserKeyRef.current !== userKey) {
+        lastActiveUserKeyRef.current = userKey;
+        const savedTab = sessionStorage.getItem(`unihub_active_tab_${currentUser.role}`);
+        if (savedTab) {
+          setActivePortletTabState(savedTab);
+        } else {
+          setActivePortletTabState(getDefaultTabForRole(currentUser.role));
+        }
       }
+    } else {
+      lastActiveUserKeyRef.current = null;
     }
-  }, [currentUser]);
+  }, [currentUser?.id, currentUser?.role]);
   
   // Firestore-first databases. Seed data is only used by the bootstrapping routine
   // when the matching Firestore collection is empty; runtime state is hydrated by
@@ -1838,10 +1888,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   // Listen to Firebase Auth state change to sync currentUser
+  const usersRef = useRef(users);
+  usersRef.current = users;
+  const studentsRef = useRef(students);
+  studentsRef.current = students;
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
-        let found = users.find(u => 
+        let found = usersRef.current.find(u => 
           (u.email && authUser.email && u.email.toLowerCase() === authUser.email.toLowerCase()) || 
           u.id === authUser.uid
         );
@@ -1855,7 +1910,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
         if (!found && authUser.email) {
           const emailLower = authUser.email.toLowerCase();
-          const foundStudent = students.find(s => 
+          const foundStudent = studentsRef.current.find(s => 
             (s.email && s.email.toLowerCase() === emailLower) ||
             `${s.id.toLowerCase()}@phhg.edu.vn` === emailLower ||
             `${s.id.toLowerCase()}@unihub.edu.vn` === emailLower ||
@@ -1890,7 +1945,20 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (preservedAvatar) {
             safeUser.avatar = preservedAvatar;
           }
-          setCurrentUser(safeUser as UserAccount);
+          setCurrentUser(prev => {
+            if (
+              prev &&
+              prev.id === safeUser.id &&
+              prev.role === safeUser.role &&
+              prev.username === safeUser.username &&
+              prev.name === safeUser.name &&
+              prev.avatar === safeUser.avatar &&
+              prev.targetId === safeUser.targetId
+            ) {
+              return prev;
+            }
+            return safeUser as UserAccount;
+          });
           localStorage.setItem("unihub_current_user", JSON.stringify(safeUser));
         } else {
           // A6 FIX: Không tự tạo fallback user nếu user không có danh tính trong hệ thống
@@ -1906,7 +1974,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     });
     return () => unsubscribe();
-  }, [users, students]);
+  }, []);
 
   // Validate Connection to Firestore on startup
   const testConnection = async () => {
@@ -1966,14 +2034,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return { ...(localItem as Record<string, any>), ...cleanCloud } as T;
         });
 
-        // ponytail: preserve local-only items not yet synced to Firestore, except members because Firestore deletions are authoritative
-        const preserveLocalOnly = storageKey !== "unihub_members";
-        const localOnlyItems = preserveLocalOnly
+        // ponytail: preserve local-only items not yet synced to Firestore; for members, deletions on Firestore are authoritative for non-pending items, but keep local PENDING requests
+        const localOnlyItems = storageKey === "unihub_members"
           ? localList.filter(item => {
               const id = (idResolver(item) || "").toString().trim().toLowerCase();
-              return id && !cloudIds.has(id);
+              return id && !cloudIds.has(id) && (item as any)?.status === "PENDING";
             })
-          : [];
+          : localList.filter(item => {
+              const id = (idResolver(item) || "").toString().trim().toLowerCase();
+              return id && !cloudIds.has(id);
+            });
         const finalList = [...mergedList, ...localOnlyItems];
 
         localStorage.setItem(storageKey, JSON.stringify(finalList));
@@ -2263,7 +2333,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       } else if (key === "unihub_members" && Array.isArray(data)) {
         for (const item of data) {
-          if (item?.id) await setDoc(doc(db, "members", item.id), item, { merge: true });
+          if (item?.id) {
+            try {
+              await setDoc(doc(db, "members", item.id), sanitizeForFirestore(item), { merge: true });
+            } catch {
+              // Ignore single item permission-denied or error so loop doesn't break
+            }
+          }
         }
       } else if (key === "unihub_announcements" && Array.isArray(data)) {
         for (const item of data) {
@@ -3070,16 +3146,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
-    if (!studentObj) return;
+    const cleanOrgKey = (orgId || "").trim().toUpperCase();
+    const targetOrg = organizations.find(o => o.id.trim().toUpperCase() === cleanOrgKey);
+    const effectiveOrgId = targetOrg ? targetOrg.id : cleanOrgKey;
 
-    const targetOrg = organizations.find(o => o.id === orgId);
-    if (!targetOrg) {
-      console.warn("Attempt to join non-existent organization:", orgId);
-      return;
-    }
-
-    const studentKeys = new Set([effectiveStudentId, studentObj.id, (studentObj as any).code, studentObj.email].map(norm).filter(Boolean));
-    const alreadyExists = members.some(m => studentKeys.has(norm(m.studentId)) && m.orgId === orgId && (m.status === "PENDING" || m.status === "ACTIVE"));
+    const studentKeys = new Set([effectiveStudentId, studentObj?.id, (studentObj as any)?.code, studentObj?.email].map(norm).filter(Boolean));
+    const alreadyExists = members.some(m => 
+      studentKeys.has(norm(m.studentId)) && 
+      (m.orgId || "").trim().toUpperCase() === cleanOrgKey && 
+      (m.status === "PENDING" || m.status === "ACTIVE")
+    );
     if (alreadyExists) {
       console.warn("Member request already exists or active");
       alert("Bạn đã nộp đơn hoặc đang là thành viên chính thức của CLB này!");
@@ -3100,18 +3176,26 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ...safeDetails,
       id: `M_NEW_${Date.now()}`,
       studentId: effectiveStudentId,
-      classId: normalizeClassId(studentObj.classId),
-      orgId,
+      classId: normalizeClassId(studentObj?.classId || (currentUser as any)?.classId || ""),
+      orgId: effectiveOrgId,
       role: (currentUser.role === UserRole.ADMIN && details?.role) ? details.role : "THÀNH VIÊN",
       joinedDate: new Date().toISOString().split("T")[0],
-      term: period.academicYear,
+      term: period?.academicYear || "2025-2026",
       status: (currentUser.role === UserRole.ADMIN && details?.status) ? details.status : "PENDING",
-      studentName: (currentUser.role === UserRole.ADMIN && safeDetails.studentName) ? safeDetails.studentName : studentObj.name,
+      studentName: (currentUser.role === UserRole.ADMIN && safeDetails.studentName)
+        ? safeDetails.studentName
+        : (safeDetails.studentName || studentObj?.name || currentUser.name || "Sinh viên"),
     };
 
     const updated = [...members, pendingMember];
     setMembers(updated);
     saveToStorage("unihub_members", updated);
+
+    // Direct write to Firestore ensures the pending doc lands in Firestore immediately
+    const cleanDoc = sanitizeForFirestore(pendingMember);
+    setDoc(doc(db, "members", pendingMember.id), cleanDoc, { merge: true }).catch(err => {
+      console.error("Lỗi lưu đơn gia nhập CLB lên Firestore:", err);
+    });
   };
 
   const updateStudentProfile = (studentId: string, name: string, avatar: string, password?: string, additionalFields?: Partial<Student>) => {
@@ -3574,7 +3658,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const member = members.find(m => m.id === cleanMemberId);
     if (!member) return;
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
-    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || member.orgId !== effectiveOrgId)) {
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || (member.orgId || "").trim().toUpperCase() !== effectiveOrgId.trim().toUpperCase())) {
       console.warn("Unauthorized attempt to delete member of another organization");
       return;
     }
@@ -3589,10 +3673,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to update organization member");
       return;
     }
-    const member = members.find(m => m.id === memberId);
+    const cleanMemberId = (memberId || "").trim();
+    const member = members.find(m => m.id === cleanMemberId);
     if (!member) return;
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
-    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || member.orgId !== effectiveOrgId)) {
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || (member.orgId || "").trim().toUpperCase() !== effectiveOrgId.trim().toUpperCase())) {
       console.warn("Unauthorized attempt to update member of another organization");
       return;
     }
@@ -3612,13 +3697,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     const updated = members.map(m => {
-      if (m.id === memberId) {
+      if (m.id === cleanMemberId) {
         return { ...m, ...safeDetails };
       }
       return m;
     });
     setMembers(updated);
     saveToStorage("unihub_members", updated);
+    setDoc(doc(db, "members", cleanMemberId), sanitizeForFirestore(safeDetails), { merge: true }).catch(err => {
+      console.error("Lỗi cập nhật chi tiết thành viên Firestore:", err);
+    });
   };
 
   const importMembersExcel = (membersToImport: OrganizationMember[]) => {
@@ -3686,7 +3774,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const member = members.find(m => m.id === cleanMemberId);
     if (!member || member.status !== "PENDING") return;
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
-    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || member.orgId !== effectiveOrgId)) {
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || (member.orgId || "").trim().toUpperCase() !== effectiveOrgId.trim().toUpperCase())) {
       console.warn("Unauthorized attempt to approve member of another organization");
       return;
     }
@@ -3698,6 +3786,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
     setMembers(updated);
     saveToStorage("unihub_members", updated);
+
+    // Direct Firestore update ensures active status syncs immediately across devices
+    setDoc(doc(db, "members", cleanMemberId), { status: "ACTIVE" }, { merge: true }).catch(err => {
+      console.error("Lỗi duyệt thành viên Firestore:", err);
+    });
   };
 
   const rejectMemberRequest = (memberId: string) => {
@@ -3710,7 +3803,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const member = members.find(m => m.id === cleanMemberId);
     if (!member || member.status !== "PENDING") return;
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
-    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || member.orgId !== effectiveOrgId)) {
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || (member.orgId || "").trim().toUpperCase() !== effectiveOrgId.trim().toUpperCase())) {
       console.warn("Unauthorized attempt to reject member of another organization");
       return;
     }

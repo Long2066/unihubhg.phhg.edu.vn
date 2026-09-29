@@ -295,8 +295,12 @@ export const TrainingPortal: React.FC = () => {
     );
   }
 
-  const activeTab = (activePortletTab as "IMPORT" | "DANG_KY_TIN_CHI" | "TEACHER_ASSIGNMENTS" | "UNLOCK_REQUESTS" | "GRADE_APPEALS" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU" | "XET_HOC_BONG") || "IMPORT";
-  const setActiveTab = (tab: "IMPORT" | "DANG_KY_TIN_CHI" | "TEACHER_ASSIGNMENTS" | "UNLOCK_REQUESTS" | "GRADE_APPEALS" | "IMPORT_CLASSES" | "LIST" | "THOI_KHOA_BIEU" | "XET_HOC_BONG") => {
+  const validTrainingTabs = ["IMPORT", "DANG_KY_TIN_CHI", "TEACHER_ASSIGNMENTS", "UNLOCK_REQUESTS", "GRADE_APPEALS", "IMPORT_CLASSES", "LIST", "THOI_KHOA_BIEU", "XET_HOC_BONG"] as const;
+  type TrainingTab = typeof validTrainingTabs[number];
+  const activeTab: TrainingTab = validTrainingTabs.includes(activePortletTab as any) 
+    ? (activePortletTab as TrainingTab) 
+    : "IMPORT";
+  const setActiveTab = (tab: TrainingTab) => {
     setActivePortletTab(tab);
   };
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -338,7 +342,24 @@ export const TrainingPortal: React.FC = () => {
   const [selectedClassFileLabel, setSelectedClassFileLabel] = useState("");
   const [importedClassStudents, setImportedClassStudents] = useState<Student[]>([]);
   const [importedClassUsers, setImportedClassUsers] = useState<UserAccount[]>([]);
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [selectedClassId, setSelectedClassIdState] = useState<string | null>(() => {
+    try {
+      return sessionStorage.getItem("unihub_training_selected_class") || null;
+    } catch {
+      return null;
+    }
+  });
+
+  const setSelectedClassId = (clsId: string | null) => {
+    setSelectedClassIdState(clsId);
+    try {
+      if (clsId) {
+        sessionStorage.setItem("unihub_training_selected_class", clsId);
+      } else {
+        sessionStorage.removeItem("unihub_training_selected_class");
+      }
+    } catch {}
+  };
   const [newClassName, setNewClassName] = useState("");
   const [showAddClassModal, setShowAddClassModal] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);

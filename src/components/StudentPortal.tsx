@@ -606,7 +606,7 @@ export const StudentPortal: React.FC = () => {
   const getMembershipForOrg = (orgId: string) => {
     const statusRank = { ACTIVE: 0, PENDING: 1, INACTIVE: 2 } as const;
     return myOrganizations
-      .filter(m => m.orgId === orgId)
+      .filter(m => (m.orgId || "").trim().toUpperCase() === (orgId || "").trim().toUpperCase())
       .sort((a, b) => statusRank[a.status] - statusRank[b.status])[0];
   };
 

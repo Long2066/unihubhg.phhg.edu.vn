@@ -92,7 +92,8 @@ export const OrganizerPortal: React.FC = () => {
     : "Tổ chức / Câu lạc bộ";
 
   // Find current organization without arbitrary fallback
-  const rawOrg = organizations.find(o => o.id === orgId) || (defaultTargetId ? organizations.find(o => o.id === defaultTargetId) : undefined);
+  const rawOrg = organizations.find(o => (o.id || "").trim().toUpperCase() === (orgId || "").trim().toUpperCase()) || 
+    (defaultTargetId ? organizations.find(o => (o.id || "").trim().toUpperCase() === defaultTargetId.trim().toUpperCase()) : undefined);
   const org: Organization = rawOrg || {
     id: orgId,
     name: currentUser?.name || defaultOrgName,
@@ -103,16 +104,16 @@ export const OrganizerPortal: React.FC = () => {
   };
 
   const effectiveOrgId = org.id;
-  const orgMembers = members.filter(m => m.orgId === org.id);
+  const orgMembers = members.filter(m => (m.orgId || "").trim().toUpperCase() === (org.id || "").trim().toUpperCase());
   const isDoanOrHoi = currentUser?.role === UserRole.YOUTH_UNION || currentUser?.role === UserRole.STUDENT_UNION || effectiveOrgId === "DOANTN" || effectiveOrgId === "HOISV" || effectiveOrgId === "DOAN_HOI";
   
   const orgActivities = activities.filter(a => 
-    a.orgId === org.id || 
+    (a.orgId || "").trim().toUpperCase() === (org.id || "").trim().toUpperCase() || 
     (isDoanOrHoi && (a.orgId === "DOANTN" || a.orgId === "HOISV" || a.orgId === "DOAN_HOI"))
   );
 
   const orgAnnouncements = announcements.filter(a => 
-    (org && a.orgId === org.id) || 
+    (org && (a.orgId || "").trim().toUpperCase() === (org.id || "").trim().toUpperCase()) || 
     (isDoanOrHoi && (a.orgId === "DOANTN" || a.orgId === "HOISV" || a.orgId === "DOAN_HOI"))
   );
 
