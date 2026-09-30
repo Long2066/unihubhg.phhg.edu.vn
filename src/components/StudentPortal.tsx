@@ -618,7 +618,7 @@ export const StudentPortal: React.FC = () => {
     }))
   );
 
-  const myAttendance = attendance.filter(a => a.studentId === studentId);
+  const myAttendance = attendance.filter(a => a.studentId?.toLowerCase() === studentId?.toLowerCase());
   const myEvidence = evidence.filter(e => e.studentId === studentId);
   const myOrganizations = members.filter(isCurrentStudentMember);
   const getMembershipForOrg = (orgId: string) => {
@@ -1065,7 +1065,8 @@ export const StudentPortal: React.FC = () => {
                               <button 
                                 type="button"
                                 onClick={() => {
-                                  registerForActivity(slide.id, studentId);
+                                  const ok = registerForActivity(slide.id, studentId);
+                                  if (!ok) alert("Đăng ký thất bại! Vui lòng thử lại sau.");
                                 }}
                                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white hover:cursor-pointer text-xs font-extrabold rounded-lg flex items-center gap-1.5 shadow-sm shadow-indigo-100 transition-all cursor-pointer"
                               >
@@ -1500,8 +1501,9 @@ export const StudentPortal: React.FC = () => {
                             <button 
                               type="button"
                               onClick={() => {
-                                registerForActivity(act.id, studentId);
-                                alert(`Đăng ký thành công hoạt động "${act.title}"! Ban chủ nhiệm sẽ tiến hành kiểm diện điểm danh trực tiếp tại sự kiện.`);
+                                const ok = registerForActivity(act.id, studentId);
+                                if (ok) alert(`Đăng ký thành công hoạt động "${act.title}"! Ban chủ nhiệm sẽ tiến hành kiểm diện điểm danh trực tiếp tại sự kiện.`);
+                                else alert("Đăng ký thất bại! Vui lòng thử lại sau.");
                               }}
                               className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[9.5px] rounded-lg cursor-pointer shadow-xs transition-colors shrink-0 animate-pulse"
                             >
@@ -2367,7 +2369,7 @@ export const StudentPortal: React.FC = () => {
                                 }
                                 return (
                                   <button 
-                                    onClick={() => registerForActivity(act.id, studentId)}
+                                    onClick={() => { const ok = registerForActivity(act.id, studentId); if (!ok) alert("Đăng ký thất bại! Vui lòng thử lại sau."); }}
                                     className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white hover:cursor-pointer transition-colors text-[10px] font-black rounded-lg flex items-center gap-1 shadow-xs"
                                     disabled={act.status === "COMPLETED"}
                                   >
@@ -2804,8 +2806,9 @@ export const StudentPortal: React.FC = () => {
                                             <button
                                               type="button"
                                               onClick={() => {
-                                                registerForActivity(act.id, studentId);
-                                                alert(`Đăng ký tham gia "${act.title}" thành công!`);
+                                                const ok = registerForActivity(act.id, studentId);
+                                                if (ok) alert(`Đăng ký tham gia "${act.title}" thành công!`);
+                                                else alert("Đăng ký thất bại! Vui lòng thử lại sau.");
                                               }}
                                               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-xs cursor-pointer shrink-0"
                                             >

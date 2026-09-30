@@ -113,7 +113,7 @@ interface UniHubContextType {
   clearSchedules: () => void;
   
   // Student Actions
-  registerForActivity: (activityId: string, studentId: string) => void;
+  registerForActivity: (activityId: string, studentId: string) => boolean;
   submitEvidence: (data: Omit<EvidenceSubmission, "id" | "submittedAt" | "status">) => void;
   joinOrganizationRequest: (studentId: string, orgId: string, details?: Partial<OrganizationMember>) => void;
   updateStudentProfile: (studentId: string, name: string, avatar: string, password?: string, additionalFields?: Partial<Student>) => void;
@@ -3013,49 +3013,52 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // Student Actions
-  const registerForActivity = (activityId: string, studentId: string) => {
-    if (!currentUser) return;
+  const registerForActivity = (activityId: string, studentId: string): boolean => {
+    if (!currentUser) return false;
     const cleanActivityId = (activityId || "").trim();
-    if (!cleanActivityId) return;
+    if (!cleanActivityId) return false;
     const effectiveStudentId = (currentUser.role === UserRole.ADMIN
       ? (studentId || currentUser.targetId || currentUser.username)
       : (currentUser.targetId || currentUser.username))?.trim();
 
-    if (!effectiveStudentId) return;
+    if (!effectiveStudentId) return false;
 
-    if (currentUser.role !== UserRole.ADMIN && studentId && effectiveStudentId !== studentId.trim()) {
+    // Case-insensitive authorization check
+    if (currentUser.role !== UserRole.ADMIN && studentId && effectiveStudentId.toLowerCase() !== studentId.trim().toLowerCase()) {
       console.warn("Unauthorized attempt to register another student for activity");
-      return;
+      return false;
     }
 
     const activityObj = activities.find(act => act.id === cleanActivityId);
-    if (!activityObj) return;
+    if (!activityObj) return false;
 
     const today = new Date().toISOString().split("T")[0];
     if (activityObj.registrationOpen === false || activityObj.status === "COMPLETED" || (activityObj.expiryDate && activityObj.expiryDate < today)) {
       alert("Đăng ký thất bại: Hoạt động đã đóng đăng ký, đã hết hạn hoặc đã kết thúc!");
-      return;
+      return false;
     }
 
-    const alreadyRegistered = attendance.some(a => a.activityId === cleanActivityId && a.studentId === effectiveStudentId);
-    if (alreadyRegistered) return;
+    // Case-insensitive already-registered check
+    const alreadyRegistered = attendance.some(a => a.activityId === cleanActivityId && a.studentId.toLowerCase() === effectiveStudentId.toLowerCase());
+    if (alreadyRegistered) return false;
 
-    const studentObj = students.find(s => s.id === effectiveStudentId);
-    if (!studentObj) return;
+    // Case-insensitive student lookup
+    const studentObj = students.find(s => s.id.toLowerCase() === effectiveStudentId.toLowerCase());
+    if (!studentObj) return false;
 
     // Check registration limit
     if (activityObj.maxParticipants !== undefined && activityObj.maxParticipants > 0) {
       const currentCount = attendance.filter(a => a.activityId === cleanActivityId).length;
       if (currentCount >= activityObj.maxParticipants) {
         alert("Đăng ký thất bại: Hoạt động đã đạt số lượng người tham gia tối đa!");
-        return;
+        return false;
       }
     }
 
     const newAttendee: ActivityAttendance = {
       id: `AT_NEW_${Date.now()}`,
       activityId: cleanActivityId,
-      studentId: effectiveStudentId,
+      studentId: studentObj.id, // Use canonical ID from DB, not effectiveStudentId
       studentName: studentObj.name,
       classId: normalizeClassId(studentObj.classId),
       registeredAt: new Date().toISOString().split("T")[0],
@@ -3066,7 +3069,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const updated = [...attendance, newAttendee];
     setAttendance(updated);
-    saveToStorage("unihub_attendance", updated);
+    localStorage.setItem("unihub_attendance", JSON.stringify(updated));
+    // Write only new record to Firestore to avoid race condition with realtime listener
+    setDoc(doc(db, "attendance", newAttendee.id), newAttendee, { merge: true }).catch(err =>
+      console.warn("Firestore write failed for attendance:", err)
+    );
+    return true;
   };
 
   const submitEvidence = (data: Omit<EvidenceSubmission, "id" | "submittedAt" | "status">) => {
