@@ -54,7 +54,7 @@ const styleCell = (
 /**
  * Tải File Excel Mẫu danh mục học phần mở đăng ký tín chỉ (Chuẩn Times New Roman)
  */
-export const downloadCourseOfferingsTemplate = async (semesterName: string = "Học kỳ I - 2026-2027") => {
+export const downloadCourseOfferingsTemplate = async (semesterName: string = "Học kỳ I - 2026-2027", offerings?: CourseOffering[]) => {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("DS_HocPhan_DangKy", {
     views: [{ showGridLines: true }]
@@ -110,17 +110,18 @@ export const downloadCourseOfferingsTemplate = async (semesterName: string = "H�
     });
   });
 
-  // Dữ liệu mẫu
-  const sampleData = [
-    [1, "VPS7251", "Cơ sở Tự nhiên và Xã hội", 4, "TS. Nguyễn Văn A", "K2-GDTH A, K2-GDTH B", "Môn bắt buộc chuyên ngành"],
-    [2, "HKO4587520", "Toán cao cấp A1", 3, "PGS.TS. Trần Thị B", "", "Toàn trường"],
-    [3, "VLU7428", "Tiếng Anh chuyên ngành", 3, "ThS. Lê Văn C", "", "Yêu cầu hoàn thành TA cơ bản"],
-    [4, "CNTT102", "Lập trình Web nâng cao", 3, "ThS. Hoàng Minh Tuấn", "K20-CNTT", "Thực hành tại Phòng máy 2"],
-    [5, "GDTH305", "Phương pháp dạy học Toán tiểu học", 3, "TS. Phạm Thị Mai", "K2-GDTH A", "Có bài tập thực hành"],
-    [6, "GDTC101", "Giáo dục thể chất 1", 1, "ThS. Vũ Hùng Cường", "", "Sân thể dục khu A"]
-  ];
+  // Dữ liệu học phần (đồng bộ thời gian thực theo danh sách thực tế của hệ thống)
+  const dataRows: (string | number)[][] = (offerings || []).map((off, idx) => [
+    idx + 1,
+    off.subjectCode,
+    off.subjectName,
+    off.credits,
+    off.teacherName || "",
+    Array.isArray(off.targetClasses) ? off.targetClasses.join(", ") : (off.targetClasses || ""),
+    off.notes || ""
+  ]);
 
-  sampleData.forEach((rowVals, idx) => {
+  dataRows.forEach((rowVals, idx) => {
     const row = ws.getRow(9 + idx);
     row.values = rowVals;
     row.height = 22;
@@ -136,7 +137,7 @@ export const downloadCourseOfferingsTemplate = async (semesterName: string = "H�
   });
 
   // Footer chữ ký (chuẩn theo file mẫu DK_TIN_CHI_HK_I_2026-2027.xlsx)
-  const footerStartRow = 9 + sampleData.length + 2;
+  const footerStartRow = 9 + dataRows.length + 2;
   const now = new Date();
   
   ws.mergeCells(`E${footerStartRow}:G${footerStartRow}`);

@@ -708,8 +708,8 @@ export const CreditRegistrationTrainingView: React.FC = () => {
               {/* Tải tệp mẫu Excel */}
               <button
                 onClick={() => {
-                  const semName = allSemesters.find(s => s.id === selectedSemesterId)?.name;
-                  downloadCourseOfferingsTemplate(semName);
+                  const semName = allSemesters.find(s => s.id === selectedSemesterId)?.name || selectedSemesterId;
+                  downloadCourseOfferingsTemplate(semName, semesterOfferings);
                 }}
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
               >
