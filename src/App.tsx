@@ -53,7 +53,8 @@ import {
   MessageSquare,
   FileSpreadsheet,
   Grid,
-  Menu
+  Menu,
+  Globe
 } from "lucide-react";
 
 const AdviserIcon = ShieldAlert;
@@ -1103,7 +1104,8 @@ const AppContent: React.FC = () => {
           { id: "DS_THANHVIEN", label: "Danh sách thành viên", icon: Users },
           { id: "TAO_HOATDONG", label: "Khai báo hoạt động", icon: PlusCircle },
           { id: "TAO_THONGBAO", label: "Đăng tải bảng thông báo", icon: Megaphone },
-          { id: "QUANLY_DIEMDANH", label: "Sổ điểm danh & Event", icon: UserCheck }
+          { id: "QUANLY_DIEMDANH", label: "Sổ điểm danh & Event", icon: UserCheck },
+          ...(currentUser.targetId?.toUpperCase() === "CLBNCKH" ? [{ id: "EXT_SRC", label: "Web CLB SRC", icon: Globe }] : [])
         ];
       case UserRole.TRAINING_DEPT:
         return [
@@ -1619,7 +1621,7 @@ const AppContent: React.FC = () => {
                     return (
                       <button
                         key={tab.id}
-                        onClick={() => setActivePortletTab(tab.id)}
+                        onClick={() => tab.id === "EXT_SRC" ? window.open("https://src-phhg.vercel.app/", "_blank") : setActivePortletTab(tab.id)}
                         className={`px-3.5 py-2.5 rounded-xl transition-all relative group flex items-center gap-3 cursor-pointer w-full text-left border ${
                           isActive 
                             ? "bg-indigo-50 text-indigo-600 border-indigo-150/80 shadow-2xs font-extrabold" 
@@ -1642,7 +1644,7 @@ const AppContent: React.FC = () => {
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setActivePortletTab(tab.id)}
+                      onClick={() => tab.id === "EXT_SRC" ? window.open("https://src-phhg.vercel.app/", "_blank") : setActivePortletTab(tab.id)}
                       className={`p-3 rounded-xl transition-all relative group flex items-center justify-center cursor-pointer border ${
                         isActive 
                           ? "bg-indigo-50 text-indigo-600 border-indigo-150/80 shadow-xs scale-102" 
@@ -2385,7 +2387,7 @@ const AppContent: React.FC = () => {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActivePortletTab(tab.id)}
+                  onClick={() => tab.id === "EXT_SRC" ? window.open("https://src-phhg.vercel.app/", "_blank") : setActivePortletTab(tab.id)}
                   className={`flex flex-col items-center gap-1.5 py-1 px-2 rounded-xl transition-all cursor-pointer relative ${
                     isScrollableNav ? "shrink-0 min-w-[70px]" : ""
                   } ${

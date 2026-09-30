@@ -2645,8 +2645,8 @@ export const StudentPortal: React.FC = () => {
                   const clubMembers = members.filter(m => m.orgId === club.id && m.status === "ACTIVE");
 
                   return (
-                    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-fade-in" id="club-workspace-modal">
-                      <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-3xl w-full overflow-hidden flex flex-col max-h-[92vh]">
+                    <div className="fixed inset-0 bg-white z-50 flex flex-col overflow-hidden" id="club-workspace-modal">
+                      <div className="flex-1 overflow-y-auto flex flex-col">
                         
                         {/* Modal Header */}
                         <div className="bg-gradient-to-r from-indigo-900 via-indigo-850 to-slate-900 px-6 py-5 text-white shrink-0 relative overflow-hidden">
