@@ -54,7 +54,7 @@ const styleCell = (
 /**
  * Tải File Excel Mẫu danh mục học phần mở đăng ký tín chỉ (Chuẩn Times New Roman)
  */
-export const downloadCourseOfferingsTemplate = async (semesterName: string = "Học kỳ II - 2025-2026") => {
+export const downloadCourseOfferingsTemplate = async (semesterName: string = "Học kỳ I - 2026-2027") => {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("DS_HocPhan_DangKy", {
     views: [{ showGridLines: true }]
@@ -62,7 +62,7 @@ export const downloadCourseOfferingsTemplate = async (semesterName: string = "H�
 
   // Header cơ quan
   ws.mergeCells("A1:C1");
-  ws.getCell("A1").value = "TRƯỜNG ĐẠI HỌC TÂN TRÀO";
+  ws.getCell("A1").value = "PHÂN HIỆU ĐHTN TẠI HÀ GIANG";
   styleCell(ws.getCell("A1"), { size: 11, bold: true, alignment: { horizontal: "center" }, border: false });
 
   ws.mergeCells("D1:G1");
@@ -70,16 +70,12 @@ export const downloadCourseOfferingsTemplate = async (semesterName: string = "H�
   styleCell(ws.getCell("D1"), { size: 11, bold: true, alignment: { horizontal: "center" }, border: false });
 
   ws.mergeCells("A2:C2");
-  ws.getCell("A2").value = "PHÂN HIỆU TẠI TỈNH HÀ GIANG";
-  styleCell(ws.getCell("A2"), { size: 11, bold: true, alignment: { horizontal: "center" }, border: false });
+  ws.getCell("A2").value = "PHÒNG ĐÀO TẠO NCKH & HỢP TÁC QUỐC TẾ";
+  styleCell(ws.getCell("A2"), { size: 10, italic: true, alignment: { horizontal: "center" }, border: false });
 
   ws.mergeCells("D2:G2");
   ws.getCell("D2").value = "Độc lập - Tự do - Hạnh phúc";
   styleCell(ws.getCell("D2"), { size: 11, italic: true, alignment: { horizontal: "center" }, border: false });
-
-  ws.mergeCells("A3:C3");
-  ws.getCell("A3").value = "PHÒNG ĐÀO TẠO NCKH & HỢP TÁC QUỐC TẾ";
-  styleCell(ws.getCell("A3"), { size: 10, italic: true, alignment: { horizontal: "center" }, border: false });
 
   // Tiêu đề chính
   ws.mergeCells("A5:G5");
@@ -254,7 +250,7 @@ export const exportCreditEnrollmentsReport = async ({
 
   // Tiêu đề cơ quan
   ws.mergeCells("A1:D1");
-  ws.getCell("A1").value = "TRƯỜNG ĐẠI HỌC TÂN TRÀO";
+  ws.getCell("A1").value = "PHÂN HIỆU ĐHTN TẠI HÀ GIANG";
   styleCell(ws.getCell("A1"), { size: 11, bold: true, alignment: { horizontal: "center" }, border: false });
 
   ws.mergeCells("E1:H1");
@@ -262,8 +258,8 @@ export const exportCreditEnrollmentsReport = async ({
   styleCell(ws.getCell("E1"), { size: 11, bold: true, alignment: { horizontal: "center" }, border: false });
 
   ws.mergeCells("A2:D2");
-  ws.getCell("A2").value = "PHÂN HIỆU TẠI TỈNH HÀ GIANG";
-  styleCell(ws.getCell("A2"), { size: 11, bold: true, alignment: { horizontal: "center" }, border: false });
+  ws.getCell("A2").value = "PHÒNG ĐÀO TẠO NCKH & HỢP TÁC QUỐC TẾ";
+  styleCell(ws.getCell("A2"), { size: 10, italic: true, alignment: { horizontal: "center" }, border: false });
 
   ws.mergeCells("E2:H2");
   ws.getCell("E2").value = "Độc lập - Tự do - Hạnh phúc";
@@ -479,7 +475,7 @@ export const exportStudentEnrollmentSlip = async ({
 
   // Header cơ quan
   ws.mergeCells("A1:C1");
-  ws.getCell("A1").value = "TRƯỜNG ĐẠI HỌC TÂN TRÀO";
+  ws.getCell("A1").value = "PHÂN HIỆU ĐHTN TẠI HÀ GIANG";
   styleCell(ws.getCell("A1"), { size: 11, bold: true, alignment: { horizontal: "center" }, border: false });
 
   ws.mergeCells("D1:F1");
@@ -487,8 +483,8 @@ export const exportStudentEnrollmentSlip = async ({
   styleCell(ws.getCell("D1"), { size: 11, bold: true, alignment: { horizontal: "center" }, border: false });
 
   ws.mergeCells("A2:C2");
-  ws.getCell("A2").value = "PHÂN HIỆU TẠI TỈNH HÀ GIANG";
-  styleCell(ws.getCell("A2"), { size: 11, bold: true, alignment: { horizontal: "center" }, border: false });
+  ws.getCell("A2").value = "PHÒNG ĐÀO TẠO NCKH & HỢP TÁC QUỐC TẾ";
+  styleCell(ws.getCell("A2"), { size: 10, italic: true, alignment: { horizontal: "center" }, border: false });
 
   ws.mergeCells("D2:F2");
   ws.getCell("D2").value = "Độc lập - Tự do - Hạnh phúc";
