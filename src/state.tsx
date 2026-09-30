@@ -2034,11 +2034,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return { ...(localItem as Record<string, any>), ...cleanCloud } as T;
         });
 
-        // ponytail: preserve local-only items not yet synced to Firestore; for members, deletions on Firestore are authoritative for non-pending items, but keep local PENDING requests
-        const localOnlyItems = storageKey === "unihub_members"
+        // ponytail: Firestore deletions are authoritative for users and members (except PENDING);
+        // for other collections, preserve local-only items not yet synced to Firestore
+        const localOnlyItems = storageKey === "unihub_users"
+          ? [] // Admin deletions on Firestore are authoritative — never resurrect deleted users
+          : storageKey === "unihub_members"
           ? localList.filter(item => {
               const id = (idResolver(item) || "").toString().trim().toLowerCase();
               return id && !cloudIds.has(id) && (item as any)?.status === "PENDING";
+            })
+          : storageKey === "unihub_attendance"
+          ? localList.filter(item => {
+              const id = (idResolver(item) || "").toString().trim().toLowerCase();
+              return id && !cloudIds.has(id) && id.startsWith("at_new_");
             })
           : localList.filter(item => {
               const id = (idResolver(item) || "").toString().trim().toLowerCase();
@@ -2450,21 +2458,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
         }
 
-        // Only seed individual users if collection is empty or specific account is missing
+        // Only seed users when collection is completely empty (first-time setup)
+        // Do NOT re-seed individual missing users — admin may have deliberately deleted them
         try {
           const usersSnapCheck = await getDocs(collection(db, "users"));
           if (usersSnapCheck.empty) {
             console.log("Khởi tạo danh sách users mẫu lên Firestore...");
             for (const u of SEED_USERS) {
               await setDoc(doc(db, "users", u.id), u, { merge: true });
-            }
-          } else {
-            const existingIds = new Set(usersSnapCheck.docs.map(d => d.id.toLowerCase()));
-            const existingEmails = new Set(usersSnapCheck.docs.map(d => (d.data().email || "").toLowerCase()).filter(Boolean));
-            for (const u of SEED_USERS) {
-              if (!existingIds.has(u.id.toLowerCase()) && !existingEmails.has((u.email || "").toLowerCase())) {
-                await setDoc(doc(db, "users", u.id), u, { merge: true });
-              }
             }
           }
         } catch (e) {
