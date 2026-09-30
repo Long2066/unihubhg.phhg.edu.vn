@@ -79,6 +79,7 @@ export const CreditRegistrationTrainingView: React.FC = () => {
   // Modal Thêm/Sửa Môn
   const [showOfferingModal, setShowOfferingModal] = useState<boolean>(false);
   const [editingOffering, setEditingOffering] = useState<Partial<CourseOffering> | null>(null);
+  const [targetClassesRaw, setTargetClassesRaw] = useState<string>("");
 
   // Modal Chi tiết Đăng ký SV
   const [selectedStudentDetail, setSelectedStudentDetail] = useState<string | null>(null);
@@ -228,7 +229,7 @@ export const CreditRegistrationTrainingView: React.FC = () => {
         subjectName: editingOffering.subjectName.trim(),
         credits: Math.max(1, Number(editingOffering.credits) || 3),
         teacherName: editingOffering.teacherName?.trim() || "Chưa phân công",
-        targetClasses: editingOffering.targetClasses && editingOffering.targetClasses.length > 0 ? editingOffering.targetClasses : undefined,
+        targetClasses: targetClassesRaw.trim() ? targetClassesRaw.split(",").map(c => c.trim()).filter(Boolean) : undefined,
         isActive: editingOffering.isActive !== undefined ? editingOffering.isActive : true,
         notes: editingOffering.notes?.trim() || undefined,
         createdBy: currentUser?.name || "Phòng Đào tạo",
@@ -741,6 +742,7 @@ export const CreditRegistrationTrainingView: React.FC = () => {
                     credits: 3,
                     isActive: true
                   });
+                  setTargetClassesRaw("");
                   setShowOfferingModal(true);
                 }}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer active:scale-95"
@@ -804,6 +806,7 @@ export const CreditRegistrationTrainingView: React.FC = () => {
                             <button
                               onClick={() => {
                                 setEditingOffering(off);
+                                setTargetClassesRaw(off.targetClasses?.join(", ") || "");
                                 setShowOfferingModal(true);
                               }}
                               className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
@@ -1175,12 +1178,8 @@ export const CreditRegistrationTrainingView: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={editingOffering.targetClasses?.join(", ") || ""}
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    const arr = raw.split(",").map(c => c.trim()).filter(Boolean);
-                    setEditingOffering({ ...editingOffering, targetClasses: arr });
-                  }}
+                  value={targetClassesRaw}
+                  onChange={(e) => setTargetClassesRaw(e.target.value)}
                   placeholder="K2-GDTH A, K2-GDTH B (ngăn cách bằng dấu phẩy)"
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-medium"
                 />
