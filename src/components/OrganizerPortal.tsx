@@ -41,6 +41,7 @@ export const OrganizerPortal: React.FC = () => {
     activities, 
     attendance, 
     students, 
+    users,
     criteria,
     announcements,
     approveMemberRequest, 
