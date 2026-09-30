@@ -135,6 +135,22 @@ export const downloadCourseOfferingsTemplate = async (semesterName: string = "H�
     });
   });
 
+  // Footer chữ ký (chuẩn theo file mẫu DK_TIN_CHI_HK_I_2026-2027.xlsx)
+  const footerStartRow = 9 + sampleData.length + 2;
+  const now = new Date();
+  
+  ws.mergeCells(`E${footerStartRow}:G${footerStartRow}`);
+  ws.getCell(`E${footerStartRow}`).value = `Tuyên Quang, ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`;
+  styleCell(ws.getCell(`E${footerStartRow}`), { size: 11, italic: true, alignment: { horizontal: "center" }, border: false });
+
+  ws.mergeCells(`E${footerStartRow + 1}:G${footerStartRow + 1}`);
+  ws.getCell(`E${footerStartRow + 1}`).value = "Phòng Đào tạo NCKH & HTQT";
+  styleCell(ws.getCell(`E${footerStartRow + 1}`), { size: 11, bold: true, alignment: { horizontal: "center" }, border: false });
+
+  ws.mergeCells(`E${footerStartRow + 2}:G${footerStartRow + 2}`);
+  ws.getCell(`E${footerStartRow + 2}`).value = "(Ký, ghi rõ họ tên)";
+  styleCell(ws.getCell(`E${footerStartRow + 2}`), { size: 11, italic: true, alignment: { horizontal: "center" }, border: false });
+
   // Độ rộng cột
   ws.columns = [
     { width: 7 },   // STT
