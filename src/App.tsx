@@ -55,7 +55,8 @@ import {
   Grid,
   Menu,
   Globe,
-  LayoutDashboard
+  LayoutDashboard,
+  IdCard
 } from "lucide-react";
 
 const AdviserIcon = ShieldAlert;
@@ -1079,6 +1080,7 @@ const AppContent: React.FC = () => {
       case UserRole.STUDENT:
         return [
           { id: "TRANG_CHU", label: "Trang chủ", icon: Home },
+          { id: "THE_SINH_VIEN", label: "Thẻ sinh viên điện tử", icon: IdCard },
           { id: "DIEM", label: "Điểm số", icon: Award },
           { id: "DANG_KY_TIN_CHI", label: "Đăng ký tín chỉ", icon: BookOpen },
           { id: "THOI_KHOA_BIEU", label: "Thời khóa biểu", icon: Clock },
@@ -1131,12 +1133,14 @@ const AppContent: React.FC = () => {
         if (currentUser?.isGroupLeader) {
           return [
             { id: "TRANG_CHU", label: "Trang chủ Tổ", icon: Home },
+            { id: "THE_SINH_VIEN", label: "Thẻ sinh viên điện tử", icon: IdCard },
             { id: "BCS_DIEMDANH", label: "Điểm danh Tổ", icon: Users },
             { id: "BCS_XETDUYET", label: "Đề xuất ĐRL Tổ", icon: BookOpen }
           ];
         }
         return [
           { id: "TRANG_CHU", label: "Trang chủ tổng quan", icon: Home },
+          { id: "THE_SINH_VIEN", label: "Thẻ sinh viên điện tử", icon: IdCard },
           { id: "BCS_DIEMDANH", label: "Giám sát sĩ số & điểm danh", icon: ClipboardList },
           { id: "BCS_DUYET_TO", label: "Phê duyệt Tổ", icon: CheckCircle2 },
           { id: "BCS_THONG_KE", label: "Thống kê chuyên cần", icon: ClipboardList },
@@ -1273,6 +1277,16 @@ const AppContent: React.FC = () => {
   };
 
   const sidebarTabs = getSidebarTabs();
+
+  const handleTabClick = (tabId: string) => {
+    if (tabId === "EXT_SRC") {
+      window.open("https://src-phhg.vercel.app/", "_blank");
+    } else if (tabId === "THE_SINH_VIEN") {
+      setShowStudentIdCard(true);
+    } else {
+      setActivePortletTab(tabId);
+    }
+  };
 
   return (
     <div className="h-screen h-dvh w-full max-w-full bg-white flex flex-col selection:bg-indigo-500 selection:text-white font-sans overflow-hidden" id="unihub-app-layout">
@@ -1423,15 +1437,7 @@ const AppContent: React.FC = () => {
                           <span>Sửa hồ sơ & mật khẩu</span>
                         </button>
 
-                        {isStudentOrMonitor && (
-                          <button 
-                            onClick={() => { setShowStudentIdCard(true); setShowProfileDropdown(false); }}
-                            className="w-full text-left font-bold text-xs text-slate-705 hover:text-indigo-600 hover:bg-indigo-50/50 px-3 py-2 rounded-xl border border-transparent hover:border-indigo-100 transition-all flex items-center gap-2 cursor-pointer"
-                          >
-                            <Award size={13} className="text-slate-400" />
-                            <span>🪪 Thẻ sinh viên điện tử</span>
-                          </button>
-                        )}
+
 
                         <button 
                           onClick={() => {
@@ -1608,14 +1614,14 @@ const AppContent: React.FC = () => {
               <div className={`flex flex-col gap-1.5 w-full ${isSidebarExpanded ? "items-stretch px-1" : "items-center px-0"}`}>
                 {sidebarTabs.map((tab) => {
                   const TabIcon = tab.icon;
-                  const isActive = activePortletTab === tab.id;
+                  const isActive = activePortletTab === tab.id || (tab.id === "THE_SINH_VIEN" && showStudentIdCard);
                   const badgeCount = getTabBadgeCount(tab.id);
                   
                   if (isSidebarExpanded) {
                     return (
                       <button
                         key={tab.id}
-                        onClick={() => tab.id === "EXT_SRC" ? window.open("https://src-phhg.vercel.app/", "_blank") : setActivePortletTab(tab.id)}
+                        onClick={() => handleTabClick(tab.id)}
                         className={`px-3.5 py-2.5 rounded-xl transition-all relative group flex items-center gap-3 cursor-pointer w-full text-left border ${
                           isActive 
                             ? "bg-indigo-50 text-indigo-600 border-indigo-150/80 shadow-2xs font-extrabold" 
@@ -1638,7 +1644,7 @@ const AppContent: React.FC = () => {
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => tab.id === "EXT_SRC" ? window.open("https://src-phhg.vercel.app/", "_blank") : setActivePortletTab(tab.id)}
+                      onClick={() => handleTabClick(tab.id)}
                       className={`p-3 rounded-xl transition-all relative group flex items-center justify-center cursor-pointer border ${
                         isActive 
                           ? "bg-indigo-50 text-indigo-600 border-indigo-150/80 shadow-xs scale-102" 
@@ -2365,12 +2371,12 @@ const AppContent: React.FC = () => {
           >
             {sidebarTabs.map((tab) => {
               const TabIcon = tab.icon;
-              const isActive = activePortletTab === tab.id;
+              const isActive = activePortletTab === tab.id || (tab.id === "THE_SINH_VIEN" && showStudentIdCard);
               const badgeCount = getTabBadgeCount(tab.id);
               return (
                 <button
                   key={tab.id}
-                  onClick={() => tab.id === "EXT_SRC" ? window.open("https://src-phhg.vercel.app/", "_blank") : setActivePortletTab(tab.id)}
+                  onClick={() => handleTabClick(tab.id)}
                   className={`flex flex-col items-center gap-1.5 py-1 px-2 rounded-xl transition-all cursor-pointer relative ${
                     isScrollableNav ? "shrink-0 min-w-[70px]" : ""
                   } ${
