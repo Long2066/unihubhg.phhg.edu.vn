@@ -1,4 +1,4 @@
-﻿import type { Student } from "../types";
+import type { Student } from "../types";
 
 export const STUDENT_CARD_TEMPLATE = "/the-sinh-vien-template.png";
 export const STUDENT_CARD_DEFAULT_AVATAR = "/student-card-default-avatar.jpg";
@@ -100,4 +100,77 @@ export const getStudentVerificationUrl = (studentId: string, origin?: string) =>
   const base = origin || (typeof window !== "undefined" ? window.location.origin : "");
   const params = new URLSearchParams({ mssv: id, code: getStudentVerificationCode(id) });
   return `${base}${STUDENT_VERIFICATION_PATH}?${params.toString()}`;
+};
+
+export const hasVietnameseAccents = (str?: string): boolean => 
+  Boolean(str && /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđĐ]/i.test(str));
+
+export const formatStudentCardName = (rawName?: string): string => {
+  if (!rawName) return "";
+  return String(rawName).trim().replace(/\s+/g, " ").toLocaleUpperCase("vi-VN");
+};
+
+export const resolveTrainingStudent = (
+  currentUser?: { targetId?: string; username?: string; email?: string; id?: string; name?: string } | null,
+  liveStudents: Student[] = [],
+  seedStudents: Student[] = []
+): Partial<Student> => {
+  if (!currentUser) return {};
+
+  const clean = (val?: unknown) => String(val || "").trim().toLowerCase();
+  const cleanId = (val?: unknown) => {
+    const s = clean(val);
+    return s.includes("@") ? s.split("@")[0] : s;
+  };
+
+  const userKeys = Array.from(new Set([
+    clean(currentUser.targetId),
+    cleanId(currentUser.targetId),
+    clean(currentUser.username),
+    cleanId(currentUser.username),
+    clean(currentUser.email),
+    cleanId(currentUser.email),
+    clean(currentUser.id),
+    cleanId(currentUser.id?.replace(/^u_stud_/i, ""))
+  ])).filter(k => k.length > 0);
+
+  const matchFn = (s: Student) => {
+    const sKeys = [
+      clean(s.id),
+      cleanId(s.id),
+      clean((s as any).code),
+      cleanId((s as any).code),
+      clean(s.email),
+      cleanId(s.email)
+    ].filter(Boolean);
+    return userKeys.some(uk => sKeys.includes(uk));
+  };
+
+  // 1. Dữ liệu Đào tạo chính thức từ Firestore (ưu tiên cao nhất)
+  const trainingMatch = liveStudents.find(matchFn);
+  // 2. Dữ liệu cơ sở hạt nhân SEED_STUDENTS
+  const seedMatch = seedStudents.find(matchFn);
+
+  // Bảo đảm họ tên chuẩn có đầy đủ dấu tiếng Việt
+  let resolvedName = "";
+  if (trainingMatch?.name && hasVietnameseAccents(trainingMatch.name)) {
+    resolvedName = trainingMatch.name;
+  } else if (seedMatch?.name && hasVietnameseAccents(seedMatch.name)) {
+    resolvedName = seedMatch.name;
+  } else if (currentUser.name && hasVietnameseAccents(currentUser.name)) {
+    resolvedName = currentUser.name;
+  } else {
+    resolvedName = trainingMatch?.name || seedMatch?.name || currentUser.name || "";
+  }
+
+  const base: Partial<Student> = {
+    ...(seedMatch || {}),
+    ...(trainingMatch || {})
+  };
+
+  if (resolvedName) {
+    base.name = resolvedName.trim();
+  }
+
+  return base;
 };

@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { AlertTriangle, BadgeCheck, Clock3, IdCard, RefreshCw, ShieldCheck, UserRound } from "lucide-react";
 import { SEED_STUDENTS } from "../data";
 import { getCachedAvatar, rememberAvatar, useUniHub } from "../state";
@@ -9,7 +9,8 @@ import {
   getStudentCardCourse,
   getStudentCardValidity,
   getStudentMajor,
-  getStudentVerificationCode
+  getStudentVerificationCode,
+  formatStudentCardName
 } from "../utils/studentCard";
 
 const norm = (value?: unknown) => String(value || "").trim().toLowerCase();
@@ -145,7 +146,7 @@ export const StudentVerificationPage: React.FC = () => {
               <img src={avatar} alt={`Ảnh sinh viên ${student.name}`} className="h-full w-full object-cover object-center" />
             </div>
             <div className="mt-4 space-y-3">
-              <h2 className="text-xl font-bold leading-tight text-slate-900">{student.name}</h2>
+              <h2 className="text-xl font-bold leading-tight text-slate-900 uppercase">{formatStudentCardName(student.name)}</h2>
               <p className="font-mono text-sm font-semibold tabular-nums text-slate-500">{student.id}</p>
               <div className="flex flex-wrap gap-2">
                 <StatusBadge label={validity.studentStatus} tone={validity.isExpired ? "danger" : "success"} />
@@ -166,7 +167,7 @@ export const StudentVerificationPage: React.FC = () => {
             </div>
 
             <dl className="grid gap-3 sm:grid-cols-2">
-              <FieldRow label="Họ và tên" value={student.name} />
+              <FieldRow label="Họ và tên" value={formatStudentCardName(student.name)} />
               <FieldRow label="MSSV" value={student.id} mono />
               <FieldRow label="Lớp" value={cardClass} />
               <FieldRow label="Khoa" value={faculty} />

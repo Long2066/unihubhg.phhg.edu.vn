@@ -69,7 +69,9 @@ import {
   formatStudentDob,
   getStudentCardCourse,
   getStudentCardValidity,
-  getStudentVerificationUrl
+  getStudentVerificationUrl,
+  formatStudentCardName,
+  resolveTrainingStudent
 } from "./utils/studentCard";
 const StudentPortal = lazy(() => import("./components/StudentPortal").then(module => ({ default: module.StudentPortal })));
 import { SEED_STUDENTS } from "./data";
@@ -189,21 +191,9 @@ const AppContent: React.FC = () => {
   const isStudentOrMonitor = currentUser?.role === UserRole.STUDENT || currentUser?.role === UserRole.CLASS_MONITOR;
   const studentObj = isStudentOrMonitor 
     ? (() => {
-        const found = (students.find(s => 
-          (currentUser?.targetId && s.id === currentUser.targetId) ||
-          (currentUser?.username && (s.id === currentUser.username || (s as any).code === currentUser.username)) ||
-          (currentUser?.email && s.email === currentUser.email)
-        ) || students.find(s => 
-          (currentUser?.targetId && s.id?.toLowerCase() === currentUser.targetId.toLowerCase()) ||
-          (currentUser?.username && (s.id?.toLowerCase() === currentUser.username.toLowerCase() || (s as any).code?.toLowerCase() === currentUser.username.toLowerCase())) ||
-          (currentUser?.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
-        ) || SEED_STUDENTS.find(s => 
-          (currentUser?.targetId && s.id?.toLowerCase() === currentUser.targetId.toLowerCase()) ||
-          (currentUser?.username && (s.id?.toLowerCase() === currentUser.username.toLowerCase() || (s as any).code?.toLowerCase() === currentUser.username.toLowerCase())) ||
-          (currentUser?.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
-        ));
-        if (!found) return undefined;
-        const targetId = found.id || currentUser?.targetId || currentUser?.username || "";
+        const found = resolveTrainingStudent(currentUser, students, SEED_STUDENTS);
+        if (!found || !found.id) return undefined;
+        const targetId = found.id || currentUser?.targetId || currentUser?.username?.split("@")[0] || "";
         const persistentAvatar = found.avatar || currentUser?.avatar || getCachedAvatar(targetId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
         if (persistentAvatar) {
           rememberAvatar(persistentAvatar, targetId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
@@ -211,7 +201,7 @@ const AppContent: React.FC = () => {
         return {
           ...found,
           avatar: persistentAvatar || found.avatar
-        };
+        } as Student;
       })()
     : undefined;
   const studentId = studentObj?.id || (isStudentOrMonitor ? currentUser?.targetId : undefined);
@@ -2214,20 +2204,9 @@ const AppContent: React.FC = () => {
         </div>
       )}
       {showStudentIdCard && isStudentOrMonitor && (() => {
-        const seedMatch = SEED_STUDENTS.find(sm => 
-          (currentUser?.targetId && sm.id === currentUser.targetId) ||
-          (currentUser?.username && (sm.id === currentUser.username || (sm as any).code === currentUser.username)) ||
-          (currentUser?.email && sm.email === currentUser.email) ||
-          (currentUser?.targetId && sm.id.toLowerCase() === currentUser.targetId.toLowerCase()) ||
-          (currentUser?.username && (sm.id.toLowerCase() === currentUser.username.toLowerCase() || (sm as any).code?.toLowerCase() === currentUser.username.toLowerCase())) ||
-          (currentUser?.email && sm.email && sm.email.toLowerCase() === currentUser.email.toLowerCase())
-        );
-        const s: Partial<Student> = {
-          ...(seedMatch || {}),
-          ...(studentObj || {})
-        };
-        const cardName = (s.name || currentUser?.name || "").trim();
-        const cardId = (s.id || currentUser?.targetId || currentUser?.username || "").trim();
+        const s = resolveTrainingStudent(currentUser, students, SEED_STUDENTS);
+        const cardName = formatStudentCardName(s.name || currentUser?.name || "");
+        const cardId = (s.id || currentUser?.targetId || currentUser?.username?.split("@")[0] || "").trim();
         const cardClass = (s.classId || (currentUser as any)?.classId || "").trim();
         const cardData: Partial<Student> = { ...s, id: cardId, classId: cardClass };
         const rawFaculty = (s.facultyInCharge || s.facultyId || (currentUser as any)?.facultyId || "").trim();
@@ -2299,7 +2278,7 @@ const AppContent: React.FC = () => {
                 {/* Họ tên: sits immediately after colon (34.60% colon right) -> 35.4%, mid 39.5% */}
                 <div 
                   style={{ position: 'absolute', top: '39.5%', left: '35.4%', width: '38.5%', transform: 'translateY(-50%)' }} 
-                  className="z-30 text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
+                  className="z-30 text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none uppercase tracking-wide"
                 >
                   {cardName}
                 </div>

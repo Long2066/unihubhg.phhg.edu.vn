@@ -2987,6 +2987,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         ...matchedUser,
         email: targetEmail
       };
+      // Đồng bộ họ tên chuẩn từ dữ liệu Đào tạo nếu đăng nhập sinh viên
+      if (matchedStudent && matchedStudent.name) {
+        userDoc.name = matchedStudent.name;
+        userDoc.targetId = userDoc.targetId || matchedStudent.id;
+      }
     } else {
       userDoc = {
         id: `U_STUD_${matchedStudent!.id}`,
