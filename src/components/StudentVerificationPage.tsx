@@ -181,7 +181,7 @@ export const StudentVerificationPage: React.FC = () => {
             </dl>
 
             <footer className="mt-5 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-relaxed text-white shadow-sm">
-              Đại học Thái Nguyên – Phân hiệu tại ĐHTN tại Hà Giang
+              Phân hiệu ĐHTN tại Hà Giang
             </footer>
           </div>
         </section>

@@ -2920,7 +2920,7 @@ assert(
   studentVerificationContent.includes('Hiệu lực đến') &&
   studentVerificationContent.includes('Mã xác thực') &&
   studentVerificationContent.includes('Cập nhật lúc') &&
-  studentVerificationContent.includes('Đại học Thái Nguyên – Phân hiệu tại ĐHTN tại Hà Giang'),
+  studentVerificationContent.includes('Phân hiệu ĐHTN tại Hà Giang'),
   "Batch 66 Issue 4: Verification page renders all required student authentication fields",
   "StudentVerificationPage misses required QR verification fields"
 );
