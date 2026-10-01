@@ -31,12 +31,43 @@ export const getStudentCardCourse = (student: Partial<Student>, cardClass = "") 
   return safeTrim(student.academicYears) || safeTrim(student.trainingCourse) || (classId.startsWith("K2-") ? "2024 - 2028" : "");
 };
 
-export const getStudentMajor = (student: Partial<Student>) => (
-  safeTrim(student.trainingMajor) ||
-  safeTrim(student.specialization) ||
-  formatFacultyName(safeTrim(student.facultyInCharge) || safeTrim(student.facultyId)) ||
-  "Chưa cập nhật"
-);
+export const getStudentMajor = (student: Partial<Student>): string => {
+  const explicit = safeTrim(student.trainingMajor) || safeTrim(student.specialization);
+  if (explicit && !/^khoa\s+sư\s+phạm$/i.test(explicit) && !/^sư\s+phạm$/i.test(explicit)) {
+    return explicit;
+  }
+
+  const classId = safeTrim(student.classId).toUpperCase();
+  const facultyId = safeTrim(student.facultyInCharge || student.facultyId).toUpperCase();
+  const id = safeTrim(student.id || (student as any)?.code).toUpperCase();
+
+  if (classId.includes("GDTH") || facultyId === "K-GDTH" || id.startsWith("GDTH") || id.startsWith("DTG")) {
+    return "Giáo dục Tiểu học";
+  }
+  if (classId.includes("GDMN") || classId.includes("MN") || facultyId === "K-MN") {
+    return "Giáo dục Mầm non";
+  }
+  if (classId.includes("CNTT") || facultyId === "K-CNTT" || classId.includes("TIN")) {
+    return "Công nghệ Thông tin";
+  }
+  if (classId.includes("TA") || classId.includes("SPTA") || facultyId === "K-TA" || classId.includes("ANH")) {
+    return "Sư phạm Tiếng Anh";
+  }
+  if (classId.includes("DULICH") || classId.includes("QTDL") || facultyId === "K-KINHTE" || classId.includes("KTDL")) {
+    return "Quản trị Dịch vụ Du lịch & Lữ hành";
+  }
+  if (classId.includes("NNTQ") || classId.includes("TRUNG")) {
+    return "Ngôn ngữ Trung Quốc";
+  }
+  if (classId.includes("LUAT")) {
+    return "Luật Kinh tế";
+  }
+  if (classId.includes("QLDD")) {
+    return "Quản lý Đất đai";
+  }
+
+  return "Giáo dục Tiểu học";
+};
 
 export const getAdmissionYear = (student: Partial<Student>, fallbackId = "") => {
   const academicYears = safeTrim(student.academicYears);

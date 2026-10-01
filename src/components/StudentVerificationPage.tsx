@@ -26,10 +26,15 @@ const mergeStudents = (liveStudents: Student[]) => {
   return Array.from(map.values());
 };
 
-const FieldRow: React.FC<{ label: string; value: React.ReactNode; mono?: boolean }> = ({ label, value, mono }) => (
-  <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-900/5">
-    <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</dt>
-    <dd className={`mt-1 text-sm font-semibold leading-snug text-slate-900 ${mono ? "font-mono tabular-nums" : ""}`}>
+const InfoRow: React.FC<{ label: string; value: React.ReactNode; mono?: boolean; highlight?: boolean }> = ({ 
+  label, 
+  value, 
+  mono,
+  highlight 
+}) => (
+  <div className="flex items-center justify-between py-2.5 px-4 sm:py-3 sm:px-5 gap-3">
+    <dt className="text-xs sm:text-sm font-medium text-slate-500 shrink-0">{label}</dt>
+    <dd className={`text-xs sm:text-sm font-bold text-right break-words ${highlight ? "text-blue-700" : "text-slate-900"} ${mono ? "font-mono tabular-nums" : ""}`}>
       {value || "Chưa cập nhật"}
     </dd>
   </div>
@@ -43,7 +48,7 @@ const StatusBadge: React.FC<{ label: string; tone: "success" | "danger" | "info"
     : "bg-sky-50 text-sky-700 ring-sky-200";
 
   return (
-    <span className={`inline-flex min-h-[32px] items-center rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ring-1 ${classes}`}>
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ring-1 ${classes}`}>
       {label}
     </span>
   );
@@ -117,83 +122,88 @@ export const StudentVerificationPage: React.FC = () => {
   const avatar = student.avatar || getCachedAvatar(student.id, (student as any).code, student.email) || STUDENT_CARD_DEFAULT_AVATAR;
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <header className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-900/5 sm:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-700 ring-1 ring-emerald-200">
-                <ShieldCheck className="h-4 w-4" />
-                Đã xác thực từ UniHub
-              </div>
-              <h1 className="mt-4 text-2xl font-bold leading-tight tracking-tight text-slate-900 sm:text-3xl">
-                THÔNG TIN XÁC THỰC SINH VIÊN
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
-                Dữ liệu lấy trực tiếp từ hồ sơ sinh viên. Ảnh hiển thị là ảnh đại diện hiện hành của người được quét.
-              </p>
-            </div>
-            <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-900/5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Mã xác thực</p>
-              <p className="mt-1 text-right font-mono text-2xl font-bold tabular-nums text-slate-900">{expectedCode}</p>
-            </div>
+    <main className="min-h-screen bg-slate-100/70 py-6 px-3 sm:px-6 lg:px-8 flex flex-col items-center">
+      <div className="w-full max-w-xl space-y-4">
+        {/* Header verification pill */}
+        <header className="rounded-2xl bg-white p-4 sm:p-5 shadow-xs ring-1 ring-slate-900/5 text-center space-y-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold ring-1 ring-emerald-300/60 shadow-xs">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>HỆ THỐNG XÁC THỰC ĐIỆN TỬ CHÍNH THỨC</span>
           </div>
+          <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight leading-tight">
+            THÔNG TIN XÁC THỰC SINH VIÊN
+          </h1>
+          <p className="text-xs text-slate-500 font-medium">
+            Trích xuất trực tiếp từ Cơ sở dữ liệu đào tạo UniHub Phân hiệu Hà Giang
+          </p>
         </header>
 
-        <section className="grid gap-6 lg:grid-cols-[320px_1fr]">
-          <aside className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-900/5 sm:p-5">
-            <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-slate-100 ring-1 ring-slate-900/5">
-              <img src={avatar} alt={`Ảnh sinh viên ${student.name}`} className="h-full w-full object-cover object-center" />
+        {/* Profile Card (Compact & Responsive on Mobile & Desktop) */}
+        <section className="rounded-2xl bg-white p-4 sm:p-5 shadow-xs ring-1 ring-slate-900/5">
+          <div className="flex items-center gap-3.5 sm:gap-4">
+            <div className="w-20 h-24 sm:w-24 sm:h-28 rounded-xl overflow-hidden bg-slate-100 ring-1 ring-slate-900/10 shadow-xs shrink-0">
+              <img 
+                src={avatar} 
+                alt={`Ảnh sinh viên ${student.name}`} 
+                className="w-full h-full object-cover object-center" 
+              />
             </div>
-            <div className="mt-4 space-y-3">
-              <h2 className="text-xl font-bold leading-tight text-slate-900 uppercase">{formatStudentCardName(student.name)}</h2>
-              <p className="font-mono text-sm font-semibold tabular-nums text-slate-500">{student.id}</p>
-              <div className="flex flex-wrap gap-2">
+            <div className="flex-1 min-w-0 space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hồ sơ sinh viên</span>
+              <h2 className="text-base sm:text-lg font-black text-slate-900 uppercase truncate leading-snug">
+                {formatStudentCardName(student.name)}
+              </h2>
+              <div className="inline-block font-mono text-xs sm:text-sm font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                {student.id}
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 <StatusBadge label={validity.studentStatus} tone={validity.isExpired ? "danger" : "success"} />
                 <StatusBadge label={validity.cardStatus} tone={validity.isExpired ? "danger" : "success"} />
               </div>
             </div>
-          </aside>
-
-          <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-900/5 sm:p-6">
-            <div className="mb-5 flex items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
-                <BadgeCheck className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold leading-tight text-slate-900">Hồ sơ xác thực</h2>
-                <p className="mt-1 text-sm text-slate-500">Thông tin dùng để đối chiếu thẻ sinh viên điện tử.</p>
-              </div>
-            </div>
-
-            <dl className="grid gap-3 sm:grid-cols-2">
-              <FieldRow label="Họ và tên" value={formatStudentCardName(student.name)} />
-              <FieldRow label="MSSV" value={student.id} mono />
-              <FieldRow label="Lớp" value={cardClass} />
-              <FieldRow label="Khoa" value={faculty} />
-              <FieldRow label="Ngành" value={major} />
-              <FieldRow label="Khóa học" value={course} mono />
-              <FieldRow label="Trạng thái sinh viên" value={validity.studentStatus} />
-              <FieldRow label="Trạng thái thẻ" value={validity.cardStatus} />
-              <FieldRow label="Hiệu lực đến" value={validity.expiryDisplay} mono />
-              <FieldRow label="Mã xác thực" value={expectedCode} mono />
-              <FieldRow label="Cập nhật lúc" value={updatedAt} mono />
-            </dl>
-
-            <footer className="mt-5 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-relaxed text-white shadow-sm">
-              Phân hiệu ĐHTN tại Hà Giang
-            </footer>
           </div>
         </section>
 
-        <div className="rounded-3xl bg-white p-4 text-sm leading-relaxed text-slate-500 shadow-sm ring-1 ring-slate-900/5 sm:p-5">
-          <div className="flex items-start gap-3">
-            <UserRound className="mt-0.5 h-5 w-5 shrink-0 text-slate-400" />
-            <p>Ảnh và thông tin có thể thay đổi khi sinh viên cập nhật hồ sơ. Quét lại QR để lấy dữ liệu mới nhất.</p>
+        {/* Detailed Verification Spec Sheet (Structured, hairline divided, zero jumping lines!) */}
+        <section className="rounded-2xl bg-white shadow-xs ring-1 ring-slate-900/5 overflow-hidden">
+          <div className="px-4 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BadgeCheck className="w-4 h-4 text-blue-600 shrink-0" />
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Hồ sơ xác thực</span>
+            </div>
+            <span className="text-[11px] font-bold font-mono text-slate-600 bg-white px-2 py-0.5 rounded-md ring-1 ring-slate-200">
+              Mã xác thực: {expectedCode}
+            </span>
           </div>
-          <div className="mt-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-            <Clock3 className="h-4 w-4" />
-            Phiên xác thực sinh tại thời điểm mở trang
+
+          <dl className="divide-y divide-slate-100">
+            <InfoRow label="Họ và tên" value={formatStudentCardName(student.name)} />
+            <InfoRow label="MSSV" value={student.id} mono />
+            <InfoRow label="Lớp" value={cardClass} />
+            <InfoRow label="Khoa" value={faculty} />
+            <InfoRow label="Ngành" value={major} highlight />
+            <InfoRow label="Khóa học" value={course} mono />
+            <InfoRow label="Trạng thái sinh viên" value={validity.studentStatus} />
+            <InfoRow label="Trạng thái thẻ" value={validity.cardStatus} />
+            <InfoRow label="Hiệu lực đến" value={validity.expiryDisplay} mono />
+            <InfoRow label="Mã xác thực" value={expectedCode} mono />
+            <InfoRow label="Cập nhật lúc" value={updatedAt} mono />
+          </dl>
+
+          <footer className="w-full bg-slate-900 py-3.5 px-4 text-center text-xs sm:text-sm font-bold text-white tracking-wide">
+            Phân hiệu ĐHTN tại Hà Giang
+          </footer>
+        </section>
+
+        {/* Note / Disclaimer */}
+        <div className="rounded-2xl bg-white p-3.5 sm:p-4 text-xs leading-relaxed text-slate-500 shadow-xs ring-1 ring-slate-900/5">
+          <div className="flex items-start gap-2.5">
+            <UserRound className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+            <p>Dữ liệu đối chiếu bảo mật trực tiếp theo thời gian thực. Mọi thông tin thay đổi từ Phòng Đào tạo sẽ tự động cập nhật khi quét lại mã QR.</p>
+          </div>
+          <div className="mt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
+            <Clock3 className="h-3.5 w-3.5 shrink-0" />
+            <span>Phiên xác thực số {expectedCode} khởi tạo tại thời điểm quét</span>
           </div>
         </div>
       </div>
