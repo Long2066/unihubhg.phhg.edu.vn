@@ -3197,6 +3197,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       facultyId: (currentUser as any)?.facultyId || ""
     };
 
+    if (currentUser.role !== UserRole.ADMIN && studentId && effectiveStudentId !== studentId) {
+      console.warn("Unauthorized attempt to join organization for another student");
+      return;
+    }
+
     if (currentUser.role !== UserRole.ADMIN && requestedKey) {
       const allowedKeys = new Set([studentObj?.id, (studentObj as any)?.code, studentObj?.email, currentUser.targetId, currentUser.username, currentUser.id, currentUser.email].map(norm).filter(Boolean));
       if (!allowedKeys.has(requestedKey)) {
@@ -3882,16 +3887,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const nowIso = new Date().toISOString();
     const updated = members.map(m => {
       if (m.id === cleanMemberId) {
-        return { 
-          ...m, 
-          status: "ACTIVE" as const,
-          reviewNote: note || "",
-          reviewedAt: nowIso,
-          reviewedBy: currentUser.name || "Ban Chủ nhiệm"
-        };
+        return { ...m, status: "ACTIVE" as const };
       }
       return m;
-    });
+    }).map(m => (m.id === cleanMemberId ? { ...m, reviewNote: note || "", reviewedAt: nowIso, reviewedBy: currentUser.name || "Ban Chủ nhiệm" } : m));
     setMembers(updated);
     saveToStorage("unihub_members", updated);
 

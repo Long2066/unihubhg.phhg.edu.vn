@@ -92,7 +92,7 @@ export const StudentVerificationPage: React.FC = () => {
   }, [student?.avatar, student?.email, student?.id]);
 
   const expectedCode = getStudentVerificationCode(student?.id || requestedId);
-  const isVerified = Boolean(student && requestedId && requestedCode && requestedCode === expectedCode);
+  const isVerified = Boolean(student && requestedId && requestedCode && requestedCode.toUpperCase() === expectedCode.toUpperCase());
 
   if (!requestedId) {
     return (

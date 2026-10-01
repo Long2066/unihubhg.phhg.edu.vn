@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useUniHub, normalizeClassId } from "../state";
-import { UserRole, Student, UserAccount, ScheduleSlot, STUDENT_FIELDS_META, SEMESTER_LIST, CourseClassAssignment, GradeAppeal, GradingRulesConfig, parseWeekRange, isWeekInScheduleSlot, isStudentProfileComplete } from "../types";
+import { UserRole, Student, UserAccount, ScheduleSlot, STUDENT_FIELDS_META, SEMESTER_LIST, SemesterItem, CourseClassAssignment, GradeAppeal, GradingRulesConfig, parseWeekRange, isWeekInScheduleSlot, isStudentProfileComplete } from "../types";
 import { SEED_TEACHER_ASSIGNMENTS } from "../data";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";

@@ -1,6 +1,7 @@
 import { collection, doc, setDoc, query, orderBy, limit, onSnapshot, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { SystemVisitLog } from "../types";
+export type { SystemVisitLog };
 
 /**
  * Tính chuỗi tuần chuẩn ISO (VD: 2026-W40)

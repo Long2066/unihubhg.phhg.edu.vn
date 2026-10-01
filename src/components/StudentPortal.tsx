@@ -42,7 +42,8 @@ import {
   Globe,
   Construction,
   FileSignature,
-  XCircle
+  XCircle,
+  Send
 } from "lucide-react";
 import { uploadAvatarHybrid } from "../utils/imageCompressor";
 import { CreditRegistrationStudentView } from "./CreditRegistrationStudentView";
@@ -531,6 +532,20 @@ export const StudentPortal: React.FC = () => {
       setIsApplyingClub(false);
     }
   }, [sObj, selectedClubIdDetail, currentUser]);
+
+  const validateClubApplicationContact = (phone: string, email: string) => {
+    const phoneRegex = /^[0-9+() -]{8,15}$/;
+    if (!phoneRegex.test(phone.trim())) {
+      alert("Số điện thoại không hợp lệ (8 - 15 ký tự số)!");
+      return false;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim()) || !emailRegex.test(applyEmail.trim())) {
+      alert("Email không đúng định dạng!");
+      return false;
+    }
+    return true;
+  };
   
   // Profiling Edit Dialog Modal
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -828,6 +843,7 @@ export const StudentPortal: React.FC = () => {
             </div>
             <div className="text-[11px] text-slate-550 flex items-center gap-2 flex-wrap font-medium">
               <span>Lớp quản lý: <strong className="text-slate-800">{sObj?.classId || "Chưa phân lớp"}</strong></span>
+              <input type="hidden" value={sObj?.classId || "Chưa phân lớp"} readOnly />
               <span className="text-slate-300">•</span>
               <span>Khoa đào tạo: <strong className="text-slate-800">{sObj?.facultyId === "K-CNTT" ? "Khoa Công nghệ Thông tin" : (sObj?.facultyId === "K-GDTH" ? "Khoa Sư phạm" : (sObj?.facultyId || "Chưa xác định"))}</strong></span>
             </div>
@@ -2738,7 +2754,7 @@ export const StudentPortal: React.FC = () => {
                                     </span>
                                   </div>
                                   <p className="text-[10px] text-indigo-200 font-mono">
-                                    MSSV: {studentId} • Lớp: {sObj?.classId || "K2-GDTH A"}
+                                    MSSV: {studentId} • Lớp: {sObj?.classId || "Chưa phân lớp"}
                                   </p>
                                 </div>
                               </div>
