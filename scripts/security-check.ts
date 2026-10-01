@@ -2156,7 +2156,11 @@ assert(
 console.log("\n--- BATCH 48: Academic Import Identity Defense, New Classes Sanitization & Class Registry ---");
 
 assert(
-  stateContent.includes("const { id: _ignoreId, classId: _ignoreClass, name: _ignoreName, facultyId: _ignoreFaculty, ...academicFields } = item;\n        return {\n          ...s,\n          ...academicFields,\n          id: s.id,\n          name: s.name,\n          classId: s.classId,\n          facultyId: s.facultyId,"),
+  stateContent.includes("const { id: _ignoreId, classId: _ignoreClass, name: _ignoreName, facultyId: _ignoreFaculty, ...academicFields } = item;") &&
+  stateContent.includes("id: baseStudent.id,") &&
+  stateContent.includes("name: existingStudent ? baseStudent.name : (item.name || baseStudent.name),") &&
+  stateContent.includes("classId: existingStudent ? baseStudent.classId : (normalizeClassId(item.classId) || baseStudent.classId),") &&
+  stateContent.includes("facultyId: existingStudent ? baseStudent.facultyId : (item.facultyId || baseStudent.facultyId),"),
   "Batch 48 Issue 1: importAcademicData must preserve student identity and prevent overwriting core attributes",
   "importAcademicData allows overwriting student id, name, classId, or facultyId"
 );
@@ -2395,7 +2399,7 @@ assert(
 );
 
 assert(
-  stateContent.includes("const item = excelData.find(item => item && item.id && (item.id.trim().toUpperCase() === s.id.trim().toUpperCase() || item.id === s.id));") &&
+  stateContent.includes("const existingIndex = acc.findIndex(s => isStudentCodeLoginMatch(s.id, item.id));") &&
   stateContent.includes("if (safeFields.classId) {\n      safeFields.classId = normalizeClassId(safeFields.classId);\n    }") &&
   stateContent.includes("if (/^data:(text\\/html|application\\/)/i.test(cleanAvatar)) {"),
   "Batch 54 Issue 5: importAcademicData must support case/whitespace-insensitive ID matching and updateStudentProfile must sanitize classId & avatar",
@@ -2989,8 +2993,53 @@ assert(
   "Student card name overlay can clip accent marks"
 );
 
+// =========================================================
+// BATCH 69: Student Login Mapping From Training Lists
+// =========================================================
+
+console.log("\n--- BATCH 69: Student Login Mapping From Training Lists ---");
+
+assert(
+  isStudentCodeLoginMatch("DTG245220204018", "245220204018") &&
+  isStudentCodeLoginMatch("DTTG2552201010022", "2552201010022") &&
+  isStudentCodeLoginMatch("DTN255301030", "255301030"),
+  "Batch 69 Issue 1: Student login matches training-list MSSV prefixes beyond DTG",
+  "Student login mapping still only handles one MSSV prefix family"
+);
+
+assert(
+  stateContent.includes("if (s.idCard && isIdCardLoginMatch(s.idCard, trimmedInput)) return true;") &&
+  stateContent.includes("isStudentCodeLoginMatch(docSnap.id, trimmedInput)") &&
+  stateContent.includes("(s.idCard && isIdCardLoginMatch(s.idCard, trimmedInput))"),
+  "Batch 69 Issue 2: Login maps students by MSSV, Firestore doc ID, email, or CCCD",
+  "Student lookup cannot recover when identifier/source field differs"
+);
+
+assert(
+  stateContent.includes('storageKey === "unihub_users" || storageKey === "unihub_students"') &&
+  stateContent.includes("Firestore deletions/imports are authoritative for users and students"),
+  "Batch 69 Issue 3: Firestore student list wins over stale local cache during login sync",
+  "Local student cache can resurrect stale records and break login mapping"
+);
+
+assert(
+  stateContent.includes("const updated = excelData.reduce<Student[]>") &&
+  stateContent.includes("else acc.push(mergedStudent);") &&
+  stateContent.includes('saveToStorage("unihub_students", updated);'),
+  "Batch 69 Issue 4: Training Excel import upserts new students instead of silently ignoring them",
+  "Training-imported students missing from current state cannot be created for login"
+);
+
+assert(
+  stateContent.includes("id: `U_STUD_${matchedStudent.id}`") &&
+  stateContent.includes("const matchedStudentId = matchedStudent?.id || \"\";") &&
+  stateContent.includes("!isStudentCodeLoginMatch(u.targetId || u.username, matchedStudentId)"),
+  "Batch 69 Issue 5: Successful student login stores canonical U_STUD profile mapped to MSSV",
+  "Student Auth listener can lose the session because user profile ID/targetId is not canonicalized"
+);
+
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 68 SECURITY & INTEGRITY REGRESSION TESTS PASSED (343 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 69 SECURITY & INTEGRITY REGRESSION TESTS PASSED (348 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

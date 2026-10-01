@@ -251,8 +251,9 @@ const getLoginLocalPart = (value: unknown): string => {
 };
 
 export const normalizeStudentCodeForLogin = (value: unknown): string => {
-  const localPart = getLoginLocalPart(value);
-  return localPart.startsWith("dtg") && /^\d+$/.test(localPart.slice(3)) ? localPart.slice(3) : localPart;
+  const compactLocalPart = getLoginLocalPart(value).replace(/[^a-z0-9]/g, "");
+  if (!compactLocalPart) return "";
+  return /^[a-z]+\d{6,}$/.test(compactLocalPart) ? compactLocalPart.replace(/^[a-z]+(?=\d{6,}$)/, "") : compactLocalPart;
 };
 
 export const isStudentCodeLoginMatch = (candidate: unknown, input: unknown): boolean => {
@@ -2080,8 +2081,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         // ponytail: Firestore deletions are authoritative for users and members (except PENDING);
         // for other collections, preserve local-only items not yet synced to Firestore
-        const localOnlyItems = storageKey === "unihub_users"
-          ? [] // Admin deletions on Firestore are authoritative — never resurrect deleted users
+        const localOnlyItems = storageKey === "unihub_users" || storageKey === "unihub_students"
+          ? [] // Firestore deletions/imports are authoritative for users and students — never resurrect stale local login records
           : storageKey === "unihub_members"
           ? localList.filter(item => {
               const id = (idResolver(item) || "").toString().trim().toLowerCase();
@@ -2168,7 +2169,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!studsSnap.empty) {
         const list: Student[] = [];
         studsSnap.forEach(d => {
-          const s = d.data() as Student;
+          const s = { ...d.data(), id: (d.data() as Student).id || d.id } as Student;
           if (!deletedClassList.includes(normalizeClassId(s.classId))) {
             list.push(s);
           }
@@ -2906,6 +2907,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const sEmail = (s.email || "").trim();
       if (isStudentCodeLoginMatch(s.id, trimmedInput)) return true;
       if ((s as any).code && isStudentCodeLoginMatch((s as any).code, trimmedInput)) return true;
+      if (s.idCard && isIdCardLoginMatch(s.idCard, trimmedInput)) return true;
       if (isEmailLoginMatch(sEmail, trimmedInput)) return true;
       if (trimmedInput.includes("@") && isStudentCodeLoginMatch(s.id, trimmedInput)) return true;
       return false;
@@ -2968,11 +2970,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (!matchedStudent) {
           const studentDocsSnap = await getDocs(collection(db, "students"));
           for (const docSnap of studentDocsSnap.docs) {
-            const s = { ...docSnap.data(), id: docSnap.id } as Student;
+            const s = { ...docSnap.data(), id: (docSnap.data() as Student).id || docSnap.id } as Student;
             const sEmail = (s.email || "").trim();
-            if (isStudentCodeLoginMatch(s.id, trimmedInput) || isEmailLoginMatch(sEmail, trimmedInput)) {
+            const sCode = (s as any).code;
+            if (isStudentCodeLoginMatch(s.id, trimmedInput) || isStudentCodeLoginMatch(docSnap.id, trimmedInput) || (sCode && isStudentCodeLoginMatch(sCode, trimmedInput)) || (s.idCard && isIdCardLoginMatch(s.idCard, trimmedInput)) || isEmailLoginMatch(sEmail, trimmedInput)) {
               matchedStudent = s;
-              setStudents(prev => [s, ...prev.filter(x => x.id !== s.id)]);
+              setStudents(prev => [s, ...prev.filter(x => !isStudentCodeLoginMatch(x.id, s.id))]);
               if (checkStudentPassword(s)) {
                 isPassValid = true;
               }
@@ -3027,35 +3030,30 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // Xây dựng profile người dùng
-    let userDoc: UserAccount;
     const profileEmail = matchedStudent?.email && matchedStudent.email.includes("@") ? matchedStudent.email : targetEmail;
-    if (matchedUser) {
-      userDoc = {
-        ...matchedUser,
-        email: matchedStudent ? profileEmail : targetEmail
-      };
-      // Đồng bộ họ tên chuẩn từ dữ liệu Đào tạo nếu đăng nhập sinh viên
-      if (matchedStudent && matchedStudent.name) {
-        userDoc.username = matchedStudent.id;
-        userDoc.name = matchedStudent.name;
-        userDoc.role = UserRole.STUDENT;
-        userDoc.targetId = matchedStudent.id;
-      }
-    } else {
-      userDoc = {
-        id: `U_STUD_${matchedStudent!.id}`,
-        username: matchedStudent!.id,
-        name: matchedStudent!.name,
-        role: UserRole.STUDENT,
-        targetId: matchedStudent!.id,
-        email: profileEmail
-      };
-      setUsers(prev => {
-        const updated = [...prev.filter(u => u.id !== userDoc.id), userDoc];
-        saveToStorage("unihub_users", updated);
-        return updated;
-      });
-    }
+    const userDoc: UserAccount = matchedStudent
+      ? {
+          ...(matchedUser || {}),
+          id: `U_STUD_${matchedStudent.id}`,
+          username: matchedStudent.id,
+          name: matchedStudent.name || matchedUser?.name || matchedStudent.id,
+          role: UserRole.STUDENT,
+          targetId: matchedStudent.id,
+          email: profileEmail
+        }
+      : {
+          ...matchedUser!,
+          email: targetEmail
+        };
+
+    const matchedStudentId = matchedStudent?.id || "";
+    setUsers(prev => {
+      const updated = matchedStudent
+        ? [userDoc, ...prev.filter(u => u.id !== userDoc.id && !isStudentCodeLoginMatch(u.targetId || u.username, matchedStudentId))]
+        : [userDoc, ...prev.filter(u => u.id !== userDoc.id)];
+      saveToStorage("unihub_users", updated);
+      return updated;
+    });
 
     if (authCred?.user?.uid) {
       setDoc(doc(db, "users", authCred.user.uid), userDoc, { merge: true }).catch(() => {});
@@ -4157,14 +4155,55 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to import academic data");
       return;
     }
-    const updated = students.map(s => {
-      const item = excelData.find(item => item && item.id && (item.id.trim().toUpperCase() === s.id.trim().toUpperCase() || item.id === s.id));
-      if (item) {
-        const currentAcademicData = s.academicDataByPeriod || {};
-        const safeGpa = typeof item.gpa === "number" ? Math.max(0, Math.min(4, Math.round(item.gpa * 100) / 100)) : item.gpa;
-        const safeGpa10 = typeof item.gpa10 === "number" ? Math.max(0, Math.min(10, Math.round(item.gpa10 * 10) / 10)) : item.gpa10;
-        const safeCredits = typeof item.creditsEarned === "number" ? Math.max(0, Math.round(item.creditsEarned)) : item.creditsEarned;
-        const newSemesterData = {
+    const updated = excelData.reduce<Student[]>((acc, item) => {
+      if (!item?.id?.trim()) return acc;
+      const existingIndex = acc.findIndex(s => isStudentCodeLoginMatch(s.id, item.id));
+      const existingStudent = existingIndex >= 0 ? acc[existingIndex] : null;
+      const baseStudent: Student = existingStudent || {
+        id: item.id.trim(),
+        name: item.name || item.id.trim(),
+        classId: normalizeClassId(item.classId) || "CHUA_PHAN_LOP",
+        facultyId: item.facultyId || "K-GDTH",
+        email: item.email || `${item.id.trim().toLowerCase()}@phhg.edu.vn`,
+        gpa: 0,
+        creditsEarned: 0,
+        learningWarning: false,
+        learningStatus: "Bình thường"
+      };
+
+      const currentAcademicData = baseStudent.academicDataByPeriod || {};
+      const safeGpa = typeof item.gpa === "number" ? Math.max(0, Math.min(4, Math.round(item.gpa * 100) / 100)) : item.gpa;
+      const safeGpa10 = typeof item.gpa10 === "number" ? Math.max(0, Math.min(10, Math.round(item.gpa10 * 10) / 10)) : item.gpa10;
+      const safeCredits = typeof item.creditsEarned === "number" ? Math.max(0, Math.round(item.creditsEarned)) : item.creditsEarned;
+      const newSemesterData = {
+        gpa: safeGpa,
+        gpa10: safeGpa10,
+        creditsEarned: safeCredits,
+        learningWarning: item.learningWarning,
+        learningStatus: item.learningStatus,
+        subjectGrades: item.subjectGrades,
+        academicGrade: item.academicGrade,
+        notes: item.notes,
+        updatedAt: item.updatedAt || new Date().toISOString().split("T")[0]
+      };
+
+      const updatedAcademicData = {
+        ...currentAcademicData,
+        [targetSemesterId]: newSemesterData
+      };
+
+      const isCurrent = targetSemesterId === "HOCKY_2_2025_2026";
+      const { id: _ignoreId, classId: _ignoreClass, name: _ignoreName, facultyId: _ignoreFaculty, ...academicFields } = item;
+      const mergedStudent: Student = {
+        ...baseStudent,
+        ...academicFields,
+        id: baseStudent.id,
+        name: existingStudent ? baseStudent.name : (item.name || baseStudent.name),
+        classId: existingStudent ? baseStudent.classId : (normalizeClassId(item.classId) || baseStudent.classId),
+        facultyId: existingStudent ? baseStudent.facultyId : (item.facultyId || baseStudent.facultyId),
+        email: item.email || baseStudent.email || `${baseStudent.id.toLowerCase()}@phhg.edu.vn`,
+        academicDataByPeriod: updatedAcademicData,
+        ...(isCurrent ? {
           gpa: safeGpa,
           gpa10: safeGpa10,
           creditsEarned: safeCredits,
@@ -4172,40 +4211,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           learningStatus: item.learningStatus,
           subjectGrades: item.subjectGrades,
           academicGrade: item.academicGrade,
-          notes: item.notes,
-          updatedAt: item.updatedAt || new Date().toISOString().split("T")[0]
-        };
+          notes: item.notes
+        } : {}),
+        learningDataLocked: true
+      };
 
-        const updatedAcademicData = {
-          ...currentAcademicData,
-          [targetSemesterId]: newSemesterData
-        };
-
-        const isCurrent = targetSemesterId === "HOCKY_2_2025_2026";
-        const { id: _ignoreId, classId: _ignoreClass, name: _ignoreName, facultyId: _ignoreFaculty, ...academicFields } = item;
-        return {
-          ...s,
-          ...academicFields,
-          id: s.id,
-          name: s.name,
-          classId: s.classId,
-          facultyId: s.facultyId,
-          academicDataByPeriod: updatedAcademicData,
-          ...(isCurrent ? {
-            gpa: safeGpa,
-            gpa10: safeGpa10,
-            creditsEarned: safeCredits,
-            learningWarning: item.learningWarning,
-            learningStatus: item.learningStatus,
-            subjectGrades: item.subjectGrades,
-            academicGrade: item.academicGrade,
-            notes: item.notes
-          } : {}),
-          learningDataLocked: true
-        };
-      }
-      return s;
-    });
+      if (existingIndex >= 0) acc[existingIndex] = mergedStudent;
+      else acc.push(mergedStudent);
+      return acc;
+    }, [...students]);
     setStudents(updated);
     saveToStorage("unihub_students", updated);
   };
