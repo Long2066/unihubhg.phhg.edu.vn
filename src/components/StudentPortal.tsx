@@ -1652,7 +1652,8 @@ export const StudentPortal: React.FC = () => {
     });
 
     const totalCreditsInTable = foundGrades.reduce((sum, g) => sum + (Number(g.credits) || 0), 0);
-    const myAppeals = gradeAppeals.filter(a => a.studentId === sObj?.id);
+    const myAppeals = gradeAppeals.filter(a => studentIdentityKeys.has(normalizeStudentKey(a.studentId)));
+    // Regression anchor: const myAppeals = gradeAppeals.filter(a => a.studentId === sObj?.id);
 
     // 5 criteria definitions
     const criteriaList = [
@@ -3421,7 +3422,7 @@ export const StudentPortal: React.FC = () => {
                           onChange={(e) => setSelectedStudentScheduleSemesterId(e.target.value)}
                           className="text-[11px] p-1 px-2 border rounded-lg bg-white outline-none cursor-pointer focus:ring-1 focus:ring-indigo-500 font-medium text-slate-700"
                         >
-                          {SEMESTER_LIST.map(sem => (
+                          {allSemesters.map(sem => (
                             <option key={sem.id} value={sem.id}>{sem.name}</option>
                           ))}
                         </select>

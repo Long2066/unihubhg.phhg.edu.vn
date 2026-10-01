@@ -4052,6 +4052,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return { 
           ...a, 
           attended, 
+          verified: attended,
           role: role || a.role 
         };
       }

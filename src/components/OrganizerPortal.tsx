@@ -1046,14 +1046,21 @@ export const OrganizerPortal: React.FC = () => {
                                   )}
                                 </div>
                                 <p className="text-[10px] text-slate-450 font-mono mt-0.5">Mã số Sổ: {m.studentId} • Lớp sinh hoạt: {realClass}</p>
+                                {(m.phone || m.email || m.attachmentUrl) && (
+                                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-600">
+                                    {m.phone && <span className="px-2 py-1 rounded-lg bg-slate-50 ring-1 ring-slate-900/5 font-mono tabular-nums">SĐT: {m.phone}</span>}
+                                    {m.email && <span className="px-2 py-1 rounded-lg bg-sky-50 text-sky-700 ring-1 ring-sky-900/10 font-mono">{m.email}</span>}
+                                    {m.attachmentUrl && <span className="px-2 py-1 rounded-lg bg-amber-50 text-amber-700 ring-1 ring-amber-900/10">Có tệp đính kèm</span>}
+                                  </div>
+                                )}
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
-                                {m.applicationData && (
+                                {(m.applicationData || m.phone || m.email || m.attachmentUrl) && (
                                   <button
                                     type="button"
                                     onClick={() => setSelectedAppMember(m)}
                                     className="px-3 py-1.5 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg cursor-pointer transition-all flex items-center gap-1"
-                                    title="Xem chi tiết đơn đăng ký theo mẫu chuẩn"
+                                    title="Xem chi tiết đơn đăng ký"
                                   >
                                     <FileText size={12} />
                                     <span>Xem chi tiết đơn</span>

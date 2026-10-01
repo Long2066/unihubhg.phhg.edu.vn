@@ -77,7 +77,7 @@ const ScholarshipAssessmentView: React.FC = () => {
       }
 
       // 2. Conduct Score
-      const conduct = results.find(r => r.studentId === student.id && r.semesterId === selectedSemester);
+      const conduct = results.find(r => r.studentId === student.id && (r.periodId === selectedSemester || (r as any).semesterId === selectedSemester));
       const drl = conduct?.totalPoints || 0;
 
       // 3. Status checks

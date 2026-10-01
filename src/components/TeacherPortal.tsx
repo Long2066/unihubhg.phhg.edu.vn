@@ -920,7 +920,8 @@ export const TeacherPortal: React.FC = () => {
     addGradeAuditLog,
     gradeAppeals,
     resolveGradeAppeal,
-    gradingRules
+    gradingRules,
+    allSemesters
   } = useUniHub();
 
   const isAcademicAdmin = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.TRAINING_DEPT;
@@ -947,7 +948,10 @@ export const TeacherPortal: React.FC = () => {
       const uUser = (currentUser.username || "").trim().toLowerCase();
       const uId = (currentUser.id || "").trim().toLowerCase();
       const uTarget = (currentUser.targetId || "").trim().toLowerCase();
-      const matchTeacher = (aTeacher && (aTeacher === uEmail || aTeacher === uUser || aTeacher === uId || (uTarget && aTeacher === uTarget))) || 
+      const uName = (currentUser.name || "").trim().toLowerCase();
+      const aTeacherName = (a.teacherName || "").trim().toLowerCase();
+      const matchTeacher = (aTeacher && (aTeacher === uEmail || aTeacher === uUser || aTeacher === uId || (uTarget && aTeacher === uTarget))) ||
+        (aTeacherName && uName && aTeacherName === uName) ||
         currentUser.role === "ADMIN" || currentUser.role === "TRAINING_DEPT";
       const matchSem = a.semesterId === selectedSemester;
       return matchTeacher && matchSem;
@@ -961,8 +965,11 @@ export const TeacherPortal: React.FC = () => {
 
   const teacherAppeals = useMemo(() => {
     if (!currentUser) return [];
-    const mySubjectCodes = new Set(myAssignments.map(a => a.subjectCode.toUpperCase()));
-    return gradeAppeals.filter(a => mySubjectCodes.has(a.subjectCode.toUpperCase()));
+    return gradeAppeals.filter(appeal => myAssignments.some(a =>
+      a.subjectCode.trim().toUpperCase() === appeal.subjectCode.trim().toUpperCase() &&
+      normalizeClassId(a.classId) === normalizeClassId(appeal.classId) &&
+      (!appeal.semesterId || a.semesterId === appeal.semesterId)
+    ));
   }, [gradeAppeals, myAssignments, currentUser]);
 
   const pendingTeacherAppealsCount = teacherAppeals.filter(a => a.status === "PENDING" || a.status === "REVIEWING").length;
@@ -1549,7 +1556,7 @@ export const TeacherPortal: React.FC = () => {
                 onChange={(e) => setSelectedSemester(e.target.value)}
                 className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer border-none py-1 pr-2"
               >
-                {SEMESTER_LIST.map(sem => (
+                {allSemesters.map(sem => (
                   <option key={sem.id} value={sem.id} className="text-slate-900 font-semibold">{sem.name}</option>
                 ))}
               </select>
