@@ -124,7 +124,11 @@ export const TrainingOverviewView: React.FC<TrainingOverviewViewProps> = ({
         gpa = (s.gpa10 / 10) * 4;
       }
       const isWarned = s.learningWarning || (s.learningStatus && s.learningStatus.toLowerCase().includes("cảnh báo"));
-      const hasF = s.subjectGrades?.some(sg => sg.grade === "F");
+      const hasF = Array.isArray(s.subjectGrades)
+        ? (s.subjectGrades as any[]).some(sg => (typeof sg === "string" ? sg.trim().toUpperCase() === "F" : sg?.grade === "F"))
+        : typeof s.subjectGrades === "string"
+          ? s.subjectGrades.split(",").some(g => g.trim().toUpperCase() === "F")
+          : false;
       return (gpa || 0) >= 2.5 && !isWarned && !hasF;
     }).length;
   }, [students]);

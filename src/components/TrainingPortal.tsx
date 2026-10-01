@@ -81,7 +81,11 @@ const ScholarshipAssessmentView: React.FC = () => {
       const drl = conduct?.totalPoints || 0;
 
       // 3. Status checks
-      const hasFGrade = student.subjectGrades?.some(sg => sg.grade === "F") || false;
+      const hasFGrade = Array.isArray(student.subjectGrades)
+        ? (student.subjectGrades as any[]).some(sg => (typeof sg === "string" ? sg.trim().toUpperCase() === "F" : sg?.grade === "F"))
+        : typeof student.subjectGrades === "string"
+          ? student.subjectGrades.split(",").some(g => g.trim().toUpperCase() === "F")
+          : false;
       const isDisciplined = student.learningWarning === true || (student.learningStatus && (student.learningStatus.toLowerCase().includes("cảnh báo") || student.learningStatus.toLowerCase().includes("đình chỉ")));
 
       // 4. Classification
