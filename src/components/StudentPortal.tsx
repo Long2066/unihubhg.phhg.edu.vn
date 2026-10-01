@@ -38,7 +38,8 @@ import {
   Building2,
   ExternalLink,
   Check,
-  ArrowRight
+  ArrowRight,
+  Globe
 } from "lucide-react";
 import { uploadAvatarHybrid } from "../utils/imageCompressor";
 import { CreditRegistrationStudentView } from "./CreditRegistrationStudentView";
@@ -2660,6 +2661,10 @@ export const StudentPortal: React.FC = () => {
                   });
 
                   const clubMembers = members.filter(m => m.orgId === club.id && m.status === "ACTIVE");
+                  const isSrcClub = (club.id || "").trim().toUpperCase() === "CLBNCKH" || 
+                    (club.id || "").trim().toUpperCase() === "CLB_NCKH" || 
+                    (club.name || "").toLowerCase().includes("nghiên cứu khoa học") || 
+                    (club.name || "").toLowerCase().includes("src");
 
                   return (
                     <div className="fixed inset-0 bg-white z-50 flex flex-col overflow-hidden" id="club-workspace-modal">
@@ -2668,8 +2673,8 @@ export const StudentPortal: React.FC = () => {
                         {/* Modal Header */}
                         <div className="bg-gradient-to-r from-indigo-900 via-indigo-850 to-slate-900 px-6 py-5 text-white shrink-0 relative overflow-hidden">
                           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
-                          <div className="flex justify-between items-start relative z-10">
-                            <div className="space-y-1">
+                          <div className="flex flex-wrap sm:flex-nowrap justify-between items-start gap-4 relative z-10">
+                            <div className="space-y-1 max-w-xl">
                               <div className="flex items-center gap-2">
                                 <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full font-mono uppercase tracking-wider ${isMemberActive ? 'bg-emerald-500 text-white' : 'bg-indigo-700 text-indigo-100'}`}>
                                   {isMemberActive ? '⭐ KHÔNG GIAN SINH HOẠT CLB' : 'CHI TIẾT PHÂN HỆ CLB'}
@@ -2683,12 +2688,28 @@ export const StudentPortal: React.FC = () => {
                                 Ban chủ nhiệm: <strong className="text-white">{club.leaderName}</strong> • Trực thuộc Phân hiệu Hà Giang
                               </p>
                             </div>
-                            <button 
-                              onClick={() => setSelectedClubIdDetail(null)} 
-                              className="p-1.5 text-slate-300 hover:text-white cursor-pointer rounded-xl bg-white/10 hover:bg-white/20 transition-colors"
-                            >
-                              <X size={16} />
-                            </button>
+                            <div className="flex items-center gap-2.5 shrink-0 self-start">
+                              {isSrcClub && (
+                                <a
+                                  href="https://src-phhg.vercel.app/"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-md shadow-indigo-950/40 hover:shadow-indigo-900/60 ring-1 ring-white/20 transition-all cursor-pointer active:scale-95"
+                                  title="Chuyển hướng tới Web CLB SRC"
+                                >
+                                  <Globe size={15} className="shrink-0" />
+                                  <span>Truy cập web CLB SRC</span>
+                                  <ExternalLink size={13} className="opacity-80 shrink-0" />
+                                </a>
+                              )}
+                              <button 
+                                onClick={() => setSelectedClubIdDetail(null)} 
+                                className="p-2 text-slate-300 hover:text-white cursor-pointer rounded-xl bg-white/10 hover:bg-white/20 transition-colors"
+                                title="Đóng cửa sổ"
+                              >
+                                <X size={18} />
+                              </button>
+                            </div>
                           </div>
 
                           {/* Member Digital Identity Card (If ACTIVE member) */}
