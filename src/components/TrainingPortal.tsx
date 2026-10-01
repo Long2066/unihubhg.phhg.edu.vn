@@ -305,6 +305,7 @@ export const TrainingPortal: React.FC = () => {
   };
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [classDetailSearchQuery, setClassDetailSearchQuery] = useState("");
+  const [classSearchTerm, setClassSearchTerm] = useState("");
   const [selectedScheduleSemesterId, setSelectedScheduleSemesterId] = useState<string>("HOCKY_2_2025_2026");
   const [selectedScheduleWeek, setSelectedScheduleWeek] = useState<number>(0);
   const [selectedAssignmentClass, setSelectedAssignmentClass] = useState<string>("ALL");
@@ -3435,20 +3436,42 @@ export const TrainingPortal: React.FC = () => {
               {selectedClassId === null ? (
                 // LIST VIEW OF ALL CLASSES
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between bg-slate-50 p-4 rounded-2xl border gap-4">
                     <div>
                       <h3 className="text-sm font-bold text-slate-800 uppercase mb-1">Quản lý Lớp học & Auto Provisioning</h3>
                       <p className="text-[11px] text-slate-400 leading-relaxed">
                         Phòng Đào tạo chọn lớp để xem chi tiết, nạp thêm danh sách Excel (44 cột), xuất dữ liệu lớp. Sinh viên sẽ đăng nhập bằng Mã SV / CCCD để tự động điền các thông tin còn trống.
                       </p>
                     </div>
-                    <button
-                      onClick={() => setShowAddClassModal(true)}
-                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm cursor-pointer shrink-0 animate-fade-in"
-                    >
-                      <Plus size={14} />
-                      <span>Thêm lớp mới</span>
-                    </button>
+                    <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+                      {/* Search Bar for Classes */}
+                      <div className="relative min-w-[220px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                        <input
+                          type="text"
+                          value={classSearchTerm}
+                          onChange={(e) => setClassSearchTerm(e.target.value)}
+                          placeholder="Tìm kiếm tên lớp..."
+                          className="w-full pl-8.5 pr-8 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-2xs font-medium"
+                        />
+                        {classSearchTerm && (
+                          <button
+                            onClick={() => setClassSearchTerm("")}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => setShowAddClassModal(true)}
+                        className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer shrink-0 animate-fade-in"
+                      >
+                        <Plus size={14} />
+                        <span>Thêm lớp mới</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Add Class Inline Form/Modal */}
@@ -3487,11 +3510,28 @@ export const TrainingPortal: React.FC = () => {
                   )}
 
                   {/* Grid list of classes */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {Array.from(new Set([
+                  {(() => {
+                    const filteredClasses = Array.from(new Set([
                       ...students.map(s => normalizeClassId(s.classId)),
                       ...customClasses.map(c => normalizeClassId(c))
-                    ])).filter(Boolean).sort().map(clsId => {
+                    ])).filter(Boolean).filter(clsId => {
+                      if (!classSearchTerm.trim()) return true;
+                      return clsId.toLowerCase().includes(classSearchTerm.trim().toLowerCase());
+                    }).sort();
+
+                    if (filteredClasses.length === 0) {
+                      return (
+                        <div className="p-12 text-center bg-white rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center">
+                          <Search className="w-12 h-12 text-slate-200 mb-3" />
+                          <h4 className="text-slate-700 font-bold text-sm mb-1">Không tìm thấy lớp học nào</h4>
+                          <p className="text-slate-400 text-xs">Không có lớp học nào khớp với từ khóa "{classSearchTerm}". Vui lòng thử từ khóa khác.</p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {filteredClasses.map(clsId => {
                       const classStudents = students.filter(s => s.classId === clsId);
                       // Calculate completeness indicator using full strict profile validator
                       const completedCount = classStudents.filter(s => isStudentProfileComplete(s)).length;
@@ -3547,7 +3587,9 @@ export const TrainingPortal: React.FC = () => {
                         </div>
                       );
                     })}
-                  </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : (
                 // CLASS DETAIL VIEW (IDENTICAL INTERFACE INSIDE EACH CLASS)

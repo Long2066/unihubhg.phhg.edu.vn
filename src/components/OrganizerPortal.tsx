@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import * as XLSX from "xlsx";
 import { useUniHub, normalizeClassId } from "../state";
 import { motion } from "motion/react";
@@ -29,9 +29,11 @@ import {
   Search,
   Filter,
   CheckCircle2,
-  Edit3
+  Edit3,
+  Info
 } from "lucide-react";
 import { OrganizationMember, ExtracurricularActivity, UserRole, Organization } from "../types";
+import { compressImage } from "../utils/imageCompressor";
 
 export const OrganizerPortal: React.FC = () => {
   const { 
@@ -213,6 +215,37 @@ export const OrganizerPortal: React.FC = () => {
   const [annExpiryDate, setAnnExpiryDate] = useState(""); // Expiry display duration date for announcement
   const [annImageUrl, setAnnImageUrl] = useState(""); // Background/Marketing image URL for announcement
   const [annDeployUnit, setAnnDeployUnit] = useState(org?.id || orgId);
+
+  const actFileInputRef = useRef<HTMLInputElement>(null);
+  const annFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleActImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImage(file, 800, 450, 0.75);
+      if (compressed) setActImageUrl(compressed);
+    } catch (err) {
+      console.error("Lỗi nén ảnh hoạt động:", err);
+      alert("Không thể đọc tệp ảnh. Vui lòng thử lại.");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  const handleAnnImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImage(file, 800, 450, 0.75);
+      if (compressed) setAnnImageUrl(compressed);
+    } catch (err) {
+      console.error("Lỗi nén ảnh thông báo:", err);
+      alert("Không thể đọc tệp ảnh. Vui lòng thử lại.");
+    } finally {
+      e.target.value = "";
+    }
+  };
 
   // Sync deploy units whenever current organization updates
   useEffect(() => {
@@ -730,8 +763,8 @@ export const OrganizerPortal: React.FC = () => {
         linkedActId = createActivity({
           title: annTitle,
           orgId: annDeployUnit,
-          criteriaId: linkedCriteriaId || "TC3.1",
-          points: Number(linkedPoints) || 5,
+          criteriaId: isDoanOrHoi ? (linkedCriteriaId || "TC3.1") : "CLB_NOIBO",
+          points: isDoanOrHoi ? (Number(linkedPoints) || 5) : 0,
           dateTime: linkedDate,
           location: linkedLocation,
           description: annContent,
@@ -1568,6 +1601,13 @@ export const OrganizerPortal: React.FC = () => {
 
                   <div>
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">Ảnh Banner Marketing / Background (Tùy chọn)</label>
+                    <input 
+                      type="file" 
+                      ref={actFileInputRef} 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleActImageUpload} 
+                    />
                     <div className="flex gap-2">
                       <input 
                         type="text"
@@ -1576,6 +1616,15 @@ export const OrganizerPortal: React.FC = () => {
                         onChange={(e) => setActImageUrl(e.target.value)}
                         className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none font-mono"
                       />
+                      <button
+                        type="button"
+                        onClick={() => actFileInputRef.current?.click()}
+                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-lg text-[10px] font-bold shrink-0 cursor-pointer flex items-center gap-1 transition-colors"
+                        title="Tải ảnh trực tiếp từ máy tính/điện thoại"
+                      >
+                        <Upload size={12} />
+                        <span>Tải ảnh lên</span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
@@ -1593,6 +1642,20 @@ export const OrganizerPortal: React.FC = () => {
                         Chọn ảnh mẫu
                       </button>
                     </div>
+
+                    {actImageUrl && (
+                      <div className="relative mt-2 w-full h-28 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 group animate-fade-in">
+                        <img src={actImageUrl} alt="Banner Preview" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setActImageUrl("")}
+                          className="absolute top-2 right-2 p-1 bg-black/60 hover:bg-rose-600 text-white rounded-full transition-colors cursor-pointer"
+                          title="Gỡ ảnh này"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <button 
@@ -1656,6 +1719,13 @@ export const OrganizerPortal: React.FC = () => {
 
                   <div>
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">Ảnh Marketing / Bìa Thông Báo CLB (Tùy chọn)</label>
+                    <input 
+                      type="file" 
+                      ref={annFileInputRef} 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleAnnImageUpload} 
+                    />
                     <div className="flex gap-2">
                       <input 
                         type="text"
@@ -1664,6 +1734,15 @@ export const OrganizerPortal: React.FC = () => {
                         onChange={(e) => setAnnImageUrl(e.target.value)}
                         className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none font-mono"
                       />
+                      <button
+                        type="button"
+                        onClick={() => annFileInputRef.current?.click()}
+                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-lg text-[10px] font-bold shrink-0 cursor-pointer flex items-center gap-1 transition-colors"
+                        title="Tải ảnh trực tiếp từ máy tính/điện thoại"
+                      >
+                        <Upload size={12} />
+                        <span>Tải ảnh lên</span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
@@ -1681,6 +1760,20 @@ export const OrganizerPortal: React.FC = () => {
                         Chọn ảnh mẫu
                       </button>
                     </div>
+
+                    {annImageUrl && (
+                      <div className="relative mt-2 w-full h-28 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 group animate-fade-in">
+                        <img src={annImageUrl} alt="Announcement Banner Preview" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setAnnImageUrl("")}
+                          className="absolute top-2 right-2 p-1 bg-black/60 hover:bg-rose-600 text-white rounded-full transition-colors cursor-pointer"
+                          title="Gỡ ảnh này"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Customizable display duration date */}
@@ -1713,39 +1806,48 @@ export const OrganizerPortal: React.FC = () => {
                       <span className="text-[11px] font-extrabold text-indigo-950">Đồng thời khởi tạo hoạt động có điểm danh đi kèm</span>
                     </label>
                     <p className="text-[10px] text-slate-450 leading-tight">
-                      Khi tích chọn, hệ thống sẽ auto tạo 1 hoạt động tương ứng xuất hiện ngay trong <strong className="text-indigo-600">Sổ điểm danh & Event</strong> để dễ dàng quản lý rèn luyện.
+                      Khi tích chọn, hệ thống sẽ auto tạo 1 hoạt động tương ứng xuất hiện ngay trong <strong className="text-indigo-600">Sổ điểm danh & Event</strong> để dễ dàng quản lý điểm danh.
                     </p>
                     
                     {createLinkedActivity && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 animate-fade-in text-xs border-t border-indigo-100/50 mt-1.5">
-                        <div className="space-y-1">
-                          <label className="block text-[10px] font-bold text-slate-600">Mã minh chứng rèn luyện</label>
-                          <select 
-                            value={linkedCriteriaId}
-                            onChange={(e) => setLinkedCriteriaId(e.target.value)}
-                            className="w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-700"
-                          >
-                            {criteria.map(c => (
-                              <optgroup key={c.id} label={c.category} className="text-[10px] font-bold text-slate-400">
-                                {c.rules.map(r => (
-                                  <option key={r.id} value={r.id} className="text-xs text-slate-700 font-medium">
-                                    [{r.id}] {r.name.length > 40 ? r.name.substring(0, 40) + "..." : r.name} (+{r.points}đ)
-                                  </option>
+                        {isDoanOrHoi ? (
+                          <>
+                            <div className="space-y-1">
+                              <label className="block text-[10px] font-bold text-slate-600">Mã minh chứng rèn luyện</label>
+                              <select 
+                                value={linkedCriteriaId}
+                                onChange={(e) => setLinkedCriteriaId(e.target.value)}
+                                className="w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-700"
+                              >
+                                {criteria.map(c => (
+                                  <optgroup key={c.id} label={c.category} className="text-[10px] font-bold text-slate-400">
+                                    {c.rules.map(r => (
+                                      <option key={r.id} value={r.id} className="text-xs text-slate-700 font-medium">
+                                        [{r.id}] {r.name.length > 40 ? r.name.substring(0, 40) + "..." : r.name} (+{r.points}đ)
+                                      </option>
+                                    ))}
+                                  </optgroup>
                                 ))}
-                              </optgroup>
-                            ))}
-                          </select>
-                        </div>
+                              </select>
+                            </div>
 
-                        <div className="space-y-1">
-                          <label className="block text-[10px] font-bold text-slate-600">Điểm rèn luyện ròng</label>
-                          <input 
-                            type="number"
-                            value={linkedPoints}
-                            onChange={(e) => setLinkedPoints(Number(e.target.value))}
-                            className="w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-200 focus:outline-none"
-                          />
-                        </div>
+                            <div className="space-y-1">
+                              <label className="block text-[10px] font-bold text-slate-600">Điểm rèn luyện ròng</label>
+                              <input 
+                                type="number"
+                                value={linkedPoints}
+                                onChange={(e) => setLinkedPoints(Number(e.target.value))}
+                                className="w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-200 focus:outline-none"
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <div className="sm:col-span-2 p-2.5 bg-amber-50/80 border border-amber-200/90 rounded-xl text-amber-850 text-xs flex items-center gap-2">
+                            <Info size={16} className="shrink-0 text-amber-600" />
+                            <span><strong>Điểm danh nội bộ CLB:</strong> Hoạt động này phục vụ quản lý & điểm danh nội bộ thành viên CLB, không cộng điểm rèn luyện cấp trường/khoa (0 điểm ĐRL).</span>
+                          </div>
+                        )}
 
                         <div className="space-y-1">
                           <label className="block text-[10px] font-bold text-slate-600">Thời gian tổ chức sự vụ *</label>

@@ -2048,6 +2048,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               const id = (idResolver(item) || "").toString().trim().toLowerCase();
               return id && !cloudIds.has(id) && id.startsWith("at_new_");
             })
+          : (storageKey === "unihub_activities" || storageKey === "unihub_announcements")
+          ? localList.filter(item => {
+              const id = (idResolver(item) || "").toString().trim().toLowerCase();
+              const expiry = (item as any)?.expiryDate;
+              const today = new Date().toISOString().split("T")[0];
+              if (expiry && today > expiry) return false;
+              return id && !cloudIds.has(id);
+            })
           : localList.filter(item => {
               const id = (idResolver(item) || "").toString().trim().toLowerCase();
               return id && !cloudIds.has(id);
@@ -2192,7 +2200,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const list: ExtracurricularActivity[] = [];
         actsSnap.forEach(d => list.push(d.data() as ExtracurricularActivity));
         const merged = smartMerge(list, "unihub_activities", a => a.id);
-        setActivities(merged);
+        
+        // Auto-purge expired activities from Firestore and local cache
+        const todayStr = new Date().toISOString().split("T")[0];
+        const validActs: ExtracurricularActivity[] = [];
+        for (const act of merged) {
+          if (act.expiryDate && todayStr > act.expiryDate) {
+            deleteDoc(doc(db, "activities", act.id)).catch(e => console.warn("Lỗi auto-purge activity Firestore:", e));
+          } else {
+            validActs.push(act);
+          }
+        }
+        setActivities(validActs);
+        localStorage.setItem("unihub_activities", JSON.stringify(validActs));
       }
 
       // 5. Get Attendance
@@ -2246,7 +2266,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const list: ClubAnnouncement[] = [];
         annSnap.forEach(d => list.push(d.data() as ClubAnnouncement));
         const merged = smartMerge(list, "unihub_announcements", a => a.id);
-        setAnnouncements(merged);
+        
+        // Auto-purge expired announcements from Firestore and local cache
+        const todayStr = new Date().toISOString().split("T")[0];
+        const validAnns: ClubAnnouncement[] = [];
+        for (const ann of merged) {
+          if (ann.expiryDate && todayStr > ann.expiryDate) {
+            deleteDoc(doc(db, "announcements", ann.id)).catch(e => console.warn("Lỗi auto-purge announcement Firestore:", e));
+          } else {
+            validAnns.push(ann);
+          }
+        }
+        setAnnouncements(validAnns);
+        localStorage.setItem("unihub_announcements", JSON.stringify(validAnns));
       }
 
       // 11. Get System Feedbacks
