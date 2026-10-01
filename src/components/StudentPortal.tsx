@@ -736,6 +736,16 @@ export const StudentPortal: React.FC = () => {
     return true;
   };
 
+  // Hoạt động công khai toàn trường: Đoàn - Hội hoặc sự kiện có cộng điểm rèn luyện
+  const publicActivities = useMemo(() => {
+    return (activities || []).filter(act => {
+      const isDoanHoiSpecial = act.orgId === "DOANTN" || act.orgId === "HOISV" || act.orgId === "DOAN_HOI" || act.orgId === "PHANHIEU" || act.orgId === "TRUONG";
+      const org = organizations.find(o => o.id === act.orgId);
+      const isDoanHoi = isDoanHoiSpecial || org?.type === "DOAN" || org?.type === "HOI";
+      return isDoanHoi || (act.points && act.points > 0);
+    });
+  }, [activities, organizations]);
+
   // Only display Clubs ("Mục 'CLB / Hội của tôi' chỉ để mỗi 'Câu lạc bộ'")
   const filteredClubs = organizations.filter(o => o.type === "CLB");
 
@@ -846,10 +856,19 @@ export const StudentPortal: React.FC = () => {
   const newsTickerItems = useMemo(() => {
     const list: string[] = [];
     (announcements || []).forEach(ann => {
+      const isDoanHoiSpecial = ann.orgId === "DOANTN" || ann.orgId === "HOISV" || ann.orgId === "DOAN_HOI" || ann.orgId === "PHANHIEU" || ann.orgId === "TRUONG";
+      const matchedOrg = (organizations || []).find(o => o.id === ann.orgId);
+      const isDoanHoi = isDoanHoiSpecial || matchedOrg?.type === "DOAN" || matchedOrg?.type === "HOI";
+      if (!isDoanHoi) return; // Bỏ qua thông báo nội bộ của CLB
+
       list.push(`📢 THÔNG BÁO: ${ann.title} — ${ann.orgName || "Hệ thống Phân hiệu"}`);
     });
     (activities || []).forEach(act => {
+      const isDoanHoiSpecial = act.orgId === "DOANTN" || act.orgId === "HOISV" || act.orgId === "DOAN_HOI" || act.orgId === "PHANHIEU" || act.orgId === "TRUONG";
       const matchedOrg = (organizations || []).find(o => o.id === act.orgId);
+      const isDoanHoi = isDoanHoiSpecial || matchedOrg?.type === "DOAN" || matchedOrg?.type === "HOI";
+      if (!isDoanHoi && (!act.points || act.points <= 0)) return; // Bỏ qua sự kiện nội bộ CLB
+
       const orgName = matchedOrg?.name || act.orgName || "Tổ chức phong trào";
       list.push(`🔥 SỰ KIỆN: ${act.title} (+${act.points} điểm rèn luyện) — ${orgName}`);
     });
@@ -860,14 +879,20 @@ export const StudentPortal: React.FC = () => {
   }, [announcements, activities, organizations]);
 
   const featuredEventSlides = useMemo(() => {
-    if (!activities || activities.length === 0) return [];
+    const majorActivities = (activities || []).filter(act => {
+      const isDoanHoiSpecial = act.orgId === "DOANTN" || act.orgId === "HOISV" || act.orgId === "DOAN_HOI" || act.orgId === "PHANHIEU" || act.orgId === "TRUONG";
+      const matchedOrg = (organizations || []).find(o => o.id === act.orgId);
+      const isDoanHoi = isDoanHoiSpecial || matchedOrg?.type === "DOAN" || matchedOrg?.type === "HOI";
+      return isDoanHoi || (act.points && act.points > 0);
+    });
+    if (majorActivities.length === 0) return [];
     const colors = [
       "from-purple-600 via-pink-700 to-indigo-800",
       "from-blue-600 via-indigo-700 to-slate-900",
       "from-emerald-600 via-teal-700 to-indigo-800",
       "from-amber-600 via-orange-700 to-indigo-900"
     ];
-    return activities.slice(0, 5).map((act, sIdx) => {
+    return majorActivities.slice(0, 5).map((act, sIdx) => {
       const matchedOrg = (organizations || []).find(o => o.id === act.orgId);
       const resolvedOrgName = matchedOrg?.name || act.orgName || (
         act.orgId === "DOANTN" ? "BCH Đoàn TNCS Phân hiệu Hà Giang" :
@@ -1272,16 +1297,12 @@ export const StudentPortal: React.FC = () => {
     const todayStr = new Date().toISOString().split("T")[0];
     const normalizedAnnouncementKeyword = announcementKeyword.trim().toLowerCase();
 
-    // Get active / upcoming / completed club and youth union activities
+    // Get active / upcoming / completed activities: Chỉ ĐOÀN - HỘI hoặc sự kiện lớn (có cộng ĐRL) mới ra bảng tin all sinh viên
     const activeClubActs = activities.filter(act => {
-      const isDoanHoiSpecial = act.orgId === "DOANTN" || act.orgId === "HOISV" || act.orgId === "DOAN_HOI";
+      const isDoanHoiSpecial = act.orgId === "DOANTN" || act.orgId === "HOISV" || act.orgId === "DOAN_HOI" || act.orgId === "PHANHIEU" || act.orgId === "TRUONG";
       const club = organizations.find(o => o.id === act.orgId);
-      if (!isDoanHoiSpecial && (!club || (club.type !== "CLB" && club.type !== "DOAN" && club.type !== "HOI"))) return false;
-      if (onlyMyClubsFilter) {
-        const isJoined = joinedClubIds.includes(act.orgId) || 
-          (act.orgId === "DOAN_HOI" && (joinedClubIds.includes("DOANTN") || joinedClubIds.includes("HOISV")));
-        if (!isJoined) return false;
-      }
+      const isDoanHoi = isDoanHoiSpecial || club?.type === "DOAN" || club?.type === "HOI";
+      if (!isDoanHoi && (!act.points || act.points <= 0)) return false; // Hoạt động nội bộ CLB chỉ nằm trong không gian CLB
       
       const expiry = (act as any).expiryDate;
       if (expiry && todayStr > expiry) return false;
@@ -1295,16 +1316,12 @@ export const StudentPortal: React.FC = () => {
       return true;
     });
 
-    // Get active club and youth union announcements
+    // Get active announcements: Chỉ ĐOÀN - HỘI hoặc cấp trường mới hiển thị ra bảng tin all sinh viên
     const activeClubAnns = announcements.filter(ann => {
-      const isDoanHoiSpecial = ann.orgId === "DOANTN" || ann.orgId === "HOISV" || ann.orgId === "DOAN_HOI";
+      const isDoanHoiSpecial = ann.orgId === "DOANTN" || ann.orgId === "HOISV" || ann.orgId === "DOAN_HOI" || ann.orgId === "PHANHIEU" || ann.orgId === "TRUONG";
       const club = organizations.find(o => o.id === ann.orgId);
-      if (!isDoanHoiSpecial && (!club || (club.type !== "CLB" && club.type !== "DOAN" && club.type !== "HOI"))) return false;
-      if (onlyMyClubsFilter) {
-        const isJoined = joinedClubIds.includes(ann.orgId) || 
-          (ann.orgId === "DOAN_HOI" && (joinedClubIds.includes("DOANTN") || joinedClubIds.includes("HOISV")));
-        if (!isJoined) return false;
-      }
+      const isDoanHoi = isDoanHoiSpecial || club?.type === "DOAN" || club?.type === "HOI";
+      if (!isDoanHoi) return false; // Mọi thông báo CLB chỉ thành viên CLB đó mới thấy trong danh mục CLB
       
       if (ann.expiryDate && todayStr > ann.expiryDate) return false;
 
@@ -2268,7 +2285,7 @@ export const StudentPortal: React.FC = () => {
                     onClick={() => setActivityMilestone("ALL")}
                     className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all ${activityMilestone === "ALL" ? "bg-white text-indigo-650 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}
                   >
-                    Tất cả ({activities.length})
+                    Tất cả ({publicActivities.length})
                   </button>
                   <button 
                     onClick={() => setActivityMilestone("WEEK")}
@@ -2293,14 +2310,14 @@ export const StudentPortal: React.FC = () => {
 
               {/* Activities rendering based on timeline milestone */}
               <div className="space-y-3">
-                {activities.filter(filterByMilestone).length === 0 ? (
+                {publicActivities.filter(filterByMilestone).length === 0 ? (
                   <div className="p-8 border border-dashed border-slate-200 rounded-xl text-center text-slate-400 text-xs font-medium">
                     Không có hoạt động nào được mở cho mốc này trong lịch trường.
                   </div>
                 ) : (
-                  activities.filter(filterByMilestone).map(act => {
-                    const studentReg = myAttendance.find(a => a.activityId === act.id);
-                    const isRegistered = !!studentReg;
+                  publicActivities.filter(filterByMilestone).map(act => {
+                          const studentReg = myAttendance.find(a => a.activityId === act.id);
+                          const isRegistered = !!studentReg;
                     
                     const matchRule = criteria.flatMap(c => c.rules).find(r => r.id === act.criteriaId);
                     const actLivePoints = matchRule ? matchRule.points : act.points;

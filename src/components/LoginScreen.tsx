@@ -120,7 +120,13 @@ export const LoginScreen: React.FC = () => {
     const todayStr = new Date().toISOString().split("T")[0];
 
     (announcements || []).forEach((ann) => {
-      // B2: Kiểm tra expiryDate — bỏ qua nếu đã hết hạn
+      // Chỉ ĐOÀN - HỘI hoặc cấp trường mới hiển thị ra tin tức chung
+      const isDoanHoiSpecial = ann.orgId === "DOANTN" || ann.orgId === "HOISV" || ann.orgId === "DOAN_HOI" || ann.orgId === "PHANHIEU" || ann.orgId === "TRUONG";
+      const org = (organizations || []).find(o => o.id === ann.orgId);
+      const isDoanHoi = isDoanHoiSpecial || org?.type === "DOAN" || org?.type === "HOI";
+      if (!isDoanHoi) return; // Bỏ qua thông báo nội bộ của CLB
+
+      // Kiểm tra expiryDate — bỏ qua nếu đã hết hạn
       if (ann.expiryDate && todayStr > ann.expiryDate) return;
 
       let dateStr = "";
@@ -146,7 +152,13 @@ export const LoginScreen: React.FC = () => {
     const sourceActivities = activities || [];
 
     sourceActivities.forEach((act) => {
-      // B2: Kiểm tra expiryDate — bỏ qua nếu đã hết hạn
+      // Chỉ hoạt động Đoàn - Hội hoặc sự kiện lớn có cộng ĐRL mới hiển thị ra tin tức chung
+      const isDoanHoiSpecial = act.orgId === "DOANTN" || act.orgId === "HOISV" || act.orgId === "DOAN_HOI" || act.orgId === "PHANHIEU" || act.orgId === "TRUONG";
+      const org = (organizations || []).find(o => o.id === act.orgId);
+      const isDoanHoi = isDoanHoiSpecial || org?.type === "DOAN" || org?.type === "HOI";
+      if (!isDoanHoi && (!act.points || act.points <= 0)) return; // Bỏ qua điểm danh nội bộ CLB
+      
+      // Kiểm tra expiryDate — bỏ qua nếu đã hết hạn
       if (act.expiryDate && todayStr > act.expiryDate) return;
 
       let dateStr = "";
