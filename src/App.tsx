@@ -54,7 +54,8 @@ import {
   FileSpreadsheet,
   Grid,
   Menu,
-  Globe
+  Globe,
+  LayoutDashboard
 } from "lucide-react";
 
 const AdviserIcon = ShieldAlert;
@@ -1099,6 +1100,7 @@ const AppContent: React.FC = () => {
         ];
       case UserRole.TRAINING_DEPT:
         return [
+          { id: "OVERVIEW", label: "Tổng Quan Đào Tạo", icon: LayoutDashboard },
           { id: "IMPORT", label: "Nạp & Tổng Hợp Điểm HK", icon: FileSpreadsheet },
           { id: "DANG_KY_TIN_CHI", label: "Đăng Ký Tín Chỉ", icon: BookOpen },
           { id: "TEACHER_ASSIGNMENTS", label: "Phân Công Giảng Dạy", icon: Users },
@@ -1254,6 +1256,8 @@ const AppContent: React.FC = () => {
 
     if (currentUser.role === UserRole.TRAINING_DEPT) {
       switch (tabId) {
+        case "OVERVIEW":
+          return unlockRequests.filter(r => r.status === "PENDING").length + gradeAppeals.filter(a => a.status === "PENDING" || a.status === "REVIEWING").length;
         case "UNLOCK_REQUESTS":
           return unlockRequests.filter(r => r.status === "PENDING").length;
         case "GRADE_APPEALS":

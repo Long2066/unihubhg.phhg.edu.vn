@@ -222,7 +222,7 @@ interface UniHubContextType {
   // Credit Registration
   customSemesters: SemesterItem[];
   allSemesters: SemesterItem[];
-  addCustomSemester: (name: string, id?: string) => Promise<SemesterItem>;
+  addCustomSemester: (name: string, id?: string, meta?: { term?: string; academicYear?: string }) => Promise<SemesterItem>;
   deleteCustomSemester: (id: string) => Promise<void>;
   registrationPeriods: RegistrationPeriod[];
   courseOfferings: CourseOffering[];
@@ -370,7 +370,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       case UserRole.ADMIN:
         return "CONFIG";
       case UserRole.TRAINING_DEPT:
-        return "IMPORT";
+        return "OVERVIEW";
       case UserRole.FACULTY:
         return "STAT";
       case UserRole.ADVISER:
@@ -6409,7 +6409,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // ─── CUSTOM SEMESTER ACTIONS ───────────────────────────────────
-  const addCustomSemester = async (name: string, customId?: string): Promise<SemesterItem> => {
+  const addCustomSemester = async (name: string, customId?: string, meta?: { term?: string; academicYear?: string }): Promise<SemesterItem> => {
     const trimmedName = name.trim();
     if (!trimmedName) throw new Error("Tên học kỳ không được để trống!");
 
@@ -6426,7 +6426,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       id = `HOCKY_${ascii}`;
     }
 
-    const newSem: SemesterItem = { id, name: trimmedName, isCustom: true };
+    const newSem: SemesterItem = { 
+      id, 
+      name: trimmedName, 
+      isCustom: true,
+      term: meta?.term,
+      academicYear: meta?.academicYear
+    };
 
     setCustomSemesters(prev => {
       const filtered = prev.filter(s => s.id !== id);

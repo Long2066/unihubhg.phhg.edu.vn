@@ -93,6 +93,8 @@ export interface SemesterItem {
   id: string;
   name: string;
   isCustom?: boolean;
+  term?: string;
+  academicYear?: string;
 }
 
 export const SEMESTER_LIST: SemesterItem[] = [

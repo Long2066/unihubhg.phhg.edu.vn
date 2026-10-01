@@ -34,10 +34,13 @@ import {
   Copy,
   Database,
   AlertCircle,
-  Award
+  Award,
+  LayoutDashboard
 } from "lucide-react";
 import { DataBackupRestoreModal } from "./DataBackupRestoreModal";
 import { CreditRegistrationTrainingView } from "./CreditRegistrationTrainingView";
+import { AddSemesterModal } from "./AddSemesterModal";
+import { TrainingOverviewView } from "./TrainingOverviewView";
 
 export const formatStudentId = (id: any) => {
   const str = String(id || "").trim();
@@ -50,10 +53,11 @@ export const formatStudentId = (id: any) => {
 
 
 const ScholarshipAssessmentView: React.FC = () => {
-  const { students, results, customClasses } = useUniHub();
+  const { students, results, customClasses, allSemesters } = useUniHub();
   const [selectedSemester, setSelectedSemester] = useState<string>("HOCKY_2_2025_2026");
   const [selectedFaculty, setSelectedFaculty] = useState<string>("ALL");
   const [assessmentData, setAssessmentData] = useState<any[]>([]);
+  const [showAddSemesterModal, setShowAddSemesterModal] = useState<boolean>(false);
 
   // Unique faculties from classId
   const allFaculties = Array.from(new Set(
@@ -148,13 +152,23 @@ const ScholarshipAssessmentView: React.FC = () => {
 
       <div className="flex flex-col md:flex-row gap-4 items-end bg-white p-4 rounded-xl border shadow-sm">
         <div className="space-y-1 w-full md:w-1/3">
-          <label className="block text-[11px] font-bold text-slate-500 uppercase">Học kỳ xét:</label>
+          <div className="flex items-center justify-between">
+            <label className="block text-[11px] font-bold text-slate-500 uppercase">Học kỳ xét:</label>
+            <button
+              type="button"
+              onClick={() => setShowAddSemesterModal(true)}
+              className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <Plus size={12} />
+              <span>Thêm HK</span>
+            </button>
+          </div>
           <select 
             value={selectedSemester}
             onChange={e => setSelectedSemester(e.target.value)}
             className="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg font-bold text-slate-800 focus:outline-none focus:ring-1"
           >
-            {SEMESTER_LIST.map(sem => (
+            {allSemesters.map(sem => (
               <option key={sem.id} value={sem.id}>{sem.name}</option>
             ))}
           </select>
@@ -243,6 +257,12 @@ const ScholarshipAssessmentView: React.FC = () => {
           <p className="text-slate-400 text-xs">Vui lòng chọn học kỳ, lớp và nhấn "Xét Học Bổng" để xem kết quả.</p>
         </div>
       )}
+
+      <AddSemesterModal
+        isOpen={showAddSemesterModal}
+        onClose={() => setShowAddSemesterModal(false)}
+        onCreated={(s) => setSelectedSemester(s.id)}
+      />
     </div>
   );
 };
@@ -282,7 +302,14 @@ export const TrainingPortal: React.FC = () => {
     gradingRules,
     updateGradingRules,
     addGradeAuditLog,
-    results
+    results,
+    customSemesters,
+    allSemesters,
+    addCustomSemester,
+    deleteCustomSemester,
+    registrationPeriods,
+    courseOfferings,
+    creditEnrollments
   } = useUniHub();
 
   if (currentUser && currentUser.role !== UserRole.TRAINING_DEPT && currentUser.role !== UserRole.ADMIN) {
@@ -295,11 +322,11 @@ export const TrainingPortal: React.FC = () => {
     );
   }
 
-  const validTrainingTabs = ["IMPORT", "DANG_KY_TIN_CHI", "TEACHER_ASSIGNMENTS", "UNLOCK_REQUESTS", "GRADE_APPEALS", "IMPORT_CLASSES", "LIST", "THOI_KHOA_BIEU", "XET_HOC_BONG"] as const;
+  const validTrainingTabs = ["OVERVIEW", "IMPORT", "DANG_KY_TIN_CHI", "TEACHER_ASSIGNMENTS", "UNLOCK_REQUESTS", "GRADE_APPEALS", "IMPORT_CLASSES", "LIST", "THOI_KHOA_BIEU", "XET_HOC_BONG"] as const;
   type TrainingTab = typeof validTrainingTabs[number];
   const activeTab: TrainingTab = validTrainingTabs.includes(activePortletTab as any) 
     ? (activePortletTab as TrainingTab) 
-    : "IMPORT";
+    : "OVERVIEW";
   const setActiveTab = (tab: TrainingTab) => {
     setActivePortletTab(tab);
   };
@@ -309,6 +336,16 @@ export const TrainingPortal: React.FC = () => {
   const [selectedScheduleSemesterId, setSelectedScheduleSemesterId] = useState<string>("HOCKY_2_2025_2026");
   const [selectedScheduleWeek, setSelectedScheduleWeek] = useState<number>(0);
   const [selectedAssignmentClass, setSelectedAssignmentClass] = useState<string>("ALL");
+  const [showAddSemesterModal, setShowAddSemesterModal] = useState<boolean>(false);
+  const [semesterModalTarget, setSemesterModalTarget] = useState<"ASSIGNMENTS" | "SCHEDULE" | "SCHOLARSHIP" | "IMPORT" | "GLOBAL">("GLOBAL");
+
+  const handleSemesterCreated = (newSem: SemesterItem) => {
+    if (semesterModalTarget === "SCHEDULE") {
+      setSelectedScheduleSemesterId(newSem.id);
+    } else {
+      setSelectedSemesterId(newSem.id);
+    }
+  };
 
   // State Đổi Tên Lớp
   const [editingRenameClassId, setEditingRenameClassId] = useState<string | null>(null);
@@ -412,7 +449,7 @@ export const TrainingPortal: React.FC = () => {
         ? currentSemAssignments
         : (seedAssignmentsForSemester.length > 0 ? seedAssignmentsForSemester : SEED_TEACHER_ASSIGNMENTS);
 
-      const currentSemesterObj = SEMESTER_LIST.find(s => s.id === selectedSemesterId);
+      const currentSemesterObj = allSemesters.find(s => s.id === selectedSemesterId);
       const semesterMatch = selectedSemesterId.match(/^HOCKY_(\d+)_(\d{4})_(\d{4})$/);
       const semesterNameUpper = semesterMatch
         ? `HỌC KÌ ${semesterMatch[1] === "1" ? "I" : "II"}, NĂM HỌC ${semesterMatch[2]} - ${semesterMatch[3]}`
@@ -2795,46 +2832,57 @@ export const TrainingPortal: React.FC = () => {
   return (
     <div className="space-y-6" id="training-portal-container">
       {/* Bio Box */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <span className="text-[10px] font-mono font-bold px-2.5 py-1 bg-amber-50 text-amber-700 rounded-full border border-amber-200 uppercase tracking-wider">
-            PHÒNG ĐÀO TẠO & KHẢO THÍ HỌC VỤ
-          </span>
-          <h2 className="text-xl font-extrabold text-slate-900 mt-2">Cổng Kiểm Toán & Nạp Cơ Sở Học Vị Phân Hiệu</h2>
-          <p className="text-xs text-slate-500 mt-1 italic">
-            Nạp, đồng bộ khóa học vụ GPA sinh viên, chốt và khởi tạo nhanh các lớp sinh hoạt, tài khoản Ban cán sự lớp đồng quy.
-          </p>
+      {activeTab !== "OVERVIEW" && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <span className="text-[10px] font-mono font-bold px-2.5 py-1 bg-amber-50 text-amber-700 rounded-full border border-amber-200 uppercase tracking-wider">
+              PHÒNG ĐÀO TẠO & KHẢO THÍ HỌC VỤ
+            </span>
+            <h2 className="text-xl font-extrabold text-slate-900 mt-2">Cổng Kiểm Toán & Nạp Cơ Sở Học Vị Phân Hiệu</h2>
+            <p className="text-xs text-slate-500 mt-1 italic">
+              Nạp, đồng bộ khóa học vụ GPA sinh viên, chốt và khởi tạo nhanh các lớp sinh hoạt, tài khoản Ban cán sự lớp đồng quy.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+            <button 
+              onClick={() => setShowBackupModal(true)}
+              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg flex items-center gap-2 shadow-sm transition-all hover:cursor-pointer shrink-0 relative"
+            >
+              <Database size={14} />
+              <span>Sao lưu & Khôi phục CSDL</span>
+              {recycleBin && recycleBin.length > 0 && (
+                <span className="px-1.5 py-0.2 bg-rose-500 text-white text-[9.5px] font-black rounded-full shadow-xs">
+                  {recycleBin.length}
+                </span>
+              )}
+            </button>
+
+            <button 
+              onClick={toggleLearningDataLock}
+              className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg flex items-center gap-2 shadow-sm transition-all hover:cursor-pointer shrink-0"
+            >
+              <Lock size={14} />
+              <span>Khóa Sổ Toàn Phân Hiệu</span>
+            </button>
+          </div>
         </div>
+      )}
 
-        <div className="flex items-center gap-2.5 flex-wrap shrink-0">
-          <button 
-            onClick={() => setShowBackupModal(true)}
-            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg flex items-center gap-2 shadow-sm transition-all hover:cursor-pointer shrink-0 relative"
-          >
-            <Database size={14} />
-            <span>Sao lưu & Khôi phục CSDL</span>
-            {recycleBin && recycleBin.length > 0 && (
-              <span className="px-1.5 py-0.2 bg-rose-500 text-white text-[9.5px] font-black rounded-full shadow-xs">
-                {recycleBin.length}
-              </span>
-            )}
-          </button>
-
-          <button 
-            onClick={toggleLearningDataLock}
-            className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg flex items-center gap-2 shadow-sm transition-all hover:cursor-pointer shrink-0"
-          >
-            <Lock size={14} />
-            <span>Khóa Sổ Toàn Phân Hiệu</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="w-full space-y-4">
-        {/* Action Panel */}
-        <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm min-h-[460px] flex flex-col justify-between">
-          
-          {/* TAB 1: CSV / EXCEL MOCK IMPORTER & DUAL MODE */}
+      {activeTab === "OVERVIEW" ? (
+        <TrainingOverviewView
+          onNavigateTab={(tabId) => setActivePortletTab(tabId)}
+          onOpenAddSemesterModal={() => {
+            setSemesterModalTarget("GLOBAL");
+            setShowAddSemesterModal(true);
+          }}
+        />
+      ) : (
+        <div className="w-full space-y-4">
+          {/* Action Panel */}
+          <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm min-h-[460px] flex flex-col justify-between">
+            
+            {/* TAB 1: CSV / EXCEL MOCK IMPORTER & DUAL MODE */}
           {activeTab === "IMPORT" && (
             <div className="space-y-6 text-left">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
@@ -2864,13 +2912,26 @@ export const TrainingPortal: React.FC = () => {
               </div>
 
               <div className="flex flex-col gap-1.5 max-w-xs">
-                <label className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Chọn học kì đồng bộ dữ liệu:</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Chọn học kì đồng bộ dữ liệu:</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSemesterModalTarget("IMPORT");
+                      setShowAddSemesterModal(true);
+                    }}
+                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <Plus size={11} />
+                    <span>Thêm HK</span>
+                  </button>
+                </div>
                 <select
                   value={selectedSemesterId}
                   onChange={(e) => setSelectedSemesterId(e.target.value)}
                   className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
                 >
-                  {SEMESTER_LIST.map(sem => (
+                  {allSemesters.map(sem => (
                     <option key={sem.id} value={sem.id}>
                       {sem.name}
                     </option>
@@ -3068,10 +3129,23 @@ export const TrainingPortal: React.FC = () => {
                     onChange={(e) => setSelectedSemesterId(e.target.value)}
                     className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
                   >
-                    {SEMESTER_LIST.map(sem => (
+                    {allSemesters.map(sem => (
                       <option key={sem.id} value={sem.id}>{sem.name}</option>
                     ))}
                   </select>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSemesterModalTarget("ASSIGNMENTS");
+                      setShowAddSemesterModal(true);
+                    }}
+                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                    title="Thêm học kỳ mới tùy chỉnh"
+                  >
+                    <Plus size={13} />
+                    <span>Thêm Học Kỳ</span>
+                  </button>
 
                   {/* Dropdown Lọc theo Lớp */}
                   <select
@@ -3999,10 +4073,22 @@ export const TrainingPortal: React.FC = () => {
                         onChange={(e) => setSelectedScheduleSemesterId(e.target.value)}
                         className="text-xs p-1.5 border border-slate-300 rounded-lg bg-white outline-none cursor-pointer focus:ring-1 focus:ring-indigo-500 font-medium text-slate-800"
                       >
-                        {SEMESTER_LIST.map(sem => (
+                        {allSemesters.map(sem => (
                           <option key={sem.id} value={sem.id}>{sem.name}</option>
                         ))}
                       </select>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSemesterModalTarget("SCHEDULE");
+                          setShowAddSemesterModal(true);
+                        }}
+                        className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                        title="Thêm học kỳ mới tùy chỉnh"
+                      >
+                        <Plus size={12} />
+                        <span>Thêm HK</span>
+                      </button>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -4114,6 +4200,7 @@ export const TrainingPortal: React.FC = () => {
         </div>
 
       </div>
+      )}
 
       {/* MODAL: MANUAL STUDENT EDIT DIALOG */}
       {selectedStudentId && (
@@ -4354,6 +4441,32 @@ export const TrainingPortal: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveManualAssignment} className="space-y-3 text-xs">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-bold text-slate-700">Học kỳ áp dụng (*)</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSemesterModalTarget("ASSIGNMENTS");
+                      setShowAddSemesterModal(true);
+                    }}
+                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus size={11} />
+                    <span>Thêm HK</span>
+                  </button>
+                </div>
+                <select
+                  value={selectedSemesterId}
+                  onChange={(e) => setSelectedSemesterId(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 font-bold bg-slate-50 cursor-pointer"
+                >
+                  {allSemesters.map(sem => (
+                    <option key={sem.id} value={sem.id}>{sem.name}</option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Lớp niên chế / hành chính (*)</label>
                 <input
@@ -5029,7 +5142,7 @@ export const TrainingPortal: React.FC = () => {
                   onChange={(e) => setScheduleModalData({ ...scheduleModalData, semesterId: e.target.value })}
                   className="w-full p-2 border rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 font-medium"
                 >
-                  {SEMESTER_LIST.map(sem => (
+                  {allSemesters.map(sem => (
                     <option key={sem.id} value={sem.id}>{sem.name}</option>
                   ))}
                 </select>
@@ -5255,6 +5368,13 @@ export const TrainingPortal: React.FC = () => {
       <DataBackupRestoreModal 
         isOpen={showBackupModal} 
         onClose={() => setShowBackupModal(false)} 
+      />
+
+      {/* MODAL: ADD CUSTOM SEMESTER */}
+      <AddSemesterModal
+        isOpen={showAddSemesterModal}
+        onClose={() => setShowAddSemesterModal(false)}
+        onCreated={handleSemesterCreated}
       />
 
     </div>
