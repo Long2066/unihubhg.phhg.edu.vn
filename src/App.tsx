@@ -2288,7 +2288,7 @@ const AppContent: React.FC = () => {
                 {/* Họ tên: sits immediately after colon (34.60% colon right) -> 35.4%, mid 39.5% */}
                 <div 
                   style={{ position: 'absolute', top: '39.5%', left: '35.4%', width: '38.5%', transform: 'translateY(-50%)' }} 
-                  className="z-30 text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none uppercase tracking-wide"
+                  className="z-30 text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-snug pointer-events-none tracking-wide py-0.5"
                 >
                   {cardName}
                 </div>

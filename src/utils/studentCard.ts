@@ -138,7 +138,7 @@ export const hasVietnameseAccents = (str?: string): boolean =>
 
 export const formatStudentCardName = (rawName?: string): string => {
   if (!rawName) return "";
-  return String(rawName).trim().replace(/\s+/g, " ").toLocaleUpperCase("vi-VN");
+  return String(rawName).normalize("NFC").trim().replace(/\s+/g, " ").toLocaleUpperCase("vi-VN").normalize("NFC");
 };
 
 export const resolveTrainingStudent = (

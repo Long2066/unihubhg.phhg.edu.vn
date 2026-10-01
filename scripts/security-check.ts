@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isIdCardLoginMatch, isStudentCodeLoginMatch } from "../src/state";
+import { formatStudentCardName } from "../src/utils/studentCard";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -2963,8 +2964,33 @@ assert(
   "Login still couples student CCCD session creation to Firebase Auth email/password success"
 );
 
+// =========================================================
+// BATCH 68: Student Card Vietnamese Name Accents
+// =========================================================
+
+console.log("\n--- BATCH 68: Student Card Vietnamese Name Accents ---");
+
+assert(
+  formatStudentCardName("Tháng Anh Hữu") === "THÁNG ANH HỮU",
+  "Batch 68 Issue 1: Student card keeps Vietnamese accents when uppercasing names",
+  "formatStudentCardName drops or corrupts Vietnamese accents"
+);
+
+assert(
+  studentCardHelperContent.includes('.normalize("NFC").trim().replace(/\\s+/g, " ").toLocaleUpperCase("vi-VN").normalize("NFC")'),
+  "Batch 68 Issue 2: Student card name formatter normalizes Unicode NFC before rendering",
+  "Student card formatter lacks Unicode NFC normalization"
+);
+
+assert(
+  rootAppContent.includes("leading-snug pointer-events-none tracking-wide py-0.5") &&
+  !rootAppContent.includes("leading-none pointer-events-none uppercase tracking-wide"),
+  "Batch 68 Issue 3: Student card name overlay has enough line-height for Vietnamese diacritics",
+  "Student card name overlay can clip accent marks"
+);
+
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 67 SECURITY & INTEGRITY REGRESSION TESTS PASSED (340 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 68 SECURITY & INTEGRITY REGRESSION TESTS PASSED (343 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
