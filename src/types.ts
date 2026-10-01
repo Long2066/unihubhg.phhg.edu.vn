@@ -759,6 +759,19 @@ export interface CreditEnrollment {
   registeredBy: "STUDENT" | "TRAINING_DEPT" | "ADMIN";
   isActive: boolean;
 }
-
-
-
+/** Bản ghi lượt truy cập hệ thống thời gian thực */
+export interface SystemVisitLog {
+  id: string;
+  timestamp: number;
+  isoString: string;
+  date: string; // "YYYY-MM-DD"
+  hour: number; // 0 - 23
+  dayOfWeek: number; // 0 (CN) - 6 (T7)
+  weekString: string; // "YYYY-Wxx"
+  month: string; // "YYYY-MM"
+  year: number; // YYYY
+  role: string;
+  username: string;
+  name: string;
+  clientType?: string;
+}

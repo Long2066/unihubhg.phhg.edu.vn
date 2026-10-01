@@ -78,6 +78,7 @@ import {
   SEED_TEACHER_ASSIGNMENTS,
   SEED_SUBJECT_GRADES
 } from "./data";
+import { recordSystemVisit } from "./utils/visitTracker";
 
 interface UniHubContextType {
   currentUser: UserAccount | null;
@@ -3009,6 +3010,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const { password: _, ...safeUser } = userDoc as any;
     setCurrentUser(safeUser as UserAccount);
     localStorage.setItem("unihub_current_user", JSON.stringify(safeUser));
+
+    // Ghi nhận lượt truy cập thời gian thực lên Firebase Firestore
+    recordSystemVisit(safeUser as UserAccount, "WEB_PORTAL").catch(err => {
+      console.warn("Lỗi ghi nhận visit:", err);
+    });
 
     // Tự động làm mới và đồng bộ 100% dữ liệu tươi từ Cloud khi đăng nhập thành công
     setTimeout(() => {

@@ -34,6 +34,7 @@ import {
   Megaphone
 } from "lucide-react";
 import { DataBackupRestoreModal } from "./DataBackupRestoreModal";
+import { RealtimeVisitsAnalytics } from "./RealtimeVisitsAnalytics";
 
 export const AdminPortal: React.FC = () => {
   const { 
@@ -1175,6 +1176,9 @@ export const AdminPortal: React.FC = () => {
           {/* TAB 1: DYNAMIC CRITERIA RULES EDITOR (Section 1.1) */}
           {activeTab === "CONFIG" && (
             <div className="space-y-6">
+              {/* Thống kê lượt truy cập theo thời gian thực */}
+              <RealtimeVisitsAnalytics />
+
               {/* Dashboard & Notifications */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white rounded-2xl p-6 ring-1 ring-slate-900/5 shadow-sm space-y-4">

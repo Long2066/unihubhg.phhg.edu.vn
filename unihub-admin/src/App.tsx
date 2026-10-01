@@ -87,6 +87,8 @@ import {
   ChevronRight
 } from "lucide-react";
 import * as XLSX from "xlsx";
+import { recordSystemVisit } from "./visitTracker";
+import { AdminRealtimeVisits } from "./AdminRealtimeVisits";
 
 type ActiveTab = "DASHBOARD" | "USERS" | "DATABASE" | "RULES" | "TOOLS" | "FEEDBACK" | "THEME";
 
@@ -1147,6 +1149,8 @@ export default function App() {
 
       setIsAuthenticated(true);
       localStorage.setItem("unihub_superadmin_auth", "true");
+
+      recordSystemVisit({ role: "ADMIN", username: userEmail, name: "Super Admin" }, "ADMIN_PORTAL").catch(() => {});
     } catch (err: any) {
       if (err.code === "auth/operation-not-allowed") {
         setLoginError("Lỗi: Phương thức đăng nhập bằng Email/Password chưa được kích hoạt trong Firebase Console.");
@@ -2237,6 +2241,9 @@ export default function App() {
               <h1 style={{ margin: "0 0 8px 0", fontSize: "28px", fontWeight: 800, color: "#0f172a" }}>Bảng điều khiển tối cao</h1>
               <p style={{ margin: "0", color: "#334155", fontSize: "14px", fontWeight: 500 }}>Thống kê sức khỏe dữ liệu, tổng số sinh viên, và tiến độ xét duyệt điểm rèn luyện toàn phân hiệu Hà Giang.</p>
             </div>
+
+            {/* Thống kê Lưu lượng Truy cập Thời gian thực */}
+            <AdminRealtimeVisits />
 
             {/* KPI Cards Grid */}
             <div className="kpi-grid-responsive">
