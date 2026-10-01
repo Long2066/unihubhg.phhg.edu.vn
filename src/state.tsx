@@ -243,6 +243,48 @@ export const normalizeClassId = (classId: string | undefined | null): string => 
   return str.replace(/^(K\d+)[-_ ]+GDTH[-_ ]+([A-Z0-9]+)$/i, "$1-GDTH $2");
 };
 
+export const normalizeLoginText = (value: unknown): string => String(value ?? "").trim();
+
+const getLoginLocalPart = (value: unknown): string => {
+  const text = normalizeLoginText(value).toLowerCase();
+  return (text.includes("@") ? text.split("@")[0] : text).split("+")[0];
+};
+
+export const normalizeStudentCodeForLogin = (value: unknown): string => {
+  const localPart = getLoginLocalPart(value);
+  return localPart.startsWith("dtg") && /^\d+$/.test(localPart.slice(3)) ? localPart.slice(3) : localPart;
+};
+
+export const isStudentCodeLoginMatch = (candidate: unknown, input: unknown): boolean => {
+  const candidateText = normalizeLoginText(candidate).toLowerCase();
+  const inputText = normalizeLoginText(input).toLowerCase();
+  if (!candidateText || !inputText) return false;
+  if (candidateText === inputText) return true;
+  return normalizeStudentCodeForLogin(candidateText) === normalizeStudentCodeForLogin(inputText);
+};
+
+export const isEmailLoginMatch = (candidate: unknown, input: unknown): boolean => {
+  const candidateText = normalizeLoginText(candidate).toLowerCase();
+  const inputText = normalizeLoginText(input).toLowerCase();
+  return !!candidateText && !!inputText && candidateText === inputText;
+};
+
+export const isIdCardLoginMatch = (candidate: unknown, input: unknown): boolean => {
+  const candidateText = normalizeLoginText(candidate);
+  const inputText = normalizeLoginText(input);
+  if (!candidateText || !inputText) return false;
+  if (candidateText === inputText) return true;
+  const candidateDigits = candidateText.replace(/\D/g, "");
+  const inputDigits = inputText.replace(/\D/g, "");
+  if (!candidateDigits || !inputDigits) return false;
+  return (candidateDigits.replace(/^0+/, "") || "0") === (inputDigits.replace(/^0+/, "") || "0");
+};
+
+const getStudentAuthAliasEmail = (studentId: string): string => {
+  const cleanId = getLoginLocalPart(studentId).replace(/[^a-z0-9._-]/g, "");
+  return cleanId ? `${cleanId}+student@phhg.edu.vn` : "";
+};
+
 /**
  * Hàm chuẩn hóa tài khoản hệ thống sang đuôi @phhg.edu.vn
  * - Tài khoản hệ thống gốc trong SEED_USERS: cập nhật theo thông tin chuẩn
@@ -2835,49 +2877,53 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Helper: test if password matches candidate
     const checkUserPassword = (u: UserAccount, s?: Student | null) => {
-      const explicitPass = (u as any)?.password?.trim();
-      if (explicitPass) return explicitPass === trimmedPass;
       if (u.role === UserRole.STUDENT) {
-        const stud = s || students.find(x => x.id.toLowerCase() === (u.targetId || u.username).toLowerCase());
+        const stud = s || students.find(x => isStudentCodeLoginMatch(x.id, u.targetId || u.username));
         const studPass = (stud as any)?.password?.trim();
-        if (studPass) return studPass === trimmedPass;
-        if (stud?.idCard?.trim() === trimmedPass) return true;
+        const explicitPass = (u as any)?.password?.trim();
+        const hasStoredPass = Boolean(studPass || explicitPass);
+        if (studPass && studPass === trimmedPass) return true;
+        if (explicitPass && explicitPass === trimmedPass) return true;
+        if (stud?.idCard && isIdCardLoginMatch(stud.idCard, trimmedPass)) return true;
+        return hasStoredPass ? false : trimmedPass === "123456";
+      } else {
+        const explicitPass = (u as any)?.password?.trim();
+        if (explicitPass) return explicitPass === trimmedPass;
       }
       return trimmedPass === "123456";
     };
 
     const checkStudentPassword = (s: Student) => {
       const studPass = (s as any)?.password?.trim();
-      if (studPass) return studPass === trimmedPass;
-      if (s.idCard?.trim() === trimmedPass) return true;
-      return trimmedPass === "123456";
+      if (studPass && studPass === trimmedPass) return true;
+      if (s.idCard && isIdCardLoginMatch(s.idCard, trimmedPass)) return true;
+      return studPass ? false : trimmedPass === "123456";
     };
 
     // 1. TÌM VÀ ĐỐI CHIẾU TÀI KHOẢN TRONG LOCAL STATE
     let matchedStudent = students.find(s => {
       if (!s || !s.id) return false;
-      const sId = s.id.trim().toLowerCase();
-      const sEmail = (s.email || "").trim().toLowerCase();
-      if (sId === lowerInput) return true;
-      if (sEmail === lowerInput) return true;
-      if (lowerInput.endsWith("@phhg.edu.vn") && sId === lowerInput.split("@")[0]) return true;
+      const sEmail = (s.email || "").trim();
+      if (isStudentCodeLoginMatch(s.id, trimmedInput)) return true;
+      if ((s as any).code && isStudentCodeLoginMatch((s as any).code, trimmedInput)) return true;
+      if (isEmailLoginMatch(sEmail, trimmedInput)) return true;
+      if (trimmedInput.includes("@") && isStudentCodeLoginMatch(s.id, trimmedInput)) return true;
       return false;
     }) || null;
 
     const candidateUsers = users.filter(u => {
       if (!u) return false;
-      const uname = (u.username || "").trim().toLowerCase();
-      const uemail = (u.email || "").trim().toLowerCase();
-      const utarget = (u.targetId || "").trim().toLowerCase();
+      const uname = (u.username || "").trim();
+      const uemail = (u.email || "").trim();
+      const utarget = (u.targetId || "").trim();
 
-      if (uname === lowerInput || uemail === lowerInput) return true;
+      if (isEmailLoginMatch(uname, trimmedInput) || isEmailLoginMatch(uemail, trimmedInput)) return true;
       if (u.role === UserRole.STUDENT) {
-        if (uname === lowerInput || utarget === lowerInput) return true;
-        if (lowerInput.endsWith("@phhg.edu.vn") && uname === lowerInput.split("@")[0]) return true;
+        if (isStudentCodeLoginMatch(uname, trimmedInput) || isStudentCodeLoginMatch(utarget, trimmedInput)) return true;
       }
       if (!lowerInput.includes("@") && u.role !== UserRole.STUDENT) {
-        if (uname === `${lowerInput}@phhg.edu.vn` || uemail === `${lowerInput}@phhg.edu.vn`) return true;
-        if (uemail.startsWith(`${lowerInput}@`)) return true;
+        if (isEmailLoginMatch(uname, `${lowerInput}@phhg.edu.vn`) || isEmailLoginMatch(uemail, `${lowerInput}@phhg.edu.vn`)) return true;
+        if (uemail.toLowerCase().startsWith(`${lowerInput}@`)) return true;
       }
       return false;
     });
@@ -2902,11 +2948,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const userDocsSnap = await getDocs(collection(db, "users"));
         for (const docSnap of userDocsSnap.docs) {
           const d = { ...docSnap.data(), id: docSnap.id } as UserAccount;
-          const uEmail = (d.email || "").toLowerCase().trim();
-          const uName = (d.username || "").toLowerCase().trim();
-          const uTarget = (d.targetId || "").toLowerCase().trim();
-          const isCandidate = queryEmails.includes(uEmail) || queryEmails.includes(uName) ||
-            (d.role === UserRole.STUDENT && (uTarget === lowerInput || (lowerInput.endsWith("@phhg.edu.vn") && uName === lowerInput.split("@")[0])));
+          const uEmail = (d.email || "").trim();
+          const uName = (d.username || "").trim();
+          const uTarget = (d.targetId || "").trim();
+          const isCandidate = queryEmails.some(q => isEmailLoginMatch(uEmail, q) || isEmailLoginMatch(uName, q)) ||
+            (d.role === UserRole.STUDENT && (isStudentCodeLoginMatch(uTarget, trimmedInput) || isStudentCodeLoginMatch(uName, trimmedInput)));
           if (isCandidate) {
             if (checkUserPassword(d, matchedStudent)) {
               matchedUser = d;
@@ -2923,9 +2969,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const studentDocsSnap = await getDocs(collection(db, "students"));
           for (const docSnap of studentDocsSnap.docs) {
             const s = { ...docSnap.data(), id: docSnap.id } as Student;
-            const sId = (s.id || "").toLowerCase().trim();
-            const sEmail = (s.email || "").toLowerCase().trim();
-            if (sId === lowerInput || sEmail === lowerInput || (lowerInput.endsWith("@phhg.edu.vn") && sId === lowerInput.split("@")[0])) {
+            const sEmail = (s.email || "").trim();
+            if (isStudentCodeLoginMatch(s.id, trimmedInput) || isEmailLoginMatch(sEmail, trimmedInput)) {
               matchedStudent = s;
               setStudents(prev => [s, ...prev.filter(x => x.id !== s.id)]);
               if (checkStudentPassword(s)) {
@@ -2955,16 +3000,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // 3. THÔNG TIN XÁC THỰC HỢP LỆ -> ĐỒNG BỘ VÀ TẠO PHIÊN
     let targetEmail = "";
     if (matchedStudent) {
-      targetEmail = matchedStudent.email && matchedStudent.email.includes("@")
-        ? matchedStudent.email
-        : `${matchedStudent.id.toLowerCase()}@phhg.edu.vn`;
+      targetEmail = getStudentAuthAliasEmail(matchedStudent.id) || `${matchedStudent.id.toLowerCase()}@phhg.edu.vn`;
     } else if (matchedUser) {
       targetEmail = matchedUser.email && matchedUser.email.includes("@")
         ? matchedUser.email
         : (matchedUser.username.includes("@") ? matchedUser.username : `${matchedUser.username}@phhg.edu.vn`);
     }
 
-    // Đồng bộ Firebase Auth trong nền (bảo đảm môi trường Firebase vẫn có thông tin đăng nhập)
+    // Đồng bộ Firebase Auth trong nền. Local credential đúng không bị chặn bởi Auth mật khẩu cũ.
     let authCred: any = null;
     try {
       authCred = await signInWithEmailAndPassword(auth, targetEmail, trimmedPass);
@@ -2977,21 +3020,26 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ) {
         try {
           authCred = await createUserWithEmailAndPassword(auth, targetEmail, trimmedPass);
-        } catch {}
+        } catch (createErr) {
+          console.warn("Firebase Auth sync skipped after local login success:", createErr);
+        }
       }
     }
 
     // Xây dựng profile người dùng
     let userDoc: UserAccount;
+    const profileEmail = matchedStudent?.email && matchedStudent.email.includes("@") ? matchedStudent.email : targetEmail;
     if (matchedUser) {
       userDoc = {
         ...matchedUser,
-        email: targetEmail
+        email: matchedStudent ? profileEmail : targetEmail
       };
       // Đồng bộ họ tên chuẩn từ dữ liệu Đào tạo nếu đăng nhập sinh viên
       if (matchedStudent && matchedStudent.name) {
+        userDoc.username = matchedStudent.id;
         userDoc.name = matchedStudent.name;
-        userDoc.targetId = userDoc.targetId || matchedStudent.id;
+        userDoc.role = UserRole.STUDENT;
+        userDoc.targetId = matchedStudent.id;
       }
     } else {
       userDoc = {
@@ -3000,7 +3048,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         name: matchedStudent!.name,
         role: UserRole.STUDENT,
         targetId: matchedStudent!.id,
-        email: targetEmail
+        email: profileEmail
       };
       setUsers(prev => {
         const updated = [...prev.filter(u => u.id !== userDoc.id), userDoc];

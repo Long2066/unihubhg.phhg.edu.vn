@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isIdCardLoginMatch, isStudentCodeLoginMatch } from "../src/state";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -2935,8 +2936,35 @@ assert(
   "Verification code, expiry display, or student card public assets missing"
 );
 
+// =========================================================
+// BATCH 67: Student Login With MSSV + CCCD
+// =========================================================
+
+console.log("\n--- BATCH 67: Student Login With MSSV + CCCD ---");
+
+assert(
+  isStudentCodeLoginMatch("DTG245140202053", "245140202053") &&
+  isStudentCodeLoginMatch("dtg245140202053@phhg.edu.vn", "DTG245140202053"),
+  "Batch 67 Issue 1: Student login matches MSSV with or without DTG prefix/email suffix",
+  "Student code matching does not handle common MSSV variants"
+);
+
+assert(
+  isIdCardLoginMatch("004206005165", "4206005165") &&
+  isIdCardLoginMatch("001206001099", "001206001099"),
+  "Batch 67 Issue 2: Student login matches CCCD even when Excel drops leading zeros",
+  "CCCD matching is too strict for numeric Excel imports"
+);
+
+assert(
+  stateContent.includes("getStudentAuthAliasEmail(matchedStudent.id)") &&
+  stateContent.includes("Firebase Auth sync skipped after local login success"),
+  "Batch 67 Issue 3: Valid local student CCCD login is not blocked by stale Firebase Auth password",
+  "Login still couples student CCCD session creation to Firebase Auth email/password success"
+);
+
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 66 SECURITY & INTEGRITY REGRESSION TESTS PASSED (337 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 67 SECURITY & INTEGRITY REGRESSION TESTS PASSED (340 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
