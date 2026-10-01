@@ -30,10 +30,17 @@ import {
   Filter,
   CheckCircle2,
   Edit3,
-  Info
+  Info,
+  Sparkles,
+  Radio,
+  FileSignature,
+  XCircle,
+  Lock,
+  Unlock
 } from "lucide-react";
 import { OrganizationMember, ExtracurricularActivity, UserRole, Organization } from "../types";
 import { compressImage } from "../utils/imageCompressor";
+import { SrcApplicationModal } from "./SrcApplicationModal";
 
 export const OrganizerPortal: React.FC = () => {
   const { 
@@ -48,6 +55,7 @@ export const OrganizerPortal: React.FC = () => {
     announcements,
     approveMemberRequest, 
     rejectMemberRequest, 
+    toggleClubRecruitment,
     assignMemberRole, 
     createActivity, 
     updateActivityStatus, 
@@ -173,6 +181,27 @@ export const OrganizerPortal: React.FC = () => {
 
   // Search filter for members
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
+
+  // Recruitment states
+  const [showRecruitmentModal, setShowRecruitmentModal] = useState(false);
+  const [recruitmentTitleInput, setRecruitmentTitleInput] = useState("");
+  const [recruitmentContentInput, setRecruitmentContentInput] = useState("");
+  const [recruitmentDeadlineInput, setRecruitmentDeadlineInput] = useState("");
+  const [publishToFeed, setPublishToFeed] = useState(true);
+
+  // Application detail & review states
+  const [selectedAppMember, setSelectedAppMember] = useState<OrganizationMember | null>(null);
+  const [rejectPromptMember, setRejectPromptMember] = useState<OrganizationMember | null>(null);
+  const [rejectReasonInput, setRejectReasonInput] = useState("");
+  const [memberAppTab, setMemberAppTab] = useState<"PENDING" | "REJECTED">("PENDING");
+
+  useEffect(() => {
+    if (org) {
+      setRecruitmentTitleInput(org.recruitmentTitle || `[TUYỂN THÀNH VIÊN] ${org.name} thông báo mở đợt tuyển thành viên mới`);
+      setRecruitmentContentInput(org.recruitmentContent || `Câu lạc bộ ${org.name} trân trọng thông báo tuyển thành viên mới. Các bạn sinh viên quan tâm vui lòng nộp đơn đăng ký trực tuyến.`);
+      setRecruitmentDeadlineInput(org.recruitmentDeadline || "");
+    }
+  }, [org?.id, org?.recruitmentTitle, org?.recruitmentContent, org?.recruitmentDeadline]);
 
   // Form States for adding manual member
   const [manualStudentId, setManualStudentId] = useState("");
@@ -328,6 +357,7 @@ export const OrganizerPortal: React.FC = () => {
   const filteredActivities = orgActivities.filter(filterActivitiesByMilestone);
   
   const pendingMembers = orgMembers.filter(m => m.status === "PENDING");
+  const rejectedMembers = orgMembers.filter(m => m.status === "REJECTED");
   const activeMembersArr = orgMembers.filter(m => {
     if (m.status !== "ACTIVE") return false;
     if (!memberSearchQuery.trim()) return true;
@@ -891,50 +921,223 @@ export const OrganizerPortal: React.FC = () => {
             {/* SUBTAB 1: MEMBERS LIST (With custom attachments, deletions and details updates) */}
             {activeSubTab === "DS_THANHVIEN" && (
               <div className="space-y-6">
-                
-                {/* Pending applications */}
-                {pendingMembers.length > 0 && (
-                  <div className="space-y-2">
-                    <div className={`p-3 rounded-xl border flex items-center gap-2 ${themeBgBadge}`}>
-                      <AlertCircle size={15} />
-                      <span className="text-xs font-bold leading-none">Bạn có {pendingMembers.length} yêu cầu đăng ký gia nhập sinh viên cần duyệt gấp:</span>
-                    </div>
 
-                    <div className="border rounded-xl divide-y divide-slate-100 overflow-hidden bg-slate-50/10">
-                      {pendingMembers.map(m => {
-                        const linkedStudent = students.find(s => s.id?.trim().toLowerCase() === (m.studentId || "").trim().toLowerCase());
-                        const linkedUser = users.find(u => (u.targetId || u.username || "").trim().toLowerCase() === (m.studentId || "").trim().toLowerCase());
-                        const realName = (m.studentId && m.studentId.trim().toUpperCase() !== "DTG245140202053" && m.studentName === "Ma Văn Long")
-                          ? (linkedStudent?.name || linkedUser?.name || m.studentId)
-                          : (linkedStudent?.name || linkedUser?.name || m.studentName || "Sinh viên đăng ký");
-                        const realClass = m.classId || linkedStudent?.classId || (linkedUser as any)?.classId || "Chưa phân lớp";
-                        return (
-                        <div key={m.id} className="p-3.5 flex justify-between items-center text-xs">
-                          <div>
-                            <h5 className="font-extrabold text-slate-900">{realName}</h5>
-                            <p className="text-[10px] text-slate-450 font-mono">Mã số Sổ: {m.studentId} • Lớp sinh hoạt: {realClass}</p>
-                          </div>
-                          <div className="flex gap-1.5">
-                            <button 
-                              onClick={() => rejectMemberRequest(m.id)}
-                              className="px-2.5 py-1.5 text-[10px] font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-lg cursor-pointer transition-all"
-                            >
-                              Từ chối
-                            </button>
-                            <button 
-                              onClick={() => approveMemberRequest(m.id)}
-                              className={`px-3 py-1.5 text-[10px] font-bold text-white rounded-lg cursor-pointer transition-all flex items-center gap-0.5 ${themeBgActive}`}
-                            >
-                              <Check size={11} />
-                              <span>Đồng ý</span>
-                            </button>
-                          </div>
-                        </div>
-                        );
-                      })}
+                {/* 1. RECRUITMENT GATE MANAGEMENT CARD */}
+                <div className="p-5 rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50/80 via-white to-indigo-50/20 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="space-y-1.5 max-w-xl">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
+                        CỔNG TUYỂN THÀNH VIÊN
+                      </span>
+                      {org.recruitmentOpen ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-black text-[10px] uppercase">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                          Đang mở nhận hồ sơ
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-bold text-[10px] uppercase">
+                          <Lock size={10} className="text-slate-400" />
+                          Đang đóng cổng
+                        </span>
+                      )}
+                    </div>
+                    <h4 className="text-sm font-black text-slate-900">
+                      {org.recruitmentOpen ? (org.recruitmentTitle || `Đang mở đợt tuyển thành viên ${org.name}`) : `Cổng tuyển thành viên ${org.name} đang tạm đóng`}
+                    </h4>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      {org.recruitmentOpen 
+                        ? (org.recruitmentDeadline ? `Hạn chót nhận đơn: ${org.recruitmentDeadline}. Sinh viên toàn trường có thể nộp hồ sơ trực tuyến.` : "Sinh viên toàn trường có thể nộp hồ sơ trực tuyến qua hệ thống.")
+                        : "Khi đóng cổng, sinh viên không thể nộp đơn gia nhập mới. Bấm mở tuyển để thiết lập nội dung và tự động phát động bài viết lên Bảng tin toàn trường."}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    {org.recruitmentOpen ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setShowRecruitmentModal(true)}
+                          className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl font-bold text-xs cursor-pointer shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
+                        >
+                          <Edit3 size={13} />
+                          <span>Chỉnh sửa bài đăng & Hạn chót</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm(`Bạn có chắc chắn muốn ĐÓNG đợt tuyển thành viên của "${org.name}"? Sinh viên sẽ không thể gửi đơn đăng ký mới.`)) {
+                              toggleClubRecruitment(org.id, false);
+                              alert("Đã đóng cổng tuyển thành viên.");
+                            }
+                          }}
+                          className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-bold text-xs cursor-pointer shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
+                        >
+                          <Lock size={13} />
+                          <span>Đóng đợt tuyển</span>
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowRecruitmentModal(true)}
+                        className="px-4 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-extrabold text-xs cursor-pointer shadow-md hover:shadow-indigo-600/30 transition-all flex items-center gap-2 active:scale-95"
+                      >
+                        <Sparkles size={14} />
+                        <span>Mở đợt tuyển & Đăng bảng tin</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. MEMBER APPLICATIONS MANAGEMENT */}
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-2">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setMemberAppTab("PENDING")}
+                        className={`px-3 py-1.5 rounded-xl font-extrabold text-xs cursor-pointer transition-all flex items-center gap-1.5 ${
+                          memberAppTab === "PENDING"
+                            ? "bg-amber-500 text-white shadow-xs"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        <Clock size={13} />
+                        <span>Đơn chờ duyệt ({pendingMembers.length})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMemberAppTab("REJECTED")}
+                        className={`px-3 py-1.5 rounded-xl font-extrabold text-xs cursor-pointer transition-all flex items-center gap-1.5 ${
+                          memberAppTab === "REJECTED"
+                            ? "bg-rose-600 text-white shadow-xs"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        <XCircle size={13} />
+                        <span>Đã từ chối ({rejectedMembers.length})</span>
+                      </button>
                     </div>
                   </div>
-                )}
+
+                  {memberAppTab === "PENDING" ? (
+                    pendingMembers.length === 0 ? (
+                      <div className="p-8 border border-dashed rounded-xl text-center text-slate-400 text-xs bg-slate-50/50">
+                        Hiện tại không có đơn đăng ký gia nhập nào đang chờ duyệt.
+                      </div>
+                    ) : (
+                      <div className="border rounded-xl divide-y divide-slate-100 overflow-hidden bg-white shadow-xs">
+                        {pendingMembers.map(m => {
+                          const linkedStudent = students.find(s => s.id?.trim().toLowerCase() === (m.studentId || "").trim().toLowerCase());
+                          const linkedUser = users.find(u => (u.targetId || u.username || "").trim().toLowerCase() === (m.studentId || "").trim().toLowerCase());
+                          const realName = (m.studentId && m.studentId.trim().toUpperCase() !== "DTG245140202053" && m.studentName === "Ma Văn Long")
+                            ? (linkedStudent?.name || linkedUser?.name || m.studentId)
+                            : (linkedStudent?.name || linkedUser?.name || m.studentName || "Sinh viên đăng ký");
+                          const realClass = m.classId || linkedStudent?.classId || (linkedUser as any)?.classId || "Chưa phân lớp";
+                          return (
+                            <div key={m.id} className="p-3.5 flex flex-wrap sm:flex-nowrap justify-between items-center gap-3 text-xs hover:bg-slate-50/60 transition-colors">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h5 className="font-extrabold text-slate-900">{realName}</h5>
+                                  {m.applicationData && (
+                                    <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[9px] font-black uppercase font-mono">
+                                      Hồ sơ SRC
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-slate-450 font-mono mt-0.5">Mã số Sổ: {m.studentId} • Lớp sinh hoạt: {realClass}</p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {m.applicationData && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedAppMember(m)}
+                                    className="px-3 py-1.5 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg cursor-pointer transition-all flex items-center gap-1"
+                                    title="Xem chi tiết đơn đăng ký theo mẫu chuẩn"
+                                  >
+                                    <FileText size={12} />
+                                    <span>Xem chi tiết đơn</span>
+                                  </button>
+                                )}
+                                <button 
+                                  onClick={() => {
+                                    setRejectPromptMember(m);
+                                    setRejectReasonInput("");
+                                  }}
+                                  className="px-2.5 py-1.5 text-[10px] font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-lg cursor-pointer transition-all flex items-center gap-1"
+                                >
+                                  <XCircle size={12} />
+                                  <span>Từ chối</span>
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    approveMemberRequest(m.id);
+                                    alert(`Đã duyệt kết nạp thành viên "${realName}"!`);
+                                  }}
+                                  className={`px-3 py-1.5 text-[10px] font-bold text-white rounded-lg cursor-pointer transition-all flex items-center gap-1 shadow-xs ${themeBgActive}`}
+                                >
+                                  <Check size={12} />
+                                  <span>Đồng ý</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )
+                  ) : (
+                    rejectedMembers.length === 0 ? (
+                      <div className="p-8 border border-dashed rounded-xl text-center text-slate-400 text-xs bg-slate-50/50">
+                        Chưa có đơn đăng ký nào bị từ chối.
+                      </div>
+                    ) : (
+                      <div className="border rounded-xl divide-y divide-slate-100 overflow-hidden bg-white shadow-xs">
+                        {rejectedMembers.map(m => {
+                          const linkedStudent = students.find(s => s.id?.trim().toLowerCase() === (m.studentId || "").trim().toLowerCase());
+                          const realName = m.studentName || linkedStudent?.name || m.studentId;
+                          return (
+                            <div key={m.id} className="p-3.5 flex flex-wrap sm:flex-nowrap justify-between items-center gap-3 text-xs hover:bg-slate-50/60 transition-colors">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <h5 className="font-extrabold text-slate-900">{realName}</h5>
+                                  <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[9px] font-black uppercase font-mono">
+                                    Không duyệt
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-slate-450 font-mono">Mã SV: {m.studentId} • Lớp: {m.classId || "Chưa phân lớp"}</p>
+                                <p className="text-xs text-rose-800 bg-rose-50 p-2 rounded-lg border border-rose-100 mt-1">
+                                  <strong>Lý do từ chối:</strong> {m.rejectReason || "Chưa đạt tiêu chí xét duyệt đợt này."}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {m.applicationData && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedAppMember(m)}
+                                    className="px-3 py-1.5 text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer transition-all flex items-center gap-1"
+                                  >
+                                    <FileText size={12} />
+                                    <span>Xem lại đơn</span>
+                                  </button>
+                                )}
+                                <button 
+                                  onClick={() => {
+                                    approveMemberRequest(m.id);
+                                    alert(`Đã xem xét và duyệt lại thành viên "${realName}"!`);
+                                  }}
+                                  className="px-3 py-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg cursor-pointer transition-all flex items-center gap-1"
+                                >
+                                  <Check size={12} />
+                                  <span>Duyệt lại</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )
+                  )}
+                </div>
 
                 {/* General Header list search */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
@@ -2211,6 +2414,201 @@ export const OrganizerPortal: React.FC = () => {
           </div>
 
         </div>
+
+      {/* REVIEW APPLICATION MODAL */}
+      {selectedAppMember && (
+        <SrcApplicationModal
+          isOpen={!!selectedAppMember}
+          onClose={() => setSelectedAppMember(null)}
+          mode="REVIEW_ORGANIZER"
+          initialData={selectedAppMember.applicationData}
+          status={selectedAppMember.status}
+          rejectReason={selectedAppMember.rejectReason}
+          reviewNote={selectedAppMember.reviewNote}
+          reviewedAt={selectedAppMember.reviewedAt}
+          reviewedBy={selectedAppMember.reviewedBy}
+          studentDefaults={{
+            name: selectedAppMember.studentName || selectedAppMember.studentId,
+            studentId: selectedAppMember.studentId,
+            classId: selectedAppMember.classId || "",
+            email: selectedAppMember.email || "",
+            phone: selectedAppMember.phone || "",
+            dob: selectedAppMember.dob || "",
+            gender: selectedAppMember.gender || "Nam",
+            major: selectedAppMember.major || "Giáo dục Tiểu học"
+          }}
+          onApprove={(note) => {
+            approveMemberRequest(selectedAppMember.id, note);
+            setSelectedAppMember(null);
+            alert(`Đã duyệt kết nạp thành viên "${selectedAppMember.studentName || selectedAppMember.studentId}" thành công!`);
+          }}
+          onReject={(reason) => {
+            rejectMemberRequest(selectedAppMember.id, reason);
+            setSelectedAppMember(null);
+            alert(`Đã từ chối đơn xin gia nhập kèm lý do phản hồi!`);
+          }}
+        />
+      )}
+
+      {/* QUICK REJECT PROMPT MODAL */}
+      {rejectPromptMember && (
+        <div className="fixed inset-0 z-60 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-150 space-y-4 animate-scale-up">
+            <div className="flex items-center gap-2 text-rose-600 font-extrabold text-sm">
+              <AlertCircle size={18} />
+              <span>Từ chối đơn xin gia nhập CLB</span>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Bạn đang từ chối hồ sơ đăng ký của sinh viên <strong>{rejectPromptMember.studentName || rejectPromptMember.studentId}</strong> ({rejectPromptMember.classId}). Vui lòng nhập lý do để hệ thống gửi phản hồi minh bạch:
+            </p>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Lý do không duyệt <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                rows={3}
+                required
+                value={rejectReasonInput}
+                onChange={e => setRejectReasonInput(e.target.value)}
+                placeholder="Ví dụ: Chưa đạt tiêu chí hồ sơ, số lượng tuyển đợt này đã đủ..."
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 bg-white"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setRejectPromptMember(null)}
+                className="px-3.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-xl font-bold cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!rejectReasonInput.trim()) {
+                    alert("Vui lòng nhập lý do từ chối!");
+                    return;
+                  }
+                  rejectMemberRequest(rejectPromptMember.id, rejectReasonInput.trim());
+                  setRejectPromptMember(null);
+                  alert("Đã từ chối đơn gia nhập và gửi phản hồi tới sinh viên.");
+                }}
+                className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-xl shadow-xs cursor-pointer active:scale-95 transition-all"
+              >
+                Xác nhận từ chối
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RECRUITMENT SETTINGS MODAL */}
+      {showRecruitmentModal && (
+        <div className="fixed inset-0 z-60 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-150 overflow-hidden animate-scale-up flex flex-col max-h-[90vh]">
+            <div className="bg-gradient-to-r from-indigo-900 to-slate-900 text-white px-6 py-4 flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2">
+                <Sparkles size={16} className="text-amber-300" />
+                <h4 className="font-extrabold text-sm">
+                  {org.recruitmentOpen ? "Cấu hình đợt tuyển thành viên" : "Mở đợt tuyển thành viên mới"}
+                </h4>
+              </div>
+              <button 
+                onClick={() => setShowRecruitmentModal(false)}
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!recruitmentTitleInput.trim()) {
+                  alert("Vui lòng nhập tiêu đề bài đăng tuyển!");
+                  return;
+                }
+                toggleClubRecruitment(org.id, true, {
+                  title: recruitmentTitleInput.trim(),
+                  content: recruitmentContentInput.trim(),
+                  deadline: recruitmentDeadlineInput
+                });
+                setShowRecruitmentModal(false);
+                alert(`Đã mở cổng tuyển thành viên cho "${org.name}" và phát động bài đăng lên Bảng tin toàn trường!`);
+              }}
+              className="p-6 overflow-y-auto space-y-4 text-xs"
+            >
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Tiêu đề thông báo tuyển thành viên <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={recruitmentTitleInput}
+                  onChange={e => setRecruitmentTitleInput(e.target.value)}
+                  placeholder={`[TUYỂN THÀNH VIÊN] ${org.name} mở đợt tuyển thành viên mới`}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-250 bg-white font-medium focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Hạn chót nhận đơn đăng ký
+                </label>
+                <input
+                  type="date"
+                  value={recruitmentDeadlineInput}
+                  onChange={e => setRecruitmentDeadlineInput(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-250 bg-white font-mono focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Nội dung thông báo tuyển sinh viên
+                </label>
+                <textarea
+                  rows={4}
+                  value={recruitmentContentInput}
+                  onChange={e => setRecruitmentContentInput(e.target.value)}
+                  placeholder="Giới thiệu về CLB, mục tiêu đợt tuyển, các quyền lợi khi tham gia, tiêu chí tuyển chọn..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-250 bg-white leading-relaxed focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  id="pub-feed"
+                  checked={publishToFeed}
+                  onChange={e => setPublishToFeed(e.target.checked)}
+                  className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500"
+                />
+                <label htmlFor="pub-feed" className="cursor-pointer text-indigo-950 font-medium leading-relaxed">
+                  <strong>Hiển thị thông báo trên Bảng tin toàn trường</strong>: Mọi sinh viên toàn Phân hiệu đều có thể nhìn thấy bài viết tuyển sinh này trên Bảng tin và trang chủ để nộp đơn trực tuyến.
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowRecruitmentModal(false)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 font-bold rounded-xl cursor-pointer hover:bg-slate-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold rounded-xl shadow-md cursor-pointer active:scale-95 transition-all"
+                >
+                  Xác nhận & Mở cổng tuyển
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MEMBER DETAILS EDIT MODAL */}
       {isEditingMember && selectedMember && (

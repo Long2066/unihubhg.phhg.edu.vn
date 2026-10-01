@@ -39,10 +39,14 @@ import {
   ExternalLink,
   Check,
   ArrowRight,
-  Globe
+  Globe,
+  Construction,
+  FileSignature,
+  XCircle
 } from "lucide-react";
 import { uploadAvatarHybrid } from "../utils/imageCompressor";
 import { CreditRegistrationStudentView } from "./CreditRegistrationStudentView";
+import { SrcApplicationModal } from "./SrcApplicationModal";
 
 interface PdfMakeInstance {
   vfs?: Record<string, string>;
@@ -504,6 +508,11 @@ export const StudentPortal: React.FC = () => {
   const [applyMajor, setApplyMajor] = useState("Công nghệ thông tin");
   const [applyAttachmentUrl, setApplyAttachmentUrl] = useState("");
   const [isApplyingClub, setIsApplyingClub] = useState(false);
+  const [showSrcModal, setShowSrcModal] = useState(false);
+  const [srcModalMode, setSrcModalMode] = useState<"APPLY" | "VIEW_STUDENT">("APPLY");
+  const [showUnderDevModal, setShowUnderDevModal] = useState(false);
+  const [underDevClubName, setUnderDevClubName] = useState("");
+  const [underDevLeaderName, setUnderDevLeaderName] = useState("");
 
   // Sync club registration defaults when active club details open
   useEffect(() => {
@@ -860,9 +869,10 @@ export const StudentPortal: React.FC = () => {
       const isDoanHoiSpecial = ann.orgId === "DOANTN" || ann.orgId === "HOISV" || ann.orgId === "DOAN_HOI" || ann.orgId === "PHANHIEU" || ann.orgId === "TRUONG";
       const matchedOrg = (organizations || []).find(o => o.id === ann.orgId);
       const isDoanHoi = isDoanHoiSpecial || matchedOrg?.type === "DOAN" || matchedOrg?.type === "HOI";
-      if (!isDoanHoi) return; // Bỏ qua thông báo nội bộ của CLB
+      const isRecruitment = ann.isRecruitment || (ann.title || "").toLowerCase().includes("tuyển thành viên");
+      if (!isDoanHoi && !isRecruitment) return; // Bỏ qua thông báo nội bộ của CLB
 
-      list.push(`📢 THÔNG BÁO: ${ann.title} — ${ann.orgName || "Hệ thống Phân hiệu"}`);
+      list.push(`📢 ${isRecruitment ? "TUYỂN THÀNH VIÊN" : "THÔNG BÁO"}: ${ann.title} — ${ann.orgName || "Hệ thống Phân hiệu"}`);
     });
     (activities || []).forEach(act => {
       const isDoanHoiSpecial = act.orgId === "DOANTN" || act.orgId === "HOISV" || act.orgId === "DOAN_HOI" || act.orgId === "PHANHIEU" || act.orgId === "TRUONG";
@@ -1317,12 +1327,13 @@ export const StudentPortal: React.FC = () => {
       return true;
     });
 
-    // Get active announcements: Chỉ ĐOÀN - HỘI hoặc cấp trường mới hiển thị ra bảng tin all sinh viên
+    // Get active announcements: Chỉ ĐOÀN - HỘI hoặc thông báo tuyển thành viên mới hiển thị ra bảng tin all sinh viên
     const activeClubAnns = announcements.filter(ann => {
       const isDoanHoiSpecial = ann.orgId === "DOANTN" || ann.orgId === "HOISV" || ann.orgId === "DOAN_HOI" || ann.orgId === "PHANHIEU" || ann.orgId === "TRUONG";
       const club = organizations.find(o => o.id === ann.orgId);
       const isDoanHoi = isDoanHoiSpecial || club?.type === "DOAN" || club?.type === "HOI";
-      if (!isDoanHoi) return false; // Mọi thông báo CLB chỉ thành viên CLB đó mới thấy trong danh mục CLB
+      const isRecruitment = ann.isRecruitment || (ann.title || "").toLowerCase().includes("tuyển thành viên");
+      if (!isDoanHoi && !isRecruitment) return false; // Mọi thông báo CLB thông thường chỉ thành viên CLB đó mới thấy trong danh mục CLB
       
       if (ann.expiryDate && todayStr > ann.expiryDate) return false;
 
@@ -2979,238 +2990,157 @@ export const StudentPortal: React.FC = () => {
                               </div>
                               <div>
                                 <span className="font-semibold block text-slate-400 text-[10px]">Trạng thái đăng ký:</span>
-                                <span className="font-extrabold text-indigo-600">Đang tuyển thành viên</span>
+                                {club.recruitmentOpen ? (
+                                  <span className="inline-flex items-center gap-1.5 font-black text-emerald-600 text-xs">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                    Đang mở tuyển thành viên
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 font-bold text-slate-500 text-xs">
+                                    <Lock size={12} className="text-slate-400" />
+                                    Đang đóng tuyển
+                                  </span>
+                                )}
                               </div>
                             </div>
 
-                            {/* PENDING NOTIFICATION OR APPLY FORM */}
+                            {/* Recruitment Announcement Notice if open */}
+                            {club.recruitmentOpen && (club.recruitmentTitle || club.recruitmentContent) && (
+                              <div className="p-4 bg-gradient-to-br from-indigo-50/80 via-blue-50/50 to-slate-50 rounded-2xl border border-indigo-100 shadow-xs space-y-2">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 text-indigo-900 font-extrabold text-xs">
+                                    <Sparkles size={14} className="text-indigo-600" />
+                                    <span>{club.recruitmentTitle || `Thông báo tuyển thành viên ${club.name}`}</span>
+                                  </div>
+                                  {club.recruitmentDeadline && (
+                                    <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold font-mono">
+                                      Hạn chót: {club.recruitmentDeadline}
+                                    </span>
+                                  )}
+                                </div>
+                                {club.recruitmentContent && (
+                                  <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
+                                    {club.recruitmentContent}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
+                            {/* STATUS FEEDBACK: PENDING OR REJECTED OR NOT REGISTERED */}
                             {membership?.status === "PENDING" ? (
-                              <div className="p-5 bg-amber-50 border border-amber-200 rounded-2xl space-y-2">
-                                <div className="flex items-center gap-2 text-amber-900 font-extrabold text-sm">
-                                  <Clock size={16} className="text-amber-600" />
-                                  <span>Đơn đăng ký đang chờ Ban chủ nhiệm duyệt</span>
+                              <div className="p-5 bg-amber-50 border border-amber-200 rounded-2xl space-y-3">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <div className="flex items-center gap-2 text-amber-900 font-extrabold text-sm">
+                                    <Clock size={16} className="text-amber-600" />
+                                    <span>Đơn đăng ký đang chờ Ban chủ nhiệm duyệt</span>
+                                  </div>
+                                  {isSrcClub && membership.applicationData && (
+                                    <button
+                                      onClick={() => {
+                                        setSrcModalMode("VIEW_STUDENT");
+                                        setShowSrcModal(true);
+                                      }}
+                                      className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white rounded-xl font-bold text-xs cursor-pointer shadow-xs transition-all flex items-center gap-1.5"
+                                    >
+                                      <FileSignature size={13} />
+                                      <span>Xem lại hồ sơ đã nộp</span>
+                                    </button>
+                                  )}
                                 </div>
                                 <p className="text-xs text-amber-800 leading-relaxed">
-                                  Bạn đã nộp đơn đăng ký gia nhập <strong>{club.name}</strong>. Hồ sơ của bạn đang được Ban chủ nhiệm thẩm định. Bạn sẽ nhận được thông báo ngay khi hồ sơ được phê duyệt!
+                                  Bạn đã nộp đơn đăng ký gia nhập <strong>{club.name}</strong>. Hồ sơ của bạn đang được Ban chủ nhiệm thẩm định. Bạn sẽ nhận được thông báo phản hồi và kết quả ngay tại đây khi có quyết định!
                                 </p>
+                              </div>
+                            ) : membership?.status === "REJECTED" ? (
+                              <div className="p-5 bg-rose-50 border border-rose-200 rounded-2xl space-y-3">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <div className="flex items-center gap-2 text-rose-900 font-extrabold text-sm">
+                                    <XCircle size={18} className="text-rose-600" />
+                                    <span>Kết quả xét duyệt: Đơn đăng ký không được phê duyệt</span>
+                                  </div>
+                                  {isSrcClub && membership.applicationData && (
+                                    <button
+                                      onClick={() => {
+                                        setSrcModalMode("VIEW_STUDENT");
+                                        setShowSrcModal(true);
+                                      }}
+                                      className="px-3 py-1.5 bg-white text-rose-700 border border-rose-200 hover:bg-rose-100 active:scale-95 rounded-xl font-bold text-xs cursor-pointer transition-all flex items-center gap-1.5"
+                                    >
+                                      <FileSignature size={13} />
+                                      <span>Xem hồ sơ đã nộp</span>
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="text-xs text-slate-700 space-y-1.5">
+                                  <p className="text-[11px] text-slate-500">
+                                    Người xét duyệt: <strong className="text-slate-800">{membership.reviewedBy || "Ban Chủ nhiệm CLB"}</strong>
+                                    {membership.reviewedAt && ` • Ngày: ${new Date(membership.reviewedAt).toLocaleDateString("vi-VN")}`}
+                                  </p>
+                                  <div className="p-3 bg-white/90 rounded-xl border border-rose-200 text-rose-950 font-medium leading-relaxed">
+                                    <strong>Lý do từ chối:</strong> {membership.rejectReason || "Chưa đạt tiêu chí xét duyệt đợt này."}
+                                  </div>
+                                </div>
+                                {club.recruitmentOpen && (
+                                  <div className="pt-2 flex justify-end">
+                                    <button
+                                      onClick={() => {
+                                        if (isSrcClub) {
+                                          setSrcModalMode("APPLY");
+                                          setShowSrcModal(true);
+                                        } else {
+                                          setUnderDevClubName(club.name);
+                                          setUnderDevLeaderName(club.leaderName || "Ban Chủ nhiệm");
+                                          setShowUnderDevModal(true);
+                                        }
+                                      }}
+                                      className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-xs cursor-pointer active:scale-95 transition-all flex items-center gap-1.5"
+                                    >
+                                      <Send size={13} />
+                                      <span>Nộp lại đơn đăng ký mới</span>
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <div className="space-y-4">
-                                {!isApplyingClub ? (
-                                  <div className="p-5 bg-indigo-50/60 border border-indigo-100 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs">
-                                    <div className="space-y-1">
-                                      <span className="font-extrabold text-indigo-950 block text-sm">Chào bạn sinh viên! Bạn chưa tham gia sinh hoạt chi hội này.</span>
-                                      <p className="text-[11px] text-slate-500">Tuyển sinh chính thức học kỳ năm học {period.academicYear}. Đảm bảo cập nhật hồ sơ chuyên cần & rèn luyện đồng bộ.</p>
-                                    </div>
+                                <div className={`p-5 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs ${
+                                  club.recruitmentOpen ? "bg-indigo-50/60 border-indigo-100" : "bg-slate-50 border-slate-200"
+                                }`}>
+                                  <div className="space-y-1">
+                                    <span className="font-extrabold text-slate-900 block text-sm">
+                                      {club.recruitmentOpen ? "Chào bạn sinh viên! Bạn chưa tham gia sinh hoạt chi hội này." : "Cổng tuyển thành viên đang đóng."}
+                                    </span>
+                                    <p className="text-[11px] text-slate-500">
+                                      {club.recruitmentOpen 
+                                        ? "Đợt tuyển sinh hoạt chính thức đang mở. Sinh viên đáp ứng tiêu chí có thể đăng ký gia nhập trực tuyến." 
+                                        : "Câu lạc bộ hiện chưa mở cổng hoặc đã kết thúc thời hạn nhận hồ sơ. Vui lòng theo dõi Bảng tin toàn trường để biết thời gian mở đợt tiếp theo."}
+                                    </p>
+                                  </div>
+
+                                  {club.recruitmentOpen ? (
                                     <button 
-                                      onClick={() => setIsApplyingClub(true)}
-                                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl cursor-pointer shadow-xs active:scale-95 transition-all text-center shrink-0"
+                                      onClick={() => {
+                                        if (isSrcClub) {
+                                          setSrcModalMode("APPLY");
+                                          setShowSrcModal(true);
+                                        } else {
+                                          setUnderDevClubName(club.name);
+                                          setUnderDevLeaderName(club.leaderName || "Ban Chủ nhiệm");
+                                          setShowUnderDevModal(true);
+                                        }
+                                      }}
+                                      className="px-5 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-xs rounded-xl cursor-pointer shadow-md hover:shadow-indigo-600/30 active:scale-95 transition-all text-center shrink-0 flex items-center gap-2"
                                     >
-                                      Đăng ký gia nhập trực tuyến
+                                      <FileSignature size={14} />
+                                      <span>Đăng ký gia nhập trực tuyến</span>
                                     </button>
-                                  </div>
-                                ) : (
-                                  <div className="p-5 border border-slate-200 bg-white rounded-2xl space-y-4 text-xs shadow-xs animate-slide-up">
-                                    <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                                      <h5 className="font-black text-slate-900 uppercase tracking-wide flex items-center gap-1.5 text-[11px]">
-                                        <Sparkles size={13} className="text-indigo-500 animate-spin-slow" />
-                                        <span>Tờ khai đăng ký đính kèm thành viên chi hội</span>
-                                      </h5>
-                                      <button 
-                                        type="button"
-                                        onClick={() => setIsApplyingClub(false)}
-                                        className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 bg-slate-100 rounded-lg text-[10px]"
-                                      >
-                                        Thu gọn đơn
-                                      </button>
+                                  ) : (
+                                    <div className="px-4 py-2 bg-slate-200 text-slate-500 font-bold text-xs rounded-xl cursor-not-allowed shrink-0 flex items-center gap-1.5">
+                                      <Lock size={13} />
+                                      <span>Cổng đăng ký đang đóng</span>
                                     </div>
-
-                                    <div className="space-y-3">
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                                        <div>
-                                          <label className="block text-[10px] font-bold text-slate-600 mb-1">Họ và tên thí sinh/học sinh <span className="text-red-500">*</span></label>
-                                          <input 
-                                            type="text" 
-                                            placeholder="Nhập đầy đủ tên"
-                                            value={applyName}
-                                            onChange={(e) => setApplyName(e.target.value)}
-                                            className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white font-medium focus:border-indigo-500 focus:outline-none"
-                                            required
-                                          />
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-2">
-                                          <div>
-                                            <label className="block text-[10px] font-bold text-slate-600 mb-1">Mã sinh viên</label>
-                                            <input 
-                                              type="text" 
-                                              disabled
-                                              value={studentId}
-                                              className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-slate-100 text-slate-450 font-mono"
-                                            />
-                                          </div>
-                                          <div>
-                                            <label className="block text-[10px] font-bold text-slate-600 mb-1">Lớp sinh hoạt</label>
-                                            <input 
-                                              type="text" 
-                                              disabled
-                                              value={sObj?.classId || "Chưa phân lớp"}
-                                              className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-slate-100 text-slate-450"
-                                            />
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                        <div>
-                                          <label className="block text-[10px] font-bold text-slate-600 mb-1">Giới tính</label>
-                                          <select 
-                                            value={applyGender}
-                                            onChange={(e) => setApplyGender(e.target.value)}
-                                            className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white"
-                                          >
-                                            <option value="Nam">Nam</option>
-                                            <option value="Nữ">Nữ</option>
-                                          </select>
-                                        </div>
-                                        <div>
-                                          <label className="block text-[10px] font-bold text-slate-600 mb-1">Ngày sinh <span className="text-red-500">*</span></label>
-                                          <input 
-                                            type="date" 
-                                            value={applyDob}
-                                            onChange={(e) => setApplyDob(e.target.value)}
-                                            className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white font-mono"
-                                          />
-                                        </div>
-                                        <div>
-                                          <label className="block text-[10px] font-bold text-slate-600 mb-1">Dân tộc <span className="text-red-500">*</span></label>
-                                          <input 
-                                            type="text" 
-                                            value={applyEthnicity}
-                                            onChange={(e) => setApplyEthnicity(e.target.value)}
-                                            className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white"
-                                          />
-                                        </div>
-                                      </div>
-
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <div>
-                                          <label className="block text-[10px] font-bold text-slate-600 mb-1">Số điện thoại liên hệ <span className="text-red-500">*</span></label>
-                                          <input 
-                                            type="tel" 
-                                            placeholder="098xxxxxxx"
-                                            value={applyPhone}
-                                            onChange={(e) => setApplyPhone(e.target.value)}
-                                            className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white font-mono"
-                                          />
-                                        </div>
-                                        <div>
-                                          <label className="block text-[10px] font-bold text-slate-600 mb-1">Hòm thư Email cá nhân <span className="text-red-500">*</span></label>
-                                          <input 
-                                            type="email" 
-                                            placeholder="ten@phhg.edu.vn"
-                                            value={applyEmail}
-                                            onChange={(e) => setApplyEmail(e.target.value)}
-                                            className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white"
-                                          />
-                                        </div>
-                                      </div>
-
-                                      <div>
-                                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Chuyên ngành theo học <span className="text-red-500">*</span></label>
-                                        <input 
-                                          type="text" 
-                                          value={applyMajor}
-                                          onChange={(e) => setApplyMajor(e.target.value)}
-                                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white"
-                                        />
-                                      </div>
-
-                                      <div>
-                                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Địa chỉ thường trú</label>
-                                        <input 
-                                          type="text" 
-                                          placeholder="Huyện/Thị xã, Tỉnh..."
-                                          value={applyPermanentAddress}
-                                          onChange={(e) => setApplyPermanentAddress(e.target.value)}
-                                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white"
-                                        />
-                                      </div>
-
-                                      <div>
-                                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Nơi ở hiện tại / Ký túc xá</label>
-                                        <input 
-                                          type="text" 
-                                          placeholder="Phòng KTX hoặc địa chỉ tạm trú"
-                                          value={applyTemporaryAddress}
-                                          onChange={(e) => setApplyTemporaryAddress(e.target.value)}
-                                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white"
-                                        />
-                                      </div>
-
-                                      <div>
-                                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Đường dẫn CV / Hồ sơ đính kèm (Google Drive link)</label>
-                                        <input 
-                                          type="url" 
-                                          placeholder="https://drive.google.com/..."
-                                          value={applyAttachmentUrl}
-                                          onChange={(e) => setApplyAttachmentUrl(e.target.value)}
-                                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-250 bg-white font-mono"
-                                        />
-                                      </div>
-                                    </div>
-
-                                    <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                                      <button 
-                                        type="button"
-                                        onClick={() => setIsApplyingClub(false)}
-                                        className="px-3.5 py-2 hover:bg-slate-50 text-slate-600 border border-slate-200 font-extrabold text-[10px] rounded-lg cursor-pointer"
-                                      >
-                                        Hủy bỏ đơn
-                                      </button>
-                                      <button 
-                                        type="button"
-                                        onClick={() => {
-                                          if (!applyName || !applyDob || !applyEthnicity || !applyPhone || !applyEmail || !applyMajor) {
-                                            alert("Vui lòng nhập đầy đủ các trường thông tin bắt buộc có dấu (*)");
-                                            return;
-                                          }
-
-                                          const phoneRegex = /^[0-9+() -]{8,15}$/;
-                                          if (!phoneRegex.test(applyPhone.trim())) {
-                                            alert("Số điện thoại không hợp lệ (từ 8 đến 15 ký tự số)!");
-                                            return;
-                                          }
-
-                                          const emailRegex = /^[^s@]+@[^s@]+.[^s@]+$/;
-                                          if (!emailRegex.test(applyEmail.trim())) {
-                                            alert("Địa chỉ email không đúng định dạng!");
-                                            return;
-                                          }
-
-                                          joinOrganizationRequest(studentId, club.id, {
-                                            studentName: applyName,
-                                            gender: applyGender,
-                                            dob: applyDob,
-                                            ethnicity: applyEthnicity,
-                                            phone: applyPhone,
-                                            email: applyEmail,
-                                            major: applyMajor,
-                                            permanentAddress: applyPermanentAddress,
-                                            temporaryAddress: applyTemporaryAddress,
-                                            attachmentUrl: applyAttachmentUrl
-                                          });
-
-                                          alert(`Nộp hồ sơ gia nhập CLB "${club.name}" thành công! Ban chủ nhiệm sẽ tiến hành kiểm duyệt hồ sơ.`);
-                                          setIsApplyingClub(false);
-                                        }}
-                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[10px] rounded-lg cursor-pointer shadow-sm active:scale-95 transition-all"
-                                      >
-                                        Gửi đơn gia nhập CLB chính thức
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
+                                  )}
+                                </div>
                               </div>
                             )}
                           </div>
@@ -3225,6 +3155,77 @@ export const StudentPortal: React.FC = () => {
                             Đóng cửa sổ
                           </button>
                         </div>
+
+                        {/* SRC Application Modal */}
+                        <SrcApplicationModal
+                          isOpen={showSrcModal}
+                          onClose={() => setShowSrcModal(false)}
+                          mode={srcModalMode}
+                          initialData={membership?.applicationData}
+                          studentDefaults={{
+                            name: currentUser?.name || sObj?.name || "",
+                            studentId: studentId,
+                            classId: sObj?.classId || "",
+                            email: currentUser?.email || sObj?.email || "",
+                            phone: sObj?.phone || "",
+                            dob: sObj?.dob || "2006-01-01",
+                            gender: sObj?.gender || "Nam",
+                            major: sObj?.major || "Giáo dục Tiểu học",
+                            faculty: sObj?.faculty || "Khoa Giáo dục Tiểu học & Mầm non"
+                          }}
+                          onSubmit={(data) => {
+                            joinOrganizationRequest(studentId, club.id, {
+                              studentName: data.fullName,
+                              gender: data.gender,
+                              dob: data.dob,
+                              phone: data.phone,
+                              email: data.email,
+                              major: data.major,
+                              applicationData: data
+                            });
+                            setShowSrcModal(false);
+                            alert(`Nộp đơn xin gia nhập CLB "${club.name}" thành công! Ban Chủ nhiệm sẽ thẩm định hồ sơ và phản hồi kết quả.`);
+                          }}
+                          status={membership?.status}
+                          rejectReason={membership?.rejectReason}
+                          reviewNote={membership?.reviewNote}
+                          reviewedAt={membership?.reviewedAt}
+                          reviewedBy={membership?.reviewedBy}
+                        />
+
+                        {/* Under Development Modal for other clubs */}
+                        {showUnderDevModal && (
+                          <div className="fixed inset-0 z-60 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+                            <div className="bg-white rounded-2xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100 text-center space-y-4 animate-scale-up">
+                              <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 ring-1 ring-amber-200 flex items-center justify-center mx-auto shadow-xs">
+                                <Construction size={28} />
+                              </div>
+                              <div className="space-y-1.5">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                                  TÍNH NĂNG ĐANG PHÁT TRIỂN
+                                </span>
+                                <h4 className="text-base font-extrabold text-slate-900">
+                                  Cổng Đăng Ký Trực Tuyến CLB
+                                </h4>
+                                <p className="text-xs text-slate-600 leading-relaxed pt-1">
+                                  Hệ thống biểu mẫu đăng ký trực tuyến cho <strong>{underDevClubName}</strong> đang trong giai đoạn phát triển và sẽ sớm được cập nhật.
+                                </p>
+                                <div className="p-3 bg-slate-50 rounded-xl border border-slate-150 text-left text-xs text-slate-600 mt-2 space-y-1">
+                                  <p className="font-bold text-slate-800">Hướng dẫn tham gia:</p>
+                                  <p>Vui lòng liên hệ trực tiếp với Ban Chủ nhiệm CLB (Đại diện: <strong>{underDevLeaderName}</strong>) để được hướng dẫn thủ tục nộp hồ sơ xét kết nạp đợt này!</p>
+                                </div>
+                              </div>
+                              <div className="pt-2">
+                                <button
+                                  onClick={() => setShowUnderDevModal(false)}
+                                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+                                >
+                                  Đã hiểu
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                       </div>
                     </div>

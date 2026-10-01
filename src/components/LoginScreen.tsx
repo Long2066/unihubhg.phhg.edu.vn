@@ -124,7 +124,8 @@ export const LoginScreen: React.FC = () => {
       const isDoanHoiSpecial = ann.orgId === "DOANTN" || ann.orgId === "HOISV" || ann.orgId === "DOAN_HOI" || ann.orgId === "PHANHIEU" || ann.orgId === "TRUONG";
       const org = (organizations || []).find(o => o.id === ann.orgId);
       const isDoanHoi = isDoanHoiSpecial || org?.type === "DOAN" || org?.type === "HOI";
-      if (!isDoanHoi) return; // Bỏ qua thông báo nội bộ của CLB
+      const isRecruitment = ann.isRecruitment || (ann.title || "").toLowerCase().includes("tuyển thành viên");
+      if (!isDoanHoi && !isRecruitment) return; // Bỏ qua thông báo nội bộ của CLB
 
       // Kiểm tra expiryDate — bỏ qua nếu đã hết hạn
       if (ann.expiryDate && todayStr > ann.expiryDate) return;

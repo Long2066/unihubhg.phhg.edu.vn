@@ -269,6 +269,30 @@ export const isStudentProfileComplete = (s: any): boolean => {
   return filled >= 20;
 };
 
+export interface SrcClubApplication {
+  fullName: string;
+  dob: string;
+  gender: string;
+  studentId: string;
+  academicYear: string; // Khóa
+  classId: string;
+  major: string;
+  faculty: string;
+  phone: string;
+  email: string;
+  zalo?: string;
+  researchFields: string[];
+  otherResearchField?: string;
+  skills: string[];
+  otherSkill?: string;
+  academicExperience?: string;
+  joinReason: string;
+  desiredSubgroup: string[];
+  firstYearGoal: string;
+  agreedTerms: boolean;
+  submittedAt: string;
+}
+
 export interface Organization {
   id: string;           // Code - e.g. "UNITECH"
   name: string;
@@ -276,6 +300,12 @@ export interface Organization {
   leaderName: string;
   field: string;        // Lĩnh vực hoạt động
   level: "TRUONG" | "KHOA";
+  recruitmentOpen?: boolean;
+  recruitmentTitle?: string;
+  recruitmentContent?: string;
+  recruitmentDeadline?: string;
+  recruitmentTarget?: string;
+  recruitmentUpdatedAt?: string;
 }
 
 export interface OrganizationMember {
@@ -286,7 +316,7 @@ export interface OrganizationMember {
   role: "CHỦ NHIỆM" | "BAN CHẤP HÀNH" | "ỦY VIÊN" | "THÀNH VIÊN";
   joinedDate: string;
   term: string; // Nhiệm kỳ: e.g. "2025-2026"
-  status: "PENDING" | "ACTIVE" | "INACTIVE";
+  status: "PENDING" | "ACTIVE" | "INACTIVE" | "REJECTED";
   
   // Custom club membership attachment fields
   gender?: string;
@@ -300,6 +330,13 @@ export interface OrganizationMember {
   facultyInCharge?: string;
   studentName?: string;
   attachmentUrl?: string;
+
+  // Detailed recruitment application data & review feedback
+  applicationData?: SrcClubApplication;
+  rejectReason?: string;
+  reviewNote?: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
 }
 
 export interface ExtracurricularActivity {
@@ -457,6 +494,7 @@ export interface ClubAnnouncement {
   expiryDate: string; // Customizable expiry date
   activityId?: string;
   imageUrl?: string;
+  isRecruitment?: boolean; // When true, displays on all students feed
 }
 
 export interface ScheduleSlot {

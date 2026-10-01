@@ -122,8 +122,9 @@ interface UniHubContextType {
   // Organizer Actions
   createActivity: (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName">) => Promise<string>;
   updateActivityStatus: (activityId: string, status: "UPCOMING" | "ONGOING" | "COMPLETED") => void;
-  approveMemberRequest: (memberId: string) => void;
-  rejectMemberRequest: (memberId: string) => void;
+  approveMemberRequest: (memberId: string, note?: string) => void;
+  rejectMemberRequest: (memberId: string, reason?: string) => void;
+  toggleClubRecruitment: (clubId: string, open: boolean, details?: { title?: string; content?: string; deadline?: string; target?: string }) => void;
   assignMemberRole: (memberId: string, role: "CHỦ NHIỆM" | "BAN CHẤP HÀNH" | "ỦY VIÊN" | "THÀNH VIÊN") => void;
   updateAttendance: (attendanceId: string, attended: boolean, role?: "MEM" | "BTC" | "SUPPORTER") => void;
   addBulkAttendance: (activityId: string, studentIds: string[]) => void;
@@ -3212,6 +3213,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     const effectiveOrgId = targetOrg.id;
 
+    if (currentUser.role !== UserRole.ADMIN && !targetOrg.recruitmentOpen) {
+      alert(`Câu lạc bộ "${targetOrg.name}" hiện chưa mở cổng hoặc đã kết thúc đợt tuyển thành viên mới!`);
+      return;
+    }
+
     const studentKeys = new Set([effectiveStudentId, studentObj.id, (studentObj as any).code, studentObj.email].map(norm).filter(Boolean));
     const alreadyExists = members.some(m => 
       studentKeys.has(norm(m.studentId)) && 
@@ -3224,6 +3230,12 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
+    const existingRejected = members.find(m => 
+      studentKeys.has(norm(m.studentId)) && 
+      (m.orgId || "").trim().toUpperCase() === cleanOrgKey && 
+      m.status === "REJECTED"
+    );
+
     const safeDetails = { ...(details || {}) };
     if (currentUser.role !== UserRole.ADMIN) {
       delete (safeDetails as any).status;
@@ -3235,8 +3247,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     const pendingMember: OrganizationMember = {
+      ...(existingRejected || {}),
       ...safeDetails,
-      id: `M_NEW_${Date.now()}`,
+      id: existingRejected ? existingRejected.id : `M_NEW_${Date.now()}`,
       studentId: effectiveStudentId,
       classId: normalizeClassId(studentObj.classId),
       orgId: effectiveOrgId,
@@ -3245,9 +3258,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       term: period?.academicYear || "2025-2026",
       status: (currentUser.role === UserRole.ADMIN && details?.status) ? details.status : "PENDING",
       studentName: (currentUser.role === UserRole.ADMIN && safeDetails.studentName) ? safeDetails.studentName : studentObj.name,
+      applicationData: details?.applicationData || (safeDetails as any).applicationData,
+      rejectReason: undefined,
+      reviewNote: undefined,
+      reviewedAt: undefined,
+      reviewedBy: undefined
     };
 
-    const updated = [...members, pendingMember];
+    const updated = existingRejected 
+      ? members.map(m => m.id === existingRejected.id ? pendingMember : m)
+      : [...members, pendingMember];
     setMembers(updated);
     saveToStorage("unihub_members", updated);
 
@@ -3845,7 +3865,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveToStorage("unihub_members", updated);
   };
 
-  const approveMemberRequest = (memberId: string) => {
+  const approveMemberRequest = (memberId: string, note?: string) => {
     if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
       console.warn("Unauthorized attempt to approve organization member");
       return;
@@ -3859,15 +3879,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to approve member of another organization");
       return;
     }
-    const linkedStudent = students.find(s => s.id?.trim().toLowerCase() === (member.studentId || "").trim().toLowerCase());
-    const linkedUser = users.find(u => (u.targetId || u.username || "").trim().toLowerCase() === (member.studentId || "").trim().toLowerCase());
-    const realStudentName = (member.studentId && member.studentId.trim().toUpperCase() !== "DTG245140202053" && member.studentName === "Ma Văn Long")
-      ? (linkedStudent?.name || linkedUser?.name || member.studentId)
-      : (member.studentName || linkedStudent?.name || linkedUser?.name || "Sinh viên");
-
+    const nowIso = new Date().toISOString();
     const updated = members.map(m => {
       if (m.id === cleanMemberId) {
-        return { ...m, status: "ACTIVE" as const };
+        return { 
+          ...m, 
+          status: "ACTIVE" as const,
+          reviewNote: note || "",
+          reviewedAt: nowIso,
+          reviewedBy: currentUser.name || "Ban Chủ nhiệm"
+        };
       }
       return m;
     });
@@ -3875,12 +3896,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveToStorage("unihub_members", updated);
 
     // Direct Firestore update ensures active status syncs immediately across devices
-    setDoc(doc(db, "members", cleanMemberId), { status: "ACTIVE" }, { merge: true }).catch(err => {
+    setDoc(doc(db, "members", cleanMemberId), { 
+      status: "ACTIVE",
+      reviewNote: note || "",
+      reviewedAt: nowIso,
+      reviewedBy: currentUser.name || "Ban Chủ nhiệm"
+    }, { merge: true }).catch(err => {
       console.error("Lỗi duyệt thành viên Firestore:", err);
     });
   };
 
-  const rejectMemberRequest = (memberId: string) => {
+  const rejectMemberRequest = (memberId: string, reason?: string) => {
     if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
       console.warn("Unauthorized attempt to reject organization member");
       return;
@@ -3894,10 +3920,88 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to reject member of another organization");
       return;
     }
-    const updated = members.filter(m => m.id !== cleanMemberId);
+    const nowIso = new Date().toISOString();
+    const updated = members.map(m => {
+      if (m.id === cleanMemberId) {
+        return {
+          ...m,
+          status: "REJECTED" as const,
+          rejectReason: reason || "Chưa đạt tiêu chí xét duyệt đợt này",
+          reviewedAt: nowIso,
+          reviewedBy: currentUser.name || "Ban Chủ nhiệm"
+        };
+      }
+      return m;
+    });
     setMembers(updated);
     saveToStorage("unihub_members", updated);
-    deleteDoc(doc(db, "members", cleanMemberId)).catch(e => console.warn("Lỗi xóa yêu cầu gia nhập CLB Firestore:", e));
+
+    setDoc(doc(db, "members", cleanMemberId), {
+      status: "REJECTED",
+      rejectReason: reason || "Chưa đạt tiêu chí xét duyệt đợt này",
+      reviewedAt: nowIso,
+      reviewedBy: currentUser.name || "Ban Chủ nhiệm"
+    }, { merge: true }).catch(e => console.warn("Lỗi lưu trạng thái từ chối thành viên Firestore:", e));
+  };
+
+  const toggleClubRecruitment = (clubId: string, open: boolean, details?: { title?: string; content?: string; deadline?: string; target?: string }) => {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+      console.warn("Unauthorized attempt to toggle club recruitment");
+      return;
+    }
+    const cleanId = (clubId || "").trim();
+    if (!cleanId) return;
+
+    const targetOrg = organizations.find(o => o.id === cleanId);
+    if (!targetOrg) return;
+
+    const nowIso = new Date().toISOString();
+    const updatedClub: Organization = {
+      ...targetOrg,
+      recruitmentOpen: open,
+      recruitmentTitle: details?.title !== undefined ? details.title : targetOrg.recruitmentTitle,
+      recruitmentContent: details?.content !== undefined ? details.content : targetOrg.recruitmentContent,
+      recruitmentDeadline: details?.deadline !== undefined ? details.deadline : targetOrg.recruitmentDeadline,
+      recruitmentTarget: details?.target !== undefined ? details.target : targetOrg.recruitmentTarget,
+      recruitmentUpdatedAt: nowIso
+    };
+
+    setOrganizations(prev => {
+      const next = prev.map(o => o.id === cleanId ? updatedClub : o);
+      localStorage.setItem("unihub_organizations", JSON.stringify(next));
+      return next;
+    });
+
+    const cleanFirestoreOrg = sanitizeForFirestore(updatedClub);
+    setDoc(doc(db, "organizations", cleanId), cleanFirestoreOrg, { merge: true }).catch(err => {
+      console.warn("Lỗi lưu trạng thái tuyển CLB Firestore:", err);
+    });
+
+    // If opened and has content/title, automatically publish announcement to public feed for all students
+    if (open && (details?.content || details?.title)) {
+      const annTitle = details.title || `[THÔNG BÁO TUYỂN THÀNH VIÊN] ${targetOrg.name} mở đợt tuyển thành viên mới`;
+      const newAnn: ClubAnnouncement = {
+        id: `ANN_REC_${Date.now()}`,
+        orgId: cleanId,
+        orgName: targetOrg.name,
+        title: annTitle,
+        content: details.content || `Câu lạc bộ ${targetOrg.name} chính thức mở cổng tuyển thành viên mới. Các bạn sinh viên quan tâm vui lòng nộp hồ sơ đăng ký trước ngày ${details.deadline || "sắp tới"}.`,
+        createdAt: nowIso,
+        expiryDate: details.deadline || "2026-12-31",
+        isRecruitment: true
+      };
+
+      setAnnouncements(prev => {
+        const next = [newAnn, ...prev];
+        localStorage.setItem("unihub_announcements", JSON.stringify(next));
+        return next;
+      });
+
+      const cleanFirestoreAnn = sanitizeForFirestore(newAnn);
+      setDoc(doc(db, "announcements", newAnn.id), cleanFirestoreAnn, { merge: true }).catch(err => {
+        console.warn("Lỗi đăng thông báo tuyển quân Firestore:", err);
+      });
+    }
   };
 
   const assignMemberRole = (memberId: string, role: "CHỦ NHIỆM" | "BAN CHẤP HÀNH" | "ỦY VIÊN" | "THÀNH VIÊN") => {
@@ -6608,6 +6712,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       updateActivityStatus,
       approveMemberRequest,
       rejectMemberRequest,
+      toggleClubRecruitment,
       assignMemberRole,
       updateAttendance,
       addBulkAttendance,
