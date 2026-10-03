@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useUniHub, normalizeClassId } from "../state";
 import { UserRole, Student, UserAccount, ScheduleSlot, STUDENT_FIELDS_META, SEMESTER_LIST, SemesterItem, CourseClassAssignment, GradeAppeal, GradingRulesConfig, parseWeekRange, isWeekInScheduleSlot, isStudentProfileComplete } from "../types";
 import { SEED_TEACHER_ASSIGNMENTS } from "../data";
@@ -339,10 +339,35 @@ export const TrainingPortal: React.FC = () => {
   const [classDetailSearchQuery, setClassDetailSearchQuery] = useState("");
   const [classSearchTerm, setClassSearchTerm] = useState("");
   const [selectedScheduleSemesterId, setSelectedScheduleSemesterId] = useState<string>(period?.id || "HOCKY_1_2026_2027");
-  const [selectedScheduleWeek, setSelectedScheduleWeek] = useState<number>(0);
+  const [selectedScheduleWeek, setSelectedScheduleWeek] = useState<number>(1);
   const [selectedAssignmentClass, setSelectedAssignmentClass] = useState<string>("ALL");
   const [showAddSemesterModal, setShowAddSemesterModal] = useState<boolean>(false);
   const [semesterModalTarget, setSemesterModalTarget] = useState<"ASSIGNMENTS" | "SCHEDULE" | "SCHOLARSHIP" | "IMPORT" | "GLOBAL">("GLOBAL");
+
+  // Real-time Clock driven state (Auto-updates every 1 hour & on tab focus)
+  const [currentRealTime, setCurrentRealTime] = useState<Date>(() => new Date());
+
+  useEffect(() => {
+    // 1. Hourly interval to keep schedule sync across day/week transitions
+    const intervalId = window.setInterval(() => {
+      setCurrentRealTime(new Date());
+    }, 3600000);
+
+    // 2. Immediate refresh when tab/window gains focus or wakes from sleep
+    const handleSync = () => {
+      if (document.visibilityState === "visible") {
+        setCurrentRealTime(new Date());
+      }
+    };
+    window.addEventListener("focus", handleSync);
+    document.addEventListener("visibilitychange", handleSync);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleSync);
+      document.removeEventListener("visibilitychange", handleSync);
+    };
+  }, []);
 
   const handleSemesterCreated = (newSem: SemesterItem) => {
     if (semesterModalTarget === "SCHEDULE") {
@@ -397,16 +422,16 @@ export const TrainingPortal: React.FC = () => {
     }
 
     let aYear = sYear;
-    let aMonth = 7;
-    let aDay = 15;
+    let aMonth = 9; // October (0-indexed: 9 = Tháng 10) by default for Term 1 (e.g. 05/10/2026)
+    let aDay = 5;
 
     if (tNum === 2) {
       aYear = eYear;
-      aMonth = 0;
+      aMonth = 0; // January
       aDay = 10;
     } else if (tNum === 3) {
       aYear = eYear;
-      aMonth = 5;
+      aMonth = 5; // June
       aDay = 1;
     }
 
@@ -414,6 +439,17 @@ export const TrainingPortal: React.FC = () => {
     const day = anchor.getDay();
     const diffToMon = day === 0 ? 1 : (day === 1 ? 0 : 8 - day);
     return new Date(aYear, aMonth, aDay + diffToMon);
+  };
+
+  // Helper: auto calculate active real week number of the semester based on current real-time clock
+  const calculateCurrentWeekOfSemester = (semIdToUse?: string): number => {
+    const baseMon = getSemesterBaseMonday(semIdToUse);
+    const now = currentRealTime;
+    const diffMs = now.getTime() - baseMon.getTime();
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffDays < 0) return 1; // Prior to start -> Week 1
+    const weekNum = Math.floor(diffDays / 7) + 1;
+    return Math.min(Math.max(weekNum, 1), 20);
   };
 
   const getWeekDateRangeStr = (weekNum: number, semIdToUse?: string): { monStr: string; sunStr: string; label: string } => {
@@ -439,7 +475,7 @@ export const TrainingPortal: React.FC = () => {
     const mon = new Date(baseMon.getFullYear(), baseMon.getMonth(), baseMon.getDate() + (weekNum - 1) * 7);
     const sun = new Date(baseMon.getFullYear(), baseMon.getMonth(), baseMon.getDate() + (weekNum - 1) * 7 + 6, 23, 59, 59);
 
-    const now = new Date();
+    const now = currentRealTime;
     if (now >= mon && now <= sun) {
       return " • [Tuần này]";
     }
@@ -450,6 +486,13 @@ export const TrainingPortal: React.FC = () => {
       const monM = String(mon.getMonth() + 1).padStart(2, "0");
       return ` • [Tuần sau: Thứ Hai ${monD}/${monM}]`;
     }
+
+    if (weekNum === 1 && now < mon) {
+      const monD = String(mon.getDate()).padStart(2, "0");
+      const monM = String(mon.getMonth() + 1).padStart(2, "0");
+      return ` • [Bắt đầu: Thứ Hai ${monD}/${monM}]`;
+    }
+
     return "";
   };
 
@@ -4298,6 +4341,38 @@ export const TrainingPortal: React.FC = () => {
                           );
                         })}
                       </select>
+                    </div>
+
+                    {/* Real-time Clock Sync Badge & Quick Jump */}
+                    <div className="ml-auto flex items-center gap-2.5 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-xs">
+                      <span className="relative flex h-2 w-2" title="Đồng bộ thời gian thực ngầm">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      <div className="text-[11px] font-mono text-slate-600 flex items-center gap-1.5">
+                        <Calendar size={13} className="text-slate-400" />
+                        <span className="font-semibold text-slate-800">
+                          {currentRealTime.toLocaleDateString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" })}
+                        </span>
+                        <span className="text-slate-300">|</span>
+                        <span className="text-emerald-700 font-bold text-[10px]">Auto-sync 60p</span>
+                      </div>
+                      {(() => {
+                        const currentRealWeek = calculateCurrentWeekOfSemester(selectedScheduleSemesterId);
+                        if (currentRealWeek > 0 && selectedScheduleWeek !== currentRealWeek) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedScheduleWeek(currentRealWeek)}
+                              className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[10.5px] font-bold rounded cursor-pointer transition-colors"
+                              title="Chuyển nhanh đến tuần học thực tế hiện tại"
+                            >
+                              Về Tuần {currentRealWeek} (hiện tại)
+                            </button>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                   </div>
 

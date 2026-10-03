@@ -23,8 +23,8 @@ export const SEED_PERIOD: EvaluationPeriod = {
   id: "HOCKY_1_2026_2027",
   academicYear: "2026-2027",
   semester: "Học kỳ I",
-  startDate: "2026-08-15",
-  endDate: "2027-01-20",
+  startDate: "2026-10-05",
+  endDate: "2027-02-28",
   status: "ACTIVE"
 };
 
