@@ -352,6 +352,107 @@ export const TrainingPortal: React.FC = () => {
     }
   };
 
+  // Helper: compute Monday of Week 1 for any semester
+  const getSemesterBaseMonday = (semIdToUse?: string): Date => {
+    const sId = semIdToUse || selectedScheduleSemesterId || period?.id || "HOCKY_1_2026_2027";
+    const curSem = allSemesters.find(s => s.id === sId) || allSemesters[0];
+    const semMatch = sId.match(/HOCKY_(\d)_(\d{4})_(\d{4})/i);
+
+    let tNum = 1;
+    let sYear = 2026;
+    let eYear = 2027;
+
+    if (semMatch) {
+      tNum = parseInt(semMatch[1], 10);
+      sYear = parseInt(semMatch[2], 10);
+      eYear = parseInt(semMatch[3], 10);
+    } else if (curSem) {
+      const isTerm2 = (curSem.term || curSem.name || "").toLowerCase().includes("ii") ||
+        (curSem.term || curSem.name || "").includes("2");
+      const isTerm3 = (curSem.term || curSem.name || "").toLowerCase().includes("phụ") ||
+        (curSem.term || curSem.name || "").toLowerCase().includes("hè") ||
+        (curSem.term || curSem.name || "").includes("3");
+      tNum = isTerm3 ? 3 : (isTerm2 ? 2 : 1);
+
+      const yearMatch = (curSem.academicYear || curSem.name || "").match(/(\d{4})\s*-\s*(\d{4})/);
+      if (yearMatch) {
+        sYear = parseInt(yearMatch[1], 10);
+        eYear = parseInt(yearMatch[2], 10);
+      } else {
+        const singleYear = (curSem.academicYear || curSem.name || "").match(/(\d{4})/);
+        if (singleYear) {
+          sYear = parseInt(singleYear[1], 10);
+          eYear = sYear + 1;
+        }
+      }
+    }
+
+    if (period && (!sId || sId === period.id) && period.startDate) {
+      const pDate = new Date(period.startDate);
+      if (!isNaN(pDate.getTime())) {
+        const day = pDate.getDay();
+        const diffToMon = day === 0 ? -6 : 1 - day;
+        return new Date(pDate.getFullYear(), pDate.getMonth(), pDate.getDate() + diffToMon);
+      }
+    }
+
+    let aYear = sYear;
+    let aMonth = 7;
+    let aDay = 15;
+
+    if (tNum === 2) {
+      aYear = eYear;
+      aMonth = 0;
+      aDay = 10;
+    } else if (tNum === 3) {
+      aYear = eYear;
+      aMonth = 5;
+      aDay = 1;
+    }
+
+    const anchor = new Date(aYear, aMonth, aDay);
+    const day = anchor.getDay();
+    const diffToMon = day === 0 ? 1 : (day === 1 ? 0 : 8 - day);
+    return new Date(aYear, aMonth, aDay + diffToMon);
+  };
+
+  const getWeekDateRangeStr = (weekNum: number, semIdToUse?: string): { monStr: string; sunStr: string; label: string } => {
+    const baseMon = getSemesterBaseMonday(semIdToUse);
+    const mon = new Date(baseMon.getFullYear(), baseMon.getMonth(), baseMon.getDate() + (weekNum - 1) * 7);
+    const sun = new Date(baseMon.getFullYear(), baseMon.getMonth(), baseMon.getDate() + (weekNum - 1) * 7 + 6);
+
+    const monD = String(mon.getDate()).padStart(2, "0");
+    const monM = String(mon.getMonth() + 1).padStart(2, "0");
+    const sunD = String(sun.getDate()).padStart(2, "0");
+    const sunM = String(sun.getMonth() + 1).padStart(2, "0");
+    const yyyy = sun.getFullYear();
+
+    const monStr = `${monD}/${monM}/${mon.getFullYear()}`;
+    const sunStr = `${sunD}/${sunM}/${yyyy}`;
+    const rangeShort = `${monD}/${monM} - ${sunD}/${sunM}/${yyyy}`;
+
+    return { monStr, sunStr, label: rangeShort };
+  };
+
+  const getWeekContextTag = (weekNum: number, semIdToUse?: string): string => {
+    const baseMon = getSemesterBaseMonday(semIdToUse);
+    const mon = new Date(baseMon.getFullYear(), baseMon.getMonth(), baseMon.getDate() + (weekNum - 1) * 7);
+    const sun = new Date(baseMon.getFullYear(), baseMon.getMonth(), baseMon.getDate() + (weekNum - 1) * 7 + 6, 23, 59, 59);
+
+    const now = new Date();
+    if (now >= mon && now <= sun) {
+      return " • [Tuần này]";
+    }
+
+    const nextWeekMon = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7);
+    if (nextWeekMon >= mon && nextWeekMon <= sun) {
+      const monD = String(mon.getDate()).padStart(2, "0");
+      const monM = String(mon.getMonth() + 1).padStart(2, "0");
+      return ` • [Tuần sau: Thứ Hai ${monD}/${monM}]`;
+    }
+    return "";
+  };
+
   // State Đổi Tên Lớp
   const [editingRenameClassId, setEditingRenameClassId] = useState<string | null>(null);
   const [renameClassNameInput, setRenameClassNameInput] = useState<string>("");
@@ -1525,37 +1626,7 @@ export const TrainingPortal: React.FC = () => {
       const semSlug = `HK${termNumber}_${startYear}_${endYear}`;
 
       // Calculate Monday of Week 1
-      const getBaseMondayForSemester = (): Date => {
-        if (period && (!selectedScheduleSemesterId || selectedScheduleSemesterId === period.id) && period.startDate) {
-          const pDate = new Date(period.startDate);
-          if (!isNaN(pDate.getTime())) {
-            const day = pDate.getDay();
-            const diffToMon = day === 0 ? -6 : 1 - day;
-            return new Date(pDate.getFullYear(), pDate.getMonth(), pDate.getDate() + diffToMon);
-          }
-        }
-
-        let anchorYear = startYear;
-        let anchorMonth = 7; // August (0-indexed)
-        let anchorDay = 15;
-
-        if (termNumber === 2) {
-          anchorYear = endYear;
-          anchorMonth = 0; // January
-          anchorDay = 10;
-        } else if (termNumber === 3) {
-          anchorYear = endYear;
-          anchorMonth = 5; // June
-          anchorDay = 1;
-        }
-
-        const anchor = new Date(anchorYear, anchorMonth, anchorDay);
-        const day = anchor.getDay();
-        const diffToMon = day === 0 ? 1 : (day === 1 ? 0 : 8 - day);
-        return new Date(anchorYear, anchorMonth, anchorDay + diffToMon);
-      };
-
-      const baseMonday = getBaseMondayForSemester();
+      const baseMonday = getSemesterBaseMonday(selectedScheduleSemesterId);
 
       const availableScheduleClasses = Array.from(new Set([
         ...students.map(s => normalizeClassId(s.classId)),
@@ -1776,9 +1847,8 @@ export const TrainingPortal: React.FC = () => {
         const blocksToExport: { start: number; end: number }[] = [];
 
         if (selectedScheduleWeek && selectedScheduleWeek > 0) {
-          const blockStart = Math.floor((selectedScheduleWeek - 1) / 4) * 4 + 1;
-          const blockEnd = Math.min(blockStart + 3, totalWeeksInSemester);
-          blocksToExport.push({ start: blockStart, end: blockEnd });
+          // If a specific week was selected in UI, export THAT EXACT WEEK directly!
+          blocksToExport.push({ start: selectedScheduleWeek, end: selectedScheduleWeek });
         } else {
           for (let w = 1; w <= totalWeeksInSemester; w += 4) {
             blocksToExport.push({ start: w, end: Math.min(w + 3, totalWeeksInSemester) });
@@ -1808,10 +1878,14 @@ export const TrainingPortal: React.FC = () => {
 
           currentRow++;
 
-          // Row 2: Subtitle (Block Range e.g. Tuần: 1 - 4, Tuần: 5 - 8)
+          // Row 2: Subtitle (Block Range with full dates e.g. Tuần: 1 - 4 (Từ ngày ... đến ngày ...))
           sheet.mergeCells(`D${currentRow}:I${currentRow}`);
           const d2 = sheet.getCell(`D${currentRow}`);
-          d2.value = `Tuần: ${block.start} - ${block.end}`;
+          const bStartInfo = getWeekDateRangeStr(block.start, selectedScheduleSemesterId);
+          const bEndInfo = getWeekDateRangeStr(block.end, selectedScheduleSemesterId);
+          d2.value = block.start === block.end
+            ? `Tuần ${block.start} (Từ ngày ${bStartInfo.monStr} đến ngày ${bStartInfo.sunStr})`
+            : `Tuần: ${block.start} - ${block.end} (Từ ngày ${bStartInfo.monStr} đến ngày ${bEndInfo.sunStr})`;
           d2.font = { name: "Times New Roman", size: 10, italic: true };
           d2.alignment = { vertical: "middle", horizontal: "center" };
           sheet.getRow(currentRow).height = 22;
@@ -1820,10 +1894,11 @@ export const TrainingPortal: React.FC = () => {
 
           // Build weeks inside this block (e.g. week 1, 2, 3, 4)
           for (let w = block.start; w <= block.end; w++) {
-            // Subtitle above each week table: "Tuần: X"
+            // Subtitle above each week table: "Tuần X (Từ ngày ... đến ngày ...)"
             sheet.mergeCells(`D${currentRow}:I${currentRow}`);
             const wCell = sheet.getCell(`D${currentRow}`);
-            wCell.value = `Tuần: ${w}`;
+            const wRange = getWeekDateRangeStr(w, selectedScheduleSemesterId);
+            wCell.value = `Tuần ${w} (Từ ngày ${wRange.monStr} đến ngày ${wRange.sunStr})`;
             wCell.font = { name: "Times New Roman", size: 10, bold: true, italic: true };
             wCell.alignment = { vertical: "middle", horizontal: "center" };
             sheet.getRow(currentRow).height = 22;
@@ -1854,7 +1929,7 @@ export const TrainingPortal: React.FC = () => {
             daysConfig.forEach(({ day, label }) => {
               const formattedDate = getFormattedDateForWeekDay(w, day);
 
-              // Morning slot
+              // 1. Morning slot (Sáng)
               const morningSlot = clsSchedules.find(s => s.dayOfWeek === day && (!s.session || s.session.trim().toLowerCase() === "sáng") && isWeekInScheduleSlot(s, w));
               const morningRow = sheet.getRow(currentDayRow);
               morningRow.height = 22;
@@ -1868,7 +1943,7 @@ export const TrainingPortal: React.FC = () => {
               morningRow.getCell(8).value = morningSlot?.room || "";
               morningRow.getCell(9).value = morningSlot?.studyMode || (morningSlot ? "Trực tiếp" : "");
 
-              // Afternoon slot
+              // 2. Afternoon slot (Chiều)
               const afternoonSlot = clsSchedules.find(s => s.dayOfWeek === day && s.session && s.session.trim().toLowerCase() === "chiều" && isWeekInScheduleSlot(s, w));
               const afternoonRow = sheet.getRow(currentDayRow + 1);
               afternoonRow.height = 22;
@@ -1882,8 +1957,22 @@ export const TrainingPortal: React.FC = () => {
               afternoonRow.getCell(8).value = afternoonSlot?.room || "";
               afternoonRow.getCell(9).value = afternoonSlot?.studyMode || (afternoonSlot ? "Trực tiếp" : "");
 
-              // Style cells & borders for these 2 rows
-              [currentDayRow, currentDayRow + 1].forEach(rIdx => {
+              // 3. Evening slot (Tối)
+              const eveningSlot = clsSchedules.find(s => s.dayOfWeek === day && s.session && s.session.trim().toLowerCase() === "tối" && isWeekInScheduleSlot(s, w));
+              const eveningRow = sheet.getRow(currentDayRow + 2);
+              eveningRow.height = 22;
+              eveningRow.getCell(1).value = clsId;
+              eveningRow.getCell(2).value = clsId;
+              eveningRow.getCell(3).value = label;
+              eveningRow.getCell(4).value = formattedDate;
+              eveningRow.getCell(5).value = "Tối";
+              eveningRow.getCell(6).value = eveningSlot?.subjectName || "";
+              eveningRow.getCell(7).value = eveningSlot ? `${eveningSlot.periodStart}-${eveningSlot.periodEnd}` : "";
+              eveningRow.getCell(8).value = eveningSlot?.room || "";
+              eveningRow.getCell(9).value = eveningSlot?.studyMode || (eveningSlot ? "Trực tiếp" : "");
+
+              // Style cells & borders for these 3 rows
+              [currentDayRow, currentDayRow + 1, currentDayRow + 2].forEach(rIdx => {
                 const rowObj = sheet.getRow(rIdx);
                 for (let c = 1; c <= 9; c++) {
                   const cell = rowObj.getCell(c);
@@ -1902,11 +1991,11 @@ export const TrainingPortal: React.FC = () => {
                 }
               });
 
-              // Merge Day cell (C) & Date cell (D) for Sáng/Chiều
-              sheet.mergeCells(`C${currentDayRow}:C${currentDayRow + 1}`);
-              sheet.mergeCells(`D${currentDayRow}:D${currentDayRow + 1}`);
+              // Merge Day cell (C) & Date cell (D) for Sáng/Chiều/Tối (3 rows)
+              sheet.mergeCells(`C${currentDayRow}:C${currentDayRow + 2}`);
+              sheet.mergeCells(`D${currentDayRow}:D${currentDayRow + 2}`);
 
-              currentDayRow += 2;
+              currentDayRow += 3;
             });
 
             const weekEndRow = currentDayRow - 1;
@@ -1945,9 +2034,13 @@ export const TrainingPortal: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
+      const weekSuffix = selectedScheduleWeek && selectedScheduleWeek > 0 
+        ? `_Tuan_${selectedScheduleWeek}` 
+        : `_Toan_bo_tuan`;
+
       a.download = targetClassId 
-        ? `Mau_Thoi_khoa_bieu_${targetClassId.replace(/\s+/g, "_")}_${semSlug}.xlsx`
-        : `Mau_Thoi_khoa_bieu_Phan_hieu_Toan_bo_${semSlug}.xlsx`;
+        ? `Mau_Thoi_khoa_bieu_${targetClassId.replace(/\s+/g, "_")}_${semSlug}${weekSuffix}.xlsx`
+        : `Mau_Thoi_khoa_bieu_Phan_hieu_Toan_bo_${semSlug}${weekSuffix}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -4030,7 +4123,7 @@ export const TrainingPortal: React.FC = () => {
                       title="Xuất file mẫu chứa đầy đủ các Sheet của tất cả các lớp đang có trên hệ thống"
                     >
                       <Download size={14} />
-                      <span>Xuất Excel Mẫu (Toàn bộ lớp)</span>
+                      <span>{selectedScheduleWeek > 0 ? `Xuất Excel Mẫu (Toàn bộ lớp - Tuần ${selectedScheduleWeek})` : "Xuất Excel Mẫu (Toàn bộ lớp)"}</span>
                     </button>
                   </div>
 
@@ -4042,7 +4135,7 @@ export const TrainingPortal: React.FC = () => {
                         title={`Xuất file mẫu chứa đúng 1 Sheet lịch học của lớp ${selectedScheduleClass}`}
                       >
                         <FileSpreadsheet size={14} />
-                        <span>Xuất Excel Lớp {selectedScheduleClass}</span>
+                        <span>{selectedScheduleWeek > 0 ? `Xuất Excel Lớp ${selectedScheduleClass} (Tuần ${selectedScheduleWeek})` : `Xuất Excel Lớp ${selectedScheduleClass}`}</span>
                       </button>
                     </div>
                   )}
@@ -4195,9 +4288,15 @@ export const TrainingPortal: React.FC = () => {
                         className="text-xs p-1.5 border border-slate-300 rounded-lg bg-white outline-none cursor-pointer focus:ring-1 focus:ring-indigo-500 font-medium text-slate-800"
                       >
                         <option value={0}>Tất cả các tuần (Tuần 1 - 20)</option>
-                        {Array.from({ length: 20 }, (_, i) => i + 1).map(w => (
-                          <option key={w} value={w}>Tuần {w}</option>
-                        ))}
+                        {Array.from({ length: 20 }, (_, i) => i + 1).map(w => {
+                          const { label } = getWeekDateRangeStr(w, selectedScheduleSemesterId);
+                          const tag = getWeekContextTag(w, selectedScheduleSemesterId);
+                          return (
+                            <option key={w} value={w}>
+                              Tuần {w} ({label}){tag}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
                   </div>
