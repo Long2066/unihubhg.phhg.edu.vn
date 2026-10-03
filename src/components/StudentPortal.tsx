@@ -2460,37 +2460,38 @@ export const StudentPortal: React.FC = () => {
               <div className="p-6 flex-1 overflow-y-auto max-h-[640px] custom-scrollbar">
 
           {/* TAB: PROGRESS TRACKING & REGISTRATIONS WITH MILESTONES (Requirement #4) */}
+          {/* TAB: PROGRESS TRACKING & REGISTRATIONS WITH MILESTONES (Requirement #4) */}
           {activeTab === "HOATDONG" && (
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3">
+            <div className="space-y-5 animate-fade-in">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-100">
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Danh mục hoạt động mở năm học</h4>
-                  <p className="text-[10px] text-slate-405">Đọc và đăng ký nhanh hoạt động ngoại khóa</p>
+                  <h4 className="text-sm font-semibold uppercase tracking-wider text-slate-900">Danh mục hoạt động mở năm học</h4>
+                  <p className="text-xs text-slate-500 mt-0.5">Khám phá và đăng ký nhanh hoạt động ngoại khóa, tình nguyện</p>
                 </div>
                 
                 {/* Milestone Filtering tool */}
-                <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
                   <button 
                     onClick={() => setActivityMilestone("ALL")}
-                    className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all ${activityMilestone === "ALL" ? "bg-white text-indigo-650 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer min-h-[36px] ${activityMilestone === "ALL" ? "bg-white text-blue-700 shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
                   >
                     Tất cả ({publicActivities.length})
                   </button>
                   <button 
                     onClick={() => setActivityMilestone("WEEK")}
-                    className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all ${activityMilestone === "WEEK" ? "bg-white text-indigo-650 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer min-h-[36px] ${activityMilestone === "WEEK" ? "bg-white text-blue-700 shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
                   >
                     Mốc Tuần
                   </button>
                   <button 
                     onClick={() => setActivityMilestone("MONTH")}
-                    className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all ${activityMilestone === "MONTH" ? "bg-white text-indigo-650 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer min-h-[36px] ${activityMilestone === "MONTH" ? "bg-white text-blue-700 shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
                   >
                     Mốc Tháng
                   </button>
                   <button 
                     onClick={() => setActivityMilestone("TERM")}
-                    className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all ${activityMilestone === "TERM" ? "bg-white text-indigo-650 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer min-h-[36px] ${activityMilestone === "TERM" ? "bg-white text-blue-700 shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
                   >
                     Mốc Kỳ
                   </button>
@@ -2498,15 +2499,19 @@ export const StudentPortal: React.FC = () => {
               </div>
 
               {/* Activities rendering based on timeline milestone */}
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {publicActivities.filter(filterByMilestone).length === 0 ? (
-                  <div className="p-8 border border-dashed border-slate-200 rounded-xl text-center text-slate-400 text-xs font-medium">
-                    Không có hoạt động nào được mở cho mốc này trong lịch trường.
+                  <div className="p-12 text-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 flex flex-col items-center justify-center space-y-2">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                      <Calendar size={22} />
+                    </div>
+                    <p className="text-sm font-semibold text-slate-800">Không có hoạt động nào trong mốc này</p>
+                    <p className="text-xs text-slate-500 max-w-sm">Hiện tại chưa có sự kiện mới được phân loại vào mốc thời gian đã chọn.</p>
                   </div>
                 ) : (
                   publicActivities.filter(filterByMilestone).map(act => {
-                          const studentReg = myAttendance.find(a => a.activityId === act.id);
-                          const isRegistered = !!studentReg;
+                    const studentReg = myAttendance.find(a => a.activityId === act.id);
+                    const isRegistered = !!studentReg;
                     
                     const matchRule = criteria.flatMap(c => c.rules).find(r => r.id === act.criteriaId);
                     const actLivePoints = matchRule ? matchRule.points : act.points;
@@ -2517,9 +2522,9 @@ export const StudentPortal: React.FC = () => {
                     else if (act.id === "ACT_04" || act.title.toLowerCase().includes("nghị quyết")) milestoneTag = "Mốc Tháng Này";
 
                     return (
-                      <div key={act.id} className="p-4 border border-slate-100 rounded-xl hover:shadow-xs hover:border-slate-200 transition-all bg-white shadow-xs">
+                      <div key={act.id} className="p-5 bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm hover:shadow-md transition-all space-y-4">
                         {act.imageUrl && (
-                          <div className="w-full aspect-[16/9] max-h-56 sm:max-h-64 rounded-2xl overflow-hidden mb-3.5 border border-slate-200/80 relative shrink-0 bg-slate-950/5 flex items-center justify-center shadow-xs group/img">
+                          <div className="w-full aspect-[16/9] max-h-56 sm:max-h-64 rounded-2xl overflow-hidden border border-slate-200/80 relative shrink-0 bg-slate-950/5 flex items-center justify-center shadow-xs group/img">
                             <img 
                               src={convertGoogleDriveUrlToDirectUrl(act.imageUrl)} 
                               alt="" 
@@ -2532,32 +2537,42 @@ export const StudentPortal: React.FC = () => {
                             />
                           </div>
                         )}
-                        <div className="flex justify-between items-start gap-4">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <h5 className="text-xs font-extrabold text-slate-900">{act.title}</h5>
-                              <span className="text-[9px] font-black px-1.5 py-0.5 bg-indigo-50 border border-indigo-100 rounded text-indigo-700">
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                          <div className="space-y-2 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h5 className="text-sm sm:text-base font-semibold text-slate-900 leading-snug">{act.title}</h5>
+                              <span className="text-[11px] font-semibold px-2.5 py-0.5 bg-blue-50 text-blue-700 ring-1 ring-blue-500/20 rounded-md">
                                 {milestoneTag}
                               </span>
                             </div>
-                            <p className="text-[10px] text-slate-400 mt-1">Đơn vị chủ trì: <span className="font-bold text-indigo-600">{act.orgName}</span></p>
-                            <p className="text-[10px] text-slate-400 italic font-medium leading-relaxed">{act.description}</p>
+                            <p className="text-xs text-slate-500">
+                              Đơn vị chủ trì: <span className="font-semibold text-slate-800">{act.orgName}</span>
+                            </p>
+                            <p className="text-xs text-slate-600 leading-relaxed">{act.description}</p>
                             
-                            <div className="flex items-center gap-3 text-[10px] text-slate-400 pt-1.5 flex-wrap">
-                              <span className="flex items-center gap-1 font-mono"><Calendar size={11} className="text-indigo-500" /> {act.dateTime}</span>
-                              <span>Điểm rèn luyện: <strong className="text-emerald-600 font-bold font-mono">+{actLivePoints}đ</strong> (Mục TC{act.criteriaId.substring(2)})</span>
+                            <div className="flex items-center gap-4 text-xs text-slate-500 pt-1 flex-wrap">
+                              <span className="flex items-center gap-1.5 font-mono">
+                                <Calendar size={13} className="text-blue-600" />
+                                <span>{act.dateTime}</span>
+                              </span>
+                              <span>
+                                Điểm rèn luyện: <strong className="text-emerald-600 font-bold font-mono tabular-nums">+{actLivePoints}đ</strong> (Mục TC{act.criteriaId.substring(2)})
+                              </span>
                               {act.maxParticipants !== undefined && act.maxParticipants > 0 && (
-                                <span>Đăng ký: <strong className="text-indigo-650 font-bold font-mono">{attendance.filter(a => a.activityId === act.id).length}/{act.maxParticipants}</strong></span>
+                                <span>
+                                  Đã đăng ký: <strong className="text-blue-700 font-bold font-mono tabular-nums">{attendance.filter(a => a.activityId === act.id).length}/{act.maxParticipants}</strong>
+                                </span>
                               )}
                             </div>
                           </div>
 
-                          <div className="shrink-0 text-right space-y-2">
+                          <div className="shrink-0 flex flex-col sm:items-end justify-between gap-3 self-stretch sm:self-auto">
                             {/* Registration state */}
                             <div>
                               {isRegistered ? (
-                                <span className="inline-flex px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-150 rounded text-[9px] font-black uppercase">
-                                  Đã Đăng Ký
+                                <span className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500/20 rounded-xl text-xs font-semibold min-h-[44px]">
+                                  <CheckCircle size={15} />
+                                  <span>Đã Đăng Ký</span>
                                 </span>
                               ) : (() => {
                                 const count = attendance.filter(a => a.activityId === act.id).length;
@@ -2566,9 +2581,9 @@ export const StudentPortal: React.FC = () => {
                                   return (
                                     <button 
                                       disabled
-                                      className="px-2.5 py-1.5 bg-slate-100 text-slate-405 border border-slate-200 text-[10px] font-black rounded-lg flex items-center gap-1 select-none cursor-not-allowed"
+                                      className="px-4 py-2.5 bg-slate-100 text-slate-400 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-not-allowed min-h-[44px]"
                                     >
-                                      <X size={11} className="text-slate-405" />
+                                      <X size={14} />
                                       <span>Hết suất</span>
                                     </button>
                                   );
@@ -2576,30 +2591,30 @@ export const StudentPortal: React.FC = () => {
                                 return (
                                   <button 
                                     onClick={() => { const ok = registerForActivity(act.id, studentId); if (!ok) alert("Đăng ký thất bại! Vui lòng thử lại sau."); }}
-                                    className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white hover:cursor-pointer transition-colors text-[10px] font-black rounded-lg flex items-center gap-1 shadow-xs"
+                                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-semibold rounded-xl shadow-sm shadow-blue-500/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
                                     disabled={act.status === "COMPLETED"}
                                   >
-                                    <Plus size={11} />
-                                    <span>Đăng ký</span>
+                                    <Plus size={14} />
+                                    <span>Đăng ký tham gia</span>
                                   </button>
                                 );
                               })()}
                             </div>
 
                             {/* Confirmation state indicator */}
-                            <div className="text-[9px] font-mono text-slate-450">
+                            <div className="text-xs font-mono">
                               {studentReg ? (
                                 studentReg.attended ? (
-                                  <span className="text-emerald-600 font-bold flex items-center gap-0.5 justify-end">
-                                    <CheckCircle size={10} /> Đã Xác Nhận Điểm
+                                  <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                                    <CheckCircle size={12} /> Đã Xác Nhận Điểm
                                   </span>
                                 ) : (
-                                  <span className="text-amber-600 font-medium animate-pulse block">
+                                  <span className="text-amber-600 font-medium">
                                     ⏳ Đang chờ xác nhận mặt
                                   </span>
                                 )
                               ) : (
-                                <span className="text-slate-400">Chưa bắt đầu mốc</span>
+                                <span className="text-slate-400">Chưa đăng ký</span>
                               )}
                             </div>
                           </div>
@@ -2625,24 +2640,24 @@ export const StudentPortal: React.FC = () => {
             );
 
             return (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-fade-in">
                 {/* 1. SECTION: CÂU LẠC BỘ CỦA TÔI */}
-                <div className="space-y-3.5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
                     <div className="flex items-center gap-2.5">
-                      <span className="p-2 rounded-xl bg-indigo-50 text-indigo-600 shrink-0">
-                        <Building2 size={18} />
+                      <span className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                        <Building2 size={16} />
                       </span>
                       <div>
-                        <h4 className="text-sm font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                        <h4 className="text-sm sm:text-base font-semibold text-slate-900 tracking-tight flex items-center gap-2">
                           <span>Câu lạc bộ của tôi</span>
                           {myJoinedClubs.length > 0 && (
-                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500/20">
                               {myJoinedClubs.length} Đang sinh hoạt
                             </span>
                           )}
                         </h4>
-                        <p className="text-[11px] text-slate-500">Các chi hội, câu lạc bộ bạn đã là thành viên chính thức và đang tham gia hoạt động</p>
+                        <p className="text-xs text-slate-500">Các chi hội, câu lạc bộ bạn đã là thành viên chính thức và đang tham gia hoạt động</p>
                       </div>
                     </div>
                   </div>
@@ -2657,16 +2672,16 @@ export const StudentPortal: React.FC = () => {
                         return (
                           <div 
                             key={org.id} 
-                            className="bg-white rounded-2xl border border-slate-200/80 hover:border-indigo-300 shadow-xs hover:shadow-md transition-all p-5 flex flex-col justify-between group relative overflow-hidden"
+                            className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm hover:shadow-md transition-all p-5 flex flex-col justify-between group relative overflow-hidden"
                           >
-                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500" />
+                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500" />
                             
                             <div>
-                              <div className="flex justify-between items-start gap-2 mb-2">
-                                <span className="text-[9px] font-extrabold px-2 py-0.5 bg-purple-50 text-purple-700 rounded-md">
+                              <div className="flex justify-between items-start gap-2 mb-2.5">
+                                <span className="text-[11px] font-semibold px-2.5 py-0.5 bg-blue-50 text-blue-700 ring-1 ring-blue-500/20 rounded-full">
                                   {org.field}
                                 </span>
-                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500/20">
                                   <span className="relative flex h-2 w-2">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -2675,28 +2690,28 @@ export const StudentPortal: React.FC = () => {
                                 </span>
                               </div>
 
-                              <h5 className="text-base font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                              <h5 className="text-base font-semibold text-slate-900 group-hover:text-blue-600 transition-colors leading-snug">
                                 {org.name}
                               </h5>
                               <p className="text-xs text-slate-500 mt-1">
                                 Đại diện Ban chủ nhiệm: <span className="font-semibold text-slate-700">{org.leaderName}</span>
                               </p>
 
-                              <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-100 text-xs">
-                                <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100">
-                                  <span className="text-[10px] text-slate-500 block">Sự kiện đang mở</span>
-                                  <span className="font-extrabold text-slate-900 text-sm font-mono tabular-nums">{clubActivitiesCount} sự kiện</span>
+                              <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-slate-100 text-xs">
+                                <div className="bg-slate-50/80 rounded-xl p-3 ring-1 ring-slate-900/5">
+                                  <span className="text-[11px] text-slate-500 block">Sự kiện đang mở</span>
+                                  <span className="font-bold text-slate-900 text-sm font-mono tabular-nums mt-0.5 block">{clubActivitiesCount} sự kiện</span>
                                 </div>
-                                <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100">
-                                  <span className="text-[10px] text-slate-500 block">Bảng tin nội bộ</span>
-                                  <span className="font-extrabold text-slate-900 text-sm font-mono tabular-nums">{clubAnnouncementsCount} thông báo</span>
+                                <div className="bg-slate-50/80 rounded-xl p-3 ring-1 ring-slate-900/5">
+                                  <span className="text-[11px] text-slate-500 block">Bảng tin nội bộ</span>
+                                  <span className="font-bold text-slate-900 text-sm font-mono tabular-nums mt-0.5 block">{clubAnnouncementsCount} thông báo</span>
                                 </div>
                               </div>
                             </div>
 
                             <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between gap-3">
-                              <span className="text-[10px] text-slate-400">
-                                Nhiệm kỳ: <strong className="text-slate-600 font-semibold">{membership.term || period.academicYear}</strong>
+                              <span className="text-xs text-slate-400">
+                                Nhiệm kỳ: <strong className="text-slate-700 font-semibold">{membership.term || period.academicYear}</strong>
                               </span>
                               <button
                                 type="button"
@@ -2705,10 +2720,10 @@ export const StudentPortal: React.FC = () => {
                                   setClubWorkspaceTab("FEED");
                                   setProfileAttachmentInput(membership.attachmentUrl || "");
                                 }}
-                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-xs hover:shadow-indigo-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold text-xs sm:text-sm rounded-xl shadow-sm shadow-blue-500/20 transition-all flex items-center gap-1.5 cursor-pointer min-h-[44px]"
                               >
                                 <span>Vào không gian CLB</span>
-                                <ArrowRight size={13} />
+                                <ArrowRight size={14} />
                               </button>
                             </div>
                           </div>
@@ -2716,12 +2731,12 @@ export const StudentPortal: React.FC = () => {
                       })}
                     </div>
                   ) : (
-                    <div className="p-6 bg-slate-50/70 border border-dashed border-slate-250 rounded-2xl text-center space-y-2">
-                      <div className="w-10 h-10 mx-auto rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500">
+                    <div className="p-8 bg-slate-50/60 rounded-2xl ring-1 ring-slate-900/5 text-center space-y-2">
+                      <div className="w-10 h-10 mx-auto rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
                         <Building2 size={20} />
                       </div>
-                      <h5 className="text-xs font-bold text-slate-700">Bạn chưa tham gia sinh hoạt Câu lạc bộ nào</h5>
-                      <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                      <h5 className="text-sm font-semibold text-slate-800">Bạn chưa tham gia sinh hoạt Câu lạc bộ nào</h5>
+                      <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
                         Tham gia câu lạc bộ giúp bạn kết nối bạn bè, phát triển kỹ năng và tích lũy điểm rèn luyện tiêu chí 3 (TC3.3). Hãy chọn câu lạc bộ ở danh bạ bên dưới để nộp hồ sơ gia nhập!
                       </p>
                     </div>
@@ -2730,17 +2745,17 @@ export const StudentPortal: React.FC = () => {
 
                 {/* 2. SECTION: ĐƠN ĐANG CHỜ DUYỆT (NẾU CÓ) */}
                 {myPendingClubs.length > 0 && (
-                  <div className="p-4.5 bg-amber-50/70 border border-amber-200/80 rounded-2xl space-y-3">
-                    <div className="flex items-center gap-2 text-amber-900 font-extrabold text-xs">
+                  <div className="p-5 bg-amber-50/60 ring-1 ring-amber-500/20 rounded-2xl space-y-3">
+                    <div className="flex items-center gap-2 text-amber-900 font-semibold text-xs sm:text-sm">
                       <Clock size={16} className="text-amber-600 shrink-0" />
                       <span>Bạn có {myPendingClubs.length} đơn đăng ký gia nhập CLB đang chờ Ban chủ nhiệm duyệt:</span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {myPendingClubs.map(org => (
-                        <div key={org.id} className="p-3.5 bg-white rounded-xl border border-amber-200/90 shadow-2xs flex items-center justify-between gap-3 text-xs">
+                        <div key={org.id} className="p-3.5 bg-white rounded-xl ring-1 ring-amber-500/20 shadow-xs flex items-center justify-between gap-3 text-xs">
                           <div>
-                            <span className="font-extrabold text-slate-900 block">{org.name}</span>
-                            <span className="text-[10px] text-amber-700 font-semibold block mt-0.5">
+                            <span className="font-semibold text-slate-900 block">{org.name}</span>
+                            <span className="text-[11px] text-amber-700 font-medium block mt-0.5">
                               Trạng thái: Đang thẩm định tờ khai gia nhập
                             </span>
                           </div>
@@ -2750,7 +2765,7 @@ export const StudentPortal: React.FC = () => {
                               setSelectedClubIdDetail(org.id);
                               setIsApplyingClub(false);
                             }}
-                            className="px-3 py-1.5 text-[11px] font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 active:scale-95 rounded-lg transition-colors cursor-pointer shrink-0"
+                            className="px-3.5 py-2 text-xs font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 active:scale-95 rounded-lg transition-colors cursor-pointer shrink-0 min-h-[38px]"
                           >
                             Xem đơn
                           </button>
@@ -2761,20 +2776,20 @@ export const StudentPortal: React.FC = () => {
                 )}
 
                 {/* 3. SECTION: DANH BẠ KHÁM PHÁ CÁC CLB KHÁC */}
-                <div className="space-y-3.5 pt-2 border-t border-slate-100">
+                <div className="space-y-4 pt-3 border-t border-slate-100">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                     <div>
-                      <h4 className="text-sm font-extrabold text-slate-900">Danh bạ Khám phá Câu lạc bộ</h4>
-                      <p className="text-[11px] text-slate-500">Khám phá và đăng ký tham gia các tổ chức chi hội và câu lạc bộ sinh viên Phân hiệu</p>
+                      <h4 className="text-sm sm:text-base font-semibold text-slate-900">Danh bạ Khám phá Câu lạc bộ</h4>
+                      <p className="text-xs text-slate-500">Khám phá và đăng ký tham gia các tổ chức chi hội và câu lạc bộ sinh viên Phân hiệu</p>
                     </div>
                     <div className="relative w-full sm:w-64">
-                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
                         type="text"
                         placeholder="Tìm theo tên CLB, lĩnh vực..."
                         value={clubSearchTerm}
                         onChange={(e) => setClubSearchTerm(e.target.value)}
-                        className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-250 bg-white focus:border-indigo-500 focus:outline-none"
+                        className="w-full pl-9 pr-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 focus:outline-none transition-all"
                       />
                     </div>
                   </div>
@@ -2791,29 +2806,29 @@ export const StudentPortal: React.FC = () => {
                             setSelectedClubIdDetail(org.id);
                             setIsApplyingClub(false);
                           }}
-                          className="p-4 border border-slate-200/80 hover:border-indigo-300 rounded-2xl bg-white shadow-xs hover:shadow-sm transition-all flex flex-col justify-between cursor-pointer group"
+                          className="p-5 ring-1 ring-slate-900/5 hover:ring-blue-500/30 rounded-2xl bg-white shadow-xs hover:shadow-md transition-all flex flex-col justify-between cursor-pointer group"
                         >
                           <div>
                             <div className="flex justify-between items-start gap-2">
-                              <span className="text-[8px] font-black px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded">
+                              <span className="text-[11px] font-semibold px-2.5 py-0.5 bg-blue-50 text-blue-700 ring-1 ring-blue-500/20 rounded-full">
                                 {org.field}
                               </span>
-                              <span className="text-[10px] font-bold text-indigo-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+                              <span className="text-xs font-semibold text-blue-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
                                 {isPending ? "Đang chờ duyệt →" : "Tìm hiểu & Đăng ký →"}
                               </span>
                             </div>
-                            <h5 className="text-xs font-extrabold text-slate-800 mt-2 group-hover:text-indigo-700 transition-colors">{org.name}</h5>
-                            <p className="text-[10px] text-slate-400 mt-1">Chủ nhiệm: <span className="font-bold text-slate-650">{org.leaderName}</span></p>
+                            <h5 className="text-sm font-semibold text-slate-900 mt-2.5 group-hover:text-blue-600 transition-colors leading-snug">{org.name}</h5>
+                            <p className="text-xs text-slate-500 mt-1">Chủ nhiệm: <span className="font-semibold text-slate-700">{org.leaderName}</span></p>
                           </div>
 
                           <div className="pt-3 border-t border-slate-100 mt-3 flex justify-between items-center text-xs">
-                            <span className="text-[9px] text-slate-455 font-mono uppercase">Trực thuộc Phân hiệu</span>
+                            <span className="text-[11px] text-slate-400 font-mono uppercase">Trực thuộc Phân hiệu</span>
                             {isPending ? (
-                              <span className="text-[9px] font-extrabold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 ring-1 ring-amber-500/20">
                                 ĐANG CHỜ DUYỆT
                               </span>
                             ) : (
-                              <span className="text-[9px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                              <span className="text-[11px] font-medium text-slate-500 bg-slate-50 px-2.5 py-0.5 rounded-full ring-1 ring-slate-900/5">
                                 Chưa tham gia
                               </span>
                             )}
