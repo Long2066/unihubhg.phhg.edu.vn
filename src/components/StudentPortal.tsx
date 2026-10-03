@@ -46,6 +46,7 @@ import {
   Send
 } from "lucide-react";
 import { uploadAvatarHybrid } from "../utils/imageCompressor";
+import { formatFacultyName } from "../utils/studentCard";
 import { CreditRegistrationStudentView } from "./CreditRegistrationStudentView";
 import { SrcApplicationModal } from "./SrcApplicationModal";
 
@@ -96,7 +97,7 @@ const downloadStudentTranscriptPdf = async (
   const studentId = student?.id || currentUser?.targetId || currentUser?.username || "";
   const studentName = student?.name || currentUser?.name || "Sinh viên";
   const classId = student?.classId || "Chưa phân lớp";
-  const facultyName = student?.facultyId === "K-CNTT" ? "Công nghệ Thông tin" : (student?.facultyId ? student.facultyId : "Đại học Thái Nguyên");
+  const facultyName = formatFacultyName(student?.facultyInCharge || student?.facultyId) || "Đại học Thái Nguyên";
   const dob = student?.dob || "-";
   const gender = student?.gender || "-";
   const now = new Date();
@@ -801,80 +802,85 @@ export const StudentPortal: React.FC = () => {
 
   const renderProfileBanner = () => {
     return (
-      <div className="py-3 px-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100">
-        <div className="flex gap-3.5 items-center">
+      <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm ring-1 ring-slate-900/5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 transition-all">
+        <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
           {sObj?.avatar ? (
             <img 
               referrerPolicy="no-referrer"
               src={sObj.avatar} 
               alt={currentUser?.name} 
-              className="w-11 h-11 rounded-full object-cover shadow-xs border border-indigo-100 shrink-0" 
+              className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl object-cover ring-1 ring-slate-900/10 shadow-2xs shrink-0" 
             />
           ) : (
-            <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-xs uppercase shrink-0">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-base font-bold shadow-2xs uppercase shrink-0">
               {(currentUser?.name || "SV").substring(0, 2)}
             </div>
           )}
           
-          <div className="space-y-0.5 text-left">
+          <div className="space-y-1 min-w-0 text-left">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base font-black text-slate-900 leading-none">{currentUser?.name}</h2>
-              <span className="text-[10px] font-mono bg-slate-50 border border-slate-100 text-slate-500 px-1.5 py-0.2 rounded font-semibold">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight tracking-tight truncate">
+                {currentUser?.name}
+              </h2>
+              <span className="font-mono text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md shrink-0">
                 MSSV: {studentId}
               </span>
               {isDoanBCH && (
-                <span className="text-[10px] bg-blue-50 border border-blue-200 text-blue-705 px-2 py-0.5 rounded-full font-extrabold flex items-center gap-1">
-                  ★ Ủy viên BCH Đoàn Phân hiệu
+                <span className="text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200/60 px-2.5 py-0.5 rounded-full shrink-0 flex items-center gap-1">
+                  ★ BCH Đoàn Phân hiệu
                 </span>
               )}
               {isHoiBCH && (
-                <span className="text-[10px] bg-emerald-50 border border-emerald-200 text-emerald-705 px-2 py-0.5 rounded-full font-extrabold flex items-center gap-1">
-                  ★ Ủy viên BCH Hội Phân hiệu
+                <span className="text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-2.5 py-0.5 rounded-full shrink-0 flex items-center gap-1">
+                  ★ BCH Hội Phân hiệu
                 </span>
               )}
-              <button 
-                type="button"
-                onClick={() => setShowProfileModal(true)}
-                className="text-[10px] bg-indigo-50/50 hover:bg-indigo-100/60 text-indigo-600 border border-indigo-100/60 px-2.5 py-0.5 rounded-lg flex items-center gap-1 font-bold cursor-pointer transition-colors"
-              >
-                <Edit size={10} />
-                <span>Sửa hồ sơ / Đổi MK</span>
-              </button>
             </div>
-            <div className="text-[11px] text-slate-550 flex items-center gap-2 flex-wrap font-medium">
-              <span>Lớp quản lý: <strong className="text-slate-800">{sObj?.classId || "Chưa phân lớp"}</strong></span>
+            
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 font-medium">
+              <span>Lớp quản lý: <strong className="font-semibold text-slate-800">{sObj?.classId || "Chưa phân lớp"}</strong></span>
               <input type="hidden" value={sObj?.classId || "Chưa phân lớp"} readOnly />
               <span className="text-slate-300">•</span>
-              <span>Khoa đào tạo: <strong className="text-slate-800">{sObj?.facultyId === "K-CNTT" ? "Khoa Công nghệ Thông tin" : (sObj?.facultyId === "K-GDTH" ? "Khoa Sư phạm" : (sObj?.facultyId || "Chưa xác định"))}</strong></span>
+              <span>Khoa đào tạo: <strong className="font-semibold text-slate-800">{formatFacultyName(sObj?.facultyInCharge || sObj?.facultyId) || "Chưa xác định"}</strong></span>
             </div>
           </div>
         </div>
 
-        {/* Dynamic Semester Selector and Data locks */}
-        <div className="flex gap-2.5 shrink-0 w-full md:w-auto items-center">
-          <div className="py-1.5 px-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-2">
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Học Kỳ:</span>
+        {/* Dynamic Semester Selector, Status and Actions */}
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
+          <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl ring-1 ring-slate-900/5 hover:ring-slate-900/10 transition-all min-h-[44px]">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs font-medium text-slate-500">Học kỳ:</span>
             <select
               value={selectedSemesterId}
               onChange={(e) => setSelectedSemesterId(e.target.value)}
-              className="bg-transparent border-0 text-xs font-black text-slate-800 p-0 focus:ring-0 focus:outline-none cursor-pointer"
+              className="bg-transparent border-0 text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer pr-1"
             >
               {SEMESTER_HISTORY.map(sem => (
-                <option key={sem.id} value={sem.id} className="text-slate-800 text-xs">
+                <option key={sem.id} value={sem.id} className="text-slate-800 text-xs font-medium">
                   {sem.name} {sem.isCurrent ? " (Hiện tại)" : ""}
                 </option>
               ))}
             </select>
           </div>
 
-          <div className={`py-1.5 px-3 rounded-xl border flex items-center gap-1.5 text-[10px] font-bold ${
+          <div className={`px-3 py-2 rounded-xl ring-1 text-xs font-medium flex items-center gap-1.5 min-h-[44px] ${
             currentConductStatus === "LOCKED" 
-              ? "bg-rose-50/60 border-rose-100 text-rose-700" 
-              : "bg-emerald-50/60 border-emerald-100 text-emerald-700"
+              ? "bg-rose-50 text-rose-700 ring-rose-600/15" 
+              : "bg-emerald-50 text-emerald-700 ring-emerald-600/15"
           }`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${currentConductStatus === "LOCKED" ? "bg-rose-500" : "bg-emerald-500 animate-pulse"}`}></span>
+            <span className={`w-2 h-2 rounded-full ${currentConductStatus === "LOCKED" ? "bg-rose-500" : "bg-emerald-500 animate-pulse"}`}></span>
             <span>{currentConductStatus === "LOCKED" ? "Đã Chốt Sổ Kỳ" : "Ủy Quyền Tự Động"}</span>
           </div>
+
+          <button 
+            type="button"
+            onClick={() => setShowProfileModal(true)}
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] shadow-2xs transition-all min-h-[44px] cursor-pointer"
+          >
+            <Edit className="w-3.5 h-3.5 text-slate-500" />
+            <span>Sửa hồ sơ / Đổi MK</span>
+          </button>
         </div>
       </div>
     );
@@ -1755,7 +1761,7 @@ export const StudentPortal: React.FC = () => {
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-500 text-[11px] mt-0.5">
                 <span>Lớp: <strong className="text-slate-700 font-mono">{sObj?.classId || (currentUser as any)?.classId || "Chưa cập nhật"}</strong></span>
                 <span>•</span>
-                <span>Khoa: <strong className="text-slate-700">{sObj?.facultyInCharge || (sObj?.facultyId === "K-GDTH" ? "Khoa Sư phạm" : sObj?.facultyId === "K-CNTT" ? "Khoa Công nghệ Thông tin" : sObj?.facultyId === "K-KINHTE" ? "Khoa Kinh tế & Du lịch" : sObj?.facultyId) || (currentUser as any)?.facultyId || "Chưa cập nhật"}</strong></span>
+                <span>Khoa: <strong className="text-slate-700">{formatFacultyName(sObj?.facultyInCharge || sObj?.facultyId || (currentUser as any)?.facultyId) || "Chưa cập nhật"}</strong></span>
                 {sObj?.dob && (
                   <>
                     <span>•</span>
@@ -2225,6 +2231,9 @@ export const StudentPortal: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in-up" id="student-portal-container">
       
+      {/* Student Global Profile & Semester Header Banner */}
+      {renderProfileBanner()}
+
       {/* RIGHT CONTENT CONTAINER - GIAO DIÊN CHÍNH ĐƯỢC THAY THEO TABS */}
       <div className="space-y-6 w-full min-w-0">
 
@@ -4184,7 +4193,7 @@ export const StudentPortal: React.FC = () => {
                 <div>Ngày sinh: <strong>{sObj?.dob || "-"}</strong></div>
                 <div>Giới tính: <strong>{sObj?.gender || "-"}</strong></div>
                 <div>Lớp hành chính: <strong>{sObj?.classId || "-"}</strong></div>
-                <div>Ngành đào tạo: <strong>{sObj?.facultyId === "K-CNTT" ? "Công nghệ Thông tin" : (sObj?.facultyId ? sObj.facultyId : "Đại học Thái Nguyên")}</strong></div>
+                <div>Ngành đào tạo: <strong>{formatFacultyName(sObj?.facultyInCharge || sObj?.facultyId) || "Đại học Thái Nguyên"}</strong></div>
               </div>
 
               {/* Subject Grades Table */}

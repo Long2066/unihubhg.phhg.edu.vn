@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useUniHub, normalizeClassId } from "../state";
 import { UserRole } from "../types";
+import { formatFacultyName } from "../utils/studentCard";
 import { 
   Building2, 
   Lock, 
@@ -87,13 +88,7 @@ export const FacultyPortal: React.FC = () => {
   // Group classes under faculty
   const classes = Array.from(new Set(facultyStudents.map(s => normalizeClassId(s.classId))));
 
-  const facultyNameMap: Record<string, string> = {
-    "K-CNTT": "Khoa Công nghệ thông tin",
-    "K-TA": "Khoa Ngoại ngữ",
-    "K-GDTH": "Khoa Sư phạm Tiểu học",
-    "K-MN": "Khoa Giáo dục Mầm non"
-  };
-  const facultyDisplay = facultyNameMap[facultyId] || `Khoa ${facultyId}`;
+  const facultyDisplay = formatFacultyName(facultyId) || `Khoa ${facultyId}`;
 
   const handleLockFaculty = () => {
     const lockerName = currentUser?.name || `Văn phòng ${facultyDisplay}`;

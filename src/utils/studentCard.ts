@@ -6,6 +6,16 @@ export const STUDENT_VERIFICATION_PATH = "/xac-thuc-sinh-vien";
 
 const FACULTY_NAMES: Record<string, string> = {
   "K-GDTH": "Khoa Sư phạm",
+  "GDTH": "Khoa Sư phạm",
+  "KHOA SƯ PHẠM": "Khoa Sư phạm",
+  "KHOA SU PHAM": "Khoa Sư phạm",
+  "K-KHLN": "Khoa Khoa học Liên ngành",
+  "KHLN": "Khoa Khoa học Liên ngành",
+  "KHOA KHLN": "Khoa Khoa học Liên ngành",
+  "KHOA LIÊN NGÀNH": "Khoa Khoa học Liên ngành",
+  "KHOA LIEN NGANH": "Khoa Khoa học Liên ngành",
+  "KHOA KHOA HỌC LIÊN NGÀNH": "Khoa Khoa học Liên ngành",
+  "KHOA KHOA HOC LIEN NGANH": "Khoa Khoa học Liên ngành",
   "K-CNTT": "Khoa Công nghệ Thông tin",
   "K-KINHTE": "Khoa Kinh tế & Du lịch",
   "K-TA": "Khoa Ngoại ngữ",
@@ -23,7 +33,8 @@ export const formatStudentDob = (rawDob?: string) => {
 
 export const formatFacultyName = (rawFaculty?: string) => {
   const value = safeTrim(rawFaculty);
-  return FACULTY_NAMES[value] || value;
+  if (!value) return "";
+  return FACULTY_NAMES[value.toUpperCase()] || value;
 };
 
 export const getStudentCardCourse = (student: Partial<Student>, cardClass = "") => {

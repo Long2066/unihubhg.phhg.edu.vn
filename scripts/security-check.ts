@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isIdCardLoginMatch, isStudentCodeLoginMatch } from "../src/state";
-import { formatStudentCardName } from "../src/utils/studentCard";
+import { formatFacultyName, formatStudentCardName } from "../src/utils/studentCard";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -1959,9 +1959,9 @@ assert(
 );
 
 assert(
-  facultyPortalContent.includes("const facultyDisplay = facultyNameMap[facultyId] || `Khoa ${facultyId}`;") &&
+  facultyPortalContent.includes("const facultyDisplay = formatFacultyName(facultyId) || `Khoa ${facultyId}`;") &&
   !studentPortalContent.includes("resetToSeeds"),
-  "Batch 42 Issue 6: FacultyPortal must use dynamic faculty branding and StudentPortal must not expose resetToSeeds",
+  "Batch 42 Issue 6: FacultyPortal must use shared dynamic faculty branding and StudentPortal must not expose resetToSeeds",
   "FacultyPortal hardcodes CNTT branding or StudentPortal exposes admin reset"
 );
 
@@ -3038,8 +3038,29 @@ assert(
   "Student Auth listener can lose the session because user profile ID/targetId is not canonicalized"
 );
 
+// =========================================================
+// BATCH 70: Student Faculty Display Labels
+// =========================================================
+
+console.log("\n--- BATCH 70: Student Faculty Display Labels ---");
+
+assert(
+  formatFacultyName("K-GDTH") === "Khoa Sư phạm" &&
+  formatFacultyName("k-gdth") === "Khoa Sư phạm" &&
+  formatFacultyName("K-KHLN") === "Khoa Khoa học Liên ngành",
+  "Batch 70 Issue 1: Faculty formatter maps raw faculty IDs to official Vietnamese labels",
+  "formatFacultyName still leaks raw faculty IDs or misses K-GDTH/K-KHLN aliases"
+);
+
+assert(
+  rootAppContent.includes("formatFacultyName(studentObj.facultyInCharge || studentObj.facultyId)") &&
+  studentPortalContent.includes("formatFacultyName(sObj?.facultyInCharge || sObj?.facultyId)"),
+  "Batch 70 Issue 2: Student profile UI displays formatted faculty labels instead of raw faculty IDs",
+  "Student profile/menu still renders raw facultyId in visible faculty fields"
+);
+
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 69 SECURITY & INTEGRITY REGRESSION TESTS PASSED (348 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 70 SECURITY & INTEGRITY REGRESSION TESTS PASSED (350 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {

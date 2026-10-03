@@ -1343,7 +1343,7 @@ const AppContent: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                className="flex items-center gap-2.5 bg-white hover:bg-slate-50 border border-slate-150 p-1.5 pr-3 rounded-2xl transition-all cursor-pointer group shadow-2xs"
+                className="flex items-center gap-2.5 bg-white hover:bg-slate-50 border border-slate-200/80 p-1.5 pr-3 rounded-2xl transition-all cursor-pointer group shadow-2xs min-h-[44px] active:scale-[0.98]"
               >
                 {/* Profile Image/Avatar representation */}
                 <div className="relative shrink-0">
@@ -1358,7 +1358,7 @@ const AppContent: React.FC = () => {
                       }}
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-indigo-600 text-white flex items-center justify-center font-black text-xs group-hover:scale-105 transition-transform">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs group-hover:scale-105 transition-transform">
                       {(currentUser.name || currentUser.username || "U").trim().substring(0, 1).toUpperCase()}
                     </div>
                   )}
@@ -1366,58 +1366,67 @@ const AppContent: React.FC = () => {
                 </div>
                 
                 <div className="hidden md:flex flex-col text-right font-sans">
-                  <span className="text-xs font-black text-slate-900 leading-none group-hover:text-indigo-600 transition-colors">{currentUser.name || currentUser.username}</span>
-                  <span className="text-[8.5px] font-mono font-bold text-slate-400 mt-1 leading-none">
+                  <span className="text-xs font-bold text-slate-900 leading-none group-hover:text-indigo-600 transition-colors">{currentUser.name || currentUser.username}</span>
+                  <span className="text-[10px] font-medium text-slate-500 mt-1 leading-none">
                     {currentUser.role === "STUDENT" ? "Sinh viên" : currentUser.role === "ORGANIZER" ? "Ban chủ nhiệm" : "Ban giám sát"}
                   </span>
                 </div>
                 
-                <ChevronDown size={12} className="text-slate-400 group-hover:text-slate-600 transition-colors shrink-0" />
+                <ChevronDown size={14} className="text-slate-400 group-hover:text-slate-600 transition-colors shrink-0" />
               </button>
 
               {showProfileDropdown && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowProfileDropdown(false)} />
-                  <div className="fixed md:absolute top-20 md:top-12 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:right-0 mt-1.5 bg-white border border-slate-200 shadow-2xl rounded-2xl w-[92vw] max-w-[340px] md:w-80 overflow-hidden z-200 animate-fade-in text-left divide-y divide-slate-100 shrink-0">
-                    <div className="p-4 bg-slate-50 flex items-center gap-3">
+                  <div className="fixed md:absolute top-20 md:top-12 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:right-0 mt-2 bg-white border border-slate-200/90 shadow-2xl rounded-2xl w-[92vw] max-w-[340px] md:w-80 overflow-hidden z-200 animate-fade-in text-left divide-y divide-slate-100 shrink-0 ring-1 ring-slate-900/10">
+                    <div className="p-4 bg-slate-50/80 flex items-center gap-3.5">
                       <div>
                         {studentObj?.avatar || isStudentOrMonitor ? (
                           <img 
                             referrerPolicy="no-referrer"
                             src={studentObj?.avatar || currentUser?.avatar || (studentId ? localStorage.getItem(`unihub_avatar_${studentId}`) : null) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name || currentUser.username}`} 
                             alt={currentUser.name || currentUser.username} 
-                            className="w-11 h-11 rounded-full object-cover border border-slate-100 shadow-sm"
+                            className="w-12 h-12 rounded-2xl object-cover border border-slate-200/80 shadow-2xs"
                           />
                         ) : (
-                          <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-indigo-500 to-indigo-600 text-white flex items-center justify-center font-black text-sm">
+                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-2xs">
                             {(currentUser.name || currentUser.username || "U").trim().substring(0, 1).toUpperCase()}
                           </div>
                         )}
                       </div>
-                      <div className="space-y-0.5 max-w-[180px]">
-                        <h4 className="text-[12px] font-black text-slate-900 leading-tight truncate">{currentUser.name}</h4>
-                        <p className="text-[10px] font-mono text-slate-400 font-bold leading-none">{currentUser.username}</p>
-                        <span className="inline-block text-[8px] font-black px-1.5 py-0.5 bg-indigo-50 text-indigo-750 rounded uppercase mt-1 tracking-wider">
-                          Mã định danh: {currentUser.targetId || "ADMIN"}
+                      <div className="space-y-0.5 min-w-0 flex-1">
+                        <h4 className="text-sm font-bold text-slate-900 leading-tight truncate">{currentUser.name}</h4>
+                        <p className="text-xs font-mono text-slate-500 font-medium leading-none">{currentUser.username}</p>
+                        <span className="inline-block text-[11px] font-semibold px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-md mt-1 ring-1 ring-indigo-600/10">
+                          {currentUser.role === "STUDENT" ? "Sinh viên chính quy" : currentUser.role === "ORGANIZER" ? "Ban chủ nhiệm" : `Vai trò: ${currentUser.role}`}
                         </span>
                       </div>
                     </div>
 
-                    <div className="p-3 space-y-3 font-sans">
-                      <div className="bg-slate-50/50 p-2.5 rounded-xl border border-slate-150/60 space-y-2">
+                    <div className="p-3.5 space-y-3 font-sans">
+                      <div className="bg-slate-50 rounded-xl p-3 ring-1 ring-slate-900/5 space-y-2.5">
                         {currentUser.role === "STUDENT" && studentObj && (
-                          <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-600 font-medium text-left mb-1">
-                            <div>Lớp: <span className="font-bold text-slate-900">{studentObj.classId}</span></div>
-                            <div>Khoa: <span className="font-bold text-slate-900">{studentObj.facultyId}</span></div>
+                          <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 text-left">
+                            <div>
+                              <span className="text-[10px] text-slate-400 block font-medium">Lớp</span>
+                              <span className="font-semibold text-slate-900">{studentObj.classId}</span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-400 block font-medium">Khoa</span>
+                              <span className="font-semibold text-slate-900 truncate block">{formatFacultyName(studentObj.facultyInCharge || studentObj.facultyId) || studentObj.facultyId}</span>
+                            </div>
                           </div>
                         )}
                       
                         <div className="space-y-1">
-                          <label className="block text-[9.5px] font-black uppercase text-slate-500 tracking-wider text-left">Chọn học kì truy vấn:</label>
+                          <label className="text-[11px] font-medium text-slate-600 flex items-center gap-1.5 text-left">
+                            <Calendar size={13} className="text-slate-400" />
+                            <span>Học kỳ truy vấn:</span>
+                          </label>
                           <select
                             value={selectedSemesterId}
                             onChange={(e) => setSelectedSemesterId(e.target.value)}
-                            className="w-full bg-white border border-slate-250 text-[10.5px] font-bold rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/15 text-slate-800 focus:border-indigo-500 cursor-pointer"
+                            className="w-full bg-white border border-slate-200 text-xs font-semibold rounded-xl px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 focus:border-indigo-500 cursor-pointer shadow-2xs transition-all"
                           >
                             {SEMESTER_LIST.map(sem => (
                               <option key={sem.id} value={sem.id}>
@@ -1431,35 +1440,48 @@ const AppContent: React.FC = () => {
                       <div className="space-y-1">
                         <button 
                           onClick={openProfileEditModal}
-                          className="w-full text-left font-bold text-xs text-slate-705 hover:text-indigo-600 hover:bg-indigo-50/50 px-3 py-2 rounded-xl border border-transparent hover:border-indigo-100 transition-all flex items-center gap-2 cursor-pointer"
+                          className="w-full text-left font-medium text-xs text-slate-700 hover:text-indigo-600 hover:bg-slate-50 px-3 py-2.5 rounded-xl transition-all flex items-center gap-2.5 cursor-pointer min-h-[44px]"
                         >
-                          <User size={13} className="text-slate-400" />
+                          <User size={15} className="text-slate-400 shrink-0" />
                           <span>Sửa hồ sơ & mật khẩu</span>
                         </button>
 
-
-
-                        <button 
-                          onClick={() => {
-                            if (confirm("Hành động này sẽ tải lại toàn bộ hạt giáo dữ liệu rèn luyện mẫu, xóa sạch các lịch sử kiểm định học kỳ của bạn. Bạn có muốn khôi phục không?")) {
-                              resetToSeeds();
-                              alert("Đã phục hồi hoàn chỉnh dữ liệu mẫu!");
-                              window.location.reload();
-                            }
-                          }}
-                          className="w-full text-left font-bold text-xs text-slate-705 hover:text-amber-700 hover:bg-amber-50/50 px-3 py-2 rounded-xl border border-transparent hover:border-amber-100 transition-all flex items-center gap-2 cursor-pointer"
-                        >
-                          <RefreshCw size={13} className="text-slate-400" />
-                          <span>Khôi phục dữ liệu mẫu</span>
-                        </button>
+                        {currentUser.role === "STUDENT" && (
+                          <button 
+                            onClick={() => {
+                              setShowStudentIdCard(true);
+                              setShowProfileDropdown(false);
+                            }}
+                            className="w-full text-left font-medium text-xs text-slate-700 hover:text-indigo-600 hover:bg-slate-50 px-3 py-2.5 rounded-xl transition-all flex items-center gap-2.5 cursor-pointer min-h-[44px]"
+                          >
+                            <IdCard size={15} className="text-slate-400 shrink-0" />
+                            <span>Thẻ sinh viên điện tử</span>
+                          </button>
+                        )}
 
                         <button 
                           onClick={logout}
-                          className="w-full text-left font-bold text-xs text-slate-705 hover:text-rose-600 hover:bg-rose-50/50 px-3 py-2 rounded-xl border border-transparent hover:border-rose-100 transition-all flex items-center gap-2 cursor-pointer"
+                          className="w-full text-left font-medium text-xs text-rose-600 hover:bg-rose-50 px-3 py-2.5 rounded-xl transition-all flex items-center gap-2.5 cursor-pointer min-h-[44px]"
                         >
-                          <LogOut size={13} className="text-slate-400" />
+                          <LogOut size={15} className="text-rose-400 shrink-0" />
                           <span>Đăng xuất tài khoản</span>
                         </button>
+
+                        <div className="pt-1 border-t border-slate-100">
+                          <button 
+                            onClick={() => {
+                              if (confirm("Hành động này sẽ tải lại toàn bộ hạt giáo dữ liệu rèn luyện mẫu, xóa sạch các lịch sử kiểm định học kỳ của bạn. Bạn có muốn khôi phục không?")) {
+                                resetToSeeds();
+                                alert("Đã phục hồi hoàn chỉnh dữ liệu mẫu!");
+                                window.location.reload();
+                              }
+                            }}
+                            className="w-full text-left font-normal text-[11px] text-slate-400 hover:text-amber-700 hover:bg-amber-50/50 px-3 py-1.5 rounded-lg transition-all flex items-center gap-2 cursor-pointer"
+                          >
+                            <RefreshCw size={12} className="text-slate-400 shrink-0" />
+                            <span>Khôi phục dữ liệu mẫu</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
