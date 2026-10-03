@@ -59,6 +59,7 @@ import {
   SemesterItem,
   SEMESTER_LIST
 } from "./types";
+import { getRouteForTab, getTabFromPath, getPageTitle } from "./utils/routeUtils";
 import { 
   SEED_PERIOD, 
   SEED_USERS, 
@@ -430,6 +431,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const cachedUser = localStorage.getItem("unihub_current_user");
       if (cachedUser) {
         const u = JSON.parse(cachedUser);
+        if (typeof window !== "undefined") {
+          const routeTab = getTabFromPath(u.role, window.location.pathname);
+          if (routeTab) return routeTab;
+        }
         const savedTab = sessionStorage.getItem(`unihub_active_tab_${u.role}`);
         if (savedTab) return savedTab;
         return getDefaultTabForRole(u.role);
@@ -445,6 +450,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const role = currentUser?.role || (cached ? JSON.parse(cached)?.role : "");
       if (role) {
         sessionStorage.setItem(`unihub_active_tab_${role}`, tab);
+        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/xac-thuc-the-sinh-vien")) {
+          const targetPath = getRouteForTab(role, tab);
+          if (window.location.pathname !== targetPath) {
+            window.history.pushState({ role, tab }, "", targetPath);
+          }
+          document.title = getPageTitle(tab);
+        }
       }
     } catch {}
   }, [currentUser?.role]);
@@ -468,17 +480,44 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // ONLY set default tab if user identity actually changed (e.g. initial login or role switch)
       if (lastActiveUserKeyRef.current !== userKey) {
         lastActiveUserKeyRef.current = userKey;
-        const savedTab = sessionStorage.getItem(`unihub_active_tab_${currentUser.role}`);
-        if (savedTab) {
-          setActivePortletTabState(savedTab);
-        } else {
-          setActivePortletTabState(getDefaultTabForRole(currentUser.role));
+        let targetTab: string | null = null;
+        if (typeof window !== "undefined") {
+          targetTab = getTabFromPath(currentUser.role, window.location.pathname);
+        }
+        if (!targetTab) {
+          const savedTab = sessionStorage.getItem(`unihub_active_tab_${currentUser.role}`);
+          targetTab = savedTab || getDefaultTabForRole(currentUser.role);
+        }
+        setActivePortletTabState(targetTab);
+        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/xac-thuc-the-sinh-vien")) {
+          const targetPath = getRouteForTab(currentUser.role, targetTab);
+          if (window.location.pathname !== targetPath) {
+            window.history.replaceState({ role: currentUser.role, tab: targetTab }, "", targetPath);
+          }
+          document.title = getPageTitle(targetTab);
         }
       }
     } else {
       lastActiveUserKeyRef.current = null;
     }
   }, [currentUser?.id, currentUser?.role]);
+
+  // Listen to browser Back/Forward (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      if (!currentUser?.role) return;
+      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/xac-thuc-the-sinh-vien")) {
+        const matchingTab = getTabFromPath(currentUser.role, window.location.pathname);
+        if (matchingTab) {
+          setActivePortletTabState(matchingTab);
+          sessionStorage.setItem(`unihub_active_tab_${currentUser.role}`, matchingTab);
+          document.title = getPageTitle(matchingTab);
+        }
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [currentUser?.role]);
   
   // Firestore-first databases. Seed data is only used by the bootstrapping routine
   // when the matching Firestore collection is empty; runtime state is hydrated by
@@ -3087,6 +3126,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error("Signout error", err);
     }
     setCurrentUser(null);
+    if (typeof window !== "undefined") {
+      window.history.pushState(null, "", "/");
+      document.title = "UniHub - Phân hiệu ĐH Thái Nguyên tại Hà Giang";
+    }
     // B1 FIX: Xóa các cache nhạy cảm khi logout để tránh data leakage
     localStorage.removeItem("unihub_current_user");
     localStorage.removeItem("unihub_announcements");

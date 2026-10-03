@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { Component, Suspense, lazy, useState } from "react";
+import React, { Component, Suspense, lazy, useState, useEffect } from "react";
 import * as QRCode from "qrcode";
 import { UniHubProvider, useUniHub, normalizeClassId, getCachedAvatar, rememberAvatar } from "./state";
 import { UserRole, isOrgRole, STUDENT_FIELDS_META, Student, SEMESTER_LIST, convertGoogleDriveUrlToDirectUrl, getStudentStartYear, getSemesterStartYear } from "./types";
@@ -1278,12 +1278,20 @@ const AppContent: React.FC = () => {
 
   const sidebarTabs = getSidebarTabs();
 
+  useEffect(() => {
+    if (activePortletTab === "THE_SINH_VIEN") {
+      setShowStudentIdCard(true);
+    }
+  }, [activePortletTab]);
+
   const handleTabClick = (tabId: string) => {
     if (tabId === "EXT_SRC") {
       window.open("https://src-phhg.vercel.app/", "_blank");
     } else if (tabId === "THE_SINH_VIEN") {
       setShowStudentIdCard(true);
+      setActivePortletTab("THE_SINH_VIEN");
     } else {
+      setShowStudentIdCard(false);
       setActivePortletTab(tabId);
     }
   };
@@ -1456,6 +1464,7 @@ const AppContent: React.FC = () => {
                           <button 
                             onClick={() => {
                               setShowStudentIdCard(true);
+                              setActivePortletTab("THE_SINH_VIEN");
                               setShowProfileDropdown(false);
                             }}
                             className="w-full text-left font-medium text-xs text-slate-700 hover:text-indigo-600 hover:bg-slate-50 px-3 py-2.5 rounded-xl transition-all flex items-center gap-2.5 cursor-pointer min-h-[44px]"
@@ -2264,7 +2273,12 @@ const AppContent: React.FC = () => {
         return (
           <div 
             className="fixed inset-0 bg-slate-950/75 backdrop-blur-md z-[100] flex items-center justify-center p-3 sm:p-4" 
-            onClick={() => setShowStudentIdCard(false)}
+            onClick={() => {
+              setShowStudentIdCard(false);
+              if (activePortletTab === "THE_SINH_VIEN") {
+                setActivePortletTab("TRANG_CHU");
+              }
+            }}
           >
             <div className="w-full max-w-[620px] flex flex-col items-center gap-4" onClick={e => e.stopPropagation()}>
               
@@ -2380,7 +2394,12 @@ const AppContent: React.FC = () => {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => setShowStudentIdCard(false)}
+                  onClick={() => {
+                    setShowStudentIdCard(false);
+                    if (activePortletTab === "THE_SINH_VIEN") {
+                      setActivePortletTab("TRANG_CHU");
+                    }
+                  }}
                   className="px-6 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-sm transition-all cursor-pointer shadow-lg hover:shadow-xl ring-1 ring-slate-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
                 >
                   Đóng thẻ
