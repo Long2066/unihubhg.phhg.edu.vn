@@ -1483,6 +1483,80 @@ export const TrainingPortal: React.FC = () => {
       const workbook = new ExcelJS.Workbook();
       workbook.creator = "Phân hiệu ĐHTN tại Hà Giang";
 
+      // 0. Resolve semester metadata dynamically
+      const currentSemObj = allSemesters.find(s => s.id === selectedScheduleSemesterId) ||
+        allSemesters.find(s => s.id === period?.id) ||
+        allSemesters[0];
+
+      const semId = selectedScheduleSemesterId || period?.id || "HOCKY_1_2026_2027";
+      const semMatch = semId.match(/HOCKY_(\d)_(\d{4})_(\d{4})/i);
+
+      let termNumber = 1;
+      let startYear = 2026;
+      let endYear = 2027;
+
+      if (semMatch) {
+        termNumber = parseInt(semMatch[1], 10);
+        startYear = parseInt(semMatch[2], 10);
+        endYear = parseInt(semMatch[3], 10);
+      } else if (currentSemObj) {
+        const isTerm2 = (currentSemObj.term || currentSemObj.name || "").toLowerCase().includes("ii") ||
+          (currentSemObj.term || currentSemObj.name || "").includes("2");
+        const isTerm3 = (currentSemObj.term || currentSemObj.name || "").toLowerCase().includes("phụ") ||
+          (currentSemObj.term || currentSemObj.name || "").toLowerCase().includes("hè") ||
+          (currentSemObj.term || currentSemObj.name || "").includes("3");
+        termNumber = isTerm3 ? 3 : (isTerm2 ? 2 : 1);
+
+        const yearMatch = (currentSemObj.academicYear || currentSemObj.name || "").match(/(\d{4})\s*-\s*(\d{4})/);
+        if (yearMatch) {
+          startYear = parseInt(yearMatch[1], 10);
+          endYear = parseInt(yearMatch[2], 10);
+        } else {
+          const singleYear = (currentSemObj.academicYear || currentSemObj.name || "").match(/(\d{4})/);
+          if (singleYear) {
+            startYear = parseInt(singleYear[1], 10);
+            endYear = startYear + 1;
+          }
+        }
+      }
+
+      const semTermStr = termNumber === 2 ? "HỌC KỲ II" : (termNumber === 3 ? "HỌC KỲ PHỤ" : "HỌC KỲ I");
+      const semYearStr = `${startYear} - ${endYear}`;
+      const semSlug = `HK${termNumber}_${startYear}_${endYear}`;
+
+      // Calculate Monday of Week 1
+      const getBaseMondayForSemester = (): Date => {
+        if (period && (!selectedScheduleSemesterId || selectedScheduleSemesterId === period.id) && period.startDate) {
+          const pDate = new Date(period.startDate);
+          if (!isNaN(pDate.getTime())) {
+            const day = pDate.getDay();
+            const diffToMon = day === 0 ? -6 : 1 - day;
+            return new Date(pDate.getFullYear(), pDate.getMonth(), pDate.getDate() + diffToMon);
+          }
+        }
+
+        let anchorYear = startYear;
+        let anchorMonth = 7; // August (0-indexed)
+        let anchorDay = 15;
+
+        if (termNumber === 2) {
+          anchorYear = endYear;
+          anchorMonth = 0; // January
+          anchorDay = 10;
+        } else if (termNumber === 3) {
+          anchorYear = endYear;
+          anchorMonth = 5; // June
+          anchorDay = 1;
+        }
+
+        const anchor = new Date(anchorYear, anchorMonth, anchorDay);
+        const day = anchor.getDay();
+        const diffToMon = day === 0 ? 1 : (day === 1 ? 0 : 8 - day);
+        return new Date(anchorYear, anchorMonth, anchorDay + diffToMon);
+      };
+
+      const baseMonday = getBaseMondayForSemester();
+
       const availableScheduleClasses = Array.from(new Set([
         ...students.map(s => normalizeClassId(s.classId)),
         ...customClasses.map(c => normalizeClassId(c))
@@ -1570,9 +1644,10 @@ export const TrainingPortal: React.FC = () => {
       };
 
       // Pull actual assignments from teacherAssignments state (or SEED_TEACHER_ASSIGNMENTS fallback)
-      const relevantAssignments = teacherAssignments.length > 0 
+      const relevantAssignments = (teacherAssignments.length > 0 
         ? teacherAssignments 
-        : (SEED_TEACHER_ASSIGNMENTS || []);
+        : (SEED_TEACHER_ASSIGNMENTS || [])
+      ).filter(a => !a.semesterId || a.semesterId === selectedScheduleSemesterId);
 
       relevantAssignments.forEach(a => {
         if (!targetClassId || normalizeClassId(a.classId) === normalizeClassId(targetClassId)) {
@@ -1587,7 +1662,7 @@ export const TrainingPortal: React.FC = () => {
       });
 
       // Also include subjects from schedules if not already present
-      schedules.forEach(s => {
+      schedules.filter(s => !s.semesterId || s.semesterId === selectedScheduleSemesterId).forEach(s => {
         if (!targetClassId || normalizeClassId(s.classId) === normalizeClassId(targetClassId)) {
           if (!subjectsMap.has(s.subjectName)) {
             subjectsMap.set(s.subjectName, {
@@ -1644,9 +1719,8 @@ export const TrainingPortal: React.FC = () => {
 
       // Date helper for formatted calendar date (DD/MM/YYYY)
       const getFormattedDateForWeekDay = (weekNum: number, dayOfWeek: number): string => {
-        const base = new Date(2026, 7, 10); // Monday August 10, 2026
         const dayOffset = (weekNum - 1) * 7 + (dayOfWeek - 2);
-        const targetDate = new Date(base.getTime() + dayOffset * 86400000);
+        const targetDate = new Date(baseMonday.getFullYear(), baseMonday.getMonth(), baseMonday.getDate() + dayOffset);
         const dd = String(targetDate.getDate()).padStart(2, "0");
         const mm = String(targetDate.getMonth() + 1).padStart(2, "0");
         const yyyy = targetDate.getFullYear();
@@ -1692,7 +1766,10 @@ export const TrainingPortal: React.FC = () => {
           { width: 16 }  // I: Hình thức học
         ];
 
-        const clsSchedules = schedules.filter(s => normalizeClassId(s.classId) === normalizeClassId(clsId));
+        const clsSchedules = schedules.filter(s => 
+          normalizeClassId(s.classId) === normalizeClassId(clsId) &&
+          (!s.semesterId || s.semesterId === selectedScheduleSemesterId)
+        );
 
         // 4-Week Block grouping: Block 1 (1-4), Block 2 (5-8), Block 3 (9-12), Block 4 (13-16)...
         const totalWeeksInSemester = 16;
@@ -1724,7 +1801,7 @@ export const TrainingPortal: React.FC = () => {
 
           sheet.mergeCells(`D${currentRow}:I${currentRow}`);
           const d1 = sheet.getCell(`D${currentRow}`);
-          d1.value = `THỜI KHÓA BIỂU HỌC KÌ II, NĂM HỌC 2025 - 2026\nLỚP ${clsId}`;
+          d1.value = `THỜI KHÓA BIỂU ${semTermStr}, NĂM HỌC ${semYearStr}\nLỚP ${clsId}`;
           d1.font = { name: "Times New Roman", size: 11, bold: true };
           d1.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
           sheet.getRow(currentRow).height = 36;
@@ -1845,7 +1922,8 @@ export const TrainingPortal: React.FC = () => {
         // Signature Footer Block at the end of sheet
         sheet.mergeCells(`G${currentRow + 1}:I${currentRow + 1}`);
         const dateCell = sheet.getCell(`G${currentRow + 1}`);
-        dateCell.value = "Tuyên Quang, ngày ... tháng ... năm 2026";
+        const exportYear = termNumber === 2 ? endYear : startYear;
+        dateCell.value = `Hà Giang, ngày ... tháng ... năm ${exportYear}`;
         dateCell.font = { name: "Times New Roman", size: 10, italic: true };
         dateCell.alignment = { vertical: "middle", horizontal: "center" };
 
@@ -1857,7 +1935,7 @@ export const TrainingPortal: React.FC = () => {
 
         sheet.mergeCells(`G${currentRow + 11}:I${currentRow + 11}`);
         const nameCell = sheet.getCell(`G${currentRow + 11}`);
-        nameCell.value = "Danh hiệu. Họ và tên";
+        nameCell.value = "Chức danh. Họ và tên";
         nameCell.font = { name: "Times New Roman", size: 10, italic: true };
         nameCell.alignment = { vertical: "middle", horizontal: "center" };
       });
@@ -1868,8 +1946,8 @@ export const TrainingPortal: React.FC = () => {
       const a = document.createElement("a");
       a.href = url;
       a.download = targetClassId 
-        ? `Mau_Thoi_khoa_bieu_${targetClassId.replace(/\s+/g, "_")}.xlsx`
-        : `Mau_Thoi_khoa_bieu_Phan_hieu_Toan_bo.xlsx`;
+        ? `Mau_Thoi_khoa_bieu_${targetClassId.replace(/\s+/g, "_")}_${semSlug}.xlsx`
+        : `Mau_Thoi_khoa_bieu_Phan_hieu_Toan_bo_${semSlug}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
