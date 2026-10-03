@@ -3796,27 +3796,37 @@ export const StudentPortal: React.FC = () => {
 
       {/* MODAL EDIT STUDENT PROFILE (Requirement #8) */}
       {showProfileModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center bg-indigo-50/50 px-6 py-4 border-b border-indigo-100 shrink-0">
-              <h3 className="text-xs font-black text-indigo-900 flex items-center gap-2">
-                <User size={15} />
-                <span>Cập Nhật Thông Tin Hồ Sơ Cá Nhân & Đổi Mật Khẩu</span>
-              </h3>
-              <button onClick={() => setShowProfileModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                <X size={16} />
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-xl ring-1 ring-slate-900/10 max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh] animate-scale-up">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-white shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <User size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900 leading-tight">
+                    Hồ Sơ Cá Nhân & Thiết Lập Tài Khoản
+                  </h3>
+                  <p className="text-xs text-slate-500">Cập nhật thông tin lý lịch sinh viên và đổi mật khẩu đăng nhập</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowProfileModal(false)} 
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
+              >
+                <X size={18} />
               </button>
             </div>
 
             {/* Profile Tab Navigation */}
-            <div className="flex border-b border-slate-100 bg-slate-50/50 p-2 overflow-x-auto shrink-0 gap-1 select-none">
+            <div className="flex border-b border-slate-100 bg-slate-50/70 p-2 gap-1.5 overflow-x-auto shrink-0 select-none">
               <button
                 type="button"
                 onClick={() => setActiveProfileTab("personal")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap min-h-[38px] ${
                   activeProfileTab === "personal"
-                    ? "bg-indigo-650 text-white shadow-xs"
-                    : "text-slate-650 hover:bg-slate-100"
+                    ? "bg-white text-blue-700 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
                 }`}
               >
                 Cá nhân & Liên lạc
@@ -3824,10 +3834,10 @@ export const StudentPortal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActiveProfileTab("family")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap min-h-[38px] ${
                   activeProfileTab === "family"
-                    ? "bg-indigo-650 text-white shadow-xs"
-                    : "text-slate-650 hover:bg-slate-100"
+                    ? "bg-white text-blue-700 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
                 }`}
               >
                 Gia đình
@@ -3835,10 +3845,10 @@ export const StudentPortal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActiveProfileTab("education")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap min-h-[38px] ${
                   activeProfileTab === "education"
-                    ? "bg-indigo-650 text-white shadow-xs"
-                    : "text-slate-650 hover:bg-slate-100"
+                    ? "bg-white text-blue-700 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
                 }`}
               >
                 Học tập & Tài chính
@@ -3846,10 +3856,10 @@ export const StudentPortal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActiveProfileTab("account")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap min-h-[38px] ${
                   activeProfileTab === "account"
-                    ? "bg-indigo-650 text-white shadow-xs"
-                    : "text-slate-650 hover:bg-slate-100"
+                    ? "bg-white text-blue-700 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
                 }`}
               >
                 Tài khoản & Ảnh
@@ -3859,7 +3869,7 @@ export const StudentPortal: React.FC = () => {
             <form onSubmit={handleSaveProfile} className="flex-1 flex flex-col overflow-hidden">
               <div className="p-6 overflow-y-auto space-y-4 flex-1">
                 {profileSuccessMsg && (
-                  <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-250 text-xs font-bold rounded-xl text-center">
+                  <div className="p-3 bg-emerald-50 text-emerald-800 ring-1 ring-emerald-500/20 text-xs font-semibold rounded-xl text-center">
                     {profileSuccessMsg}
                   </div>
                 )}
@@ -3867,7 +3877,7 @@ export const StudentPortal: React.FC = () => {
                 {activeProfileTab === "account" && (
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Họ tên sinh viên</label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Họ tên sinh viên</label>
                       <input 
                         type="text"
                         required
@@ -3876,12 +3886,12 @@ export const StudentPortal: React.FC = () => {
                           setEditName(e.target.value);
                           setProfileFields(prev => ({ ...prev, name: e.target.value }));
                         }}
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-650 text-slate-800"
+                        className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-slate-800 transition-all"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Ảnh đại diện (URL)</label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Ảnh đại diện (URL)</label>
                       <div className="flex flex-col gap-2">
                         <div className="flex gap-2">
                           <input 
@@ -3892,7 +3902,7 @@ export const StudentPortal: React.FC = () => {
                               setEditAvatar(e.target.value);
                               setProfileFields(prev => ({ ...prev, avatar: e.target.value }));
                             }}
-                            className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-655 text-slate-800 font-mono"
+                            className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-slate-800 font-mono transition-all"
                           />
                           <button 
                             type="button"
@@ -3901,19 +3911,19 @@ export const StudentPortal: React.FC = () => {
                               setEditAvatar(seedUrl);
                               setProfileFields(prev => ({ ...prev, avatar: seedUrl }));
                             }}
-                            className="px-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-slate-700 text-xs shrink-0 cursor-pointer"
+                            className="px-4 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-700 text-xs font-semibold shrink-0 cursor-pointer min-h-[44px] transition-all"
                           >
                             Mẫu
                           </button>
                         </div>
 
-                        <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                        <div className="flex items-center gap-3 bg-slate-50/80 p-3 rounded-xl ring-1 ring-slate-900/5">
                           {editAvatar ? (
                             <img 
                               referrerPolicy="no-referrer"
                               src={editAvatar} 
                               alt="Preview Avatar" 
-                              className="w-10 h-10 rounded-full object-cover border border-slate-200 shrink-0"
+                              className="w-10 h-10 rounded-full object-cover ring-1 ring-slate-900/10 shrink-0"
                               onError={(e) => {
                                 e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${studentId}`;
                               }}
@@ -3924,15 +3934,15 @@ export const StudentPortal: React.FC = () => {
                             </div>
                           )}
                           <label className="flex-1 cursor-pointer">
-                            <div className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-indigo-750 text-xs text-center font-bold transition-colors flex items-center justify-center gap-1.5">
+                            <div className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 rounded-xl text-blue-700 text-xs text-center font-semibold transition-all flex items-center justify-center gap-1.5 min-h-[40px]">
                               {isUploadingAvatar ? (
                                 <>
-                                  <RefreshCw size={12} className="animate-spin text-indigo-600" />
+                                  <RefreshCw size={14} className="animate-spin text-blue-600" />
                                   <span>Đang nén...</span>
                                 </>
                               ) : (
                                 <>
-                                  <Upload size={12} />
+                                  <Upload size={14} />
                                   <span>Tải ảnh từ máy</span>
                                 </>
                               )}
@@ -3966,22 +3976,22 @@ export const StudentPortal: React.FC = () => {
                           </label>
                         </div>
                       </div>
-                      <p className="text-[9px] text-slate-400 mt-1">Ấn nút "Mẫu" để tự động tạo avatar ngẫu nhiên, hoặc tải ảnh từ máy tính của bạn.</p>
+                      <p className="text-[11px] text-slate-400 mt-1">Ấn nút "Mẫu" để tự động tạo avatar ngẫu nhiên, hoặc tải ảnh từ máy tính của bạn.</p>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Mật khẩu mới</label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Mật khẩu mới</label>
                       <div className="relative">
                         <input 
                           type="text"
                           placeholder="Chưa đổi mật khẩu mới"
                           value={editPassword}
                           onChange={(e) => setEditPassword(e.target.value)}
-                          className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-650 text-slate-800 font-mono"
+                          className="w-full pl-9 pr-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-slate-800 font-mono transition-all"
                         />
-                        <Lock size={12} className="absolute left-3 top-3 text-slate-400" />
+                        <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                       </div>
-                      <p className="text-[9px] text-slate-400 mt-1">Mật khẩu này sẽ được lưu để đăng nhập cho các lần sau.</p>
+                      <p className="text-[11px] text-slate-400 mt-1">Mật khẩu này sẽ được lưu để đăng nhập cho các lần sau.</p>
                     </div>
                   </div>
                 )}
@@ -3994,7 +4004,7 @@ export const StudentPortal: React.FC = () => {
                       
                       return (
                         <div key={meta.key} className={meta.key === "permanentAddress" || meta.key === "temporaryAddress" ? "sm:col-span-2" : ""}>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">{meta.label}</label>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1.5">{meta.label}</label>
                           {meta.type === "select" ? (
                             <select
                               value={value}
@@ -4006,8 +4016,8 @@ export const StudentPortal: React.FC = () => {
                                   setEditName(val);
                                 }
                               }}
-                              className={`w-full px-3 py-2 text-xs rounded-lg border focus:outline-none text-slate-800 bg-white ${
-                                isReadOnly ? "bg-slate-50 cursor-not-allowed border-slate-200 text-slate-450" : "border-slate-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-650"
+                              className={`w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border focus:outline-none text-slate-800 bg-white transition-all ${
+                                isReadOnly ? "bg-slate-50 cursor-not-allowed border-slate-200 text-slate-400 font-medium" : "border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer"
                               }`}
                             >
                               <option value="">-- Chọn {meta.label} --</option>
@@ -4027,8 +4037,8 @@ export const StudentPortal: React.FC = () => {
                                   setEditName(e.target.value);
                                 }
                               }}
-                              className={`w-full px-3 py-2 text-xs rounded-lg border focus:outline-none text-slate-800 ${
-                                isReadOnly ? "bg-slate-50 border-slate-250/60 text-slate-450 cursor-not-allowed font-semibold" : "border-slate-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-650"
+                              className={`w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border focus:outline-none text-slate-800 transition-all ${
+                                isReadOnly ? "bg-slate-50 border-slate-200 text-slate-500 cursor-not-allowed font-medium" : "border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                               }`}
                             />
                           )}
@@ -4044,12 +4054,12 @@ export const StudentPortal: React.FC = () => {
                       const value = (profileFields as any)[meta.key] ?? "";
                       return (
                         <div key={meta.key}>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">{meta.label}</label>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1.5">{meta.label}</label>
                           <input
                             type="text"
                             value={value}
                             onChange={(e) => setProfileFields(prev => ({ ...prev, [meta.key]: e.target.value }))}
-                            className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-650 text-slate-800"
+                            className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-slate-800 transition-all"
                           />
                         </div>
                       );
@@ -4064,14 +4074,14 @@ export const StudentPortal: React.FC = () => {
                       const value = (profileFields as any)[meta.key] ?? "";
                       return (
                         <div key={meta.key} className={meta.key === "creditClassesList" || meta.key === "enrollmentNotes" ? "sm:col-span-2" : ""}>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">{meta.label}</label>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1.5">{meta.label}</label>
                           <input
                             type={meta.type === "number" ? "number" : "text"}
                             value={value}
                             disabled={isReadOnly}
                             onChange={(e) => setProfileFields(prev => ({ ...prev, [meta.key]: meta.type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value }))}
-                            className={`w-full px-3 py-2 text-xs rounded-lg border focus:outline-none text-slate-800 ${
-                              isReadOnly ? "bg-slate-50 border-slate-250/60 text-slate-450 cursor-not-allowed font-semibold" : "border-slate-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-655"
+                            className={`w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border focus:outline-none text-slate-800 transition-all ${
+                              isReadOnly ? "bg-slate-50 border-slate-200 text-slate-500 cursor-not-allowed font-medium" : "border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                             }`}
                           />
                         </div>
@@ -4081,17 +4091,17 @@ export const StudentPortal: React.FC = () => {
                 )}
               </div>
 
-              <div className="flex gap-2 justify-end p-4 border-t border-slate-100 bg-slate-50 shrink-0">
+              <div className="flex items-center justify-end gap-3 p-4 border-t border-slate-100 bg-white shrink-0">
                 <button 
                   type="button"
                   onClick={() => setShowProfileModal(false)}
-                  className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-650 text-xs font-bold rounded-lg cursor-pointer"
+                  className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer min-h-[44px]"
                 >
                   Đóng
                 </button>
                 <button 
                   type="submit"
-                  className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg cursor-pointer"
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm shadow-blue-500/20 transition-all cursor-pointer min-h-[44px]"
                 >
                   Lưu thay đổi
                 </button>

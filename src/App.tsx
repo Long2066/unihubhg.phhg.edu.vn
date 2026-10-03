@@ -1759,31 +1759,36 @@ const AppContent: React.FC = () => {
           <div className={`bg-white rounded-2xl border border-slate-105 border-slate-200 shadow-2xl ${currentUser?.role === UserRole.STUDENT ? 'max-w-2xl' : 'max-w-md'} w-full overflow-hidden transform transition-all scale-100 flex flex-col max-h-[90vh] max-h-[90dvh] animate-fade-in-up`}>
             
             {/* Modal Header */}
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
-              <div className="flex items-center gap-2">
-                <User className="text-indigo-650" size={18} />
-                <h3 className="text-sm font-black text-slate-800 uppercase tracking-wide">
-                  Cấu hình tài khoản cá nhân
-                </h3>
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <User size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900 leading-tight">
+                    Cấu Hình Tài Khoản Cá Nhân
+                  </h3>
+                  <p className="text-xs text-slate-500">Chỉnh sửa hồ sơ và thiết lập mật khẩu truy cập</p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowProfileModal(false)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-full hover:bg-slate-100 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
 
             {/* Tab Navigation */}
-            <div className="flex border-b border-slate-100 bg-slate-50/40 p-2 gap-1 shrink-0 select-none">
+            <div className="flex border-b border-slate-100 bg-slate-50/70 p-2 gap-1.5 shrink-0 select-none">
               <button
                 type="button"
                 onClick={() => setProfileTab("info")}
-                className={`flex-1 py-2 text-center text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                className={`flex-1 py-2 text-center text-xs font-semibold rounded-xl transition-all cursor-pointer min-h-[38px] ${
                   profileTab === "info"
-                    ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
-                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                    ? "bg-white text-blue-700 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
                 }`}
               >
                 Thông tin hồ sơ
@@ -1791,10 +1796,10 @@ const AppContent: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setProfileTab("password")}
-                className={`flex-1 py-2 text-center text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                className={`flex-1 py-2 text-center text-xs font-semibold rounded-xl transition-all cursor-pointer min-h-[38px] ${
                   profileTab === "password"
-                    ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
-                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                    ? "bg-white text-blue-700 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
                 }`}
               >
                 Đổi mật khẩu
@@ -2147,17 +2152,17 @@ const AppContent: React.FC = () => {
                   )}
 
                   {/* Submit Button */}
-                  <div className="pt-4 border-t border-slate-100 flex justify-end gap-2 shrink-0">
+                  <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
                     <button
                       type="button"
                       onClick={() => setShowProfileModal(false)}
-                      className="px-4 py-2.5 border border-slate-200 text-slate-700 font-bold hover:bg-slate-100 rounded-xl text-xs transition-colors cursor-pointer"
+                      className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer min-h-[44px]"
                     >
                       Đóng
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-md shadow-indigo-100"
+                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm shadow-blue-500/20 transition-all cursor-pointer min-h-[44px]"
                     >
                       Lưu thông tin hồ sơ
                     </button>
@@ -2174,26 +2179,26 @@ const AppContent: React.FC = () => {
 
                   {/* Old Password */}
                   <div className="space-y-1.5">
-                    <label className="block text-[10px] font-black uppercase text-slate-455 tracking-wider">Mật khẩu hiện tại</label>
+                    <label className="block text-xs font-semibold text-slate-700">Mật khẩu hiện tại</label>
                     <input
                       type="password"
                       value={editOldPassword}
                       onChange={(e) => setEditOldPassword(e.target.value)}
                       placeholder="Nhập mật khẩu hiện tại..."
-                      className="w-full bg-white border border-slate-250 text-xs font-bold rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/15 text-slate-800 focus:border-indigo-500 transition-all placeholder-slate-350"
+                      className="w-full bg-white border border-slate-200 text-xs sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-slate-800 transition-all placeholder-slate-400"
                       required
                     />
                   </div>
 
                   {/* New Password */}
                   <div className="space-y-1.5">
-                    <label className="block text-[10px] font-black uppercase text-slate-455 tracking-wider">Mật khẩu mới <span className="text-slate-400 normal-case">(tối thiểu 6 ký tự)</span></label>
+                    <label className="block text-xs font-semibold text-slate-700">Mật khẩu mới <span className="text-slate-400 font-normal">(tối thiểu 6 ký tự)</span></label>
                     <input
                       type="password"
                       value={editPassword}
                       onChange={(e) => setEditPassword(e.target.value)}
                       placeholder="Nhập mật khẩu mới..."
-                      className="w-full bg-white border border-slate-250 text-xs font-bold rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/15 text-slate-800 focus:border-indigo-500 transition-all placeholder-slate-350"
+                      className="w-full bg-white border border-slate-200 text-xs sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-slate-800 transition-all placeholder-slate-400"
                       required
                       minLength={6}
                     />
@@ -2201,29 +2206,29 @@ const AppContent: React.FC = () => {
 
                   {/* Confirm Password */}
                   <div className="space-y-1.5">
-                    <label className="block text-[10px] font-black uppercase text-slate-455 tracking-wider">Xác nhận mật khẩu mới</label>
+                    <label className="block text-xs font-semibold text-slate-700">Xác nhận mật khẩu mới</label>
                     <input
                       type="password"
                       value={editPasswordConfirm}
                       onChange={(e) => setEditPasswordConfirm(e.target.value)}
                       placeholder="Nhập lại mật khẩu mới..."
-                      className="w-full bg-white border border-slate-250 text-xs font-bold rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/15 text-slate-800 focus:border-indigo-500 transition-all placeholder-slate-350"
+                      className="w-full bg-white border border-slate-200 text-xs sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-slate-800 transition-all placeholder-slate-400"
                       required
                     />
                   </div>
 
                   {/* Submit Button */}
-                  <div className="pt-4 border-t border-slate-100 flex justify-end gap-2 shrink-0">
+                  <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
                     <button
                       type="button"
                       onClick={() => setShowProfileModal(false)}
-                      className="px-4 py-2.5 border border-slate-200 text-slate-700 font-bold hover:bg-slate-100 rounded-xl text-xs transition-colors cursor-pointer"
+                      className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer min-h-[44px]"
                     >
                       Đóng
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-md shadow-indigo-100"
+                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm shadow-blue-500/20 transition-all cursor-pointer min-h-[44px]"
                     >
                       Lưu mật khẩu mới
                     </button>
