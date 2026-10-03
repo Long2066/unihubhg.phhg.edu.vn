@@ -53,8 +53,8 @@ export const formatStudentId = (id: any) => {
 
 
 const ScholarshipAssessmentView: React.FC = () => {
-  const { students, results, customClasses, allSemesters } = useUniHub();
-  const [selectedSemester, setSelectedSemester] = useState<string>("HOCKY_2_2025_2026");
+  const { students, results, customClasses, allSemesters, period } = useUniHub();
+  const [selectedSemester, setSelectedSemester] = useState<string>(period?.id || "HOCKY_1_2026_2027");
   const [selectedFaculty, setSelectedFaculty] = useState<string>("ALL");
   const [assessmentData, setAssessmentData] = useState<any[]>([]);
   const [showAddSemesterModal, setShowAddSemesterModal] = useState<boolean>(false);
@@ -274,6 +274,7 @@ const ScholarshipAssessmentView: React.FC = () => {
 export const TrainingPortal: React.FC = () => {
   const { 
     currentUser,
+    period,
     students, 
     importAcademicData, 
     toggleLearningDataLock,
@@ -337,7 +338,7 @@ export const TrainingPortal: React.FC = () => {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [classDetailSearchQuery, setClassDetailSearchQuery] = useState("");
   const [classSearchTerm, setClassSearchTerm] = useState("");
-  const [selectedScheduleSemesterId, setSelectedScheduleSemesterId] = useState<string>("HOCKY_2_2025_2026");
+  const [selectedScheduleSemesterId, setSelectedScheduleSemesterId] = useState<string>(period?.id || "HOCKY_1_2026_2027");
   const [selectedScheduleWeek, setSelectedScheduleWeek] = useState<number>(0);
   const [selectedAssignmentClass, setSelectedAssignmentClass] = useState<string>("ALL");
   const [showAddSemesterModal, setShowAddSemesterModal] = useState<boolean>(false);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useUniHub, normalizeClassId, getCachedAvatar, rememberAvatar } from "../state";
-import { STUDENT_FIELDS_META, Student, convertGoogleDriveUrlToDirectUrl, SEMESTER_LIST, parseWeekRange, isWeekInScheduleSlot, UserRole } from "../types";
+import { STUDENT_FIELDS_META, Student, convertGoogleDriveUrlToDirectUrl, SEMESTER_LIST, parseWeekRange, isWeekInScheduleSlot, UserRole, getStudentStartYear, getSemesterStartYear } from "../types";
 import { SEED_STUDENTS } from "../data";
 import { 
   Award, 
@@ -282,10 +282,33 @@ const downloadStudentTranscriptPdf = async (
 // Predefined historical semesters
 const SEMESTER_HISTORY = [
   {
+    id: "HOCKY_1_2026_2027",
+    name: "Học kỳ I - 2026-2027",
+    status: "Đang diễn ra",
+    isCurrent: true,
+  },
+  {
     id: "HOCKY_2_2025_2026",
     name: "Học kỳ II - 2025-2026",
-    status: "Đang đánh giá",
-    isCurrent: true,
+    status: "Đã chốt sổ",
+    isCurrent: false,
+    gpa: 3.42,
+    learningStatus: "Bình thường",
+    creditsEarned: 18,
+    totalPoints: 68,
+    grade: "KHÁ",
+    studyPoints: 18,
+    violationPoints: 25,
+    extracurricularPoints: 15,
+    communityPoints: 10,
+    achievementPoints: 0,
+    logs: [
+      { criteriaId: "TC1.2", points: 18, reason: "Phòng Đào tạo: GPA đạt 3.42", source: "ĐÀO TẠO", timestamp: "2026-05-19" },
+      { criteriaId: "TC2.0", points: 25, reason: "Không ghi nhận vi phạm kỷ luật nội quy", source: "ĐÀO TẠO", timestamp: "2026-05-19" },
+      { criteriaId: "TC3.3", points: 10, reason: "Là thành viên chính thức CLB Sáng tạo Công nghệ UniTech", source: "CLB_ATTENDANCE", timestamp: "2026-05-10" },
+      { criteriaId: "TC3.1", points: 5, reason: "Đã tham gia Hackathon Sáng Tạo Trẻ UniHub 2026", source: "CLB_ATTENDANCE", timestamp: "2026-05-12" },
+      { criteriaId: "TC4.1", points: 10, reason: "Tham gia Hiến máu tình nguyện Giọt hồng biên cương 2026", source: "CLB_ATTENDANCE", timestamp: "2026-04-18" }
+    ]
   },
   {
     id: "HOCKY_1_2025_2026",
@@ -355,6 +378,40 @@ const SEMESTER_HISTORY = [
       { criteriaId: "TC4", points: 12, reason: "GVCN chốt: Quyên góp từ thiện ủng hộ gia đình bão lũ", source: "MINH_CHỨNG", timestamp: "2024-12-05" },
       { criteriaId: "TC5", points: 5, reason: "GVCN chốt: Có đóng góp tốt bảo vệ trật tự an toàn ký túc xá", source: "BCS_DUYỆT", timestamp: "2025-01-08" }
     ]
+  },
+  {
+    id: "HOCKY_2_2023_2024",
+    name: "Học kỳ II - 2023-2024",
+    status: "Đã chốt sổ",
+    isCurrent: false,
+    gpa: 3.10,
+    learningStatus: "Bình thường",
+    creditsEarned: 17,
+    totalPoints: 75,
+    grade: "KHÁ",
+    studyPoints: 15,
+    violationPoints: 25,
+    extracurricularPoints: 20,
+    communityPoints: 10,
+    achievementPoints: 5,
+    logs: []
+  },
+  {
+    id: "HOCKY_1_2023_2024",
+    name: "Học kỳ I - 2023-2024",
+    status: "Đã chốt sổ",
+    isCurrent: false,
+    gpa: 3.00,
+    learningStatus: "Bình thường",
+    creditsEarned: 18,
+    totalPoints: 70,
+    grade: "KHÁ",
+    studyPoints: 15,
+    violationPoints: 25,
+    extracurricularPoints: 15,
+    communityPoints: 10,
+    achievementPoints: 5,
+    logs: []
   }
 ];
 
@@ -571,7 +628,7 @@ export const StudentPortal: React.FC = () => {
   const [clubFeedTab, setClubFeedTab] = useState<"ALL" | "ANNOUNCEMENTS" | "ACTIVITIES">("ALL");
   const [onlyMyClubsFilter, setOnlyMyClubsFilter] = useState(false);
   const [selectedStudentScheduleClass, setSelectedStudentScheduleClass] = useState("");
-  const [selectedStudentScheduleSemesterId, setSelectedStudentScheduleSemesterId] = useState("HOCKY_2_2025_2026");
+  const [selectedStudentScheduleSemesterId, setSelectedStudentScheduleSemesterId] = useState(period?.id || "HOCKY_1_2026_2027");
   const [selectedStudentScheduleWeek, setSelectedStudentScheduleWeek] = useState(0);
   const [announcementKeyword, setAnnouncementKeyword] = useState("");
 
@@ -654,9 +711,28 @@ export const StudentPortal: React.FC = () => {
       .sort((a, b) => statusRank[a.status] - statusRank[b.status])[0];
   };
 
+  const studentStartYear = useMemo(() => getStudentStartYear(sObj), [sObj]);
+  const availableSemesters = useMemo(() => {
+    return SEMESTER_HISTORY.filter(sem => getSemesterStartYear(sem.id) >= studentStartYear);
+  }, [studentStartYear]);
+
+  const availableScheduleSemesters = useMemo(() => {
+    return allSemesters.filter(sem => getSemesterStartYear(sem.academicYear || sem.id) >= studentStartYear);
+  }, [allSemesters, studentStartYear]);
+
   // Determine current or historic semester selection
-  const isSelectedCurrent = selectedSemesterId === "HOCKY_2_2025_2026";
+  const isSelectedCurrent = selectedSemesterId === (period?.id || "HOCKY_1_2026_2027");
   const historicSem = SEMESTER_HISTORY.find(h => h.id === selectedSemesterId);
+
+  // Auto-correct semester if currently selected semester is before admission year
+  useEffect(() => {
+    if (selectedSemesterId) {
+      const semYear = getSemesterStartYear(selectedSemesterId);
+      if (semYear < studentStartYear) {
+        setSelectedSemesterId(period?.id || "HOCKY_1_2026_2027");
+      }
+    }
+  }, [selectedSemesterId, studentStartYear, period?.id, setSelectedSemesterId]);
 
   // Compute live academic data
   const liveGpa = sObj?.gpa ?? 0;
@@ -703,7 +779,7 @@ export const StudentPortal: React.FC = () => {
   const transcriptClassification = sObj?.academicGrade || academicMeta.label || "Chưa xếp loại";
 
   // Compute live conduct data
-  const liveResult = results.find(r => r.studentId === studentId);
+  const liveResult = results.find(r => r.studentId === studentId && (r.periodId === (period?.id || "HOCKY_1_2026_2027") || !r.periodId)) || results.find(r => r.studentId === studentId);
   const currentConductPoints = isSelectedCurrent ? (liveResult?.totalPoints ?? 0) : (historicSem?.totalPoints ?? 0);
   const currentConductStatus = isSelectedCurrent ? (liveResult?.status || "AUTO") : "LOCKED";
 
@@ -856,9 +932,9 @@ export const StudentPortal: React.FC = () => {
               onChange={(e) => setSelectedSemesterId(e.target.value)}
               className="bg-transparent border-0 text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer pr-1"
             >
-              {SEMESTER_HISTORY.map(sem => (
+              {availableSemesters.map(sem => (
                 <option key={sem.id} value={sem.id} className="text-slate-800 text-xs font-medium">
-                  {sem.name} {sem.isCurrent ? " (Hiện tại)" : ""}
+                  {sem.name} {sem.id === (period?.id || "HOCKY_1_2026_2027") ? " (Hiện tại)" : ""}
                 </option>
               ))}
             </select>
@@ -3626,8 +3702,10 @@ export const StudentPortal: React.FC = () => {
                           onChange={(e) => setSelectedStudentScheduleSemesterId(e.target.value)}
                           className="text-[11px] p-1 px-2 border rounded-lg bg-white outline-none cursor-pointer focus:ring-1 focus:ring-indigo-500 font-medium text-slate-700"
                         >
-                          {allSemesters.map(sem => (
-                            <option key={sem.id} value={sem.id}>{sem.name}</option>
+                          {availableScheduleSemesters.map(sem => (
+                            <option key={sem.id} value={sem.id}>
+                              {sem.name} {sem.id === (period?.id || "HOCKY_1_2026_2027") ? " (Hiện tại)" : ""}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -4304,7 +4382,7 @@ export const StudentPortal: React.FC = () => {
                   studentId: sObj?.id || currentUser?.targetId || currentUser?.username || "",
                   studentName: sObj?.name || currentUser?.name || "Sinh viên",
                   classId: normalizeClassId(sObj?.classId || ""),
-                  semesterId: selectedSemesterId || "HOCKY_2_2025_2026",
+                  semesterId: selectedSemesterId || period?.id || "HOCKY_1_2026_2027",
                   subjectCode: appealModalSubject.code,
                   subjectName: appealModalSubject.name,
                   originalGrade: appealModalSubject.grade,

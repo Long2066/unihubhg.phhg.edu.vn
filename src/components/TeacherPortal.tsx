@@ -921,12 +921,13 @@ export const TeacherPortal: React.FC = () => {
     gradeAppeals,
     resolveGradeAppeal,
     gradingRules,
-    allSemesters
+    allSemesters,
+    period
   } = useUniHub();
 
   const isAcademicAdmin = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.TRAINING_DEPT;
 
-  const [selectedSemester, setSelectedSemester] = useState<string>("HOCKY_2_2025_2026");
+  const [selectedSemester, setSelectedSemester] = useState<string>(period?.id || "HOCKY_1_2026_2027");
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [activePortalTab, setActivePortalTab] = useState<"GRADES" | "APPEALS">("GRADES");

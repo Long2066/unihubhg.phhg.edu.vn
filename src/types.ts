@@ -97,11 +97,33 @@ export interface SemesterItem {
   academicYear?: string;
 }
 
+export const getStudentStartYear = (student?: { id?: string; classId?: string } | null): number => {
+  if (!student) return 2024;
+  const classMatch = (student.classId || "").match(/^K(\d+)/i);
+  if (classMatch) {
+    const kNum = parseInt(classMatch[1], 10);
+    return 2022 + kNum;
+  }
+  const idMatch = (student.id || "").match(/^DTG(\d{2})/i);
+  if (idMatch) {
+    return 2000 + parseInt(idMatch[1], 10);
+  }
+  return 2024;
+};
+
+export const getSemesterStartYear = (semIdOrYear: string): number => {
+  const match = String(semIdOrYear || "").match(/(?:HOCKY_\d_)?(\d{4})/i);
+  return match ? parseInt(match[1], 10) : 2024;
+};
+
 export const SEMESTER_LIST: SemesterItem[] = [
-  { id: "HOCKY_2_2025_2026", name: "Học kỳ II - 2025-2026" },
-  { id: "HOCKY_1_2025_2026", name: "Học kỳ I - 2025-2026" },
-  { id: "HOCKY_2_2024_2025", name: "Học kỳ II - 2024-2025" },
-  { id: "HOCKY_1_2024_2025", name: "Học kỳ I - 2024-2025" }
+  { id: "HOCKY_1_2026_2027", name: "Học kỳ I - 2026-2027", academicYear: "2026-2027", term: "Học kỳ I" },
+  { id: "HOCKY_2_2025_2026", name: "Học kỳ II - 2025-2026", academicYear: "2025-2026", term: "Học kỳ II" },
+  { id: "HOCKY_1_2025_2026", name: "Học kỳ I - 2025-2026", academicYear: "2025-2026", term: "Học kỳ I" },
+  { id: "HOCKY_2_2024_2025", name: "Học kỳ II - 2024-2025", academicYear: "2024-2025", term: "Học kỳ II" },
+  { id: "HOCKY_1_2024_2025", name: "Học kỳ I - 2024-2025", academicYear: "2024-2025", term: "Học kỳ I" },
+  { id: "HOCKY_2_2023_2024", name: "Học kỳ II - 2023-2024", academicYear: "2023-2024", term: "Học kỳ II" },
+  { id: "HOCKY_1_2023_2024", name: "Học kỳ I - 2023-2024", academicYear: "2023-2024", term: "Học kỳ I" }
 ];
 
 export interface Student {

@@ -449,7 +449,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch {}
   }, [currentUser?.role]);
 
-  const [selectedSemesterId, setSelectedSemesterId] = useState<string>("HOCKY_2_2025_2026");
+  const [selectedSemesterId, setSelectedSemesterId] = useState<string>(SEED_PERIOD.id);
 
   const lastActiveUserKeyRef = useRef<string | null>(() => {
     try {

@@ -6,7 +6,7 @@
 import React, { Component, Suspense, lazy, useState } from "react";
 import * as QRCode from "qrcode";
 import { UniHubProvider, useUniHub, normalizeClassId, getCachedAvatar, rememberAvatar } from "./state";
-import { UserRole, isOrgRole, STUDENT_FIELDS_META, Student, SEMESTER_LIST, convertGoogleDriveUrlToDirectUrl } from "./types";
+import { UserRole, isOrgRole, STUDENT_FIELDS_META, Student, SEMESTER_LIST, convertGoogleDriveUrlToDirectUrl, getStudentStartYear, getSemesterStartYear } from "./types";
 import { TnuLogo } from "./components/TnuLogo";
 import { StudentVerificationPage } from "./components/StudentVerificationPage";
 import { 
@@ -1428,9 +1428,15 @@ const AppContent: React.FC = () => {
                             onChange={(e) => setSelectedSemesterId(e.target.value)}
                             className="w-full bg-white border border-slate-200 text-xs font-semibold rounded-xl px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 focus:border-indigo-500 cursor-pointer shadow-2xs transition-all"
                           >
-                            {SEMESTER_LIST.map(sem => (
+                            {SEMESTER_LIST.filter(sem => {
+                              if (currentUser.role === UserRole.STUDENT) {
+                                const startYear = getStudentStartYear(studentObj);
+                                return getSemesterStartYear(sem.academicYear || sem.id) >= startYear;
+                              }
+                              return true;
+                            }).map(sem => (
                               <option key={sem.id} value={sem.id}>
-                                {sem.name}
+                                {sem.name} {sem.id === (period?.id || "HOCKY_1_2026_2027") ? " (Hiện tại)" : ""}
                               </option>
                             ))}
                           </select>

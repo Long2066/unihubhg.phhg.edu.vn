@@ -20,11 +20,11 @@ import {
 } from "./types";
 
 export const SEED_PERIOD: EvaluationPeriod = {
-  id: "HOCKY_2_2025_2026",
-  academicYear: "2025-2026",
-  semester: "Học kỳ II",
-  startDate: "2026-01-15",
-  endDate: "2026-06-30",
+  id: "HOCKY_1_2026_2027",
+  academicYear: "2026-2027",
+  semester: "Học kỳ I",
+  startDate: "2026-08-15",
+  endDate: "2027-01-20",
   status: "ACTIVE"
 };
 
@@ -751,6 +751,28 @@ export const SEED_FACULTY_REVIEW: FacultyReviewState[] = [
 
 // Seed computed training results
 export const SEED_RESULTS: EvaluationResult[] = [
+  {
+    studentId: "DTG245140202053",
+    studentName: "Ma Văn Long",
+    classId: "K2-GDTH A",
+    facultyId: "K-GDTH",
+    periodId: "HOCKY_1_2026_2027",
+    studyPoints: 18, // GPA = 3.65 (TC1.1 +18đ)
+    violationPoints: 25, // No violation
+    extracurricularPoints: 15, // CLB Unitech Member(+10đ) + Chào K4(+5đ) = 15đ
+    communityPoints: 10, // Giấy hiến máu tình nguyện TC4.1(+10đ) = 10đ
+    achievementPoints: 0, 
+    totalPoints: 68,     // 18 + 25 + 15 + 10 = 68
+    grade: "KHÁ",
+    status: "AUTO",
+    logs: [
+      { criteriaId: "TC1.1", points: 18, reason: "Phòng Đào tạo: GPA đạt 3.65", source: "ĐÀO TẠO", timestamp: "2026-09-15" },
+      { criteriaId: "TC2.0", points: 25, reason: "Không ghi nhận vi phạm kỷ luật nội quy", source: "ĐÀO TẠO", timestamp: "2026-09-15" },
+      { criteriaId: "TC3.3", points: 10, reason: "Là thành viên chính thức CLB Sáng tạo Công nghệ UniTech", source: "CLB_ATTENDANCE", timestamp: "2026-09-20" },
+      { criteriaId: "TC3.1", points: 5, reason: "Đã tham gia Chào tân sinh viên K4 UniHub 2026", source: "CLB_ATTENDANCE", timestamp: "2026-09-25" },
+      { criteriaId: "TC4.1", points: 10, reason: "Tham gia Hiến máu tình nguyện Giọt hồng biên cương tháng 9/2026", source: "CLB_ATTENDANCE", timestamp: "2026-09-30" }
+    ]
+  },
   {
     studentId: "DTG245140202053",
     studentName: "Ma Văn Long",
