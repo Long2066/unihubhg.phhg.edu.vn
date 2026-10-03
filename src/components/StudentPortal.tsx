@@ -885,6 +885,150 @@ export const StudentPortal: React.FC = () => {
       </div>
     );
   };
+
+  const renderDashboardOverviewCards = () => {
+    const pendingEvidenceCount = myEvidence.filter(e => e.status === "PENDING").length;
+    const approvedEvidenceCount = myEvidence.filter(e => e.status === "APPROVED").length;
+
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 text-left">
+        {/* Card 1: Điểm Rèn Luyện */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-slate-900/5 hover:shadow-md transition-all flex flex-col justify-between group">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Rèn Luyện Học Kỳ
+              </span>
+              <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 group-hover:scale-105 transition-transform">
+                <Award className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-bold tracking-tight text-slate-900 font-mono tabular-nums">
+                {currentConductPoints}
+              </span>
+              <span className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full ${conductMeta.bg} ${conductMeta.text}`}>
+                {conductMeta.label}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-2 font-medium">
+              {currentConductStatus === "LOCKED" ? "Sổ điểm đã chốt kỳ" : "Hệ thống tự động liên thông"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("DIEM")}
+            className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer min-h-[44px]"
+          >
+            <span>Xem bảng đánh giá</span>
+            <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </div>
+
+        {/* Card 2: Điểm Học Tập & Tín Chỉ */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-slate-900/5 hover:shadow-md transition-all flex flex-col justify-between group">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Học Tập & Tín Chỉ
+              </span>
+              <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 group-hover:scale-105 transition-transform">
+                <GraduationCap className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-bold tracking-tight text-slate-900 font-mono tabular-nums">
+                {transcriptGpa4}
+              </span>
+              <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
+                {transcriptClassification}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-2 font-medium">
+              Tích lũy: <strong className="text-slate-700 font-semibold">{transcriptCredits} TC</strong> (Thang 10: {transcriptGpa10})
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("DIEM")}
+            className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-blue-600 hover:text-blue-700 cursor-pointer min-h-[44px]"
+          >
+            <span>Bảng điểm chi tiết</span>
+            <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </div>
+
+        {/* Card 3: Minh Chứng Điểm */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-slate-900/5 hover:shadow-md transition-all flex flex-col justify-between group">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Minh Chứng Rèn Luyện
+              </span>
+              <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 group-hover:scale-105 transition-transform">
+                <FileText className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-bold tracking-tight text-slate-900 font-mono tabular-nums">
+                {myEvidence.length}
+              </span>
+              <span className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full ${
+                pendingEvidenceCount > 0 ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"
+              }`}>
+                {pendingEvidenceCount > 0 ? `${pendingEvidenceCount} đang duyệt` : "Đã cập nhật"}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-2 font-medium">
+              {approvedEvidenceCount} minh chứng đã được cộng điểm
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("MINHCHUNG")}
+            className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer min-h-[44px]"
+          >
+            <span>Nộp & quản lý minh chứng</span>
+            <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </div>
+
+        {/* Card 4: Hoạt Động Ngoại Khóa */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-slate-900/5 hover:shadow-md transition-all flex flex-col justify-between group">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Hoạt Động & Sự Kiện
+              </span>
+              <div className="p-2.5 rounded-xl bg-purple-50 text-purple-600 group-hover:scale-105 transition-transform">
+                <Calendar className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-bold tracking-tight text-slate-900 font-mono tabular-nums">
+                {myAttendance.length}
+              </span>
+              <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700">
+                {unregisteredActivities.length > 0 ? `${unregisteredActivities.length} mở đăng ký` : "Đã tham gia"}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-2 font-medium">
+              Đang sinh hoạt {myOrganizations.length} CLB & Đoàn Hội
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("HOATDONG")}
+            className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-purple-600 hover:text-purple-700 cursor-pointer min-h-[44px]"
+          >
+            <span>Khám phá sự kiện</span>
+            <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const newsTickerItems = useMemo(() => {
     const list: string[] = [];
     (announcements || []).forEach(ann => {
@@ -974,11 +1118,11 @@ export const StudentPortal: React.FC = () => {
     const activeSlideIndex = totalSlides > 0 ? currentSlide % totalSlides : 0;
 
     return (
-      <div className="overflow-hidden flex flex-col transition-all" id="student-news-board">
+      <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-900/5 overflow-hidden flex flex-col transition-all" id="student-news-board">
         
         {/* Real-time Scrolling Ticker Banner */}
-        <div className="bg-slate-50 text-slate-700 py-2.5 px-4 text-xs flex items-center justify-between gap-4 border-b border-slate-200">
-          <div className="flex items-center gap-2 shrink-0 bg-rose-600 text-white font-black text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md animate-pulse">
+        <div className="bg-slate-50 text-slate-700 py-2.5 px-4 text-xs flex items-center justify-between gap-4 border-b border-slate-100">
+          <div className="flex items-center gap-2 shrink-0 bg-rose-600 text-white font-bold text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md animate-pulse">
             <Sparkles size={11} />
             <span>TIN MỚI</span>
           </div>
@@ -987,9 +1131,9 @@ export const StudentPortal: React.FC = () => {
             {newsTickerItems.map((text, idx) => (
               <div 
                 key={idx} 
-                className={`absolute w-full truncate transition-all duration-700 ease-out flex items-center gap-1.5 font-bold text-slate-600 text-[11px] ${
+                className={`absolute w-full truncate transition-all duration-700 ease-out flex items-center gap-1.5 font-medium text-slate-600 text-[11px] ${
                   idx === activeTickerIndex 
-                    ? "opacity-100 translate-y-0 text-slate-800" 
+                    ? "opacity-100 translate-y-0 text-slate-900 font-semibold" 
                     : "opacity-0 -translate-y-4 pointer-events-none"
                 }`}
               >
@@ -1019,7 +1163,7 @@ export const StudentPortal: React.FC = () => {
         </div>
 
         {/* Dynamic Interactive Event Banner Center split into 2 */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
+        <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
           
           <div className="lg:col-span-7 p-6 flex flex-col justify-between">
             <div>
@@ -2277,8 +2421,11 @@ export const StudentPortal: React.FC = () => {
                 </div>
               )}
 
+              {/* 4-Card Bento Grid Dashboard Overview */}
+              {renderDashboardOverviewCards()}
+
               {/* News Board container */}
-              <div className="overflow-hidden space-y-4 border-b border-slate-100 pb-6">
+              <div className="overflow-hidden space-y-4">
                 {renderNewsBoard()}
               </div>
 
@@ -3264,53 +3411,82 @@ export const StudentPortal: React.FC = () => {
           {/* TAB: CUSTOM EVIDENCE SUBMISSIONS */}
 
           {activeTab === "MINHCHUNG" && (
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
+            <div className="space-y-5 text-left">
+              <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-slate-900/5 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Yêu cầu xét minh chứng ngoại lệ</h4>
-                  <p className="text-[10px] text-slate-400">Nộp hồ sơ minh chứng đóng góp cấp ngoài hệ thống trường</p>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900">Hồ Sơ Minh Chứng Ngoại Lệ</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Nộp hồ sơ minh chứng đóng góp cấp ngoài hệ thống để xét duyệt cộng điểm rèn luyện</p>
                 </div>
                 <button 
                   onClick={() => setShowEvModal(true)}
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded-lg flex items-center gap-1 shrink-0 shadow-sm cursor-pointer"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm shadow-blue-500/20 cursor-pointer transition-all min-h-[44px] shrink-0"
                 >
-                  <PlusCircle size={13} />
+                  <PlusCircle size={15} />
                   <span>Nộp tờ khai ngoại lệ</span>
                 </button>
               </div>
 
               {myEvidence.length === 0 ? (
-                <div className="p-8 border border-dashed border-slate-200 rounded-xl text-center text-slate-400 text-xs">
-                  Chưa nộp minh chứng ngoại hệ thống nào cho kỳ này.
+                <div className="flex flex-col items-center justify-center p-12 text-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50">
+                  <div className="w-12 h-12 rounded-2xl bg-white shadow-sm ring-1 ring-slate-900/5 flex items-center justify-center text-slate-400 mb-3">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-sm sm:text-base font-semibold text-slate-800">
+                    Chưa có minh chứng ngoại lệ nào
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-1 max-w-md leading-relaxed">
+                    Bạn chưa nộp tờ khai minh chứng ngoại hệ thống cho học kỳ này. Nếu bạn có tham gia chiến dịch tình nguyện, hoạt động xã hội hoặc đạt giải khen thưởng bên ngoài, hãy gửi hồ sơ để Ban cán sự và Cố vấn xét duyệt.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowEvModal(true)}
+                    className="mt-5 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer min-h-[44px]"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span>Nộp minh chứng đầu tiên</span>
+                  </button>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3.5">
                   {myEvidence.map(ev => (
-                    <div key={ev.id} className="p-4 border border-slate-100 rounded-xl bg-slate-50/20 hover:bg-slate-50/40 transition-all">
-                      <div className="flex justify-between items-start gap-4">
-                        <div className="space-y-1">
-                          <span className="text-[8px] font-black px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-mono uppercase">
+                    <div key={ev.id} className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-slate-900/5 hover:shadow-md transition-all space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md">
                             Mục TC{ev.criteriaId.substring(2)}
                           </span>
-                          <h5 className="text-xs font-bold text-slate-800 mt-1">{ev.activityName}</h5>
-                          <p className="text-[10px] text-slate-550 leading-relaxed">{ev.description}</p>
-                          <p className="text-[10px] text-slate-400 pt-1 flex items-center gap-2 flex-wrap">
-                            <span>Tệp tờ trình: <span className="font-mono underline text-indigo-500">{ev.proofUrl}</span></span>
-                            <span>• Ngày nộp: {ev.submittedAt}</span>
-                          </p>
+                          <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${
+                            ev.status === "APPROVED" 
+                              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20" 
+                              : ev.status === "REJECTED" 
+                              ? "bg-rose-50 text-rose-700 ring-1 ring-rose-600/20" 
+                              : "bg-amber-50 text-amber-700 ring-1 ring-amber-600/20"
+                          }`}>
+                            {ev.status === "APPROVED" ? "✓ Đã chấp nhận" : ev.status === "REJECTED" ? "✗ Bị từ chối" : "⏳ Chờ BCS duyệt"}
+                          </span>
                         </div>
+                        <span className="text-sm font-bold text-slate-900 font-mono">
+                          +{ev.pointsRequested} điểm
+                        </span>
+                      </div>
 
-                        <div className="shrink-0 text-right">
-                          <div className={`text-[9px] font-black bg-amber-5 px-2 py-0.5 rounded border leading-none ${statusColors(ev.status)}`}>
-                            {ev.status === "PENDING" ? "CHỜ BCS DUYỆT" : (ev.status === "APPROVED" ? "ĐÃ CHẤP NHẬN" : "BỊ TỪ CHỐI")}
-                          </div>
-                          <span className="text-xs font-extrabold text-slate-700 block mt-2 font-mono">+{ev.pointsRequested}đ</span>
-                        </div>
+                      <div className="space-y-1">
+                        <h5 className="text-sm font-bold text-slate-900">{ev.activityName}</h5>
+                        <p className="text-xs text-slate-600 leading-relaxed">{ev.description}</p>
+                      </div>
+
+                      <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <span>Tệp minh chứng:</span>
+                          <span className="font-mono text-blue-600 underline font-semibold">{ev.proofUrl}</span>
+                        </span>
+                        <span className="font-mono text-[11px] text-slate-400">Ngày nộp: {ev.submittedAt}</span>
                       </div>
 
                       {ev.reviewComment && (
-                        <div className="mt-2.5 p-2 bg-slate-50 rounded text-[9px] text-slate-605 border-l-2 border-slate-300">
-                          <strong>Biên bảnh phản hồi:</strong> {ev.reviewComment}
+                        <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-700 border-l-4 border-indigo-400 space-y-0.5">
+                          <strong className="text-indigo-900 block font-semibold">Ý kiến phản hồi từ người duyệt:</strong>
+                          <p>{ev.reviewComment}</p>
                         </div>
                       )}
                     </div>
@@ -3908,34 +4084,46 @@ export const StudentPortal: React.FC = () => {
 
       {/* MODAL: SUBMIT EXCEPTION EVIDENCE FORM */}
       {showEvModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-lg w-full overflow-hidden">
-            <div className="flex justify-between items-center bg-indigo-50/50 px-6 py-4 border-b border-indigo-100">
-              <h3 className="text-xs font-black text-indigo-900 flex items-center gap-2">
-                <Upload size={14} />
-                <span>Nộp Tờ Khai Minh Chứng Đóng Góp Ngoài Hệ Thống</span>
-              </h3>
-              <button onClick={() => setShowEvModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                <X size={16} />
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-xl ring-1 ring-slate-900/10 max-w-lg w-full overflow-hidden animate-scale-up">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-white">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <Upload size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900 leading-tight">
+                    Nộp Tờ Khai Minh Chứng Ngoại Lệ
+                  </h3>
+                  <p className="text-xs text-slate-500">Đóng góp hoạt động xã hội hoặc thành tích ngoài hệ thống</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowEvModal(false)} 
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
+              >
+                <X size={18} />
               </button>
             </div>
 
             <form onSubmit={handleSubmission} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Tên hoạt động xã hội / tình nguyện đóng góp</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Tên hoạt động xã hội / tình nguyện đóng góp <span className="text-rose-500">*</span>
+                </label>
                 <input 
                   type="text"
                   required
-                  placeholder="e.g. Tham gia chiến dịch Mùa hè xanh Hà Giang hoặc giải thể thao..."
+                  placeholder="VD: Tham gia chiến dịch Mùa hè xanh Hà Giang hoặc giải thể thao..."
                   value={evActivity}
                   onChange={(e) => setEvActivity(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 text-slate-800"
+                  className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-slate-800 transition-all"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Tiêu chí áp dụng cộng điểm</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Tiêu chí áp dụng cộng điểm</label>
                   <select 
                     value={evCriteriaId}
                     onChange={(e) => {
@@ -3946,7 +4134,7 @@ export const StudentPortal: React.FC = () => {
                         setEvPoints(matched.points);
                       }
                     }}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 bg-white text-slate-800"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white text-slate-800 transition-all cursor-pointer"
                   >
                     {exceptionRules.length > 0 ? (
                       exceptionRules.map(rule => (
@@ -3963,11 +4151,11 @@ export const StudentPortal: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Điểm tự đề xuất</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Điểm tự đề xuất</label>
                   <select 
                     value={evPoints}
                     onChange={(e) => setEvPoints(Number(e.target.value))}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 bg-white text-slate-800"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white text-slate-800 transition-all cursor-pointer"
                   >
                     <option value={evPoints}>+{evPoints} Điểm (Theo quy chế)</option>
                     <option value={5}>+5 Điểm</option>
@@ -3977,30 +4165,34 @@ export const StudentPortal: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Mô tả đóng góp & Chứng cứ tóm tắt</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Mô tả đóng góp & Chứng cứ tóm tắt <span className="text-rose-500">*</span>
+                </label>
                 <textarea 
                   required
                   rows={3}
-                  placeholder="Mô tả cụ thể thời gian, địa điểm, thành tích đạt được để GVCN/Bộ phận quản lý xác minh..."
+                  placeholder="Mô tả cụ thể thời gian, địa điểm, vai trò, thành tích đạt được để GVCN/Bộ phận quản lý xác minh..."
                   value={evDesc}
                   onChange={(e) => setEvDesc(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 text-slate-800"
+                  className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-slate-800 transition-all"
                 />
               </div>
 
               {/* Drag and Drop Box with manual selection capability */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Upload tệp minh chứng quyết định (Ảnh/PDF)</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Tệp minh chứng đính kèm (Ảnh/PDF)</label>
                 <div 
-                  className="border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-55/60 p-4 rounded-xl text-center cursor-pointer transition-colors"
+                  className="border-2 border-dashed border-slate-200 hover:border-blue-500 bg-slate-50/60 hover:bg-blue-50/30 p-5 rounded-2xl text-center cursor-pointer transition-all group"
                   onClick={() => document.getElementById("evidence-file-input")?.click()}
                 >
-                  <Upload size={20} className="mx-auto text-slate-400 mb-1" />
-                  <p className="text-xs font-bold text-slate-700 mb-0.5">Kéo thả minh chứng vào đây hoặc click để chọn</p>
-                  <p className="text-[9px] text-slate-400">Hỗ trợ PNG, JPG, PDF tối đa 10MB</p>
+                  <div className="w-10 h-10 rounded-full bg-slate-100 group-hover:bg-blue-100 text-slate-500 group-hover:text-blue-600 flex items-center justify-center mx-auto mb-2 transition-all">
+                    <Upload size={18} />
+                  </div>
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Kéo thả minh chứng vào đây hoặc click để chọn tệp</p>
+                  <p className="text-[11px] text-slate-400">Hỗ trợ PNG, JPG, PDF tối đa 10MB</p>
                   
                   {evFileMockUrl && (
-                    <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-indigo-55 text-indigo-750 rounded-full border border-indigo-150 text-[9px] font-mono font-medium">
+                    <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-lg ring-1 ring-blue-500/20 text-xs font-mono font-medium">
                       <span>Đã chọn: {evFileMockUrl}</span>
                     </div>
                   )}
@@ -4018,17 +4210,17 @@ export const StudentPortal: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex gap-2 justify-end pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                 <button 
                   type="button" 
                   onClick={() => setShowEvModal(false)}
-                  className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold rounded-lg cursor-pointer"
+                  className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer min-h-[44px]"
                 >
                   Hủy bỏ
                 </button>
                 <button 
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg cursor-pointer"
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm shadow-blue-500/20 transition-all cursor-pointer min-h-[44px]"
                 >
                   Gửi phê duyệt
                 </button>
