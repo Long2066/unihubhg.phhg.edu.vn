@@ -2127,15 +2127,19 @@ export const StudentPortal: React.FC = () => {
                 <tbody className="divide-y divide-slate-100">
                   {foundGrades.map((item, idx) => (
                     <tr key={idx} className="hover:bg-slate-50/70 transition-colors group">
-                      <td className="py-3 px-4 text-center text-slate-400 font-mono">{idx + 1}</td>
+                      <td className="py-3 px-4 text-center text-slate-400 font-mono tabular-nums">{idx + 1}</td>
                       <td className="py-3 px-4">
-                        <span className="font-semibold text-slate-900 block">{item.name}</span>
-                        <span className="font-mono text-[10px] text-slate-400 font-normal">{item.code}</span>
+                        <span className="font-semibold text-slate-900 block leading-snug">{item.name}</span>
+                        <span className="font-mono text-[11px] text-slate-500 font-normal">{item.code}</span>
                       </td>
-                      <td className="py-3 px-4 text-center font-mono font-medium text-slate-600">{item.credits}</td>
-                      <td className="py-3 px-4 text-center font-mono font-bold text-blue-600">{item.exam}</td>
-                      <td className="py-3 px-4 text-center font-mono font-bold text-slate-900 bg-slate-50/50">{item.tb10}</td>
-                      <td className="py-3 px-4 text-center font-mono font-black text-indigo-600">{item.diemChu}</td>
+                      <td className="py-3 px-4 text-center font-mono font-medium text-slate-700 tabular-nums">{item.credits}</td>
+                      <td className="py-3 px-4 text-center font-mono font-bold text-slate-800 tabular-nums">{item.exam}</td>
+                      <td className="py-3 px-4 text-center">
+                        <span className="font-mono font-bold text-blue-700 bg-blue-50/80 px-2.5 py-0.5 rounded-md inline-block tabular-nums">
+                          {item.tb10}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center font-mono font-bold text-indigo-600 tabular-nums">{item.diemChu}</td>
                       <td className="py-3 px-4 text-center">
                         <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide border ${
                           item.xepLoai === "Xuất sắc" ? "bg-purple-50 text-purple-700 border-purple-200"
@@ -2152,9 +2156,9 @@ export const StudentPortal: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setAppealModalSubject({ code: item.code, name: item.name, grade: item.tb10 })}
-                          className="px-2.5 py-1 text-[11px] font-semibold text-indigo-600 bg-indigo-50/80 hover:bg-indigo-100 hover:text-indigo-700 border border-indigo-200/80 rounded-lg transition-colors cursor-pointer"
+                          className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all active:scale-95 cursor-pointer min-h-[36px]"
                         >
-                          Nộp đơn
+                          Phúc khảo
                         </button>
                       </td>
                     </tr>
@@ -2169,11 +2173,11 @@ export const StudentPortal: React.FC = () => {
             <div className="flex items-center gap-6">
               <div>
                 <span className="text-slate-500">Điểm hệ 10: </span>
-                <strong className="font-mono text-slate-900 font-bold">{transcriptGpa10}</strong>
+                <strong className="font-mono text-slate-900 font-bold tabular-nums">{transcriptGpa10}</strong>
               </div>
               <div>
                 <span className="text-slate-500">Điểm hệ 4: </span>
-                <strong className="font-mono text-blue-600 font-bold">{transcriptGpa4}</strong>
+                <strong className="font-mono text-blue-600 font-bold tabular-nums">{transcriptGpa4}</strong>
               </div>
               <div>
                 <span className="text-slate-500">Xếp loại: </span>
@@ -2181,7 +2185,7 @@ export const StudentPortal: React.FC = () => {
               </div>
             </div>
             {sObj?.updatedAt && (
-              <span className="text-[11px] text-slate-400 font-mono">
+              <span className="text-[11px] text-slate-400 font-mono tabular-nums">
                 Cập nhật: {sObj.updatedAt}
               </span>
             )}
@@ -2192,42 +2196,42 @@ export const StudentPortal: React.FC = () => {
         {myAppeals.length > 0 && (
           <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm ring-1 ring-slate-900/5 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center gap-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-blue-600 flex items-center gap-2">
                 <HelpCircle size={15} />
                 <span>Lịch Sử Đơn Phúc Khảo Đã Gửi ({myAppeals.length})</span>
               </h4>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {myAppeals.map(appeal => (
-                <div key={appeal.id} className="p-3.5 bg-slate-50/60 rounded-xl border border-slate-200/70 text-xs space-y-2">
+                <div key={appeal.id} className="p-4 bg-slate-50/70 rounded-xl ring-1 ring-slate-900/5 text-xs space-y-2.5">
                   <div className="flex justify-between items-start gap-2">
                     <div>
-                      <span className="font-bold text-slate-900">{appeal.subjectName}</span>
-                      <span className="text-[10px] font-mono text-slate-400 ml-1.5">({appeal.subjectCode})</span>
+                      <span className="font-semibold text-slate-900 block">{appeal.subjectName}</span>
+                      <span className="text-[11px] font-mono text-slate-500">Mã HP: {appeal.subjectCode}</span>
                     </div>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${
-                      appeal.status === "UPDATED" ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                      : appeal.status === "REJECTED" ? "bg-rose-50 text-rose-700 border border-rose-200"
-                      : "bg-amber-50 text-amber-700 border border-amber-200"
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase shrink-0 ${
+                      appeal.status === "UPDATED" ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500/20"
+                      : appeal.status === "REJECTED" ? "bg-rose-50 text-rose-700 ring-1 ring-rose-500/20"
+                      : "bg-amber-50 text-amber-700 ring-1 ring-amber-500/20"
                     }`}>
                       {appeal.status === "UPDATED" ? "✓ Đã cập nhật" : appeal.status === "REJECTED" ? "✗ Từ chối" : "⏳ Chờ xử lý"}
                     </span>
                   </div>
-                  <div className="text-[11px] text-slate-600">
-                    <span>Điểm gốc: <strong className="text-slate-800 font-mono">{appeal.originalGrade}</strong></span>
+                  <div className="text-xs text-slate-600 flex items-center gap-3">
+                    <span>Điểm gốc: <strong className="text-slate-900 font-mono font-semibold tabular-nums">{appeal.originalGrade}</strong></span>
                     {appeal.newGrade && (
-                      <span className="ml-3 text-emerald-600 font-bold">➔ Điểm mới: <strong className="font-mono">{appeal.newGrade}</strong></span>
+                      <span className="text-emerald-600 font-semibold">➔ Điểm mới: <strong className="font-mono tabular-nums">{appeal.newGrade}</strong></span>
                     )}
                   </div>
-                  <p className="text-[11px] text-slate-500 italic bg-white p-2 rounded-lg border border-slate-100">
-                    Lý do: {appeal.reason}
+                  <p className="text-xs text-slate-600 bg-white p-2.5 rounded-lg ring-1 ring-slate-900/5">
+                    <span className="font-semibold text-slate-700">Lý do:</span> {appeal.reason}
                   </p>
                   {appeal.response && (
-                    <p className="text-[11px] text-indigo-700 font-medium bg-indigo-50/50 p-2 rounded-lg border border-indigo-100">
-                      Phản hồi: {appeal.response}
+                    <p className="text-xs text-blue-900 font-medium bg-blue-50/70 p-2.5 rounded-lg ring-1 ring-blue-500/10">
+                      <span className="font-semibold text-blue-700">Phản hồi:</span> {appeal.response}
                     </p>
                   )}
-                  <span className="text-[10px] text-slate-400 font-mono block">Gửi lúc: {appeal.requestedAt}</span>
+                  <span className="text-[10px] text-slate-400 font-mono tabular-nums block">Gửi lúc: {appeal.requestedAt}</span>
                 </div>
               ))}
             </div>
@@ -4232,25 +4236,39 @@ export const StudentPortal: React.FC = () => {
 
       {/* MODAL: SUBMIT GRADE APPEAL FORM */}
       {appealModalSubject && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-md w-full overflow-hidden animate-scale-up">
-            <div className="flex justify-between items-center bg-indigo-50/50 px-6 py-4 border-b border-indigo-100">
-              <h3 className="text-xs font-black text-indigo-900 flex items-center gap-2">
-                <HelpCircle size={15} className="text-indigo-600" />
-                <span>Nộp Đơn Phúc Khảo Điểm Môn Học</span>
-              </h3>
-              <button onClick={() => setAppealModalSubject(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                <X size={16} />
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-xl ring-1 ring-slate-900/10 max-w-md w-full overflow-hidden animate-scale-up">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-white">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <HelpCircle size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900 leading-tight">
+                    Nộp Đơn Phúc Khảo Điểm Môn Học
+                  </h3>
+                  <p className="text-xs text-slate-500">Rà soát và chấm phúc khảo bài thi kết thúc học phần</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setAppealModalSubject(null)} 
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
+              >
+                <X size={18} />
               </button>
             </div>
 
             {appealSuccessMsg ? (
-              <div className="p-6 text-center space-y-2">
-                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+              <div className="p-6 text-center space-y-3">
+                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
                   <CheckCircle size={24} />
                 </div>
-                <h4 className="text-sm font-bold text-slate-800">{appealSuccessMsg}</h4>
-                <p className="text-xs text-slate-500">Giảng viên bộ môn và Phòng Đào tạo sẽ kiểm tra bài thi và phản hồi kết quả sớm nhất.</p>
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-900">{appealSuccessMsg}</h4>
+                  <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+                    Giảng viên bộ môn và Phòng Đào tạo sẽ kiểm tra bài thi và phản hồi kết quả sớm nhất.
+                  </p>
+                </div>
               </div>
             ) : (
               <form onSubmit={(e) => {
@@ -4274,35 +4292,44 @@ export const StudentPortal: React.FC = () => {
                   setAppealReason("");
                   setAppealSuccessMsg("");
                 }, 2500);
-              }} className="p-6 space-y-4 font-sans">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
-                  <div>Học phần: <strong className="text-slate-900 font-bold">{appealModalSubject.name}</strong> ({appealModalSubject.code})</div>
-                  <div>Điểm tổng kết hiện tại: <strong className="text-blue-700 font-mono font-black">{appealModalSubject.grade}</strong></div>
+              }} className="p-6 space-y-4">
+                <div className="p-3.5 bg-slate-50/80 rounded-xl ring-1 ring-slate-900/5 text-xs space-y-1.5">
+                  <div className="text-slate-600">
+                    Học phần: <strong className="text-slate-900 font-semibold">{appealModalSubject.name}</strong> <span className="font-mono text-slate-500">({appealModalSubject.code})</span>
+                  </div>
+                  <div className="text-slate-600 flex items-center gap-1.5">
+                    <span>Điểm tổng kết hiện tại:</span>
+                    <strong className="text-blue-700 font-mono font-bold tabular-nums bg-blue-50 px-2 py-0.5 rounded-md">
+                      {appealModalSubject.grade}
+                    </strong>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Lý do/Nội dung phúc khảo (*)</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Lý do / Nội dung đề nghị phúc khảo <span className="text-rose-500">*</span>
+                  </label>
                   <textarea
                     required
                     rows={3}
-                    placeholder="VD: Điểm thi ghi trong bảng điểm chưa đúng với kết quả chấm bài thi kết thúc môn..."
+                    placeholder="VD: Điểm thi ghi trong bảng điểm chưa khớp với bài thi kết thúc môn..."
                     value={appealReason}
                     onChange={(e) => setAppealReason(e.target.value)}
-                    className="w-full p-3 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 text-slate-800"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-slate-800 transition-all"
                   />
                 </div>
 
-                <div className="flex gap-2 justify-end pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={() => setAppealModalSubject(null)}
-                    className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold rounded-xl cursor-pointer"
+                    className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer min-h-[44px]"
                   >
-                    Hủy
+                    Hủy bỏ
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs"
+                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm shadow-blue-500/20 transition-all cursor-pointer min-h-[44px]"
                   >
                     Nộp đơn phúc khảo
                   </button>
