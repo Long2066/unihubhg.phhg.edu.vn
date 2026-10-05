@@ -1573,14 +1573,8 @@ export const StudentPortal: React.FC = () => {
       return true;
     });
 
-    // Get active announcements: Chỉ ĐOÀN - HỘI hoặc thông báo tuyển thành viên mới hiển thị ra bảng tin all sinh viên
+    // Get active announcements (Đoàn - Hội và các CLB)
     const activeClubAnns = announcements.filter(ann => {
-      const isDoanHoiSpecial = ann.orgId === "DOANTN" || ann.orgId === "HOISV" || ann.orgId === "DOAN_HOI" || ann.orgId === "PHANHIEU" || ann.orgId === "TRUONG";
-      const club = organizations.find(o => o.id === ann.orgId);
-      const isDoanHoi = isDoanHoiSpecial || club?.type === "DOAN" || club?.type === "HOI";
-      const isRecruitment = ann.isRecruitment || (ann.title || "").toLowerCase().includes("tuyển thành viên");
-      if (!isDoanHoi && !isRecruitment) return false; // Mọi thông báo CLB thông thường chỉ thành viên CLB đó mới thấy trong danh mục CLB
-      
       if (ann.expiryDate && todayStr > ann.expiryDate) return false;
 
       if (normalizedAnnouncementKeyword) {

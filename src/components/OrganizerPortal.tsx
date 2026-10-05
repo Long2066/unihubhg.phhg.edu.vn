@@ -434,12 +434,6 @@ export const OrganizerPortal: React.FC = () => {
       setAnnDeployUnit(org.id);
     }
   }, [org?.id]);
-  const [createLinkedActivity, setCreateLinkedActivity] = useState(true);
-  const [linkedCriteriaId, setLinkedCriteriaId] = useState("TC3.1");
-  const [linkedPoints, setLinkedPoints] = useState(5);
-  const [linkedDate, setLinkedDate] = useState("");
-  const [linkedLocation, setLinkedLocation] = useState("");
-  const [linkedMaxParticipants, setLinkedMaxParticipants] = useState<string>(""); // Max registrations for linked activity
 
   // Import Excel XML/CSV States
   const [importStatus, setImportStatus] = useState<string | null>(null);
@@ -921,47 +915,19 @@ export const OrganizerPortal: React.FC = () => {
   };
 
   // Create Club Announcement handler
-  const handleCreateAnnouncement = (e: React.FormEvent) => {
+  const handleCreateAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      if (!annTitle || !annContent) {
+      if (!annTitle.trim() || !annContent.trim()) {
         alert("Vui lòng điền đủ Tiêu đề và Nội dung thông báo!");
         return;
       }
 
-      let linkedActId = "";
-      if (createLinkedActivity) {
-        if (!linkedDate || !linkedLocation) {
-          alert("Vui lòng nhập đầy đủ Thời gian tổ chức và Địa điểm cho hoạt động điểm danh rèn luyện đi kèm!");
-          return;
-        }
-        const maxPart = linkedMaxParticipants.trim() ? Number(linkedMaxParticipants) : undefined;
-        if (maxPart !== undefined && (isNaN(maxPart) || maxPart <= 0)) {
-          alert("Giới hạn số lượng đăng ký phải là số nguyên dương lớn hơn 0!");
-          return;
-        }
-
-        linkedActId = createActivity({
-          title: annTitle,
-          orgId: annDeployUnit,
-          criteriaId: isDoanOrHoi ? (linkedCriteriaId || "TC3.1") : "CLB_NOIBO",
-          points: isDoanOrHoi ? (Number(linkedPoints) || 5) : 0,
-          dateTime: linkedDate,
-          location: linkedLocation,
-          description: annContent,
-          registrationOpen: true,
-          expiryDate: annExpiryDate || undefined,
-          imageUrl: annImageUrl || undefined,
-          maxParticipants: maxPart
-        } as any);
-      }
-
-      createAnnouncement({
+      await createAnnouncement({
         orgId: annDeployUnit,
-        title: annTitle,
-        content: annContent,
-        expiryDate: annExpiryDate || new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split("T")[0], // default 1 week
-        activityId: linkedActId || undefined,
+        title: annTitle.trim(),
+        content: annContent.trim(),
+        expiryDate: annExpiryDate || new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split("T")[0],
         imageUrl: annImageUrl || undefined
       });
 
@@ -969,18 +935,10 @@ export const OrganizerPortal: React.FC = () => {
       setAnnContent("");
       setAnnExpiryDate("");
       setAnnImageUrl("");
-      setLinkedDate("");
-      setLinkedLocation("");
-      setLinkedMaxParticipants("");
       alert("Đăng tải bản tin thông báo thành công!");
-      setActivityTimeFilter("ALL");
-      if (linkedActId) {
-        setSelectedActId(linkedActId);
-      }
-      setActiveSubTab("QUANLY_DIEMDANH");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Lỗi khi đăng thông báo:", err);
-      alert("Có lỗi xảy ra khi đăng thông báo. Vui lòng kiểm tra lại thông tin!");
+      alert(err?.message || "Có lỗi xảy ra khi đăng thông báo. Vui lòng kiểm tra lại thông tin!");
     }
   };
 
@@ -2279,100 +2237,6 @@ export const OrganizerPortal: React.FC = () => {
                     <span className="text-[9px] text-slate-400 mt-1 block">
                       Khi quá ngày hết hạn thiết lập, bản tin thông báo này sẽ auto ẩn khỏi bảng cổng tin tức chi tiết của Sinh viên.
                     </span>
-                  </div>
-
-                  {/* Simultaneously create points extracurricular activity option */}
-                  <div className="p-4 bg-indigo-50/30 rounded-xl border border-indigo-150/60 space-y-3">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input 
-                        type="checkbox"
-                        checked={createLinkedActivity}
-                        onChange={(e) => setCreateLinkedActivity(e.target.checked)}
-                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
-                      />
-                      <span className="text-[11px] font-extrabold text-indigo-950">Đồng thời khởi tạo hoạt động có điểm danh đi kèm</span>
-                    </label>
-                    <p className="text-[10px] text-slate-450 leading-tight">
-                      Khi tích chọn, hệ thống sẽ auto tạo 1 hoạt động tương ứng xuất hiện ngay trong <strong className="text-indigo-600">Sổ điểm danh & Event</strong> để dễ dàng quản lý điểm danh.
-                    </p>
-                    
-                    {createLinkedActivity && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 animate-fade-in text-xs border-t border-indigo-100/50 mt-1.5">
-                        {isDoanOrHoi ? (
-                          <>
-                            <div className="space-y-1">
-                              <label className="block text-[10px] font-bold text-slate-600">Mã minh chứng rèn luyện</label>
-                              <select 
-                                value={linkedCriteriaId}
-                                onChange={(e) => setLinkedCriteriaId(e.target.value)}
-                                className="w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-700"
-                              >
-                                {criteria.map(c => (
-                                  <optgroup key={c.id} label={c.category} className="text-[10px] font-bold text-slate-400">
-                                    {c.rules.map(r => (
-                                      <option key={r.id} value={r.id} className="text-xs text-slate-700 font-medium">
-                                        [{r.id}] {r.name.length > 40 ? r.name.substring(0, 40) + "..." : r.name} (+{r.points}đ)
-                                      </option>
-                                    ))}
-                                  </optgroup>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div className="space-y-1">
-                              <label className="block text-[10px] font-bold text-slate-600">Điểm rèn luyện ròng</label>
-                              <input 
-                                type="number"
-                                value={linkedPoints}
-                                onChange={(e) => setLinkedPoints(Number(e.target.value))}
-                                className="w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-200 focus:outline-none"
-                              />
-                            </div>
-                          </>
-                        ) : (
-                          <div className="sm:col-span-2 p-2.5 bg-amber-50/80 border border-amber-200/90 rounded-xl text-amber-850 text-xs flex items-center gap-2">
-                            <Info size={16} className="shrink-0 text-amber-600" />
-                            <span><strong>Điểm danh nội bộ CLB:</strong> Hoạt động này phục vụ quản lý & điểm danh nội bộ thành viên CLB, không cộng điểm rèn luyện cấp trường/khoa (0 điểm ĐRL).</span>
-                          </div>
-                        )}
-
-                        <div className="space-y-1">
-                          <label className="block text-[10px] font-bold text-slate-600">Thời gian tổ chức sự vụ *</label>
-                          <input 
-                            type="text"
-                            required={createLinkedActivity}
-                            placeholder="e.g. 2026-06-25 09:00"
-                            value={linkedDate}
-                            onChange={(e) => setLinkedDate(e.target.value)}
-                            className="w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-200 focus:outline-none placeholder:text-slate-300"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="block text-[10px] font-bold text-slate-600">Địa điểm *</label>
-                          <input 
-                            type="text"
-                            required={createLinkedActivity}
-                            placeholder="e.g. Sảnh lớn Phân hiệu"
-                            value={linkedLocation}
-                            onChange={(e) => setLinkedLocation(e.target.value)}
-                            className="w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-200 focus:outline-none"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="block text-[10px] font-bold text-slate-600">Giới hạn đăng ký (Tùy chọn)</label>
-                          <input 
-                            type="number"
-                            min="1"
-                            placeholder="Không giới hạn"
-                            value={linkedMaxParticipants}
-                            onChange={(e) => setLinkedMaxParticipants(e.target.value)}
-                            className="w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-200 focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   <button 
