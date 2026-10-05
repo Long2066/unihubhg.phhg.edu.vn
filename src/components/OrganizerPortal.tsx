@@ -240,6 +240,7 @@ export const OrganizerPortal: React.FC = () => {
   const [actImageUrl, setActImageUrl] = useState(""); // Banner image marketing/background URL
   const [actDeployUnit, setActDeployUnit] = useState(org?.id || orgId);
   const [actMaxParticipants, setActMaxParticipants] = useState<string>(""); // Max registrations
+  const [actScope, setActScope] = useState<"PUBLIC" | "INTERNAL">(isDoanOrHoi ? "PUBLIC" : "INTERNAL");
 
   // Form State for CLB Announcement
   const [annTitle, setAnnTitle] = useState("");
@@ -247,6 +248,7 @@ export const OrganizerPortal: React.FC = () => {
   const [annExpiryDate, setAnnExpiryDate] = useState(""); // Expiry display duration date for announcement
   const [annImageUrl, setAnnImageUrl] = useState(""); // Background/Marketing image URL for announcement
   const [annDeployUnit, setAnnDeployUnit] = useState(org?.id || orgId);
+  const [annScope, setAnnScope] = useState<"PUBLIC" | "INTERNAL">(isDoanOrHoi ? "PUBLIC" : "INTERNAL");
 
   const actFileInputRef = useRef<HTMLInputElement>(null);
   const annFileInputRef = useRef<HTMLInputElement>(null);
@@ -291,6 +293,7 @@ export const OrganizerPortal: React.FC = () => {
   const [editActMaxParticipants, setEditActMaxParticipants] = useState<string>("");
   const [editActImageUrl, setEditActImageUrl] = useState("");
   const [editActRegistrationOpen, setEditActRegistrationOpen] = useState(true);
+  const [editActScope, setEditActScope] = useState<"PUBLIC" | "INTERNAL">("INTERNAL");
   const [isSubmittingEditAct, setIsSubmittingEditAct] = useState(false);
   const editActFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -300,6 +303,7 @@ export const OrganizerPortal: React.FC = () => {
   const [editAnnContent, setEditAnnContent] = useState("");
   const [editAnnExpiryDate, setEditAnnExpiryDate] = useState("");
   const [editAnnImageUrl, setEditAnnImageUrl] = useState("");
+  const [editAnnScope, setEditAnnScope] = useState<"PUBLIC" | "INTERNAL">("INTERNAL");
   const [isSubmittingEditAnn, setIsSubmittingEditAnn] = useState(false);
   const editAnnFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -343,6 +347,7 @@ export const OrganizerPortal: React.FC = () => {
     setEditActMaxParticipants(act.maxParticipants ? String(act.maxParticipants) : "");
     setEditActImageUrl(act.imageUrl || "");
     setEditActRegistrationOpen(act.registrationOpen ?? true);
+    setEditActScope(act.scope || (isDoanOrHoi ? "PUBLIC" : "INTERNAL"));
   };
 
   const handleSaveEditActivity = async (e: React.FormEvent) => {
@@ -370,7 +375,8 @@ export const OrganizerPortal: React.FC = () => {
         registrationOpen: editActRegistrationOpen,
         expiryDate: editActExpiryDate || undefined,
         imageUrl: editActImageUrl || undefined,
-        maxParticipants: maxPart
+        maxParticipants: maxPart,
+        scope: editActScope
       });
       setEditingActivity(null);
       alert("Cập nhật thông tin sự kiện thành công!");
@@ -397,6 +403,7 @@ export const OrganizerPortal: React.FC = () => {
     setEditAnnContent(ann.content || "");
     setEditAnnExpiryDate(ann.expiryDate || "");
     setEditAnnImageUrl(ann.imageUrl || "");
+    setEditAnnScope(ann.scope || (isDoanOrHoi ? "PUBLIC" : "INTERNAL"));
   };
 
   const handleSaveEditAnnouncement = async (e: React.FormEvent) => {
@@ -416,7 +423,8 @@ export const OrganizerPortal: React.FC = () => {
         title: editAnnTitle.trim(),
         content: editAnnContent.trim(),
         expiryDate: editAnnExpiryDate || new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split("T")[0],
-        imageUrl: editAnnImageUrl || undefined
+        imageUrl: editAnnImageUrl || undefined,
+        scope: editAnnScope
       });
       setEditingAnnouncement(null);
       alert("Cập nhật thông báo thành công!");
@@ -894,7 +902,8 @@ export const OrganizerPortal: React.FC = () => {
         registrationOpen: true,
         expiryDate: actExpiryDate || undefined,
         imageUrl: actImageUrl || undefined,
-        maxParticipants: maxPart
+        maxParticipants: maxPart,
+        scope: actScope
       } as any);
 
       setActTitle("");
@@ -904,6 +913,7 @@ export const OrganizerPortal: React.FC = () => {
       setActExpiryDate("");
       setActImageUrl("");
       setActMaxParticipants("");
+      setActScope(isDoanOrHoi ? "PUBLIC" : "INTERNAL");
       alert("Tạo hoạt động mới thành công! Đăng ký sẵn sàng tích hợp trong mục điểm danh.");
       setActivityTimeFilter("ALL");
       setSelectedActId(newActId);
@@ -928,13 +938,15 @@ export const OrganizerPortal: React.FC = () => {
         title: annTitle.trim(),
         content: annContent.trim(),
         expiryDate: annExpiryDate || new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split("T")[0],
-        imageUrl: annImageUrl || undefined
+        imageUrl: annImageUrl || undefined,
+        scope: annScope
       });
 
       setAnnTitle("");
       setAnnContent("");
       setAnnExpiryDate("");
       setAnnImageUrl("");
+      setAnnScope(isDoanOrHoi ? "PUBLIC" : "INTERNAL");
       alert("Đăng tải bản tin thông báo thành công!");
     } catch (err: any) {
       console.error("Lỗi khi đăng thông báo:", err);
@@ -1887,6 +1899,42 @@ export const OrganizerPortal: React.FC = () => {
                     </div>
                   )}
 
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Phạm vi công bố & Đối tượng tham gia *</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setActScope("PUBLIC")}
+                        className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-2 ${
+                          actScope === "PUBLIC"
+                            ? "border-indigo-500 bg-indigo-50/60 ring-2 ring-indigo-500/20 text-indigo-900"
+                            : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+                        }`}
+                      >
+                        <span className="text-base leading-none">🌐</span>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold leading-tight">Toàn phân hiệu</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5 leading-snug">Công khai toàn trường, tất cả SV đều xem & đk được</div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActScope("INTERNAL")}
+                        className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-2 ${
+                          actScope === "INTERNAL"
+                            ? "border-purple-500 bg-purple-50/60 ring-2 ring-purple-500/20 text-purple-900"
+                            : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+                        }`}
+                      >
+                        <span className="text-base leading-none">🔒</span>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold leading-tight">Nội bộ CLB</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5 leading-snug">Chỉ thành viên chính thức CLB mới xem & đk</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">Xác lập rổ tiêu chí rèn luyện</label>
@@ -2151,6 +2199,42 @@ export const OrganizerPortal: React.FC = () => {
                   )}
 
                   <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Phạm vi phát sóng thông báo *</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAnnScope("PUBLIC")}
+                        className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-2 ${
+                          annScope === "PUBLIC"
+                            ? "border-indigo-500 bg-indigo-50/60 ring-2 ring-indigo-500/20 text-indigo-900"
+                            : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+                        }`}
+                      >
+                        <span className="text-base leading-none">🌐</span>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold leading-tight">Toàn phân hiệu</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5 leading-snug">Công khai trên bảng tin chung toàn trường</div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAnnScope("INTERNAL")}
+                        className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-2 ${
+                          annScope === "INTERNAL"
+                            ? "border-purple-500 bg-purple-50/60 ring-2 ring-purple-500/20 text-purple-900"
+                            : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+                        }`}
+                      >
+                        <span className="text-base leading-none">🔒</span>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold leading-tight">Nội bộ CLB</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5 leading-snug">Chỉ thành viên chính thức CLB mới xem được</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">Nội dung văn bản thông báo chính thức</label>
                     <textarea 
                       rows={4}
@@ -2256,7 +2340,16 @@ export const OrganizerPortal: React.FC = () => {
                       {orgAnnouncements.map(item => (
                         <div key={item.id} className="p-3 bg-slate-50 rounded-xl border flex justify-between items-start text-xs gap-2">
                           <div className="flex-1 min-w-0">
-                            <span className="text-[9px] font-mono text-slate-400">Hiệu lực đến: {item.expiryDate}</span>
+                            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                              <span className="text-[9px] font-mono text-slate-450">Hiệu lực đến: {item.expiryDate}</span>
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${
+                                item.scope === "PUBLIC"
+                                  ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                  : "bg-purple-50 text-purple-700 border border-purple-200"
+                              }`}>
+                                {item.scope === "PUBLIC" ? "🌐 Toàn phân hiệu" : "🔒 Nội bộ CLB"}
+                              </span>
+                            </div>
                             <h5 className="font-extrabold text-slate-900 mt-0.5">{item.title}</h5>
                             <p className="text-[10px] text-slate-500 mt-1 font-sans line-clamp-2">{item.content}</p>
                           </div>
@@ -2352,9 +2445,18 @@ export const OrganizerPortal: React.FC = () => {
                             <p className="text-[9px] text-slate-450 mt-1 flex items-center gap-1">
                               <Calendar size={10} /> {act.dateTime}
                             </p>
-                            <span className={`text-[8.5px] font-sans inline-block mt-1 font-bold ${act.status === "COMPLETED" ? "text-emerald-600" : "text-amber-600 animate-pulse"}`}>
-                              {act.status === "COMPLETED" ? "✓ ĐÃ CHỐT SỔ" : "⏳ THEO DÕI NỔP"}
-                            </span>
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              <span className={`text-[8.5px] font-sans inline-block font-bold ${act.status === "COMPLETED" ? "text-emerald-600" : "text-amber-600 animate-pulse"}`}>
+                                {act.status === "COMPLETED" ? "✓ ĐÃ CHỐT SỔ" : "⏳ THEO DÕI NỔP"}
+                              </span>
+                              <span className={`text-[8.5px] font-bold px-1 py-0.2 rounded ${
+                                act.scope === "PUBLIC"
+                                  ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                  : "bg-purple-50 text-purple-700 border border-purple-200"
+                              }`}>
+                                {act.scope === "PUBLIC" ? "🌐 Toàn phân hiệu" : "🔒 Nội bộ"}
+                              </span>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -2375,6 +2477,13 @@ export const OrganizerPortal: React.FC = () => {
                                   : "bg-amber-50 text-amber-700 border border-amber-200"
                               }`}>
                                 {selectedAct.status === "COMPLETED" ? "✓ ĐÃ CHỐT SỔ NỘI BỘ" : "⏳ ĐANG THEO DÕI ĐIỂM DANH"}
+                              </span>
+                              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md ${
+                                selectedAct.scope === "PUBLIC"
+                                  ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                  : "bg-purple-50 text-purple-700 border border-purple-200"
+                              }`}>
+                                {selectedAct.scope === "PUBLIC" ? "🌐 Toàn phân hiệu" : "🔒 Nội bộ CLB"}
                               </span>
                             </div>
                             <div className="flex gap-3 text-[10px] text-slate-500 mt-1 flex-wrap">
@@ -3032,6 +3141,42 @@ export const OrganizerPortal: React.FC = () => {
                 />
               </div>
 
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Phạm vi công bố & Đối tượng tham gia *</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditActScope("PUBLIC")}
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-2 ${
+                      editActScope === "PUBLIC"
+                        ? "border-indigo-500 bg-indigo-50/60 ring-2 ring-indigo-500/20 text-indigo-900 font-bold"
+                        : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+                    }`}
+                  >
+                    <span className="text-base leading-none">🌐</span>
+                    <div className="min-w-0">
+                      <div className="text-xs leading-tight">Toàn phân hiệu</div>
+                      <div className="text-[10px] text-slate-500 font-normal mt-0.5 leading-snug">Tất cả sinh viên xem & đk được</div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditActScope("INTERNAL")}
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-2 ${
+                      editActScope === "INTERNAL"
+                        ? "border-purple-500 bg-purple-50/60 ring-2 ring-purple-500/20 text-purple-900 font-bold"
+                        : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+                    }`}
+                  >
+                    <span className="text-base leading-none">🔒</span>
+                    <div className="min-w-0">
+                      <div className="text-xs leading-tight">Nội bộ CLB</div>
+                      <div className="text-[10px] text-slate-500 font-normal mt-0.5 leading-snug">Chỉ thành viên chính thức CLB</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">Mục tiêu chí rèn luyện</label>
@@ -3240,6 +3385,42 @@ export const OrganizerPortal: React.FC = () => {
                   onChange={(e) => setEditAnnTitle(e.target.value)}
                   className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-slate-800"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Phạm vi phát sóng thông báo *</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditAnnScope("PUBLIC")}
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-2 ${
+                      editAnnScope === "PUBLIC"
+                        ? "border-indigo-500 bg-indigo-50/60 ring-2 ring-indigo-500/20 text-indigo-900 font-bold"
+                        : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+                    }`}
+                  >
+                    <span className="text-base leading-none">🌐</span>
+                    <div className="min-w-0">
+                      <div className="text-xs leading-tight">Toàn phân hiệu</div>
+                      <div className="text-[10px] text-slate-500 font-normal mt-0.5 leading-snug">Công khai bảng tin toàn trường</div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditAnnScope("INTERNAL")}
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-2 ${
+                      editAnnScope === "INTERNAL"
+                        ? "border-purple-500 bg-purple-50/60 ring-2 ring-purple-500/20 text-purple-900 font-bold"
+                        : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+                    }`}
+                  >
+                    <span className="text-base leading-none">🔒</span>
+                    <div className="min-w-0">
+                      <div className="text-xs leading-tight">Nội bộ CLB</div>
+                      <div className="text-[10px] text-slate-500 font-normal mt-0.5 leading-snug">Chỉ thành viên chính thức CLB</div>
+                    </div>
+                  </button>
+                </div>
               </div>
 
               <div>

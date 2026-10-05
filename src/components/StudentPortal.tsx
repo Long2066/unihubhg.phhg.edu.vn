@@ -1559,7 +1559,14 @@ export const StudentPortal: React.FC = () => {
       const isDoanHoiSpecial = act.orgId === "DOANTN" || act.orgId === "HOISV" || act.orgId === "DOAN_HOI" || act.orgId === "PHANHIEU" || act.orgId === "TRUONG";
       const club = organizations.find(o => o.id === act.orgId);
       const isDoanHoi = isDoanHoiSpecial || club?.type === "DOAN" || club?.type === "HOI";
-      if (!isDoanHoi && (!act.points || act.points <= 0)) return false; // Hoạt động nội bộ CLB chỉ nằm trong không gian CLB
+
+      // Phân cấp phạm vi Toàn phân hiệu (PUBLIC) vs Nội bộ (INTERNAL):
+      const isInternal = act.scope === "INTERNAL" || (!isDoanHoi && act.criteriaId === "CLB_NOIBO");
+      if (isInternal && !joinedClubIds.includes(act.orgId)) {
+        return false; // Hoạt động nội bộ CLB chỉ thành viên chính thức mới xem được
+      }
+
+      if (!isDoanHoi && (!act.points || act.points <= 0) && act.scope !== "PUBLIC") return false;
       
       const expiry = (act as any).expiryDate;
       if (expiry && todayStr > expiry) return false;
@@ -1576,6 +1583,16 @@ export const StudentPortal: React.FC = () => {
     // Get active announcements (Đoàn - Hội và các CLB)
     const activeClubAnns = announcements.filter(ann => {
       if (ann.expiryDate && todayStr > ann.expiryDate) return false;
+
+      const isDoanHoiSpecial = ann.orgId === "DOANTN" || ann.orgId === "HOISV" || ann.orgId === "DOAN_HOI" || ann.orgId === "PHANHIEU" || ann.orgId === "TRUONG";
+      const club = organizations.find(o => o.id === ann.orgId);
+      const isDoanHoi = isDoanHoiSpecial || club?.type === "DOAN" || club?.type === "HOI";
+
+      // Phân cấp phạm vi Toàn phân hiệu (PUBLIC) vs Nội bộ (INTERNAL):
+      const isInternal = ann.scope === "INTERNAL";
+      if (isInternal && !joinedClubIds.includes(ann.orgId)) {
+        return false; // Thông báo nội bộ CLB chỉ thành viên chính thức mới xem được
+      }
 
       if (normalizedAnnouncementKeyword) {
         const title = ann.title.toLowerCase();
@@ -1716,6 +1733,13 @@ export const StudentPortal: React.FC = () => {
                                 <Sparkles size={9} /> Thành viên
                               </span>
                             )}
+                            <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded uppercase font-mono ${
+                              act.scope === "PUBLIC"
+                                ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                : "bg-purple-50 text-purple-700 border border-purple-200"
+                            }`}>
+                              {act.scope === "PUBLIC" ? "🌐 Toàn trường" : "🔒 Nội bộ"}
+                            </span>
                             <span className="text-[8.5px] font-black px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded uppercase font-mono">
                               +{act.points}đ TC{act.criteriaId.substring(2)}
                             </span>
@@ -1828,6 +1852,13 @@ export const StudentPortal: React.FC = () => {
                                 <Sparkles size={9} /> Thành viên
                               </span>
                             )}
+                            <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded uppercase font-mono ${
+                              ann.scope === "PUBLIC"
+                                ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                : "bg-purple-50 text-purple-700 border border-purple-200"
+                            }`}>
+                              {ann.scope === "PUBLIC" ? "🌐 Toàn trường" : "🔒 Nội bộ"}
+                            </span>
                           </div>
                         </div>
 
@@ -2940,6 +2971,8 @@ export const StudentPortal: React.FC = () => {
                   const todayStr = new Date().toISOString().split("T")[0];
                   const activeClubAnns = announcements.filter(ann => {
                     if (ann.orgId !== club.id) return false;
+                    // Thông báo nội bộ chỉ dành cho thành viên chính thức
+                    if (ann.scope === "INTERNAL" && !isMemberActive) return false;
                     if (!ann.expiryDate) return true;
                     return todayStr <= ann.expiryDate;
                   });
@@ -3082,7 +3115,16 @@ export const StudentPortal: React.FC = () => {
                                     activeClubAnns.map(ann => (
                                       <div key={ann.id} className="p-4 bg-white border border-slate-200 rounded-2xl shadow-2xs space-y-2">
                                         <div className="flex justify-between items-start gap-2">
-                                          <h5 className="font-extrabold text-slate-900 text-xs">{ann.title}</h5>
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <h5 className="font-extrabold text-slate-900 text-xs">{ann.title}</h5>
+                                            <span className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded-md ${
+                                              ann.scope === "PUBLIC"
+                                                ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                                : "bg-purple-50 text-purple-700 border border-purple-200"
+                                            }`}>
+                                              {ann.scope === "PUBLIC" ? "🌐 Toàn phân hiệu" : "🔒 Nội bộ CLB"}
+                                            </span>
+                                          </div>
                                           <span className="text-[10px] font-mono text-slate-400 shrink-0">{ann.createdAt}</span>
                                         </div>
                                         <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">{ann.content}</p>
@@ -3115,15 +3157,25 @@ export const StudentPortal: React.FC = () => {
                                   {activeClubActs.length > 0 ? (
                                     activeClubActs.map(act => {
                                       const isRegistered = myAttendance.some(r => r.activityId === act.id);
+                                      const isInternal = act.scope === "INTERNAL" || act.criteriaId === "CLB_NOIBO";
+                                      const canRegister = !isInternal || isMemberActive;
+
                                       return (
                                         <div key={act.id} className="p-4 bg-white border border-slate-200 rounded-2xl shadow-2xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                                           <div className="space-y-1">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 flex-wrap">
                                               <span className="text-[9px] font-black px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded font-mono">
                                                 {act.criteriaId} (+{act.points}đ)
                                               </span>
+                                              <span className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded-md ${
+                                                act.scope === "PUBLIC"
+                                                  ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                                  : "bg-purple-50 text-purple-700 border border-purple-200"
+                                              }`}>
+                                                {act.scope === "PUBLIC" ? "🌐 Toàn phân hiệu" : "🔒 Nội bộ CLB"}
+                                              </span>
                                               <span className="text-[10px] text-slate-400 font-mono">
-                                                {act.date} • {act.venue}
+                                                {act.dateTime || (act as any).date} • {act.location || (act as any).venue}
                                               </span>
                                             </div>
                                             <h5 className="font-extrabold text-slate-900 text-xs">{act.title}</h5>
@@ -3143,7 +3195,14 @@ export const StudentPortal: React.FC = () => {
                                                 <span>{myAtt?.attended ? "Đã có mặt (CLB)" : act.status === "COMPLETED" ? "Vắng mặt" : "Đã đăng ký tham dự"}</span>
                                               </span>
                                             );
-                                          })() : (
+                                          })() : !canRegister ? (
+                                            <span 
+                                              className="px-3 py-1.5 bg-slate-100 border border-slate-200 text-slate-500 font-bold text-xs rounded-xl select-none shrink-0" 
+                                              title="Chỉ thành viên chính thức CLB mới được đăng ký hoạt động này"
+                                            >
+                                              🔒 Chỉ dành cho thành viên CLB
+                                            </span>
+                                          ) : (
                                             <button
                                               type="button"
                                               onClick={() => {

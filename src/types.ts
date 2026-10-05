@@ -378,6 +378,7 @@ export interface ExtracurricularActivity {
   imageUrl?: string;
   expiryDate?: string; // Customizable display expiry date
   maxParticipants?: number;
+  scope?: "PUBLIC" | "INTERNAL"; // PUBLIC: toàn phân hiệu, INTERNAL: chỉ nội bộ CLB
   completedAt?: string; // Thời điểm chốt danh sách sự kiện
   verifiedBy?: string; // Ban chủ nhiệm/người thực hiện chốt sổ
 }
@@ -523,6 +524,7 @@ export interface ClubAnnouncement {
   activityId?: string;
   imageUrl?: string;
   isRecruitment?: boolean; // When true, displays on all students feed
+  scope?: "PUBLIC" | "INTERNAL"; // PUBLIC: toàn phân hiệu, INTERNAL: chỉ nội bộ CLB
 }
 
 export interface ScheduleSlot {

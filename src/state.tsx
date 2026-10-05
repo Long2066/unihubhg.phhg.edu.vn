@@ -3175,6 +3175,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return false;
     }
 
+    // Check scope INTERNAL: chỉ thành viên chính thức của CLB mới được đăng ký
+    const isDoanHoiSpecial = activityObj.orgId === "DOANTN" || activityObj.orgId === "HOISV" || activityObj.orgId === "DOAN_HOI" || activityObj.orgId === "PHANHIEU" || activityObj.orgId === "TRUONG";
+    const isInternalScope = activityObj.scope === "INTERNAL" || (!isDoanHoiSpecial && activityObj.criteriaId === "CLB_NOIBO");
+    if (isInternalScope && currentUser.role !== UserRole.ADMIN) {
+      const isMember = members.some(m => m.studentId?.toLowerCase() === effectiveStudentId.toLowerCase() && m.orgId === activityObj.orgId && m.status === "ACTIVE");
+      if (!isMember) {
+        alert("Đăng ký thất bại: Đây là hoạt động nội bộ CLB, chỉ thành viên chính thức mới được đăng ký tham gia!");
+        return false;
+      }
+    }
+
     // Case-insensitive already-registered check
     const alreadyRegistered = attendance.some(a => a.activityId === cleanActivityId && a.studentId.toLowerCase() === effectiveStudentId.toLowerCase());
     if (alreadyRegistered) return false;
