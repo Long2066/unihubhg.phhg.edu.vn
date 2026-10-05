@@ -1317,9 +1317,13 @@ export const StudentPortal: React.FC = () => {
                         
                         <div>
                           {isRegistered ? (
-                            <div className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-extrabold rounded-lg border border-emerald-200">
-                              <CheckCircle size={12} className="text-emerald-600" />
-                              <span>Đã đăng ký</span>
+                            <div className={`flex items-center gap-1 px-3 py-1.5 text-xs font-extrabold rounded-lg border ${
+                              studentReg?.attended
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : "bg-blue-50 text-blue-700 border-blue-200"
+                            }`}>
+                              <CheckCircle size={12} className={studentReg?.attended ? "text-emerald-600" : "text-blue-600"} />
+                              <span>{studentReg?.attended ? "Đã có mặt" : "Đã đăng ký"}</span>
                             </div>
                           ) : (() => {
                             const dbAct = (activities || []).find(act => act.id === slide.id);
@@ -1744,13 +1748,31 @@ export const StudentPortal: React.FC = () => {
                       </div>
 
                       <div className="pt-2 !mt-auto border-t border-slate-100 flex justify-end items-center">
-                        {registered ? (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-105 border border-emerald-250 text-emerald-800 text-[9px] font-black rounded-lg uppercase select-none font-sans">
-                            ✓ ĐÃ ĐĂNG KÝ THAM GIA
-                          </span>
-                        ) : isActCompleted ? (
+                        {registered ? (() => {
+                          const myAtt = myAttendance.find(r => r.activityId === act.id);
+                          if (myAtt?.attended) {
+                            return (
+                              <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 border border-emerald-250 text-emerald-800 text-[9px] font-black rounded-lg uppercase select-none font-sans">
+                                <Check size={11} className="text-emerald-600" />
+                                <span>{isActCompleted ? "ĐÃ CHỐT CÓ MẶT (CLB)" : "ĐÃ ĐIỂM DANH CÓ MẶT"}</span>
+                              </span>
+                            );
+                          }
+                          if (isActCompleted) {
+                            return (
+                              <span className="inline-flex items-center gap-1 px-3 py-1 bg-rose-50 border border-rose-200 text-rose-700 text-[9px] font-black rounded-lg uppercase select-none font-sans">
+                                ✗ GHI NHẬN VẮNG MẶT
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 text-[9px] font-black rounded-lg uppercase select-none font-sans">
+                              ⏳ ĐÃ ĐĂNG KÝ (CHỜ CLB ĐIỂM DANH)
+                            </span>
+                          );
+                        })() : isActCompleted ? (
                           <span className="inline-flex px-3 py-1 bg-slate-100 text-slate-400 border border-slate-200 text-[9px] font-black rounded-lg uppercase select-none font-sans">
-                            ĐÃ CHỐT ĐIỂM DANH
+                            ĐÃ KẾT THÚC ĐĂNG KÝ
                           </span>
                         ) : (() => {
                           const count = attendance.filter(a => a.activityId === act.id).length;
@@ -2634,9 +2656,15 @@ export const StudentPortal: React.FC = () => {
                             {/* Registration state */}
                             <div>
                               {isRegistered ? (
-                                <span className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500/20 rounded-xl text-xs font-semibold min-h-[44px]">
-                                  <CheckCircle size={15} />
-                                  <span>Đã Đăng Ký</span>
+                                <span className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold min-h-[44px] ${
+                                  studentReg?.attended 
+                                    ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500/20" 
+                                    : act.status === "COMPLETED"
+                                    ? "bg-slate-100 text-slate-500 ring-1 ring-slate-200"
+                                    : "bg-blue-50 text-blue-700 ring-1 ring-blue-500/20"
+                                }`}>
+                                  {studentReg?.attended ? <CheckCircle size={15} /> : act.status === "COMPLETED" ? <X size={15} /> : <CheckCircle size={15} />}
+                                  <span>{studentReg?.attended ? "Đã Điểm Danh Có Mặt" : act.status === "COMPLETED" ? "Đã Kết Thúc Sự Kiện" : "Đã Đăng Ký"}</span>
                                 </span>
                               ) : (() => {
                                 const count = attendance.filter(a => a.activityId === act.id).length;
@@ -2670,11 +2698,15 @@ export const StudentPortal: React.FC = () => {
                               {studentReg ? (
                                 studentReg.attended ? (
                                   <span className="text-emerald-600 font-semibold flex items-center gap-1">
-                                    <CheckCircle size={12} /> Đã Xác Nhận Điểm
+                                    <CheckCircle size={12} /> {act.status === "COMPLETED" ? "Đã Chốt Có Mặt (CLB)" : "Đã Điểm Danh Có Mặt"}
+                                  </span>
+                                ) : act.status === "COMPLETED" ? (
+                                  <span className="text-rose-500 font-medium flex items-center gap-1">
+                                    <X size={12} /> CLB ghi nhận vắng mặt
                                   </span>
                                 ) : (
                                   <span className="text-amber-600 font-medium">
-                                    ⏳ Đang chờ xác nhận mặt
+                                    ⏳ Đã đăng ký (Chờ CLB điểm danh)
                                   </span>
                                 )
                               ) : (
@@ -3103,11 +3135,21 @@ export const StudentPortal: React.FC = () => {
                                             <h5 className="font-extrabold text-slate-900 text-xs">{act.title}</h5>
                                             <p className="text-[11px] text-slate-500">{act.description}</p>
                                           </div>
-                                          {isRegistered ? (
-                                            <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-extrabold rounded-xl border border-emerald-200 flex items-center gap-1 shrink-0">
-                                              <Check size={12} /> Đã đăng ký tham dự
-                                            </span>
-                                          ) : (
+                                          {isRegistered ? (() => {
+                                            const myAtt = myAttendance.find(r => r.activityId === act.id);
+                                            return (
+                                              <span className={`px-3 py-1.5 text-xs font-extrabold rounded-xl border flex items-center gap-1 shrink-0 ${
+                                                myAtt?.attended 
+                                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+                                                  : act.status === "COMPLETED"
+                                                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                                                  : "bg-blue-50 text-blue-700 border-blue-200"
+                                              }`}>
+                                                <Check size={12} />
+                                                <span>{myAtt?.attended ? "Đã có mặt (CLB)" : act.status === "COMPLETED" ? "Vắng mặt" : "Đã đăng ký tham dự"}</span>
+                                              </span>
+                                            );
+                                          })() : (
                                             <button
                                               type="button"
                                               onClick={() => {

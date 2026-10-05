@@ -2735,7 +2735,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const maxTC4 = criteria.find(c => c.id === "TC4")?.maxScore || 15;
 
       // Attended events points (categorized dynamically between TC3 and TC4)
-      const attendedEvents = attendance.filter(a => a.studentId === student.id && a.attended && a.verified);
+      const attendedEvents = attendance.filter(a => (a.studentId || "").toLowerCase() === (student.id || "").toLowerCase() && a.attended && a.verified);
       attendedEvents.forEach(att => {
         const act = activities.find(act => act.id === att.activityId);
         if (act) {
@@ -3365,6 +3365,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setMembers(updated);
     saveToStorage("unihub_members", updated);
 
+    // Đồng bộ đơn xin gia nhập lên Firestore để Ban Chủ nhiệm ở máy khác thấy ngay
+    setDoc(doc(db, "members", pendingMember.id), pendingMember, { merge: true }).catch(err =>
+      console.warn("Firestore write failed for joinOrganizationRequest:", err)
+    );
+
     // If student entry was missing from local students directory, register synthetic student
     if (!students.some(s => s.id.toLowerCase() === effectiveStudentId.toLowerCase())) {
       const newStudentEntry: Student = {
@@ -3707,9 +3712,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn("Unauthorized attempt to update activity status of another organization");
       return;
     }
+    const nowIso = new Date().toISOString();
     const updated = activities.map(act => {
       if (act.id === cleanActivityId) {
-        return { ...act, status };
+        return { 
+          ...act, 
+          status,
+          ...(status === "COMPLETED" ? {
+            completedAt: nowIso,
+            verifiedBy: currentUser.name || "Ban Chủ nhiệm"
+          } : {})
+        };
       }
       return act;
     });
@@ -3717,8 +3730,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // If status becomes completed, mark all signed attendance to be verified
     if (status === "COMPLETED") {
       const updatedAttendance = attendance.map(att => {
-        if (att.activityId === activityId && att.attended) {
-          return { ...att, verified: true };
+        if (att.activityId === cleanActivityId && att.attended) {
+          const verifiedRec: ActivityAttendance = { 
+            ...att, 
+            verified: true,
+            verifiedAt: nowIso,
+            verifiedBy: currentUser.name || "Ban Chủ nhiệm"
+          };
+          setDoc(doc(db, "attendance", att.id), verifiedRec, { merge: true }).catch(err =>
+            console.warn("Firestore write failed for attendance verify:", err)
+          );
+          return verifiedRec;
         }
         return att;
       });
@@ -3728,6 +3750,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setActivities(updated);
     saveToStorage("unihub_activities", updated);
+
+    const updatedAct = updated.find(a => a.id === cleanActivityId);
+    if (updatedAct) {
+      setDoc(doc(db, "activities", cleanActivityId), updatedAct, { merge: true }).catch(err =>
+        console.warn("Firestore write failed for updateActivityStatus:", err)
+      );
+    }
   };
 
   // New clb actions
@@ -4149,6 +4178,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
     setAttendance(updated);
     saveToStorage("unihub_attendance", updated);
+
+    // Đồng bộ tức thì lên Firestore để tài khoản sinh viên nhận trạng thái có mặt ngay lập tức
+    const updatedRecord = updated.find(a => a.id === cleanAttendanceId);
+    if (updatedRecord) {
+      setDoc(doc(db, "attendance", cleanAttendanceId), updatedRecord, { merge: true }).catch(err =>
+        console.warn("Firestore write failed for updateAttendance:", err)
+      );
+    }
   };
 
   const addBulkAttendance = (activityId: string, studentIds: string[]) => {
@@ -4190,6 +4227,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedRecords = [...attendance, ...newRecords];
     setAttendance(updatedRecords);
     saveToStorage("unihub_attendance", updatedRecords);
+
+    // Đồng bộ danh sách nạp điểm danh lên Firestore
+    newRecords.forEach(rec => {
+      setDoc(doc(db, "attendance", rec.id), rec, { merge: true }).catch(err =>
+        console.warn("Firestore write failed for addBulkAttendance:", err)
+      );
+    });
   };
 
   // Training Dept Actions

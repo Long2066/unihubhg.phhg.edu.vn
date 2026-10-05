@@ -867,6 +867,82 @@ export const OrganizerPortal: React.FC = () => {
   const currentAttendance = attendance.filter(att => att.activityId === selectedActId);
   const liveMatchRule = selectedAct ? criteria.flatMap(c => c.rules).find(r => r.id === selectedAct.criteriaId) : null;
   const realActPoints = selectedAct ? Number(selectedAct.points || 0) : 0;
+
+  // Xuất file Excel danh sách điểm danh sự kiện làm căn cứ xét đánh giá nội bộ CLB
+  const handleExportAttendanceExcel = () => {
+    if (!selectedAct) return;
+    if (currentAttendance.length === 0) {
+      alert("Chưa có dữ liệu sinh viên đăng ký hoặc điểm danh cho hoạt động này.");
+      return;
+    }
+
+    const headers = [
+      "STT",
+      "Mã sinh viên",
+      "Họ và tên",
+      "Lớp",
+      "Vai trò tham gia",
+      "Trạng thái điểm danh",
+      "Ngày đăng ký",
+      "Ghi chú căn cứ xét đánh giá"
+    ];
+
+    const rows = currentAttendance.map((att, idx) => {
+      const sObj = students.find(s => s.id.toLowerCase() === att.studentId.toLowerCase());
+      const roleText = att.role === "BTC" ? "Ban tổ chức" : att.role === "SUPPORTER" ? "Ban hỗ trợ" : "Thành viên";
+      const statusText = att.attended ? "CÓ MẶT" : "VẮNG";
+      const note = att.attended 
+        ? `Đã tham gia sự kiện: ${selectedAct.title} (do ${selectedAct.orgName} tổ chức)` 
+        : "Vắng mặt sự kiện";
+      return [
+        idx + 1,
+        att.studentId,
+        att.studentName || sObj?.name || "",
+        att.classId || sObj?.classId || "",
+        roleText,
+        statusText,
+        att.registeredAt || "",
+        note
+      ];
+    });
+
+    const metaRows = [
+      ["BIÊN BẢN DANH SÁCH ĐIỂM DANH SỰ KIỆN NỘI BỘ CLB"],
+      ["Tên sự kiện:", selectedAct.title],
+      ["Đơn vị tổ chức:", selectedAct.orgName],
+      ["Thời gian tổ chức:", selectedAct.dateTime],
+      ["Địa điểm:", selectedAct.location],
+      ["Trạng thái sự kiện:", selectedAct.status === "COMPLETED" ? "ĐÃ CHỐT SỔ NỘI BỘ" : "ĐANG THEO DÕI ĐIỂM DANH"],
+      ["Người chốt sổ:", selectedAct.verifiedBy || "Ban Chủ nhiệm CLB"],
+      ["Tổng số đăng ký:", currentAttendance.length, "Tổng số có mặt:", currentAttendance.filter(a => a.attended).length],
+      ["Ngày xuất báo cáo:", new Date().toLocaleDateString("vi-VN")],
+      [] // Dòng ngăn cách
+    ];
+
+    const wsData = [
+      ...metaRows,
+      headers,
+      ...rows
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    ws["!cols"] = [
+      { wch: 6 },   // STT
+      { wch: 16 },  // Mã sinh viên
+      { wch: 25 },  // Họ và tên
+      { wch: 15 },  // Lớp
+      { wch: 18 },  // Vai trò
+      { wch: 18 },  // Trạng thái điểm danh
+      { wch: 14 },  // Ngày đăng ký
+      { wch: 45 }   // Ghi chú
+    ];
+
+    const safeTitle = selectedAct.title.replace(/[^a-zA-Z0-9_\u00C0-\u1EF9]/g, "_").substring(0, 30);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "DiemDanh_NoiBo");
+    XLSX.writeFile(wb, `DIEM_DANH_${safeTitle}_${selectedAct.id}.xlsx`);
+  };
   if (!orgId) {
     return (
       <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
@@ -2212,13 +2288,36 @@ export const OrganizerPortal: React.FC = () => {
                   <div className="md:col-span-8 bg-white border border-slate-150 p-4 rounded-2xl space-y-4">
                     {selectedAct ? (
                       <div className="space-y-4">
-                        <div className="border-b border-slate-100 pb-2">
-                          <h4 className="text-xs font-black text-slate-900 leading-tight">{selectedAct.title}</h4>
-                          <div className="flex gap-4 text-[10px] text-slate-500 mt-1 flex-wrap">
-                            <span>Địa điểm: <strong className="text-slate-850 font-bold">{selectedAct.location}</strong></span>
-                            <span>Chuẩn mốc: <strong className="text-emerald-600">+{realActPoints}đ</strong></span>
-                            <span>Đăng ký: <strong className="text-indigo-650 font-bold">{currentAttendance.length} / {selectedAct.maxParticipants || "Vô hạn"}</strong> sinh viên</span>
+                        <div className="border-b border-slate-100 pb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-xs font-black text-slate-900 leading-tight">{selectedAct.title}</h4>
+                              <span className={`text-[9px] font-black px-2 py-0.5 rounded-md ${
+                                selectedAct.status === "COMPLETED" 
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
+                                  : "bg-amber-50 text-amber-700 border border-amber-200"
+                              }`}>
+                                {selectedAct.status === "COMPLETED" ? "✓ ĐÃ CHỐT SỔ NỘI BỘ" : "⏳ ĐANG THEO DÕI ĐIỂM DANH"}
+                              </span>
+                            </div>
+                            <div className="flex gap-3 text-[10px] text-slate-500 mt-1 flex-wrap">
+                              <span>Địa điểm: <strong className="text-slate-850 font-bold">{selectedAct.location}</strong></span>
+                              <span>Đăng ký: <strong className="text-indigo-650 font-bold">{currentAttendance.length} / {selectedAct.maxParticipants || "Vô hạn"}</strong> sinh viên</span>
+                              <span>Có mặt: <strong className="text-emerald-600 font-bold font-mono">{currentAttendance.filter(a => a.attended).length}</strong> sinh viên</span>
+                              {selectedAct.completedAt && (
+                                <span>Chốt ngày: <strong className="text-slate-700 font-mono">{new Date(selectedAct.completedAt).toLocaleDateString("vi-VN")}</strong></span>
+                              )}
+                            </div>
                           </div>
+                          <button
+                            type="button"
+                            onClick={handleExportAttendanceExcel}
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1.5 shrink-0"
+                            title="Xuất file Excel danh sách điểm danh sự kiện để phục vụ xét đánh giá nội bộ"
+                          >
+                            <Download size={13} className="text-slate-500" />
+                            <span>Xuất Excel điểm danh</span>
+                          </button>
                         </div>
 
                         {/* Import quick add student */}
@@ -2384,18 +2483,53 @@ export const OrganizerPortal: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Final check-out actions to post evaluation points */}
-                        {selectedAct.status !== "COMPLETED" && (
-                          <div className="pt-3 border-t text-right">
+                        {/* Final check-out actions to lock list and export for internal evaluation */}
+                        {selectedAct.status !== "COMPLETED" ? (
+                          <div className="pt-3 border-t flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                            <span className="text-[11px] text-slate-500">
+                              Lưu ý: Bấm Chốt sổ để khóa danh sách điểm danh và lưu trữ hồ sơ phục vụ đánh giá nội bộ CLB.
+                            </span>
+                            <div className="flex gap-2 w-full sm:w-auto">
+                              <button 
+                                type="button"
+                                onClick={handleExportAttendanceExcel}
+                                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                              >
+                                <Download size={14} />
+                                <span>Xuất Excel tạm tính</span>
+                              </button>
+                              <button 
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`Bạn có chắc chắn muốn CHỐT SỔ ĐIỂM DANH sự kiện "${selectedAct.title}"? Sau khi chốt, danh sách được khóa và làm căn cứ xét đánh giá nội bộ CLB.`)) {
+                                    updateActivityStatus(selectedAct.id, "COMPLETED");
+                                  }
+                                }}
+                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                              >
+                                <CheckCircle2 size={14} />
+                                <span>Chốt sổ danh sách sự kiện</span>
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="pt-3 border-t flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-emerald-50/50 p-3 rounded-xl border border-emerald-150">
+                            <div>
+                              <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                                <CheckCircle2 size={15} className="text-emerald-600" />
+                                <span>Đã chốt sổ điểm danh sự kiện</span>
+                              </span>
+                              <p className="text-[10px] text-slate-500 mt-0.5">
+                                Ghi nhận có mặt: <strong className="text-emerald-700 font-bold font-mono">{currentAttendance.filter(a => a.attended).length}</strong>/{currentAttendance.length} sinh viên • Lưu trữ làm căn cứ xét duyệt & khen thưởng nội bộ CLB
+                              </p>
+                            </div>
                             <button 
-                              onClick={() => {
-                                if (confirm("Bạn có tin chắc muốn CHỐT DANH SÁCH? Điểm rèn luyện của sinh viên được tích Có mặt sẽ tự động cập nhật vào bảng điểm của Kỳ.")) {
-                                  updateActivityStatus(selectedAct.id, "COMPLETED");
-                                }
-                              }}
-                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-colors cursor-pointer"
+                              type="button"
+                              onClick={handleExportAttendanceExcel}
+                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
                             >
-                              Chốt sổ & Cấp điểm rèn luyện tự động
+                              <Download size={14} />
+                              <span>Xuất Excel danh sách đã chốt</span>
                             </button>
                           </div>
                         )}

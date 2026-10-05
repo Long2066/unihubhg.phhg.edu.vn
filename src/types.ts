@@ -378,6 +378,8 @@ export interface ExtracurricularActivity {
   imageUrl?: string;
   expiryDate?: string; // Customizable display expiry date
   maxParticipants?: number;
+  completedAt?: string; // Thời điểm chốt danh sách sự kiện
+  verifiedBy?: string; // Ban chủ nhiệm/người thực hiện chốt sổ
 }
 
 export interface ActivityAttendance {
@@ -390,6 +392,8 @@ export interface ActivityAttendance {
   role: "MEM" | "BTC" | "SUPPORTER"; // Thành viên, Ban tổ chức, Hỗ trợ
   attended: boolean;
   verified: boolean; // Chốt danh sách có mặt hay chưa
+  verifiedAt?: string;
+  verifiedBy?: string;
 }
 
 export interface EvidenceSubmission {
