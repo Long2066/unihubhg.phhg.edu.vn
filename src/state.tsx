@@ -122,6 +122,8 @@ interface UniHubContextType {
   
   // Organizer Actions
   createActivity: (activity: Omit<ExtracurricularActivity, "id" | "status" | "orgName">) => Promise<string>;
+  updateActivity: (activityId: string, data: Partial<ExtracurricularActivity>) => Promise<void>;
+  deleteActivity: (activityId: string) => void;
   updateActivityStatus: (activityId: string, status: "UPCOMING" | "ONGOING" | "COMPLETED") => void;
   approveMemberRequest: (memberId: string, note?: string) => void;
   rejectMemberRequest: (memberId: string, reason?: string) => void;
@@ -132,6 +134,7 @@ interface UniHubContextType {
   
   // New clb actions
   createAnnouncement: (announcement: Omit<ClubAnnouncement, "id" | "orgName" | "createdAt">) => Promise<string>;
+  updateAnnouncement: (announcementId: string, data: Partial<ClubAnnouncement>) => Promise<void>;
   deleteAnnouncement: (id: string) => void;
   addMemberManual: (member: Omit<OrganizationMember, "id" | "joinedDate" | "term" | "status">) => void;
   deleteMember: (memberId: string) => void;
@@ -3671,6 +3674,36 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return cleanAct.id;
   };
 
+  const updateActivity = async (activityId: string, data: Partial<ExtracurricularActivity>): Promise<void> => {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY)) {
+      throw new Error("Không có quyền chỉnh sửa hoạt động.");
+    }
+    const cleanActivityId = (activityId || "").trim();
+    if (!cleanActivityId) throw new Error("Mã hoạt động không hợp lệ.");
+    const act = activities.find(a => a.id === cleanActivityId);
+    if (!act) throw new Error("Không tìm thấy hoạt động cần sửa.");
+    const effectiveOrgId = getEffectiveUserOrgId(currentUser);
+    if (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY && (!effectiveOrgId || act.orgId !== effectiveOrgId)) {
+      throw new Error("Không có quyền chỉnh sửa hoạt động của tổ chức khác.");
+    }
+
+    const cleanData = sanitizeForFirestore({
+      ...data,
+      id: cleanActivityId
+    });
+
+    const updated = activities.map(a => a.id === cleanActivityId ? { ...a, ...cleanData } : a);
+    setActivities(updated);
+    saveToStorage("unihub_activities", updated);
+
+    try {
+      await setDoc(doc(db, "activities", cleanActivityId), cleanData, { merge: true });
+    } catch (error) {
+      console.error("Lỗi cập nhật hoạt động Firestore:", error);
+      throw new Error("Không thể cập nhật hoạt động lên CSDL. Vui lòng kiểm tra kết nối mạng.");
+    }
+  };
+
   const deleteActivity = (activityId: string) => {
     if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY)) {
       console.warn("Unauthorized attempt to delete activity");
@@ -3694,6 +3727,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (updatedAttendance.length !== attendance.length) {
       setAttendance(updatedAttendance);
       saveToStorage("unihub_attendance", updatedAttendance);
+      attendance.filter(att => att.activityId === cleanActivityId).forEach(att => {
+        deleteDoc(doc(db, "attendance", att.id)).catch(err => console.warn("Lỗi xóa attendance Firestore:", err));
+      });
     }
   };
 
@@ -3730,22 +3766,23 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // If status becomes completed, mark all signed attendance to be verified
     if (status === "COMPLETED") {
       const updatedAttendance = attendance.map(att => {
-        if (att.activityId === cleanActivityId && att.attended) {
-          const verifiedRec: ActivityAttendance = { 
-            ...att, 
-            verified: true,
-            verifiedAt: nowIso,
-            verifiedBy: currentUser.name || "Ban Chủ nhiệm"
-          };
-          setDoc(doc(db, "attendance", att.id), verifiedRec, { merge: true }).catch(err =>
-            console.warn("Firestore write failed for attendance verify:", err)
-          );
-          return verifiedRec;
+        if (att.activityId === activityId && att.attended) {
+          return { ...att, verified: true };
         }
         return att;
       });
       setAttendance(updatedAttendance);
       saveToStorage("unihub_attendance", updatedAttendance);
+      updatedAttendance.filter(a => a.activityId === cleanActivityId && a.attended).forEach(att => {
+        const verifiedRec: ActivityAttendance = { 
+          ...att, 
+          verifiedAt: nowIso,
+          verifiedBy: currentUser.name || "Ban Chủ nhiệm"
+        };
+        setDoc(doc(db, "attendance", att.id), verifiedRec, { merge: true }).catch(err =>
+          console.warn("Firestore write failed for attendance verify:", err)
+        );
+      });
     }
 
     setActivities(updated);
@@ -3828,6 +3865,36 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setAnnouncements(updated);
     saveToStorage("unihub_announcements", updated);
     deleteDoc(doc(db, "announcements", cleanId)).catch(e => console.warn("Lỗi xóa thông báo Firestore:", e));
+  };
+
+  const updateAnnouncement = async (announcementId: string, data: Partial<ClubAnnouncement>): Promise<void> => {
+    if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
+      throw new Error("Không có quyền sửa thông báo CLB/Đoàn/Hội.");
+    }
+    const cleanId = (announcementId || "").trim();
+    if (!cleanId) throw new Error("Mã thông báo không hợp lệ.");
+    const ann = announcements.find(a => a.id === cleanId);
+    if (!ann) throw new Error("Không tìm thấy thông báo cần sửa.");
+    const effectiveOrgId = getEffectiveUserOrgId(currentUser);
+    if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || ann.orgId !== effectiveOrgId)) {
+      throw new Error("Không thể sửa thông báo của tổ chức khác.");
+    }
+
+    const cleanData = sanitizeForFirestore({
+      ...data,
+      id: cleanId
+    });
+
+    const updated = announcements.map(a => a.id === cleanId ? { ...a, ...cleanData } : a);
+    setAnnouncements(updated);
+    saveToStorage("unihub_announcements", updated);
+
+    try {
+      await setDoc(doc(db, "announcements", cleanId), cleanData, { merge: true });
+    } catch (error) {
+      console.error("Lỗi cập nhật thông báo Firestore:", error);
+      throw new Error("Không thể cập nhật thông báo lên CSDL. Vui lòng kiểm tra kết nối mạng.");
+    }
   };
 
   const addMemberManual = (member: Omit<OrganizationMember, "id" | "joinedDate" | "term" | "status">) => {
@@ -6864,6 +6931,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       joinOrganizationRequest,
       updateStudentProfile,
       createActivity,
+      updateActivity,
+      deleteActivity,
       updateActivityStatus,
       approveMemberRequest,
       rejectMemberRequest,
@@ -6872,6 +6941,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       updateAttendance,
       addBulkAttendance,
       createAnnouncement,
+      updateAnnouncement,
       deleteAnnouncement,
       addMemberManual,
       deleteMember,

@@ -38,7 +38,7 @@ import {
   Lock,
   Unlock
 } from "lucide-react";
-import { OrganizationMember, ExtracurricularActivity, UserRole, Organization } from "../types";
+import { OrganizationMember, ExtracurricularActivity, UserRole, Organization, ClubAnnouncement } from "../types";
 import { compressImage } from "../utils/imageCompressor";
 import { SrcApplicationModal } from "./SrcApplicationModal";
 
@@ -58,10 +58,13 @@ export const OrganizerPortal: React.FC = () => {
     toggleClubRecruitment,
     assignMemberRole, 
     createActivity, 
+    updateActivity,
+    deleteActivity,
     updateActivityStatus, 
     updateAttendance, 
     addBulkAttendance,
     createAnnouncement,
+    updateAnnouncement,
     deleteAnnouncement,
     addMemberManual,
     deleteMember,
@@ -273,6 +276,154 @@ export const OrganizerPortal: React.FC = () => {
       alert("Không thể đọc tệp ảnh. Vui lòng thử lại.");
     } finally {
       e.target.value = "";
+    }
+  };
+
+  // Edit Activity Modal states
+  const [editingActivity, setEditingActivity] = useState<ExtracurricularActivity | null>(null);
+  const [editActTitle, setEditActTitle] = useState("");
+  const [editActCriteriaId, setEditActCriteriaId] = useState("TC3.1");
+  const [editActPoints, setEditActPoints] = useState(5);
+  const [editActDate, setEditActDate] = useState("");
+  const [editActLoc, setEditActLoc] = useState("");
+  const [editActDesc, setEditActDesc] = useState("");
+  const [editActExpiryDate, setEditActExpiryDate] = useState("");
+  const [editActMaxParticipants, setEditActMaxParticipants] = useState<string>("");
+  const [editActImageUrl, setEditActImageUrl] = useState("");
+  const [editActRegistrationOpen, setEditActRegistrationOpen] = useState(true);
+  const [isSubmittingEditAct, setIsSubmittingEditAct] = useState(false);
+  const editActFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Edit Announcement Modal states
+  const [editingAnnouncement, setEditingAnnouncement] = useState<ClubAnnouncement | null>(null);
+  const [editAnnTitle, setEditAnnTitle] = useState("");
+  const [editAnnContent, setEditAnnContent] = useState("");
+  const [editAnnExpiryDate, setEditAnnExpiryDate] = useState("");
+  const [editAnnImageUrl, setEditAnnImageUrl] = useState("");
+  const [isSubmittingEditAnn, setIsSubmittingEditAnn] = useState(false);
+  const editAnnFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleEditActImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImage(file, 800, 450, 0.75);
+      if (compressed) setEditActImageUrl(compressed);
+    } catch (err) {
+      console.error("Lỗi nén ảnh hoạt động:", err);
+      alert("Không thể đọc tệp ảnh. Vui lòng thử lại.");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  const handleEditAnnImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImage(file, 800, 450, 0.75);
+      if (compressed) setEditAnnImageUrl(compressed);
+    } catch (err) {
+      console.error("Lỗi nén ảnh thông báo:", err);
+      alert("Không thể đọc tệp ảnh. Vui lòng thử lại.");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  const openEditActivityModal = (act: ExtracurricularActivity) => {
+    setEditingActivity(act);
+    setEditActTitle(act.title || "");
+    setEditActCriteriaId(act.criteriaId || "TC3.1");
+    setEditActPoints(act.points || 5);
+    setEditActDate(act.dateTime || "");
+    setEditActLoc(act.location || "");
+    setEditActDesc(act.description || "");
+    setEditActExpiryDate(act.expiryDate || "");
+    setEditActMaxParticipants(act.maxParticipants ? String(act.maxParticipants) : "");
+    setEditActImageUrl(act.imageUrl || "");
+    setEditActRegistrationOpen(act.registrationOpen ?? true);
+  };
+
+  const handleSaveEditActivity = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingActivity) return;
+    if (!editActTitle.trim() || !editActDate.trim() || !editActLoc.trim()) {
+      alert("Vui lòng điền đầy đủ Tên hoạt động, Ngày giờ và Địa điểm!");
+      return;
+    }
+    const maxPart = editActMaxParticipants.trim() ? Number(editActMaxParticipants) : undefined;
+    if (maxPart !== undefined && (isNaN(maxPart) || maxPart <= 0)) {
+      alert("Giới hạn số lượng đăng ký phải là số nguyên dương lớn hơn 0!");
+      return;
+    }
+
+    try {
+      setIsSubmittingEditAct(true);
+      await updateActivity(editingActivity.id, {
+        title: editActTitle.trim(),
+        criteriaId: editActCriteriaId,
+        points: Number(editActPoints) || 5,
+        dateTime: editActDate.trim(),
+        location: editActLoc.trim(),
+        description: editActDesc.trim(),
+        registrationOpen: editActRegistrationOpen,
+        expiryDate: editActExpiryDate || undefined,
+        imageUrl: editActImageUrl || undefined,
+        maxParticipants: maxPart
+      });
+      setEditingActivity(null);
+      alert("Cập nhật thông tin sự kiện thành công!");
+    } catch (err: any) {
+      alert(err?.message || "Có lỗi xảy ra khi cập nhật sự kiện.");
+    } finally {
+      setIsSubmittingEditAct(false);
+    }
+  };
+
+  const handleDeleteActivity = (act: ExtracurricularActivity) => {
+    if (window.confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn sự kiện: "${act.title}"? Dữ liệu điểm danh liên quan cũng sẽ được dọn sạch.`)) {
+      deleteActivity(act.id);
+      if (selectedActId === act.id) {
+        setSelectedActId(null);
+      }
+      alert("Đã xóa sự kiện thành công!");
+    }
+  };
+
+  const openEditAnnouncementModal = (ann: ClubAnnouncement) => {
+    setEditingAnnouncement(ann);
+    setEditAnnTitle(ann.title || "");
+    setEditAnnContent(ann.content || "");
+    setEditAnnExpiryDate(ann.expiryDate || "");
+    setEditAnnImageUrl(ann.imageUrl || "");
+  };
+
+  const handleSaveEditAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAnnouncement) return;
+    if (!editAnnTitle.trim()) {
+      alert("Tiêu đề thông báo không được để trống!");
+      return;
+    }
+    if (!editAnnContent.trim()) {
+      alert("Nội dung thông báo không được để trống!");
+      return;
+    }
+    try {
+      setIsSubmittingEditAnn(true);
+      await updateAnnouncement(editingAnnouncement.id, {
+        title: editAnnTitle.trim(),
+        content: editAnnContent.trim(),
+        expiryDate: editAnnExpiryDate || new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split("T")[0],
+        imageUrl: editAnnImageUrl || undefined
+      });
+      setEditingAnnouncement(null);
+      alert("Cập nhật thông báo thành công!");
+    } catch (err: any) {
+      alert(err?.message || "Có lỗi xảy ra khi cập nhật thông báo.");
+    } finally {
+      setIsSubmittingEditAnn(false);
     }
   };
 
@@ -1952,6 +2103,56 @@ export const OrganizerPortal: React.FC = () => {
                     <span>Thiết lập hoạt động</span>
                   </button>
                 </form>
+
+                {/* Displaying active activities list for editing/deletion */}
+                {orgActivities.length > 0 && (
+                  <div className="pt-5 border-t border-slate-200 space-y-3">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      Sự kiện / Hoạt động đã tạo của đơn vị ({orgActivities.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {orgActivities.map(item => (
+                        <div key={item.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h5 className="font-extrabold text-slate-900">{item.title}</h5>
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                item.status === "COMPLETED" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                              }`}>
+                                {item.status === "COMPLETED" ? "✓ Đã chốt sổ" : "Đang triển khai"}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
+                              <span><Calendar size={10} className="inline mr-0.5" />{item.dateTime}</span>
+                              <span>•</span>
+                              <span><MapPin size={10} className="inline mr-0.5" />{item.location}</span>
+                              <span>•</span>
+                              <span className="font-semibold text-emerald-600">+{item.points}đ ({item.criteriaId})</span>
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => openEditActivityModal(item)}
+                              className="p-1 px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded cursor-pointer transition-all flex items-center gap-1"
+                            >
+                              <Edit3 size={11} />
+                              <span>Sửa</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteActivity(item)}
+                              className="p-1 px-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-bold rounded cursor-pointer transition-all flex items-center gap-1"
+                            >
+                              <Trash2 size={11} />
+                              <span>Xóa</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -2189,22 +2390,34 @@ export const OrganizerPortal: React.FC = () => {
                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Thông báo đang có hiệu lực sinh hoạt ({orgAnnouncements.length})</h4>
                     <div className="space-y-2">
                       {orgAnnouncements.map(item => (
-                        <div key={item.id} className="p-3 bg-slate-50 rounded-xl border flex justify-between items-start text-xs">
-                          <div>
+                        <div key={item.id} className="p-3 bg-slate-50 rounded-xl border flex justify-between items-start text-xs gap-2">
+                          <div className="flex-1 min-w-0">
                             <span className="text-[9px] font-mono text-slate-400">Hiệu lực đến: {item.expiryDate}</span>
                             <h5 className="font-extrabold text-slate-900 mt-0.5">{item.title}</h5>
                             <p className="text-[10px] text-slate-500 mt-1 font-sans line-clamp-2">{item.content}</p>
                           </div>
-                          <button 
-                            onClick={() => {
-                              if (window.confirm(`Bạn có chắc chắn muốn xóa gỡ thông báo: "${item.title}"?`)) {
-                                deleteAnnouncement(item.id);
-                              }
-                            }}
-                            className="p-1 px-2.5 text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 text-[9px] font-bold rounded cursor-pointer transition-all"
-                          >
-                            Xóa gỡ
-                          </button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button 
+                              type="button"
+                              onClick={() => openEditAnnouncementModal(item)}
+                              className="p-1 px-2.5 text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-100 text-[9px] font-bold rounded cursor-pointer transition-all flex items-center gap-1"
+                            >
+                              <Edit3 size={11} />
+                              <span>Sửa</span>
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`Bạn có chắc chắn muốn xóa gỡ thông báo: "${item.title}"?`)) {
+                                  deleteAnnouncement(item.id);
+                                }
+                              }}
+                              className="p-1 px-2.5 text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 text-[9px] font-bold rounded cursor-pointer transition-all flex items-center gap-1"
+                            >
+                              <Trash2 size={11} />
+                              <span>Xóa gỡ</span>
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -2301,6 +2514,7 @@ export const OrganizerPortal: React.FC = () => {
                               </span>
                             </div>
                             <div className="flex gap-3 text-[10px] text-slate-500 mt-1 flex-wrap">
+                              <span>Chuẩn mốc: <strong className="text-emerald-600">+{realActPoints}đ</strong></span>
                               <span>Địa điểm: <strong className="text-slate-850 font-bold">{selectedAct.location}</strong></span>
                               <span>Đăng ký: <strong className="text-indigo-650 font-bold">{currentAttendance.length} / {selectedAct.maxParticipants || "Vô hạn"}</strong> sinh viên</span>
                               <span>Có mặt: <strong className="text-emerald-600 font-bold font-mono">{currentAttendance.filter(a => a.attended).length}</strong> sinh viên</span>
@@ -2309,15 +2523,35 @@ export const OrganizerPortal: React.FC = () => {
                               )}
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={handleExportAttendanceExcel}
-                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1.5 shrink-0"
-                            title="Xuất file Excel danh sách điểm danh sự kiện để phục vụ xét đánh giá nội bộ"
-                          >
-                            <Download size={13} className="text-slate-500" />
-                            <span>Xuất Excel điểm danh</span>
-                          </button>
+                          <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => openEditActivityModal(selectedAct)}
+                              className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1"
+                              title="Chỉnh sửa thông tin sự kiện"
+                            >
+                              <Edit3 size={13} />
+                              <span>Sửa sự kiện</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteActivity(selectedAct)}
+                              className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1"
+                              title="Xóa sự kiện"
+                            >
+                              <Trash2 size={13} />
+                              <span>Xóa</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleExportAttendanceExcel}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1.5"
+                              title="Xuất file Excel danh sách điểm danh sự kiện để phục vụ xét đánh giá nội bộ"
+                            >
+                              <Download size={13} className="text-slate-500" />
+                              <span>Xuất Excel</span>
+                            </button>
+                          </div>
                         </div>
 
                         {/* Import quick add student */}
@@ -2892,6 +3126,338 @@ export const OrganizerPortal: React.FC = () => {
                   className={`px-4 py-2 text-white rounded-xl font-black text-xs cursor-pointer ${themeBgActive}`}
                 >
                   Lưu thay đổi
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT ACTIVITY MODAL */}
+      {editingActivity && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-xl ring-1 ring-slate-900/5 max-w-xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-2xl">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <Edit3 size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Chỉnh sửa sự kiện / hoạt động</h3>
+                  <p className="text-[10px] text-slate-400">Cập nhật thông tin chi tiết sự kiện cho CLB và Sinh viên</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setEditingActivity(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditActivity} className="p-4 sm:p-5 space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Tên sự kiện / hoạt động *</label>
+                <input 
+                  type="text" 
+                  required
+                  value={editActTitle} 
+                  onChange={(e) => setEditActTitle(e.target.value)}
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-slate-800"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Mục tiêu chí rèn luyện</label>
+                  <select 
+                    value={editActCriteriaId}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditActCriteriaId(val);
+                      const target = activityCriteriaRules.find(r => r.criteriaId === val);
+                      if (target) setEditActPoints(target.points);
+                    }}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-indigo-500 text-slate-800"
+                  >
+                    {activityCriteriaRules.map(r => (
+                      <option key={r.criteriaId} value={r.criteriaId}>
+                        {r.criteriaId}: {r.name} (+{r.points}đ)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Điểm cộng rèn luyện</label>
+                  <input 
+                    type="number" 
+                    required
+                    min={0}
+                    max={30}
+                    value={editActPoints} 
+                    onChange={(e) => setEditActPoints(Number(e.target.value))}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Thời gian tổ chức *</label>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="YYYY-MM-DD HH:mm"
+                    value={editActDate} 
+                    onChange={(e) => setEditActDate(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Địa điểm *</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={editActLoc} 
+                    onChange={(e) => setEditActLoc(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                    <Clock size={12} className="text-slate-400" />
+                    <span>Thời hạn hiển thị (Tự động ẩn)</span>
+                  </label>
+                  <input 
+                    type="date" 
+                    value={editActExpiryDate} 
+                    onChange={(e) => setEditActExpiryDate(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                    <Users size={12} className="text-slate-400" />
+                    <span>Giới hạn số lượng tham gia</span>
+                  </label>
+                  <input 
+                    type="number" 
+                    min={1}
+                    placeholder="Không giới hạn"
+                    value={editActMaxParticipants} 
+                    onChange={(e) => setEditActMaxParticipants(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Mô tả sự kiện</label>
+                <textarea 
+                  rows={3}
+                  value={editActDesc} 
+                  onChange={(e) => setEditActDesc(e.target.value)}
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Ảnh Marketing / Bìa sự kiện</label>
+                <input 
+                  type="file" 
+                  ref={editActFileInputRef} 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={handleEditActImageUpload} 
+                />
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    placeholder="URL ảnh hoặc chọn tải ảnh lên..."
+                    value={editActImageUrl} 
+                    onChange={(e) => setEditActImageUrl(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none text-slate-800 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => editActFileInputRef.current?.click()}
+                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold shrink-0 cursor-pointer flex items-center gap-1 transition-colors"
+                  >
+                    <Upload size={12} />
+                    <span>Tải ảnh</span>
+                  </button>
+                </div>
+                {editActImageUrl && (
+                  <div className="relative mt-2 w-full h-28 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+                    <img src={editActImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setEditActImageUrl("")}
+                      className="absolute top-2 right-2 p-1 bg-black/60 hover:bg-rose-600 text-white rounded-full transition-colors cursor-pointer"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input 
+                  type="checkbox"
+                  id="editActRegOpen"
+                  checked={editActRegistrationOpen}
+                  onChange={(e) => setEditActRegistrationOpen(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 cursor-pointer"
+                />
+                <label htmlFor="editActRegOpen" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                  Mở cổng cho phép sinh viên đăng ký tham gia
+                </label>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex justify-end gap-2">
+                <button 
+                  type="button"
+                  onClick={() => setEditingActivity(null)}
+                  className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl font-bold text-xs cursor-pointer transition-colors"
+                >
+                  Hủy bỏ
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isSubmittingEditAct}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl font-bold text-xs cursor-pointer transition-all flex items-center gap-1.5 shadow-xs"
+                >
+                  <Check size={14} />
+                  <span>{isSubmittingEditAct ? "Đang lưu..." : "Lưu thay đổi"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT ANNOUNCEMENT MODAL */}
+      {editingAnnouncement && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-xl ring-1 ring-slate-900/5 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-2xl">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <Megaphone size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Chỉnh sửa thông báo</h3>
+                  <p className="text-[10px] text-slate-400">Cập nhật nội dung bản tin phát sóng cho Sinh viên</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setEditingAnnouncement(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditAnnouncement} className="p-4 sm:p-5 space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Tiêu đề thông báo *</label>
+                <input 
+                  type="text" 
+                  required
+                  value={editAnnTitle} 
+                  onChange={(e) => setEditAnnTitle(e.target.value)}
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Nội dung văn bản thông báo *</label>
+                <textarea 
+                  rows={4}
+                  required
+                  value={editAnnContent} 
+                  onChange={(e) => setEditAnnContent(e.target.value)}
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                  <Clock size={12} className="text-slate-400" />
+                  <span>Ngày hết hạn phát sóng (Tự động gỡ) *</span>
+                </label>
+                <input 
+                  type="date" 
+                  required
+                  value={editAnnExpiryDate} 
+                  onChange={(e) => setEditAnnExpiryDate(e.target.value)}
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Ảnh Marketing / Bìa thông báo</label>
+                <input 
+                  type="file" 
+                  ref={editAnnFileInputRef} 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={handleEditAnnImageUpload} 
+                />
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    placeholder="URL ảnh hoặc chọn tải ảnh..."
+                    value={editAnnImageUrl} 
+                    onChange={(e) => setEditAnnImageUrl(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none text-slate-800 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => editAnnFileInputRef.current?.click()}
+                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold shrink-0 cursor-pointer flex items-center gap-1 transition-colors"
+                  >
+                    <Upload size={12} />
+                    <span>Tải ảnh</span>
+                  </button>
+                </div>
+                {editAnnImageUrl && (
+                  <div className="relative mt-2 w-full h-28 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+                    <img src={editAnnImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setEditAnnImageUrl("")}
+                      className="absolute top-2 right-2 p-1 bg-black/60 hover:bg-rose-600 text-white rounded-full transition-colors cursor-pointer"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex justify-end gap-2">
+                <button 
+                  type="button"
+                  onClick={() => setEditingAnnouncement(null)}
+                  className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl font-bold text-xs cursor-pointer transition-colors"
+                >
+                  Hủy bỏ
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isSubmittingEditAnn}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl font-bold text-xs cursor-pointer transition-all flex items-center gap-1.5 shadow-xs"
+                >
+                  <Check size={14} />
+                  <span>{isSubmittingEditAnn ? "Đang lưu..." : "Lưu thay đổi"}</span>
                 </button>
               </div>
             </form>
