@@ -1180,8 +1180,13 @@ const AppContent: React.FC = () => {
     if (!currentUser) return 0;
     
     if (tabId === "DAI_HOI_CHI_DOAN") {
-      if (currentUser.role === UserRole.STUDENT) {
-        const studentClass = students.find(s => s.id === (currentUser.targetId || currentUser.username))?.classId || "";
+      if (currentUser.role === UserRole.STUDENT || currentUser.role === UserRole.CLASS_MONITOR) {
+        const allKnown = students.length > 0 ? students : SEED_STUDENTS;
+        const student = allKnown.find(s => 
+          (currentUser.targetId && s.id.toLowerCase() === currentUser.targetId.toLowerCase()) ||
+          (currentUser.username && (s.id.toLowerCase() === currentUser.username.toLowerCase() || (s.email && s.email.toLowerCase() === currentUser.username.toLowerCase())))
+        );
+        const studentClass = student?.classId || (currentUser as any)?.classId || currentUser.classSecretaryForClassId || "";
         const cong = classCongresses.find(c => normalizeClassId(c.classId) === normalizeClassId(studentClass));
         if (cong && cong.status === "VOTING") {
           const studentId = currentUser.targetId || currentUser.username || "";

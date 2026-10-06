@@ -510,11 +510,10 @@ export const StudentPortal: React.FC = () => {
 
   const myClassCongress = useMemo(() => {
     if (!currentUser) return null;
-    const targetClass = (currentUser as any)?.classId || currentUser.targetId || "";
-    return classCongresses?.find(c => {
-      const normClass = normalizeClassId(c.classId);
-      return normClass === normalizeClassId(targetClass) || (sObj?.classId && normClass === normalizeClassId(sObj.classId));
-    }) || null;
+    const studentClass = sObj?.classId || (currentUser as any)?.classId || currentUser?.classSecretaryForClassId || "";
+    if (!studentClass) return null;
+    const normClass = normalizeClassId(studentClass);
+    return classCongresses?.find(c => normalizeClassId(c.classId) === normClass) || null;
   }, [currentUser, classCongresses, sObj]);
 
   const normalizeStudentKey = (value?: string | null) => (value || "").trim().toLowerCase();

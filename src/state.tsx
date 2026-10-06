@@ -7275,6 +7275,23 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (boxIdx < 0) return { success: false, message: "Không tìm thấy hòm phiếu." };
     const box = congress.ballotBoxes[boxIdx];
 
+    // BẢO VỆ CHẶT CHẼ: Kiểm tra sinh viên có đúng thuộc Chi đoàn/lớp này không!
+    const allKnown = (students && students.length > 0) ? students : SEED_STUDENTS;
+    const voter = allKnown.find(s => 
+      (s.id && s.id.toLowerCase() === voterStudentId.trim().toLowerCase()) ||
+      (s.email && s.email.toLowerCase() === voterStudentId.trim().toLowerCase()) ||
+      ((s as any).code && (s as any).code.toLowerCase() === voterStudentId.trim().toLowerCase())
+    );
+    const voterClassNorm = normalizeClassId(voter?.classId || "");
+    const congressClassNorm = normalizeClassId(congress.classId);
+
+    if (!voter || !voterClassNorm || voterClassNorm !== congressClassNorm) {
+      return { 
+        success: false, 
+        message: `Bạn thuộc lớp "${voter?.classId || 'Chưa phân lớp'}", không phải đoàn viên/sinh viên thuộc Chi đoàn "${congress.classId}". Bạn không có quyền bỏ phiếu tại Đại hội này!` 
+      };
+    }
+
     if (box.status !== "OPEN") {
       return { success: false, message: "Hòm phiếu chưa mở hoặc đã khóa." };
     }

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useUniHub, normalizeClassId } from "../state";
+import { SEED_STUDENTS } from "../data";
 import { 
   UserRole, 
   CongressCampaign, 
@@ -62,25 +63,45 @@ export const CongressPortal: React.FC = () => {
     approveCongressFinal
   } = useUniHub();
 
-  // Xác định lớp của tài khoản hiện tại
-  const myStudentObj = currentUser?.role === UserRole.STUDENT 
-    ? students.find(s => s.id === (currentUser.targetId || currentUser.username) || s.email === currentUser.email)
-    : undefined;
+  // Xác định vai trò sinh viên / BCS
+  const isStudentOrMonitor = currentUser?.role === UserRole.STUDENT || currentUser?.role === UserRole.CLASS_MONITOR;
 
-  const defaultUserClass = useMemo(() => {
-    if (currentUser?.role === UserRole.STUDENT) {
-      return myStudentObj?.classId || currentUser.targetId || "";
+  // Xác định chính xác hồ sơ sinh viên (ưu tiên database, fallback SEED)
+  const myStudentObj = useMemo(() => {
+    if (!currentUser) return undefined;
+    const allKnown = (students && students.length > 0) ? students : SEED_STUDENTS;
+    return allKnown.find(s => 
+      (currentUser.targetId && s.id.toLowerCase() === currentUser.targetId.toLowerCase()) ||
+      (currentUser.username && (s.id.toLowerCase() === currentUser.username.toLowerCase() || (s.email && s.email.toLowerCase() === currentUser.username.toLowerCase()))) ||
+      (currentUser.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
+    );
+  }, [currentUser, students]);
+
+  // Lớp chính thức mà người dùng thuộc về (khóa cứng theo tài khoản, không cho phép sai lệch)
+  const myOfficialClassId = useMemo(() => {
+    if (isStudentOrMonitor) {
+      const cls = myStudentObj?.classId || (currentUser as any)?.classId || currentUser?.classSecretaryForClassId || "";
+      return normalizeClassId(cls);
     }
-    if (currentUser?.role === UserRole.CLASS_MONITOR || currentUser?.role === UserRole.ADVISER) {
-      return currentUser.targetId || "";
+    if (currentUser?.role === UserRole.ADVISER) {
+      return normalizeClassId(currentUser.targetId || (currentUser as any)?.classId || "");
     }
     return "";
-  }, [currentUser, myStudentObj]);
+  }, [isStudentOrMonitor, myStudentObj, currentUser]);
 
-  // Bộ lọc / chọn lớp đang xem
+  // Bộ lọc / chọn lớp đang xem (Sinh viên bị khóa cứng vào lớp của mình)
   const [selectedClassId, setSelectedClassId] = useState<string>(() => {
-    return defaultUserClass ? normalizeClassId(defaultUserClass) : "K2-GDTH A";
+    if (isStudentOrMonitor && myOfficialClassId) return myOfficialClassId;
+    if (currentUser?.role === UserRole.ADVISER && myOfficialClassId) return myOfficialClassId;
+    return "K2-GDTH A";
   });
+
+  // Tự động đồng bộ khóa cứng lớp cho Sinh viên
+  React.useEffect(() => {
+    if (isStudentOrMonitor && myOfficialClassId && selectedClassId !== myOfficialClassId) {
+      setSelectedClassId(myOfficialClassId);
+    }
+  }, [isStudentOrMonitor, myOfficialClassId, selectedClassId]);
 
   // Chiến dịch đang hoạt động
   const activeCampaign = useMemo(() => {
@@ -94,6 +115,15 @@ export const CongressPortal: React.FC = () => {
       cc => normalizeClassId(cc.classId) === normalizeClassId(selectedClassId)
     );
   }, [classCongresses, selectedClassId]);
+
+  // Kiểm tra tư cách cử tri: Phải là sinh viên thuộc chính xác Chi đoàn này
+  const isEligibleVoter = useMemo(() => {
+    if (!currentUser || !currentCongress) return false;
+    if (!isStudentOrMonitor) return false;
+    const voterClass = normalizeClassId(myStudentObj?.classId || (currentUser as any)?.classId || "");
+    const congressClass = normalizeClassId(currentCongress.classId);
+    return Boolean(voterClass && voterClass === congressClass);
+  }, [currentUser, currentCongress, isStudentOrMonitor, myStudentObj]);
 
   // Kiểm tra quyền Bí thư Chi đoàn
   const isClassSecretary = useMemo(() => {
@@ -415,23 +445,45 @@ export const CongressPortal: React.FC = () => {
             </p>
           </div>
 
-          {/* CHỌN LỚP NẾU CÓ NHIỀU QUYỀN / ADMIN / CVHT */}
+          {/* PHÂN QUYỀN CHỌN LỚP: SINH VIÊN BỊ KHÓA CỨNG VÀO LỚP CỦA MÌNH */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
-            <div className="bg-slate-50 p-2 rounded-2xl ring-1 ring-slate-900/5 flex items-center gap-2">
-              <Users size={16} className="text-slate-400 ml-2" />
-              <div className="text-left">
-                <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Chi đoàn lớp</span>
-                <select
-                  value={selectedClassId}
-                  onChange={(e) => setSelectedClassId(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer pr-4"
-                >
-                  {Array.from(new Set(students.map(s => normalizeClassId(s.classId)).filter(Boolean))).map(cId => (
-                    <option key={cId} value={cId}>{cId}</option>
-                  ))}
-                </select>
+            {isStudentOrMonitor ? (
+              <div className="bg-indigo-50/80 px-4 py-2.5 rounded-2xl border border-indigo-200/80 flex items-center gap-3 min-h-[44px]">
+                <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                  <Users size={16} />
+                </div>
+                <div className="text-left">
+                  <span className="text-[10px] text-indigo-700 block font-bold uppercase tracking-wider">Chi đoàn lớp của bạn</span>
+                  <span className="text-xs font-black text-indigo-950 font-mono tracking-tight">
+                    {myOfficialClassId || <span className="text-rose-600 font-semibold">Chưa được xếp lớp</span>}
+                  </span>
+                </div>
               </div>
-            </div>
+            ) : currentUser?.role === UserRole.ADVISER ? (
+              <div className="bg-slate-50 p-2 rounded-2xl ring-1 ring-slate-900/5 flex items-center gap-2 min-h-[44px]">
+                <Users size={16} className="text-slate-400 ml-2" />
+                <div className="text-left pr-3">
+                  <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Lớp phụ trách</span>
+                  <span className="text-xs font-bold text-slate-900 font-mono">{myOfficialClassId || selectedClassId}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-slate-50 p-2 rounded-2xl ring-1 ring-slate-900/5 flex items-center gap-2 min-h-[44px]">
+                <Users size={16} className="text-slate-400 ml-2" />
+                <div className="text-left">
+                  <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Chi đoàn lớp</span>
+                  <select
+                    value={selectedClassId}
+                    onChange={(e) => setSelectedClassId(e.target.value)}
+                    className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer pr-4"
+                  >
+                    {Array.from(new Set(students.map(s => normalizeClassId(s.classId)).filter(Boolean))).map(cId => (
+                      <option key={cId} value={cId}>{cId}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
 
             {/* Quick info vai trò */}
             <div className="px-3.5 py-2.5 rounded-2xl bg-indigo-50/50 border border-indigo-150/60 text-indigo-900 text-xs flex items-center gap-2 min-h-[44px]">
@@ -634,12 +686,16 @@ export const CongressPortal: React.FC = () => {
                             <div 
                               key={cand.id}
                               onClick={() => {
+                                if (!isEligibleVoter) {
+                                  showToast("error", `Bạn không phải đoàn viên/sinh viên thuộc Chi đoàn ${currentCongress.classId}. Bạn không có quyền bỏ phiếu!`);
+                                  return;
+                                }
                                 if (isOpen && !voted) {
                                   handleToggleCandidate(box.id, cand.id, box.maxVotesPerBallot);
                                 }
                               }}
                               className={`p-3 rounded-2xl border transition-all text-left flex items-start gap-3 select-none ${
-                                !isOpen || voted ? "opacity-90 cursor-default" : "cursor-pointer"
+                                !isEligibleVoter || !isOpen || voted ? "opacity-90 cursor-default" : "cursor-pointer"
                               } ${
                                 isChecked 
                                   ? "bg-indigo-50/70 border-indigo-200 ring-1 ring-indigo-500/20" 
@@ -675,7 +731,12 @@ export const CongressPortal: React.FC = () => {
 
                   {/* Footer Action Bỏ phiếu */}
                   <div className="mt-6 pt-4 border-t border-slate-100">
-                    {voted ? (
+                    {!isEligibleVoter ? (
+                      <div className="w-full py-2.5 px-3 bg-slate-100 rounded-xl text-slate-500 text-xs font-semibold flex items-center justify-center gap-1.5 min-h-[44px]">
+                        <Lock size={15} />
+                        <span>Chỉ cử tri Chi đoàn {currentCongress.classId} mới có quyền bỏ phiếu</span>
+                      </div>
+                    ) : voted ? (
                       <div className="w-full py-2.5 px-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 min-h-[44px]">
                         <CheckCircle size={16} className="text-emerald-600" />
                         <span>Đã hoàn thành bỏ phiếu (Phiếu ẩn danh)</span>
@@ -705,6 +766,34 @@ export const CongressPortal: React.FC = () => {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* EMPTY STATE NẾU LỚP CHƯA CÓ PHIÊN ĐẠI HỘI */}
+      {!currentCongress && (
+        <div className="bg-white rounded-3xl p-10 sm:p-14 border border-slate-200/80 shadow-xs text-center space-y-4 animate-fade-in">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto shadow-2xs">
+            <Vote size={32} />
+          </div>
+          <div className="max-w-md mx-auto space-y-1.5">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900">
+              Chi đoàn {selectedClassId || "này"} chưa có phiên Đại hội
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+              Chiến dịch Đại hội cấp Phân hiệu hiện chưa phân bổ hoặc Chi đoàn chưa khởi tạo phiên Đại hội. Vui lòng quay lại sau hoặc liên hệ Cố vấn học tập / Bí thư Chi đoàn.
+            </p>
+          </div>
+          {isAdminOrYouthUnion && (
+            <div className="pt-2">
+              <button
+                onClick={() => setActiveTab("CAMPAIGN_ADMIN")}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs active:scale-98 transition-all inline-flex items-center gap-2 cursor-pointer min-h-[44px]"
+              >
+                <span>Xem và phát chiến dịch tới các Chi đoàn</span>
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          )}
         </div>
       )}
 
