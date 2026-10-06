@@ -51,6 +51,7 @@ export interface UserAccount {
   isGroupLeader?: boolean;
   groupInCharge?: string;
   monitorTitle?: string;
+  classSecretaryForClassId?: string;
 }
 
 export interface EvaluationPeriod {

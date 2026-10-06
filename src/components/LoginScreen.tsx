@@ -36,6 +36,7 @@ interface NewsFeedItem {
   title: string;
   content: string;
   dateStr: string;
+  timestamp: number;
   orgName: string;
   imageUrl?: string;
   type: "ANNOUNCEMENT" | "ACTIVITY";
@@ -131,10 +132,12 @@ export const LoginScreen: React.FC = () => {
       if (ann.expiryDate && todayStr > ann.expiryDate) return;
 
       let dateStr = "";
+      let timestamp = 0;
       if (ann.createdAt) {
         try {
           const d = new Date(ann.createdAt);
           if (!isNaN(d.getTime())) {
+            timestamp = d.getTime();
             dateStr = `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`;
           }
         } catch {}
@@ -144,6 +147,7 @@ export const LoginScreen: React.FC = () => {
         title: ann.title,
         content: ann.content || "",
         dateStr: dateStr,
+        timestamp: timestamp,
         orgName: ann.orgName || "Phân hiệu ĐHTN tại Hà Giang",
         imageUrl: sanitizeImageUrl(convertGoogleDriveUrlToDirectUrl(ann.imageUrl)),
         type: "ANNOUNCEMENT"
@@ -163,11 +167,13 @@ export const LoginScreen: React.FC = () => {
       if (act.expiryDate && todayStr > act.expiryDate) return;
 
       let dateStr = "";
+      let timestamp = 0;
       if (act.dateTime) {
         try {
           const cleanStr = act.dateTime.replace(/-/g, "/");
           const d = new Date(cleanStr);
           if (!isNaN(d.getTime())) {
+            timestamp = d.getTime();
             dateStr = `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`;
           } else {
             dateStr = act.dateTime.split(" ")[0] || act.dateTime;
@@ -190,14 +196,15 @@ export const LoginScreen: React.FC = () => {
         title: act.title,
         content: act.description || "",
         dateStr: dateStr,
+        timestamp: timestamp,
         orgName: resolvedOrgName,
         imageUrl: sanitizeImageUrl(convertGoogleDriveUrlToDirectUrl(act.imageUrl)),
         type: "ACTIVITY"
       });
     });
 
-    // B6: Sort theo ngày mới nhất trước
-    items.sort((a, b) => b.dateStr.localeCompare(a.dateStr));
+    // B6: Sort theo timestamp mới nhất trước
+    items.sort((a, b) => b.timestamp - a.timestamp || b.id.localeCompare(a.id));
 
     return items;
   }, [announcements, activities, organizations]);

@@ -532,7 +532,7 @@ export const OrganizerPortal: React.FC = () => {
       return;
     }
 
-    addMemberManual({
+    const ok = addMemberManual({
       studentId: manualStudentId,
       studentName: manualName,
       classId: normalizeClassId(manualClass),
@@ -547,6 +547,8 @@ export const OrganizerPortal: React.FC = () => {
       facultyInCharge: "Khoa CNTT - Điện tử viễn thông",
       attachmentUrl: manualAttachment || "https://unihub.edu.vn/attachments/empty-profile.pdf"
     });
+
+    if (ok === false) return;
 
     // Reset inputs
     setManualStudentId("");
@@ -856,6 +858,7 @@ export const OrganizerPortal: React.FC = () => {
   };
 
   const isAllowedDeployUnit = (deployUnit: string) => {
+    if (currentUser?.role === UserRole.ADMIN) return true;
     if (currentUser?.role === UserRole.YOUTH_UNION) return deployUnit === "DOANTN" || deployUnit === "DOAN_HOI";
     if (currentUser?.role === UserRole.STUDENT_UNION) return deployUnit === "HOISV" || deployUnit === "DOAN_HOI";
     return deployUnit === effectiveOrgId;
@@ -877,11 +880,16 @@ export const OrganizerPortal: React.FC = () => {
   };
 
   // Create Activity handler
-  const handleAddNewActivity = (e: React.FormEvent) => {
+  const handleAddNewActivity = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (!actTitle || !actDate || !actLoc) {
         alert("Vui lòng điền đầy đủ Tên hoạt động, Ngày giờ và Địa điểm!");
+        return;
+      }
+
+      if (!isAllowedDeployUnit(actDeployUnit)) {
+        alert(getDeployUnitError(actDeployUnit));
         return;
       }
 
@@ -891,7 +899,7 @@ export const OrganizerPortal: React.FC = () => {
         return;
       }
 
-      const newActId = createActivity({
+      const newActId = await createActivity({
         title: actTitle,
         orgId: actDeployUnit,
         criteriaId: actCriteria || "TC3.1",
@@ -920,7 +928,7 @@ export const OrganizerPortal: React.FC = () => {
       setActiveSubTab("QUANLY_DIEMDANH");
     } catch (err) {
       console.error("Lỗi khi khai báo hoạt động:", err);
-      alert("Có lỗi xảy ra khi tạo hoạt động. Vui lòng kiểm tra lại thông tin!");
+      alert(getSubmissionErrorMessage(err, "Có lỗi xảy ra khi tạo hoạt động. Vui lòng kiểm tra lại thông tin!"));
     }
   };
 
@@ -930,6 +938,11 @@ export const OrganizerPortal: React.FC = () => {
     try {
       if (!annTitle.trim() || !annContent.trim()) {
         alert("Vui lòng điền đủ Tiêu đề và Nội dung thông báo!");
+        return;
+      }
+
+      if (!isAllowedDeployUnit(annDeployUnit)) {
+        alert(getDeployUnitError(annDeployUnit));
         return;
       }
 

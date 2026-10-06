@@ -52,6 +52,7 @@ export interface UserAccount {
   isGroupLeader?: boolean;
   groupInCharge?: string;
   monitorTitle?: string;
+  classSecretaryForClassId?: string;
 }
 
 export interface EvaluationPeriod {
@@ -843,3 +844,147 @@ export interface SystemVisitLog {
   name: string;
   clientType?: string;
 }
+
+/** =========================================================
+ * KHÔNG GIAN ĐẠI HỘI CHI ĐOÀN THEO CHIẾN DỊCH CẤP PHÂN HIỆU (KẾ HOẠCH V4)
+ * ========================================================= */
+
+export type CongressRules = {
+  twoThirdsQuorumWarning?: boolean;
+  maxSeatsRatioWarning?: number; // Mặc định 0.5 (50% sĩ số)
+  allowCustomSeats?: boolean;
+};
+
+export type CongressCampaignStatus =
+  | "DRAFT"
+  | "LOCKED"
+  | "DISTRIBUTED"
+  | "IN_PROGRESS"
+  | "COLLECTING_RESULTS"
+  | "FINALIZED";
+
+export interface CongressCampaign {
+  id: string;
+  title: string;
+  academicYear: string;
+  semesterId: string;
+  scope: "ALL_CLASSES" | "FACULTY" | "CLASS";
+  status: CongressCampaignStatus;
+  rules: CongressRules;
+  startDate: string;
+  endDate: string;
+  createdBy: string;
+  createdAt: string;
+  lockedAt?: string;
+  distributedAt?: string;
+  finalizedAt?: string;
+}
+
+export type BallotBoxType = "BCH_CHI_DOAN" | "BCH_CHI_HOI" | "BAN_CAN_SU";
+
+export type CongressCandidateStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
+
+export interface CongressCandidate {
+  id: string;
+  studentId: string;
+  studentName?: string;
+  classId: string;
+  ballotType: BallotBoxType;
+  manifesto?: string; // Lời ngỏ / Chương trình hành động
+  status: CongressCandidateStatus;
+  adviserNote?: string;
+}
+
+export interface CongressVote {
+  id: string;
+  ballotBoxId: string;
+  voterHash: string; // Hash ẩn danh: campaignId + classId + ballotBoxId + voterHash
+  selectedCandidateIds: string[];
+  submittedAt: string;
+}
+
+export type BallotBoxStatus =
+  | "DRAFT"
+  | "WAITING_APPROVAL"
+  | "APPROVED"
+  | "OPEN"
+  | "CLOSED"
+  | "COUNTED"
+  | "PUBLISHED";
+
+export interface BallotBox {
+  id: string;
+  type: BallotBoxType;
+  title: string;
+  status: BallotBoxStatus;
+  maxWinners: number;
+  maxVotesPerBallot: number;
+  candidates: CongressCandidate[];
+  votes: CongressVote[];
+  approvedAt?: string;
+  openedAt?: string;
+  closedAt?: string;
+}
+
+export type CongressAppointmentRole =
+  | "BI_THU_CHI_DOAN"
+  | "PHO_BI_THU_CHI_DOAN"
+  | "UY_VIEN_BCH_CHI_DOAN"
+  | "CHI_HOI_TRUONG"
+  | "CHI_HOI_PHO"
+  | "UY_VIEN_BCH_CHI_HOI"
+  | "LOP_TRUONG"
+  | "LOP_PHO_HOC_TAP"
+  | "LOP_PHO_DOI_SONG_PHONG_TRAO"
+  | "LOP_PHO_VAN_THE"
+  | "TO_TRUONG"
+  | "TO_PHO"
+  | "THU_QUY";
+
+export interface CongressAppointment {
+  id: string;
+  studentId: string;
+  studentName?: string;
+  role: CongressAppointmentRole;
+  appointedBy: string;
+  appointedAt: string;
+  source: "ELECTION_RESULT";
+  note?: string;
+}
+
+export type ClassCongressStatus =
+  | "RECEIVED"
+  | "CANDIDATE_DRAFT"
+  | "WAITING_ADVISER_APPROVAL"
+  | "CANDIDATE_APPROVED"
+  | "VOTING"
+  | "VOTING_CLOSED"
+  | "COUNTED"
+  | "APPOINTMENT_PENDING"
+  | "APPOINTED"
+  | "MINUTES_SIGNED"
+  | "SUBMITTED"
+  | "APPROVED";
+
+export interface ClassCongress {
+  id: string;
+  campaignId: string;
+  classId: string;
+  adviserId?: string;
+  secretaryStudentId?: string;
+  title: string;
+  status: ClassCongressStatus;
+  voterIds: string[]; // Danh sách mã SV đã tham gia bỏ phiếu
+  bchChiDoanSeats: number;
+  bchChiHoiSeats: number;
+  banCanSuSeats: number;
+  ballotBoxes: BallotBox[];
+  appointments: CongressAppointment[];
+  minutesNote?: string;
+  minutesSignedBy?: string;
+  minutesSignedAt?: string;
+  submittedAt?: string;
+  approvedAt?: string;
+  updatedAt?: string;
+}
+

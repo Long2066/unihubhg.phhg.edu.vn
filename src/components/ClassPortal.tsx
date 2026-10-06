@@ -95,7 +95,7 @@ export const ClassPortal: React.FC = () => {
   }, [myClassmatesArr, currentUser, groupName]);
 
   // General state variables
-  const [reportDate, setReportDate] = useState(new Date().toISOString().split("T")[0]);
+  const [reportDate, setReportDate] = useState(() => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()));
   const [attendanceSearch, setAttendanceSearch] = useState("");
   const [draftAbsentees, setDraftAbsentees] = useState<{ studentId: string; studentName: string; type: "PHÉP" | "KHÔNG_PHÉP"; reason?: string }[]>([]);
 

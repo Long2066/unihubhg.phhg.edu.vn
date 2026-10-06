@@ -16,7 +16,9 @@ import {
   ScheduleSlot,
   GroupAttendanceReport,
   CourseClassAssignment,
-  SubjectGradeSheet
+  SubjectGradeSheet,
+  CongressCampaign,
+  ClassCongress
 } from "./types";
 
 export const SEED_PERIOD: EvaluationPeriod = {
@@ -35,7 +37,8 @@ export const SEED_USERS: UserAccount[] = [
     name: "Ma Văn Long",
     role: UserRole.STUDENT,
     email: "DTG245140202053@phhg.edu.vn",
-    targetId: "DTG245140202053"
+    targetId: "DTG245140202053",
+    classSecretaryForClassId: "K2-GDTH A"
   },
   {
     id: "U_ORG01",
@@ -1195,6 +1198,213 @@ export const SEED_SUBJECT_GRADES: SubjectGradeSheet[] = [
         xepLoai: "Xuất sắc"
       }
     ]
+  }
+];
+
+export const SEED_CONGRESS_CAMPAIGNS: CongressCampaign[] = [
+  {
+    id: "CAMP_2026_2027_01",
+    title: "Đại hội Chi đoàn - Chi hội - Ban cán sự nhiệm kỳ 2026 - 2027",
+    academicYear: "2026-2027",
+    semesterId: "HOCKY_1_2026_2027",
+    scope: "ALL_CLASSES",
+    status: "DISTRIBUTED",
+    rules: {
+      twoThirdsQuorumWarning: true,
+      maxSeatsRatioWarning: 0.5,
+      allowCustomSeats: true
+    },
+    startDate: "2026-10-05",
+    endDate: "2026-11-15",
+    createdBy: "BCH Đoàn Phân hiệu Hà Giang",
+    createdAt: "2026-10-05T08:00:00.000Z",
+    lockedAt: "2026-10-05T08:30:00.000Z",
+    distributedAt: "2026-10-05T09:00:00.000Z"
+  }
+];
+
+export const SEED_CLASS_CONGRESSES: ClassCongress[] = [
+  {
+    id: "CONG_CAMP_2026_2027_01_K2_GDTH_A",
+    campaignId: "CAMP_2026_2027_01",
+    classId: "K2-GDTH A",
+    adviserId: "gvcn.k2gdtha@phhg.edu.vn",
+    secretaryStudentId: "DTG245140202053",
+    title: "Đại hội Chi đoàn K2-GDTH A nhiệm kỳ 2026 - 2027",
+    status: "VOTING",
+    voterIds: ["DTG245140202053"],
+    bchChiDoanSeats: 3,
+    bchChiHoiSeats: 3,
+    banCanSuSeats: 3,
+    ballotBoxes: [
+      {
+        id: "BOX_CD_K2_GDTH_A",
+        type: "BCH_CHI_DOAN",
+        title: "Bầu Ban Chấp hành Chi đoàn K2-GDTH A (3 đồng chí)",
+        status: "OPEN",
+        maxWinners: 3,
+        maxVotesPerBallot: 3,
+        candidates: [
+          {
+            id: "CAND_CD_01",
+            studentId: "DTG245140202053",
+            studentName: "Ma Văn Long",
+            classId: "K2-GDTH A",
+            ballotType: "BCH_CHI_DOAN",
+            manifesto: "Phấn đấu 100% đoàn viên tham gia hoạt động tình nguyện, phát triển kỹ năng số và NCKH.",
+            status: "APPROVED"
+          },
+          {
+            id: "CAND_CD_02",
+            studentId: "SV01",
+            studentName: "Phạm Thanh Bình",
+            classId: "K2-GDTH A",
+            ballotType: "BCH_CHI_DOAN",
+            manifesto: "Đẩy mạnh phong trào văn nghệ thể thao, gắn kết tình đoàn kết tập thể lớp.",
+            status: "APPROVED"
+          },
+          {
+            id: "CAND_CD_03",
+            studentId: "SV06",
+            studentName: "Hoàng Hoài Nam",
+            classId: "K2-GDTH A",
+            ballotType: "BCH_CHI_DOAN",
+            manifesto: "Hỗ trợ học tập, thúc đẩy phong trào đôi bạn cùng tiến trong Chi đoàn.",
+            status: "APPROVED"
+          },
+          {
+            id: "CAND_CD_04",
+            studentId: "SV07",
+            studentName: "Đỗ Thị Hồng Ánh",
+            classId: "K2-GDTH A",
+            ballotType: "BCH_CHI_DOAN",
+            manifesto: "Xây dựng quỹ phong trào công khai, minh bạch và hiệu quả.",
+            status: "APPROVED"
+          }
+        ],
+        votes: [
+          {
+            id: "VOTE_CD_01",
+            ballotBoxId: "BOX_CD_K2_GDTH_A",
+            voterHash: "DEMOHASH_CD_01",
+            selectedCandidateIds: ["CAND_CD_01", "CAND_CD_02", "CAND_CD_03"],
+            submittedAt: "2026-10-05T10:00:00.000Z"
+          }
+        ]
+      },
+      {
+        id: "BOX_CH_K2_GDTH_A",
+        type: "BCH_CHI_HOI",
+        title: "Bầu Ban Chấp hành Chi hội Sinh viên K2-GDTH A (3 đồng chí)",
+        status: "OPEN",
+        maxWinners: 3,
+        maxVotesPerBallot: 3,
+        candidates: [
+          {
+            id: "CAND_CH_01",
+            studentId: "SV08",
+            studentName: "Hoàng Hải Anh",
+            classId: "K2-GDTH A",
+            ballotType: "BCH_CHI_HOI",
+            manifesto: "Nâng cao chất lượng hoạt động hội viên, hỗ trợ sinh viên khó khăn trong lớp.",
+            status: "APPROVED"
+          },
+          {
+            id: "CAND_CH_02",
+            studentId: "SV09",
+            studentName: "Hoàng Thị Ngọc Ánh",
+            classId: "K2-GDTH A",
+            ballotType: "BCH_CHI_HOI",
+            manifesto: "Tổ chức các buổi sinh hoạt chuyên đề về kỹ năng mềm và hướng nghiệp.",
+            status: "APPROVED"
+          },
+          {
+            id: "CAND_CH_03",
+            studentId: "DTG245140202053",
+            studentName: "Ma Văn Long",
+            classId: "K2-GDTH A",
+            ballotType: "BCH_CHI_HOI",
+            manifesto: "Đồng hành cùng hội viên tham gia các cuộc thi sáng tạo và công tác xã hội.",
+            status: "APPROVED"
+          },
+          {
+            id: "CAND_CH_04",
+            studentId: "SV01",
+            studentName: "Phạm Thanh Bình",
+            classId: "K2-GDTH A",
+            ballotType: "BCH_CHI_HOI",
+            manifesto: "Tăng cường kết nối Chi hội với Hội Sinh viên cấp Phân hiệu.",
+            status: "APPROVED"
+          }
+        ],
+        votes: [
+          {
+            id: "VOTE_CH_01",
+            ballotBoxId: "BOX_CH_K2_GDTH_A",
+            voterHash: "DEMOHASH_CH_01",
+            selectedCandidateIds: ["CAND_CH_01", "CAND_CH_02", "CAND_CH_03"],
+            submittedAt: "2026-10-05T10:05:00.000Z"
+          }
+        ]
+      },
+      {
+        id: "BOX_BCS_K2_GDTH_A",
+        type: "BAN_CAN_SU",
+        title: "Bầu Ban cán sự lớp K2-GDTH A (3 thành viên)",
+        status: "OPEN",
+        maxWinners: 3,
+        maxVotesPerBallot: 3,
+        candidates: [
+          {
+            id: "CAND_BCS_01",
+            studentId: "SV06",
+            studentName: "Hoàng Hoài Nam",
+            classId: "K2-GDTH A",
+            ballotType: "BAN_CAN_SU",
+            manifesto: "Quản lý sĩ số lớp chuyên cần, nhắc nhở lịch học và thi kịp thời.",
+            status: "APPROVED"
+          },
+          {
+            id: "CAND_BCS_02",
+            studentId: "SV07",
+            studentName: "Đỗ Thị Hồng Ánh",
+            classId: "K2-GDTH A",
+            ballotType: "BAN_CAN_SU",
+            manifesto: "Cầu nối tin cậy giữa tập thể sinh viên với Giảng viên và Cố vấn học tập.",
+            status: "APPROVED"
+          },
+          {
+            id: "CAND_BCS_03",
+            studentId: "SV08",
+            studentName: "Hoàng Hải Anh",
+            classId: "K2-GDTH A",
+            ballotType: "BAN_CAN_SU",
+            manifesto: "Chăm lo đời sống tinh thần, quản lý quỹ lớp minh bạch.",
+            status: "APPROVED"
+          },
+          {
+            id: "CAND_BCS_04",
+            studentId: "DTG245140202053",
+            studentName: "Ma Văn Long",
+            classId: "K2-GDTH A",
+            ballotType: "BAN_CAN_SU",
+            manifesto: "Hỗ trợ học tập, tổ chức nhóm học ôn tập trước kỳ thi.",
+            status: "APPROVED"
+          }
+        ],
+        votes: [
+          {
+            id: "VOTE_BCS_01",
+            ballotBoxId: "BOX_BCS_K2_GDTH_A",
+            voterHash: "DEMOHASH_BCS_01",
+            selectedCandidateIds: ["CAND_BCS_01", "CAND_BCS_02", "CAND_BCS_03"],
+            submittedAt: "2026-10-05T10:10:00.000Z"
+          }
+        ]
+      }
+    ],
+    appointments: [],
+    updatedAt: "2026-10-05T10:10:00.000Z"
   }
 ];
 

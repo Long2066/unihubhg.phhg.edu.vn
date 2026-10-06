@@ -43,7 +43,8 @@ import {
   Construction,
   FileSignature,
   XCircle,
-  Send
+  Send,
+  Vote
 } from "lucide-react";
 import { uploadAvatarHybrid } from "../utils/imageCompressor";
 import { formatFacultyName } from "../utils/studentCard";
@@ -442,7 +443,8 @@ export const StudentPortal: React.FC = () => {
     gradeAppeals,
     schedules,
     registrationPeriods,
-    allSemesters
+    allSemesters,
+    classCongresses
   } = useUniHub();
 
   const [appealModalSubject, setAppealModalSubject] = useState<{ code: string; name: string; grade: string } | null>(null);
@@ -459,6 +461,15 @@ export const StudentPortal: React.FC = () => {
   const openCreditPeriod = useMemo(() => {
     return registrationPeriods?.find(p => p.status === "OPEN") || null;
   }, [registrationPeriods]);
+
+  const myClassCongress = useMemo(() => {
+    if (!currentUser) return null;
+    const targetClass = (currentUser as any)?.classId || currentUser.targetId || "";
+    return classCongresses?.find(c => {
+      const normClass = normalizeClassId(c.classId);
+      return normClass === normalizeClassId(targetClass) || (sObj?.classId && normClass === normalizeClassId(sObj.classId));
+    }) || null;
+  }, [currentUser, classCongresses, sObj]);
 
   const sObj = useMemo(() => {
     const seed = SEED_STUDENTS.find(s => 
@@ -2540,6 +2551,41 @@ export const StudentPortal: React.FC = () => {
                 </div>
               )}
 
+              {/* BANNER THÔNG BÁO ĐẠI HỘI CHI ĐOÀN (KẾ HOẠCH V4) */}
+              {myClassCongress && (
+                <div className="bg-gradient-to-r from-rose-600 via-indigo-700 to-indigo-800 text-white rounded-2xl p-5 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in slide-in-from-top-3 duration-300">
+                  <div className="flex items-start gap-3.5">
+                    <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-xs text-white shrink-0">
+                      <Vote className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          myClassCongress.status === "VOTING" 
+                            ? "bg-emerald-400/20 text-emerald-300 border border-emerald-400/30"
+                            : "bg-white/20 text-white border border-white/30"
+                        }`}>
+                          {myClassCongress.status === "VOTING" ? "🗳️ ĐANG MỞ BỎ PHIẾU" : `🏛️ ${myClassCongress.status}`}
+                        </span>
+                        <h4 className="font-bold text-white text-base">{myClassCongress.title}</h4>
+                      </div>
+                      <p className="text-xs text-indigo-100 mt-1">
+                        Bầu cử 3 hòm phiếu: BCH Chi đoàn, BCH Chi hội Sinh viên & Ban cán sự lớp • Cử tri đã tham gia: <strong className="text-amber-300 font-semibold">{myClassCongress.voterIds?.length || 0} cử tri</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setActivePortletTab("DAI_HOI_CHI_DOAN")}
+                    className="px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-indigo-900 text-xs font-black shadow-md transition-all cursor-pointer whitespace-nowrap active:scale-95 flex items-center justify-center gap-2 self-start sm:self-auto min-h-[44px]"
+                  >
+                    <span>THAM GIA ĐẠI HỘI NGAY</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
               {/* 4-Card Bento Grid Dashboard Overview */}
               {renderDashboardOverviewCards()}
 
@@ -3235,7 +3281,7 @@ export const StudentPortal: React.FC = () => {
                                     <span className="text-xs font-bold text-slate-600">
                                       Danh sách thành viên đang sinh hoạt ({clubMembers.length})
                                     </span>
-                                    <span className="text-[10px] text-slate-400">Nhiệm kỳ {membership.term || period.academicYear}</span>
+                                    <span className="text-[10px] text-slate-400">Nhiệm kỳ {membership?.term || period.academicYear}</span>
                                   </div>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {clubMembers.map(m => (
@@ -3266,27 +3312,27 @@ export const StudentPortal: React.FC = () => {
                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                                       <div>
                                         <span className="text-slate-400 block text-[10px]">Họ và tên:</span>
-                                        <span className="font-bold text-slate-800">{membership.studentName || sObj?.name}</span>
+                                        <span className="font-bold text-slate-800">{membership?.studentName || sObj?.name}</span>
                                       </div>
                                       <div>
                                         <span className="text-slate-400 block text-[10px]">Mã sinh viên:</span>
-                                        <span className="font-bold text-slate-800 font-mono">{membership.studentId}</span>
+                                        <span className="font-bold text-slate-800 font-mono">{membership?.studentId || sObj?.id}</span>
                                       </div>
                                       <div>
                                         <span className="text-slate-400 block text-[10px]">Lớp:</span>
-                                        <span className="font-bold text-slate-800">{membership.classId || sObj?.classId}</span>
+                                        <span className="font-bold text-slate-800">{membership?.classId || sObj?.classId}</span>
                                       </div>
                                       <div>
                                         <span className="text-slate-400 block text-[10px]">Chức vụ:</span>
-                                        <span className="font-bold text-indigo-600">{membership.role}</span>
+                                        <span className="font-bold text-indigo-600">{membership?.role || "Chưa tham gia"}</span>
                                       </div>
                                       <div>
                                         <span className="text-slate-400 block text-[10px]">Số điện thoại:</span>
-                                        <span className="font-bold text-slate-800">{membership.phone || "Chưa cập nhật"}</span>
+                                        <span className="font-bold text-slate-800">{membership?.phone || sObj?.phone || "Chưa cập nhật"}</span>
                                       </div>
                                       <div>
                                         <span className="text-slate-400 block text-[10px]">Email:</span>
-                                        <span className="font-bold text-slate-800">{membership.email || "Chưa cập nhật"}</span>
+                                        <span className="font-bold text-slate-800">{membership?.email || sObj?.email || "Chưa cập nhật"}</span>
                                       </div>
                                     </div>
                                   </div>
@@ -3305,6 +3351,10 @@ export const StudentPortal: React.FC = () => {
                                       />
                                       <button 
                                         onClick={() => {
+                                          if (!membership?.id) {
+                                            alert("Bạn chưa là thành viên chính thức của CLB này.");
+                                            return;
+                                          }
                                           updateMemberDetails(membership.id, {
                                             attachmentUrl: profileAttachmentInput
                                           });

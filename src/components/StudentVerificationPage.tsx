@@ -15,6 +15,17 @@ import {
 
 const norm = (value?: unknown) => String(value || "").trim().toLowerCase();
 
+const sanitizeImageUrl = (url?: string): string | undefined => {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  if (/^javascript:/i.test(trimmed)) return undefined;
+  if (/^(https?:\/\/|\/|data:image\/)/i.test(trimmed)) {
+    return trimmed;
+  }
+  return undefined;
+};
+
 const mergeStudents = (liveStudents: Student[]) => {
   const map = new Map<string, Student>();
   [...SEED_STUDENTS, ...liveStudents].forEach(student => {
@@ -119,7 +130,8 @@ export const StudentVerificationPage: React.FC = () => {
   const major = getStudentMajor(student);
   const course = getStudentCardCourse(student, cardClass) || "Chưa cập nhật";
   const validity = getStudentCardValidity(student, student.id);
-  const avatar = student.avatar || getCachedAvatar(student.id, (student as any).code, student.email) || STUDENT_CARD_DEFAULT_AVATAR;
+  const rawAvatar = student.avatar || getCachedAvatar(student.id, (student as any).code, student.email);
+  const avatar = sanitizeImageUrl(rawAvatar) || STUDENT_CARD_DEFAULT_AVATAR;
 
   return (
     <main className="min-h-screen bg-slate-100/70 py-6 px-3 sm:px-6 lg:px-8 flex flex-col items-center">

@@ -57,7 +57,14 @@ import {
   CourseOffering,
   CreditEnrollment,
   SemesterItem,
-  SEMESTER_LIST
+  SEMESTER_LIST,
+  CongressCampaign,
+  ClassCongress,
+  CongressAppointment,
+  BallotBox,
+  CongressCandidate,
+  CongressVote,
+  BallotBoxType
 } from "./types";
 import { getRouteForTab, getTabFromPath, getPageTitle } from "./utils/routeUtils";
 import { 
@@ -77,7 +84,9 @@ import {
   SEED_SCHEDULES,
   SEED_GROUP_ATTENDANCE,
   SEED_TEACHER_ASSIGNMENTS,
-  SEED_SUBJECT_GRADES
+  SEED_SUBJECT_GRADES,
+  SEED_CONGRESS_CAMPAIGNS,
+  SEED_CLASS_CONGRESSES
 } from "./data";
 import { recordSystemVisit } from "./utils/visitTracker";
 
@@ -136,7 +145,7 @@ interface UniHubContextType {
   createAnnouncement: (announcement: Omit<ClubAnnouncement, "id" | "orgName" | "createdAt">) => Promise<string>;
   updateAnnouncement: (announcementId: string, data: Partial<ClubAnnouncement>) => Promise<void>;
   deleteAnnouncement: (id: string) => void;
-  addMemberManual: (member: Omit<OrganizationMember, "id" | "joinedDate" | "term" | "status">) => void;
+  addMemberManual: (member: Omit<OrganizationMember, "id" | "joinedDate" | "term" | "status">) => boolean;
   deleteMember: (memberId: string) => void;
   updateMemberDetails: (memberId: string, details: Partial<OrganizationMember>) => void;
   importMembersExcel: (membersToImport: OrganizationMember[]) => void;
@@ -239,6 +248,24 @@ interface UniHubContextType {
   importCourseOfferingsExcel: (offerings: CourseOffering[]) => Promise<void>;
   enrollCreditCourses: (studentId: string, studentName: string, classId: string, offeringIds: string[]) => Promise<{ success: boolean; message: string }>;
   cancelCreditEnrollment: (enrollmentId: string) => Promise<void>;
+
+  // Không gian Đại hội Chi đoàn cấp Phân hiệu (Kế hoạch v4)
+  congressCampaigns: CongressCampaign[];
+  classCongresses: ClassCongress[];
+  saveCongressCampaign: (campaign: CongressCampaign) => Promise<void>;
+  lockAndDistributeCampaign: (campaignId: string) => Promise<{ createdCount: number }>;
+  finalizeCampaign: (campaignId: string) => Promise<void>;
+  saveClassCongress: (congress: ClassCongress) => Promise<void>;
+  assignClassSecretary: (studentId: string, classId: string) => Promise<void>;
+  submitCandidatesForApproval: (congressId: string) => Promise<void>;
+  reviewCandidates: (congressId: string, ballotType: BallotBoxType | "ALL", action: "APPROVE" | "REJECT", adviserNote?: string) => Promise<void>;
+  openCongressBallotBox: (congressId: string, ballotBoxId?: string) => Promise<void>;
+  closeCongressBallotBox: (congressId: string, ballotBoxId?: string) => Promise<void>;
+  castCongressVote: (congressId: string, ballotBoxId: string, voterStudentId: string, selectedCandidateIds: string[]) => Promise<{ success: boolean; message: string }>;
+  appointCongressRoles: (congressId: string, appointments: CongressAppointment[]) => Promise<void>;
+  signCongressMinutes: (congressId: string, signerName: string, note?: string) => Promise<void>;
+  submitCongressToAdmin: (congressId: string) => Promise<void>;
+  approveCongressFinal: (congressId: string) => Promise<void>;
 }
 
 export const normalizeClassId = (classId: string | undefined | null): string => {
@@ -856,6 +883,28 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch {}
     }
     return [];
+  });
+
+  const [congressCampaigns, setCongressCampaigns] = useState<CongressCampaign[]>(() => {
+    const cached = localStorage.getItem("unihub_congress_campaigns");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return SEED_CONGRESS_CAMPAIGNS;
+  });
+
+  const [classCongresses, setClassCongresses] = useState<ClassCongress[]>(() => {
+    const cached = localStorage.getItem("unihub_class_congresses");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return SEED_CLASS_CONGRESSES;
   });
 
   const allSemesters = React.useMemo<SemesterItem[]>(() => {
@@ -3647,7 +3696,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
     if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || activity.orgId !== effectiveOrgId)) {
-      throw new Error("Không thể tạo hoạt động cho tổ chức khác.");
+      const isYouthOrStudentUnion = currentUser.role === UserRole.YOUTH_UNION || currentUser.role === UserRole.STUDENT_UNION;
+      if (!(isYouthOrStudentUnion && activity.orgId === "DOAN_HOI")) {
+        throw new Error("Không thể tạo hoạt động cho tổ chức khác.");
+      }
     }
 
     const org = organizations.find(o => o.id === activity.orgId);
@@ -3695,7 +3747,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!act) throw new Error("Không tìm thấy hoạt động cần sửa.");
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
     if (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY && (!effectiveOrgId || act.orgId !== effectiveOrgId)) {
-      throw new Error("Không có quyền chỉnh sửa hoạt động của tổ chức khác.");
+      const isYouthOrStudentUnion = currentUser.role === UserRole.YOUTH_UNION || currentUser.role === UserRole.STUDENT_UNION;
+      if (!(isYouthOrStudentUnion && act.orgId === "DOAN_HOI")) {
+        throw new Error("Không có quyền chỉnh sửa hoạt động của tổ chức khác.");
+      }
     }
 
     const cleanData = sanitizeForFirestore({
@@ -3726,8 +3781,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!act) return;
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
     if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || act.orgId !== effectiveOrgId)) {
-      console.warn("Unauthorized attempt to delete activity of another organization");
-      return;
+      const isYouthOrStudentUnion = currentUser.role === UserRole.YOUTH_UNION || currentUser.role === UserRole.STUDENT_UNION;
+      if (!(isYouthOrStudentUnion && act.orgId === "DOAN_HOI")) {
+        console.warn("Unauthorized attempt to delete activity of another organization");
+        return;
+      }
     }
     const updated = activities.filter(a => a.id !== cleanActivityId);
     setActivities(updated);
@@ -3756,8 +3814,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!act) return;
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
     if (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.FACULTY && (!effectiveOrgId || act.orgId !== effectiveOrgId)) {
-      console.warn("Unauthorized attempt to update activity status of another organization");
-      return;
+      const isYouthOrStudentUnion = currentUser.role === UserRole.YOUTH_UNION || currentUser.role === UserRole.STUDENT_UNION;
+      if (!(isYouthOrStudentUnion && act.orgId === "DOAN_HOI")) {
+        console.warn("Unauthorized attempt to update activity status of another organization");
+        return;
+      }
     }
     const nowIso = new Date().toISOString();
     const updated = activities.map(act => {
@@ -3814,7 +3875,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
     if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || announcement.orgId !== effectiveOrgId)) {
-      throw new Error("Không thể tạo thông báo cho tổ chức khác.");
+      const isYouthOrStudentUnion = currentUser.role === UserRole.YOUTH_UNION || currentUser.role === UserRole.STUDENT_UNION;
+      if (!(isYouthOrStudentUnion && announcement.orgId === "DOAN_HOI")) {
+        throw new Error("Không thể tạo thông báo cho tổ chức khác.");
+      }
     }
     const cleanTitle = (announcement.title || "").trim();
     if (!cleanTitle) {
@@ -3869,8 +3933,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!ann) return;
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
     if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || ann.orgId !== effectiveOrgId)) {
-      console.warn("Unauthorized attempt to delete announcement of another organization");
-      return;
+      const isYouthOrStudentUnion = currentUser.role === UserRole.YOUTH_UNION || currentUser.role === UserRole.STUDENT_UNION;
+      if (!(isYouthOrStudentUnion && ann.orgId === "DOAN_HOI")) {
+        console.warn("Unauthorized attempt to delete announcement of another organization");
+        return;
+      }
     }
     const updated = announcements.filter(a => a.id !== cleanId);
     setAnnouncements(updated);
@@ -3888,7 +3955,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!ann) throw new Error("Không tìm thấy thông báo cần sửa.");
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
     if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || ann.orgId !== effectiveOrgId)) {
-      throw new Error("Không thể sửa thông báo của tổ chức khác.");
+      const isYouthOrStudentUnion = currentUser.role === UserRole.YOUTH_UNION || currentUser.role === UserRole.STUDENT_UNION;
+      if (!(isYouthOrStudentUnion && ann.orgId === "DOAN_HOI")) {
+        throw new Error("Không thể sửa thông báo của tổ chức khác.");
+      }
     }
 
     const cleanData = sanitizeForFirestore({
@@ -3911,29 +3981,32 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const addMemberManual = (member: Omit<OrganizationMember, "id" | "joinedDate" | "term" | "status">) => {
     if (!currentUser || (!isOrgRole(currentUser.role) && currentUser.role !== UserRole.ADMIN)) {
       console.warn("Unauthorized attempt to add organization member");
-      return;
+      return false;
     }
     const effectiveOrgId = getEffectiveUserOrgId(currentUser);
     if (currentUser.role !== UserRole.ADMIN && (!effectiveOrgId || member.orgId !== effectiveOrgId)) {
       console.warn("Unauthorized attempt to add member to another organization");
-      return;
+      return false;
     }
     const cleanStudentId = (member.studentId || "").trim();
-    if (!cleanStudentId) return;
+    if (!cleanStudentId) return false;
     const targetStudent = students.find(s => s.id === cleanStudentId);
     if (!targetStudent) {
       console.warn("Cannot add member: student not found in students directory");
-      return;
+      alert("Thêm thất bại: Không tìm thấy sinh viên có mã " + cleanStudentId + " trong cơ sở dữ liệu sinh viên.");
+      return false;
     }
     const isCleanDuplicate = members.some(m => m.orgId === member.orgId && m.studentId === cleanStudentId);
     const isDuplicate = members.some(m => m.orgId === member.orgId && m.studentId === member.studentId);
     if (isDuplicate) {
       console.warn("Student is already a member of this organization");
-      return;
+      alert("Thêm thất bại: Sinh viên " + cleanStudentId + " đã là thành viên của tổ chức.");
+      return false;
     }
     if (isCleanDuplicate) {
       console.warn("Student is already a member of this organization");
-      return;
+      alert("Thêm thất bại: Sinh viên " + cleanStudentId + " đã là thành viên của tổ chức.");
+      return false;
     }
     const newMember: OrganizationMember = {
       ...member,
@@ -3948,6 +4021,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updated = [...members, newMember];
     setMembers(updated);
     saveToStorage("unihub_members", updated);
+    setDoc(doc(db, "members", newMember.id), sanitizeForFirestore(newMember), { merge: true }).catch(err =>
+      console.warn("Firestore write failed for addMemberManual:", err)
+    );
+    return true;
   };
 
   const deleteMember = (memberId: string) => {
@@ -4064,6 +4141,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updated = [...members, ...deduplicatedMembers];
     setMembers(updated);
     saveToStorage("unihub_members", updated);
+    deduplicatedMembers.forEach(m => {
+      setDoc(doc(db, "members", m.id), sanitizeForFirestore(m), { merge: true }).catch(err =>
+        console.warn("Firestore write failed for imported member:", m.id, err)
+      );
+    });
   };
 
   const approveMemberRequest = (memberId: string, note?: string) => {
@@ -4226,6 +4308,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
     setMembers(updated);
     saveToStorage("unihub_members", updated);
+    setDoc(doc(db, "members", cleanMemberId), { role }, { merge: true }).catch(err =>
+      console.warn("Firestore write failed for assignMemberRole:", err)
+    );
   };
 
   const updateAttendance = (attendanceId: string, attended: boolean, role?: "MEM" | "BTC" | "SUPPORTER") => {
@@ -6905,6 +6990,386 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  // --- KHÔNG GIAN ĐẠI HỘI CHI ĐOÀN CẤP PHÂN HIỆU (KẾ HOẠCH V4) ---
+  const persistCongressCampaigns = (newList: CongressCampaign[]) => {
+    setCongressCampaigns(newList);
+    try {
+      localStorage.setItem("unihub_congress_campaigns", JSON.stringify(newList));
+    } catch {}
+  };
+
+  const persistClassCongresses = (newList: ClassCongress[]) => {
+    setClassCongresses(newList);
+    try {
+      localStorage.setItem("unihub_class_congresses", JSON.stringify(newList));
+    } catch {}
+  };
+
+  const saveCongressCampaign = async (campaign: CongressCampaign) => {
+    const existingIdx = congressCampaigns.findIndex(c => c.id === campaign.id);
+    let nextList: CongressCampaign[];
+    if (existingIdx >= 0) {
+      nextList = [...congressCampaigns];
+      nextList[existingIdx] = campaign;
+    } else {
+      nextList = [campaign, ...congressCampaigns];
+    }
+    persistCongressCampaigns(nextList);
+    try {
+      await setDoc(doc(db, "congressCampaigns", campaign.id), campaign, { merge: true });
+    } catch (e) {
+      console.warn("Lỗi đồng bộ congressCampaigns lên Firestore:", e);
+    }
+  };
+
+  const lockAndDistributeCampaign = async (campaignId: string) => {
+    const campaign = congressCampaigns.find(c => c.id === campaignId);
+    if (!campaign) throw new Error("Chiến dịch không tồn tại.");
+
+    const now = new Date().toISOString();
+    const updatedCampaign: CongressCampaign = {
+      ...campaign,
+      status: "DISTRIBUTED",
+      lockedAt: campaign.lockedAt || now,
+      distributedAt: now
+    };
+
+    const uniqueClasses = Array.from(
+      new Set(students.map(s => normalizeClassId(s.classId)).filter(Boolean))
+    );
+
+    let createdCount = 0;
+    const nextCongresses = [...classCongresses];
+
+    uniqueClasses.forEach(rawClassId => {
+      const normClass = normalizeClassId(rawClassId);
+      const exists = nextCongresses.some(
+        cc => cc.campaignId === campaignId && normalizeClassId(cc.classId) === normClass
+      );
+      if (!exists) {
+        const secUser = users.find(
+          u => u.role === UserRole.STUDENT && u.classSecretaryForClassId && normalizeClassId(u.classSecretaryForClassId) === normClass
+        );
+        const advUser = users.find(
+          u => u.role === UserRole.ADVISER && u.targetId && normalizeClassId(u.targetId) === normClass
+        );
+
+        const newCongress: ClassCongress = {
+          id: `CONG_${campaignId}_${normClass.replace(/[^a-zA-Z0-9]/g, "_")}`,
+          campaignId,
+          classId: normClass,
+          title: `Đại hội Chi đoàn ${normClass} nhiệm kỳ ${campaign.academicYear}`,
+          status: "RECEIVED",
+          voterIds: [],
+          bchChiDoanSeats: 3,
+          bchChiHoiSeats: 3,
+          banCanSuSeats: 3,
+          secretaryStudentId: secUser?.targetId || secUser?.username || undefined,
+          adviserId: advUser?.id || advUser?.email || undefined,
+          ballotBoxes: [
+            {
+              id: `BOX_CD_${normClass.replace(/[^a-zA-Z0-9]/g, "_")}`,
+              type: "BCH_CHI_DOAN",
+              title: `Bầu Ban Chấp hành Chi đoàn ${normClass}`,
+              status: "DRAFT",
+              maxWinners: 3,
+              maxVotesPerBallot: 3,
+              candidates: [],
+              votes: []
+            },
+            {
+              id: `BOX_CH_${normClass.replace(/[^a-zA-Z0-9]/g, "_")}`,
+              type: "BCH_CHI_HOI",
+              title: `Bầu Ban Chấp hành Chi hội ${normClass}`,
+              status: "DRAFT",
+              maxWinners: 3,
+              maxVotesPerBallot: 3,
+              candidates: [],
+              votes: []
+            },
+            {
+              id: `BOX_BCS_${normClass.replace(/[^a-zA-Z0-9]/g, "_")}`,
+              type: "BAN_CAN_SU",
+              title: `Bầu Ban cán sự lớp ${normClass}`,
+              status: "DRAFT",
+              maxWinners: 3,
+              maxVotesPerBallot: 3,
+              candidates: [],
+              votes: []
+            }
+          ],
+          appointments: [],
+          updatedAt: now
+        };
+        nextCongresses.push(newCongress);
+        createdCount++;
+      }
+    });
+
+    await saveCongressCampaign(updatedCampaign);
+    persistClassCongresses(nextCongresses);
+    return { createdCount };
+  };
+
+  const finalizeCampaign = async (campaignId: string) => {
+    const campaign = congressCampaigns.find(c => c.id === campaignId);
+    if (!campaign) return;
+    const updated: CongressCampaign = {
+      ...campaign,
+      status: "FINALIZED",
+      finalizedAt: new Date().toISOString()
+    };
+    await saveCongressCampaign(updated);
+  };
+
+  const saveClassCongress = async (congress: ClassCongress) => {
+    const updatedCongress = { ...congress, updatedAt: new Date().toISOString() };
+    const idx = classCongresses.findIndex(c => c.id === congress.id);
+    let nextList: ClassCongress[];
+    if (idx >= 0) {
+      nextList = [...classCongresses];
+      nextList[idx] = updatedCongress;
+    } else {
+      nextList = [updatedCongress, ...classCongresses];
+    }
+    persistClassCongresses(nextList);
+    try {
+      await setDoc(doc(db, "classCongresses", congress.id), updatedCongress, { merge: true });
+    } catch (e) {
+      console.warn("Lỗi lưu classCongresses Firestore:", e);
+    }
+  };
+
+  const assignClassSecretary = async (studentId: string, classId: string) => {
+    const normClass = normalizeClassId(classId);
+    setUsers(prevUsers => {
+      const nextUsers = prevUsers.map(u => {
+        const uStudentId = (u.targetId || u.username || "").toLowerCase();
+        if (uStudentId === studentId.toLowerCase()) {
+          return { ...u, classSecretaryForClassId: normClass };
+        }
+        return u;
+      });
+      try {
+        localStorage.setItem("unihub_users", JSON.stringify(nextUsers));
+      } catch {}
+      return nextUsers;
+    });
+
+    const updatedCongresses = classCongresses.map(cc => {
+      if (normalizeClassId(cc.classId) === normClass) {
+        return { ...cc, secretaryStudentId: studentId, updatedAt: new Date().toISOString() };
+      }
+      return cc;
+    });
+    persistClassCongresses(updatedCongresses);
+  };
+
+  const submitCandidatesForApproval = async (congressId: string) => {
+    const congress = classCongresses.find(c => c.id === congressId);
+    if (!congress) return;
+    const updatedBoxes = congress.ballotBoxes.map(b => ({
+      ...b,
+      status: "WAITING_APPROVAL" as const,
+      candidates: b.candidates.map(c => ({ ...c, status: "SUBMITTED" as const }))
+    }));
+    const updated: ClassCongress = {
+      ...congress,
+      status: "WAITING_ADVISER_APPROVAL",
+      ballotBoxes: updatedBoxes,
+      updatedAt: new Date().toISOString()
+    };
+    await saveClassCongress(updated);
+  };
+
+  const reviewCandidates = async (
+    congressId: string, 
+    ballotType: BallotBoxType | "ALL", 
+    action: "APPROVE" | "REJECT", 
+    adviserNote?: string
+  ) => {
+    const congress = classCongresses.find(c => c.id === congressId);
+    if (!congress) return;
+
+    const updatedBoxes = congress.ballotBoxes.map(b => {
+      if (ballotType === "ALL" || b.type === ballotType) {
+        return {
+          ...b,
+          status: action === "APPROVE" ? ("APPROVED" as const) : ("DRAFT" as const),
+          approvedAt: action === "APPROVE" ? new Date().toISOString() : undefined,
+          candidates: b.candidates.map(c => ({
+            ...c,
+            status: action === "APPROVE" ? ("APPROVED" as const) : ("REJECTED" as const),
+            adviserNote: adviserNote || c.adviserNote
+          }))
+        };
+      }
+      return b;
+    });
+
+    const allApproved = updatedBoxes.every(b => b.status === "APPROVED");
+    const nextStatus = action === "REJECT" 
+      ? "CANDIDATE_DRAFT" 
+      : allApproved ? "CANDIDATE_APPROVED" : "WAITING_ADVISER_APPROVAL";
+
+    const updated: ClassCongress = {
+      ...congress,
+      status: nextStatus,
+      ballotBoxes: updatedBoxes,
+      minutesNote: adviserNote ? `CVHT: ${adviserNote}` : congress.minutesNote,
+      updatedAt: new Date().toISOString()
+    };
+    await saveClassCongress(updated);
+  };
+
+  const openCongressBallotBox = async (congressId: string, ballotBoxId?: string) => {
+    const congress = classCongresses.find(c => c.id === congressId);
+    if (!congress) return;
+    const now = new Date().toISOString();
+    const updatedBoxes = congress.ballotBoxes.map(b => {
+      if (!ballotBoxId || b.id === ballotBoxId) {
+        return { ...b, status: "OPEN" as const, openedAt: now };
+      }
+      return b;
+    });
+    const updated: ClassCongress = {
+      ...congress,
+      status: "VOTING",
+      ballotBoxes: updatedBoxes,
+      updatedAt: now
+    };
+    await saveClassCongress(updated);
+  };
+
+  const closeCongressBallotBox = async (congressId: string, ballotBoxId?: string) => {
+    const congress = classCongresses.find(c => c.id === congressId);
+    if (!congress) return;
+    const now = new Date().toISOString();
+    const updatedBoxes = congress.ballotBoxes.map(b => {
+      if (!ballotBoxId || b.id === ballotBoxId) {
+        return { ...b, status: "CLOSED" as const, closedAt: now };
+      }
+      return b;
+    });
+
+    const allClosed = updatedBoxes.every(b => b.status === "CLOSED" || b.status === "COUNTED");
+    const updated: ClassCongress = {
+      ...congress,
+      status: allClosed ? "COUNTED" : "VOTING",
+      ballotBoxes: updatedBoxes,
+      updatedAt: now
+    };
+    await saveClassCongress(updated);
+  };
+
+  const castCongressVote = async (
+    congressId: string, 
+    ballotBoxId: string, 
+    voterStudentId: string, 
+    selectedCandidateIds: string[]
+  ): Promise<{ success: boolean; message: string }> => {
+    const congress = classCongresses.find(c => c.id === congressId);
+    if (!congress) return { success: false, message: "Không tìm thấy phiên đại hội." };
+
+    const boxIdx = congress.ballotBoxes.findIndex(b => b.id === ballotBoxId);
+    if (boxIdx < 0) return { success: false, message: "Không tìm thấy hòm phiếu." };
+    const box = congress.ballotBoxes[boxIdx];
+
+    if (box.status !== "OPEN") {
+      return { success: false, message: "Hòm phiếu chưa mở hoặc đã khóa." };
+    }
+
+    if (selectedCandidateIds.length > box.maxVotesPerBallot) {
+      return { success: false, message: `Bạn chỉ được chọn tối đa ${box.maxVotesPerBallot} ứng viên.` };
+    }
+
+    const voterHash = btoa(`${congress.campaignId}_${congress.classId}_${ballotBoxId}_${voterStudentId.trim().toUpperCase()}`);
+    if (box.votes.some(v => v.voterHash === voterHash)) {
+      return { success: false, message: "Bạn đã hoàn thành bỏ phiếu cho hòm phiếu này rồi." };
+    }
+
+    const newVote: CongressVote = {
+      id: `VOTE_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      ballotBoxId,
+      voterHash,
+      selectedCandidateIds,
+      submittedAt: new Date().toISOString()
+    };
+
+    const nextVotes = [...box.votes, newVote];
+    const nextBoxes = [...congress.ballotBoxes];
+    nextBoxes[boxIdx] = { ...box, votes: nextVotes };
+
+    const nextVoterIds = Array.from(new Set([...congress.voterIds, voterStudentId.trim()]));
+    const updatedCongress: ClassCongress = {
+      ...congress,
+      voterIds: nextVoterIds,
+      ballotBoxes: nextBoxes,
+      updatedAt: new Date().toISOString()
+    };
+
+    await saveClassCongress(updatedCongress);
+    return { success: true, message: "Bỏ phiếu thành công! Phiếu bầu của bạn đã được ghi nhận ẩn danh." };
+  };
+
+  const appointCongressRoles = async (congressId: string, appointments: CongressAppointment[]) => {
+    const congress = classCongresses.find(c => c.id === congressId);
+    if (!congress) return;
+
+    const updated: ClassCongress = {
+      ...congress,
+      appointments,
+      status: "APPOINTED",
+      updatedAt: new Date().toISOString()
+    };
+
+    const secApp = appointments.find(a => a.role === "BI_THU_CHI_DOAN");
+    if (secApp && secApp.studentId) {
+      await assignClassSecretary(secApp.studentId, congress.classId);
+    }
+
+    await saveClassCongress(updated);
+  };
+
+  const signCongressMinutes = async (congressId: string, signerName: string, note?: string) => {
+    const congress = classCongresses.find(c => c.id === congressId);
+    if (!congress) return;
+
+    const updated: ClassCongress = {
+      ...congress,
+      status: "MINUTES_SIGNED",
+      minutesSignedBy: signerName,
+      minutesSignedAt: new Date().toISOString(),
+      minutesNote: note || congress.minutesNote,
+      updatedAt: new Date().toISOString()
+    };
+    await saveClassCongress(updated);
+  };
+
+  const submitCongressToAdmin = async (congressId: string) => {
+    const congress = classCongresses.find(c => c.id === congressId);
+    if (!congress) return;
+    const updated: ClassCongress = {
+      ...congress,
+      status: "SUBMITTED",
+      submittedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    await saveClassCongress(updated);
+  };
+
+  const approveCongressFinal = async (congressId: string) => {
+    const congress = classCongresses.find(c => c.id === congressId);
+    if (!congress) return;
+    const updated: ClassCongress = {
+      ...congress,
+      status: "APPROVED",
+      approvedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    await saveClassCongress(updated);
+  };
+
   return (
     <UniHubContext.Provider value={{
       currentUser,
@@ -7045,7 +7510,25 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       deleteCourseOffering,
       importCourseOfferingsExcel,
       enrollCreditCourses,
-      cancelCreditEnrollment
+      cancelCreditEnrollment,
+
+      // Không gian Đại hội Chi đoàn cấp Phân hiệu (Kế hoạch v4)
+      congressCampaigns,
+      classCongresses,
+      saveCongressCampaign,
+      lockAndDistributeCampaign,
+      finalizeCampaign,
+      saveClassCongress,
+      assignClassSecretary,
+      submitCandidatesForApproval,
+      reviewCandidates,
+      openCongressBallotBox,
+      closeCongressBallotBox,
+      castCongressVote,
+      appointCongressRoles,
+      signCongressMinutes,
+      submitCongressToAdmin,
+      approveCongressFinal
     }}>
       {children}
     </UniHubContext.Provider>

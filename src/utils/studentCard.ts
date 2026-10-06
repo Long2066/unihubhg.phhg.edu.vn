@@ -83,35 +83,47 @@ export const getStudentMajor = (student: Partial<Student>): string => {
 export const getAdmissionYear = (student: Partial<Student>, fallbackId = "") => {
   const academicYears = safeTrim(student.academicYears);
   const academicYearMatch = academicYears.match(/\b(20\d{2})\b/);
-  if (academicYearMatch) return parseInt(academicYearMatch[1], 10);
+  if (academicYearMatch) {
+    const yr = parseInt(academicYearMatch[1], 10);
+    if (!isNaN(yr)) return yr;
+  }
 
   const trainingCourse = safeTrim(student.trainingCourse);
   const trainingYearMatch = trainingCourse.match(/\b(20\d{2})\b/);
-  if (trainingYearMatch) return parseInt(trainingYearMatch[1], 10);
+  if (trainingYearMatch) {
+    const yr = parseInt(trainingYearMatch[1], 10);
+    if (!isNaN(yr)) return yr;
+  }
 
   const trainingKMatch = trainingCourse.match(/K(\d{1,2})/i);
   if (trainingKMatch) {
     const kNum = parseInt(trainingKMatch[1], 10);
-    return kNum > 50 ? 1900 + kNum : 2000 + kNum;
+    if (!isNaN(kNum)) return kNum > 50 ? 1900 + kNum : 2000 + kNum;
   }
 
   const classId = safeTrim(student.classId);
   const classKMatch = classId.match(/K(\d{2})/i);
-  if (classKMatch) return 2000 + parseInt(classKMatch[1], 10);
+  if (classKMatch) {
+    const kNum = parseInt(classKMatch[1], 10);
+    if (!isNaN(kNum)) return 2000 + kNum;
+  }
   if (classId.startsWith("K2-")) return 2024;
 
   const idStr = safeTrim(student.id || fallbackId);
   const idMatch = idStr.match(/(?:DTG|SV|K)?(\d{2})\d{4,}/i) || idStr.match(/[A-Z]{2,4}(\d{2})/i);
   if (idMatch) {
     const num = parseInt(idMatch[1], 10);
-    if (num >= 15 && num <= 40) return 2000 + num;
+    if (!isNaN(num) && num >= 15 && num <= 40) return 2000 + num;
   }
 
   return 2024;
 };
 
 export const getStudentCardValidity = (student: Partial<Student>, fallbackId = "") => {
-  const admissionYear = getAdmissionYear(student, fallbackId);
+  let admissionYear = getAdmissionYear(student, fallbackId);
+  if (!admissionYear || isNaN(admissionYear)) {
+    admissionYear = 2024;
+  }
   const startYear = admissionYear + 1;
   const expiryYear = startYear + 6;
   const expiryDate = new Date(expiryYear, 0, 31, 23, 59, 59, 999);

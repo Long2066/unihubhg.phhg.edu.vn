@@ -56,7 +56,8 @@ import {
   Menu,
   Globe,
   LayoutDashboard,
-  IdCard
+  IdCard,
+  Vote
 } from "lucide-react";
 
 const AdviserIcon = ShieldAlert;
@@ -85,6 +86,7 @@ const FacultyPortal = lazy(() => import("./components/FacultyPortal").then(modul
 const AdminPortal = lazy(() => import("./components/AdminPortal").then(module => ({ default: module.AdminPortal })));
 const TeacherPortal = lazy(() => import("./components/TeacherPortal").then(module => ({ default: module.TeacherPortal })));
 const ClassStatisticsBottom = lazy(() => import("./components/ClassStatisticsBottom").then(module => ({ default: module.ClassStatisticsBottom })));
+const CongressPortal = lazy(() => import("./components/CongressPortal").then(module => ({ default: module.CongressPortal })));
 
 const PortalLoader: React.FC = () => (
   <div className="min-h-[45vh] flex items-center justify-center">
@@ -140,7 +142,8 @@ const AppContent: React.FC = () => {
     gradeAppeals,
     teacherAssignments,
     syncFreshFromCloud,
-    systemNotifications
+    systemNotifications,
+    classCongresses
   } = useUniHub();
 
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
@@ -999,6 +1002,8 @@ const AppContent: React.FC = () => {
 
     if (activePortletTab === "GIAM_SAT_SI_SO" && !isOrgRole(currentUser.role)) {
       portal = <ClassStatisticsBottom />;
+    } else if (activePortletTab === "DAI_HOI_CHI_DOAN") {
+      portal = <CongressPortal />;
     } else {
       switch (currentUser.role) {
         case UserRole.STUDENT:
@@ -1075,12 +1080,14 @@ const AppContent: React.FC = () => {
     switch (currentUser.role) {
       case UserRole.TEACHER:
         return [
-          { id: "TEACHER_GRADES", label: "Nhập & Nạp Điểm Học Phần", icon: GraduationCap }
+          { id: "TEACHER_GRADES", label: "Nhập & Nạp Điểm Học Phần", icon: GraduationCap },
+          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote }
         ];
       case UserRole.STUDENT:
         return [
           { id: "TRANG_CHU", label: "Trang chủ", icon: Home },
           { id: "THE_SINH_VIEN", label: "Thẻ sinh viên điện tử", icon: IdCard },
+          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
           { id: "DIEM", label: "Điểm số", icon: Award },
           { id: "DANG_KY_TIN_CHI", label: "Đăng ký tín chỉ", icon: BookOpen },
           { id: "THOI_KHOA_BIEU", label: "Thời khóa biểu", icon: Clock },
@@ -1094,6 +1101,7 @@ const AppContent: React.FC = () => {
       case UserRole.YOUTH_UNION:
       case UserRole.STUDENT_UNION:
         return [
+          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
           { id: "DS_THANHVIEN", label: "Danh sách thành viên", icon: Users },
           { id: "TAO_HOATDONG", label: "Khai báo hoạt động", icon: PlusCircle },
           { id: "TAO_THONGBAO", label: "Đăng tải bảng thông báo", icon: Megaphone },
@@ -1103,6 +1111,7 @@ const AppContent: React.FC = () => {
       case UserRole.TRAINING_DEPT:
         return [
           { id: "OVERVIEW", label: "Tổng Quan Đào Tạo", icon: LayoutDashboard },
+          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
           { id: "IMPORT", label: "Nạp & Tổng Hợp Điểm HK", icon: FileSpreadsheet },
           { id: "DANG_KY_TIN_CHI", label: "Đăng Ký Tín Chỉ", icon: BookOpen },
           { id: "TEACHER_ASSIGNMENTS", label: "Phân Công Giảng Dạy", icon: Users },
@@ -1117,6 +1126,7 @@ const AppContent: React.FC = () => {
       case UserRole.FACULTY:
         return [
           { id: "STAT", label: "Theo dõi rèn luyện khoa", icon: BarChart2 },
+          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
           { id: "LOCKS", label: "Khóa dữ liệu & Ký duyệt", icon: Lock },
           { id: "EVENTS", label: "Phát động & Cộng điểm", icon: Megaphone },
           { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList }
@@ -1124,6 +1134,7 @@ const AppContent: React.FC = () => {
       case UserRole.ADMIN:
         return [
           { id: "CONFIG", label: "Cấu hình quy chế điểm", icon: Settings },
+          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
           { id: "PERIOD", label: "Quản lý Đợt đánh giá", icon: Clock },
           { id: "STATIONS", label: "Động cơ hệ thống", icon: Cpu },
           { id: "CLUBS", label: "Quản lý Tài khoản CLB", icon: Users },
@@ -1134,6 +1145,7 @@ const AppContent: React.FC = () => {
           return [
             { id: "TRANG_CHU", label: "Trang chủ Tổ", icon: Home },
             { id: "THE_SINH_VIEN", label: "Thẻ sinh viên điện tử", icon: IdCard },
+            { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
             { id: "BCS_DIEMDANH", label: "Điểm danh Tổ", icon: Users },
             { id: "BCS_XETDUYET", label: "Đề xuất ĐRL Tổ", icon: BookOpen }
           ];
@@ -1141,6 +1153,7 @@ const AppContent: React.FC = () => {
         return [
           { id: "TRANG_CHU", label: "Trang chủ tổng quan", icon: Home },
           { id: "THE_SINH_VIEN", label: "Thẻ sinh viên điện tử", icon: IdCard },
+          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
           { id: "BCS_DIEMDANH", label: "Giám sát sĩ số & điểm danh", icon: ClipboardList },
           { id: "BCS_DUYET_TO", label: "Phê duyệt Tổ", icon: CheckCircle2 },
           { id: "BCS_THONG_KE", label: "Thống kê chuyên cần", icon: ClipboardList },
@@ -1150,12 +1163,14 @@ const AppContent: React.FC = () => {
       case UserRole.ADVISER:
         return [
           { id: "ADVISER_DUYETDEM", label: "Thống kê & Xét duyệt lớp", icon: BookOpen },
+          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
           { id: "ADVISER_MINHCHUNG", label: "Minh chứng của lớp", icon: FileText },
           { id: "ADVISER_NOTIFICATIONS", label: "Nhật ký sĩ số & Thư từ lớp", icon: MessageSquare },
           { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList }
         ];
       default:
         return [
+          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
           { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList }
         ];
     }
@@ -1164,6 +1179,30 @@ const AppContent: React.FC = () => {
   const getTabBadgeCount = (tabId: string): number => {
     if (!currentUser) return 0;
     
+    if (tabId === "DAI_HOI_CHI_DOAN") {
+      if (currentUser.role === UserRole.STUDENT) {
+        const studentClass = students.find(s => s.id === (currentUser.targetId || currentUser.username))?.classId || "";
+        const cong = classCongresses.find(c => normalizeClassId(c.classId) === normalizeClassId(studentClass));
+        if (cong && cong.status === "VOTING") {
+          const studentId = currentUser.targetId || currentUser.username || "";
+          const unvoted = cong.ballotBoxes.filter(box => {
+            if (box.status !== "OPEN") return false;
+            const hash = btoa(`${cong.campaignId}_${cong.classId}_${box.id}_${studentId.trim().toUpperCase()}`);
+            return !box.votes.some(v => v.voterHash === hash);
+          });
+          return unvoted.length;
+        }
+      } else if (currentUser.role === UserRole.ADVISER) {
+        const cong = classCongresses.find(c => normalizeClassId(c.classId) === normalizeClassId(currentUser.targetId || ""));
+        if (cong && (cong.status === "WAITING_ADVISER_APPROVAL" || cong.status === "COUNTED" || cong.status === "APPOINTMENT_PENDING")) {
+          return 1;
+        }
+      } else if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.YOUTH_UNION) {
+        return classCongresses.filter(c => c.status === "SUBMITTED").length;
+      }
+      return 0;
+    }
+
     if (currentUser.role === UserRole.STUDENT) {
       const studentId = currentUser.targetId || (currentUser.role === UserRole.STUDENT ? currentUser.username : "") || "";
       switch (tabId) {
