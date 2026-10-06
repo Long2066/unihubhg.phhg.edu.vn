@@ -462,15 +462,6 @@ export const StudentPortal: React.FC = () => {
     return registrationPeriods?.find(p => p.status === "OPEN") || null;
   }, [registrationPeriods]);
 
-  const myClassCongress = useMemo(() => {
-    if (!currentUser) return null;
-    const targetClass = (currentUser as any)?.classId || currentUser.targetId || "";
-    return classCongresses?.find(c => {
-      const normClass = normalizeClassId(c.classId);
-      return normClass === normalizeClassId(targetClass) || (sObj?.classId && normClass === normalizeClassId(sObj.classId));
-    }) || null;
-  }, [currentUser, classCongresses, sObj]);
-
   const sObj = useMemo(() => {
     const seed = SEED_STUDENTS.find(s => 
       (currentUser?.targetId && s.id.toLowerCase() === currentUser.targetId.toLowerCase()) ||
@@ -514,7 +505,18 @@ export const StudentPortal: React.FC = () => {
       avatar
     };
   }, [students, currentUser]);
+
   const studentId = sObj?.id || currentUser?.targetId || (currentUser?.role === "STUDENT" ? currentUser?.username : "") || "";
+
+  const myClassCongress = useMemo(() => {
+    if (!currentUser) return null;
+    const targetClass = (currentUser as any)?.classId || currentUser.targetId || "";
+    return classCongresses?.find(c => {
+      const normClass = normalizeClassId(c.classId);
+      return normClass === normalizeClassId(targetClass) || (sObj?.classId && normClass === normalizeClassId(sObj.classId));
+    }) || null;
+  }, [currentUser, classCongresses, sObj]);
+
   const normalizeStudentKey = (value?: string | null) => (value || "").trim().toLowerCase();
   const studentIdentityKeys = useMemo(() => {
     const rawKeys = [
