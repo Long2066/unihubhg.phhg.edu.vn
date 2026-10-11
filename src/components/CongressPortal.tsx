@@ -130,12 +130,21 @@ export const CongressPortal: React.FC = () => {
     if (!currentUser || !currentCongress) return false;
     const normCurrentClass = normalizeClassId(currentCongress.classId);
     const secClass = currentUser.classSecretaryForClassId ? normalizeClassId(currentUser.classSecretaryForClassId) : "";
-    return (
-      (currentUser.role === UserRole.STUDENT && secClass === normCurrentClass) ||
-      currentCongress.secretaryStudentId === (currentUser.targetId || currentUser.username) ||
+    const curId = (currentUser.targetId || currentUser.username || "").toLowerCase();
+    const secId = (currentCongress.secretaryStudentId || "").toLowerCase();
+    return Boolean(
+      (secClass && secClass === normCurrentClass) ||
+      (secId && secId === curId) ||
       currentUser.role === UserRole.ADMIN
     );
   }, [currentUser, currentCongress]);
+
+  // Thông tin sinh viên giữ vai trò Bí thư Chi đoàn
+  const currentSecretaryStudent = useMemo(() => {
+    if (!currentCongress?.secretaryStudentId) return undefined;
+    const allKnown = (students && students.length > 0) ? students : SEED_STUDENTS;
+    return allKnown.find(s => s.id.toLowerCase() === currentCongress.secretaryStudentId?.toLowerCase());
+  }, [currentCongress, students]);
 
   // Kiểm tra quyền Cố vấn học tập (CVHT)
   const isAdviser = useMemo(() => {
@@ -562,7 +571,7 @@ export const CongressPortal: React.FC = () => {
           <span>Bỏ Phiếu 3 Hòm Phiếu</span>
         </button>
 
-        {(isClassSecretary || isAdminOrYouthUnion) && (
+        {(isClassSecretary || isAdminOrYouthUnion || isAdviser) && (
           <button
             onClick={() => setActiveTab("SECRETARY")}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all min-h-[44px] cursor-pointer whitespace-nowrap ${
@@ -572,7 +581,7 @@ export const CongressPortal: React.FC = () => {
             }`}
           >
             <ShieldCheck size={16} />
-            <span>Quản Trị Chi Đoàn (Bí Thư)</span>
+            <span>Đề Xuất Nhân Sự (Bí Thư)</span>
           </button>
         )}
 
@@ -623,14 +632,29 @@ export const CongressPortal: React.FC = () => {
       {activeTab === "VOTE" && currentCongress && (
         <div className="space-y-6 animate-fade-in">
           {currentCongress.status !== "VOTING" && currentCongress.status !== "COUNTED" && currentCongress.status !== "APPOINTED" && currentCongress.status !== "APPROVED" && (
-            <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-5 text-amber-900 flex items-start gap-3">
-              <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider">Hòm phiếu chưa mở bỏ phiếu</h4>
-                <p className="text-xs mt-1 text-amber-800">
-                  Danh sách ứng viên đang trong quá trình lập hoặc chờ Cố vấn học tập phê duyệt. Sau khi CVHT duyệt và Bí thư Chi đoàn kích hoạt mở hòm phiếu, cử tri sẽ bắt đầu bỏ phiếu tại đây.
-                </p>
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/80 rounded-2xl p-5 text-blue-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                  <Users size={18} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-blue-900">
+                    Giai đoạn: Bí thư Chi đoàn lập danh sách & đề xuất nhân sự bầu cử
+                  </h4>
+                  <p className="text-xs text-blue-800 mt-1 leading-relaxed">
+                    Bí thư Chi đoàn đang thực hiện đề xuất danh sách ứng cử viên 3 hòm phiếu (BCH Chi đoàn, BCH Chi hội, Ban cán sự) và gửi Cố vấn học tập (CVHT) phê duyệt. Hòm phiếu sẽ mở sau khi hoàn tất phê chuẩn.
+                  </p>
+                </div>
               </div>
+              {(isClassSecretary || isAdminOrYouthUnion || isAdviser) && (
+                <button
+                  onClick={() => setActiveTab("SECRETARY")}
+                  className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white text-xs font-bold shadow-xs whitespace-nowrap min-h-[44px] cursor-pointer flex items-center gap-1.5 shrink-0"
+                >
+                  <UserCheck size={15} />
+                  <span>Vào Đề Xuất Nhân Sự Ngay</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -849,21 +873,21 @@ export const CongressPortal: React.FC = () => {
       )}
 
       {/* ========================================================= */}
-      {/* 2. TAB QUẢN TRỊ CHI ĐOÀN (BÍ THƯ CHI ĐOÀN) */}
+      {/* 2. TAB ĐỀ XUẤT NHÂN SỰ & QUẢN TRỊ (BÍ THƯ CHI ĐOÀN) */}
       {/* ========================================================= */}
       {activeTab === "SECRETARY" && currentCongress && (
         <div className="space-y-6 animate-fade-in text-left">
           {/* Banner Bí thư Chi đoàn */}
-          <div className="bg-gradient-to-r from-indigo-900 to-slate-900 text-white rounded-3xl p-6 sm:p-7 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 text-white rounded-3xl p-6 sm:p-7 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 block mb-1">
-                Không gian thao tác Bí thư Chi đoàn
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block mb-1">
+                ⭐ Quyền Bí thư Chi đoàn • Đề xuất nhân sự ứng cử
               </span>
               <h2 className="text-lg font-bold text-white">
-                Quản trị Đại hội Chi đoàn {currentCongress.classId}
+                Đề Xuất Nhân Sự Bầu Cử Đại Hội Chi Đoàn {currentCongress.classId}
               </h2>
               <p className="text-xs text-indigo-200 mt-0.5">
-                Thiết lập số lượng cần bầu, lập danh sách ứng viên 3 hòm phiếu, gửi CVHT duyệt và mở/khóa hòm phiếu.
+                Quyền hạn Bí thư: Thiết lập số lượng cần bầu, đề xuất danh sách ứng cử viên 3 hòm phiếu (BCH Chi đoàn, BCH Chi hội, Ban cán sự lớp) và gửi Cố vấn học tập (CVHT) phê duyệt.
               </p>
             </div>
 
@@ -902,10 +926,85 @@ export const CongressPortal: React.FC = () => {
                   <span>Gửi Biên Bản Lên Phân Hiệu</span>
                 </button>
               ) : null}
+
+              {/* Nút mở lại soạn thảo để đề xuất nhân sự nếu cần */}
+              {(currentCongress.status === "VOTING" || currentCongress.status === "CANDIDATE_APPROVED") && (
+                <button
+                  onClick={async () => {
+                    const nextBoxes = currentCongress.ballotBoxes.map(b => ({ ...b, status: "DRAFT" as const }));
+                    await saveClassCongress({
+                      ...currentCongress,
+                      status: "CANDIDATE_DRAFT",
+                      ballotBoxes: nextBoxes
+                    });
+                    showToast("success", "Đã mở lại giai đoạn Đề xuất nhân sự cho Bí thư Chi đoàn.");
+                  }}
+                  className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-white/20 shadow-xs active:scale-98 transition-all flex items-center gap-1.5 cursor-pointer min-h-[44px]"
+                >
+                  <Edit3 size={14} />
+                  <span>Mở Lại Đề Xuất Nhân Sự</span>
+                </button>
+              )}
             </div>
           </div>
 
-          {/* QUẢN TRỊ 3 HÒM PHIẾU */}
+          {/* THANH THÔNG TIN & GÁN QUYỀN BÍ THƯ CHI ĐOÀN */}
+          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                <Award size={20} />
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Bí thư Chi đoàn lớp hiện tại</span>
+                <span className="font-bold text-slate-900">
+                  {currentSecretaryStudent ? `${currentSecretaryStudent.name} (${currentSecretaryStudent.id})` : (currentCongress.secretaryStudentId || "Chưa chỉ định Bí thư")}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Nếu là Admin hoặc CVHT: Dropdown chỉ định Bí thư */}
+              {(isAdminOrYouthUnion || isAdviser) && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-slate-500 font-semibold">Chỉ định Bí thư:</span>
+                  <select
+                    onChange={async (e) => {
+                      if (e.target.value) {
+                        await assignClassSecretary(e.target.value, currentCongress.classId);
+                        showToast("success", `Đã chỉ định sinh viên làm Bí thư Chi đoàn ${currentCongress.classId}.`);
+                      }
+                    }}
+                    defaultValue=""
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer min-h-[38px]"
+                  >
+                    <option value="" disabled>-- Chọn sinh viên làm Bí thư --</option>
+                    {classStudents.map(s => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Nếu là sinh viên lớp này nhưng chưa có quyền Bí thư: Nút nhận vai trò Bí thư */}
+              {isStudentOrMonitor && !isClassSecretary && (
+                <button
+                  onClick={async () => {
+                    const sId = myStudentObj?.id || currentUser?.targetId || currentUser?.username || "";
+                    if (sId) {
+                      await assignClassSecretary(sId, currentCongress.classId);
+                      showToast("success", `Đã kích hoạt quyền Bí thư Chi đoàn ${currentCongress.classId} cho bạn.`);
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-98 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[38px]"
+                >
+                  <ShieldCheck size={14} />
+                  <span>Kích hoạt quyền Bí thư của tôi</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* QUẢN TRỊ 3 HÒM PHIẾU ĐỀ XUẤT NHÂN SỰ */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {currentCongress.ballotBoxes.map((box) => (
               <div key={box.id} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs flex flex-col justify-between">
@@ -958,14 +1057,14 @@ export const CongressPortal: React.FC = () => {
                   {/* Danh sách ứng viên */}
                   <div className="mt-4 space-y-2">
                     <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-slate-700">Ứng viên ({box.candidates.length}/{box.maxWinners})</span>
+                      <span className="font-bold text-slate-700">Ứng cử viên đề xuất ({box.candidates.length}/{box.maxWinners})</span>
                       <button
                         onClick={() => setCandidateModal({ boxType: box.type })}
-                        disabled={box.status === "OPEN" || box.status === "CLOSED"}
-                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer disabled:opacity-40"
+                        disabled={box.status === "CLOSED"}
+                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-40 min-h-[36px] transition-all shadow-2xs"
                       >
                         <Plus size={14} />
-                        <span>Thêm ứng viên</span>
+                        <span>Đề xuất ứng viên</span>
                       </button>
                     </div>
 
@@ -984,7 +1083,7 @@ export const CongressPortal: React.FC = () => {
                             }`}>
                               {cand.status}
                             </span>
-                            {box.status !== "OPEN" && box.status !== "CLOSED" && (
+                            {box.status !== "CLOSED" && (
                               <button
                                 onClick={() => handleRemoveCandidate(box.type, cand.id)}
                                 className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
@@ -1018,7 +1117,7 @@ export const CongressPortal: React.FC = () => {
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-left">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <h3 className="text-sm font-bold text-slate-900">
-                Thêm ứng cử viên vào danh sách
+                Đề Xuất Ứng Cử Viên Mới ({candidateModal.boxType === "BCH_CHI_DOAN" ? "BCH Chi đoàn" : candidateModal.boxType === "BCH_CHI_HOI" ? "BCH Chi hội" : "Ban cán sự lớp"})
               </h3>
               <button 
                 onClick={() => setCandidateModal(null)}
@@ -1030,13 +1129,13 @@ export const CongressPortal: React.FC = () => {
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Chọn sinh viên từ danh sách lớp:</label>
+                <label className="font-bold text-slate-700 block mb-1">Chọn sinh viên từ danh sách lớp {currentCongress.classId}:</label>
                 <select
                   value={candidateForm.studentId}
                   onChange={(e) => setCandidateForm({ ...candidateForm, studentId: e.target.value })}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer min-h-[44px]"
                 >
-                  <option value="">-- Chọn sinh viên --</option>
+                  <option value="">-- Chọn sinh viên ứng cử --</option>
                   {classStudents.map(s => (
                     <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
                   ))}
@@ -1067,7 +1166,7 @@ export const CongressPortal: React.FC = () => {
                 disabled={!candidateForm.studentId}
                 className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs disabled:opacity-40 min-h-[44px] cursor-pointer"
               >
-                Thêm Ứng Viên
+                Xác Nhận Đề Xuất Ứng Viên
               </button>
             </div>
           </div>

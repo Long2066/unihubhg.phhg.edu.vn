@@ -1413,7 +1413,7 @@ export const SEED_CLASS_CONGRESSES: ClassCongress[] = [
     adviserId: "gvcn.k2gdthb@phhg.edu.vn",
     secretaryStudentId: "SV20CN03",
     title: "Đại hội Chi đoàn K2-GDTH B nhiệm kỳ 2026 - 2027",
-    status: "VOTING",
+    status: "CANDIDATE_DRAFT",
     voterIds: [],
     bchChiDoanSeats: 3,
     bchChiHoiSeats: 3,
@@ -1423,7 +1423,7 @@ export const SEED_CLASS_CONGRESSES: ClassCongress[] = [
         id: "BOX_CD_K2_GDTH_B",
         type: "BCH_CHI_DOAN",
         title: "Bầu Ban Chấp hành Chi đoàn K2-GDTH B (3 đồng chí)",
-        status: "OPEN",
+        status: "DRAFT",
         maxWinners: 3,
         maxVotesPerBallot: 3,
         candidates: [
@@ -1434,7 +1434,7 @@ export const SEED_CLASS_CONGRESSES: ClassCongress[] = [
             classId: "K2-GDTH B",
             ballotType: "BCH_CHI_DOAN",
             manifesto: "Đổi mới phương thức hoạt động chi đoàn, ứng dụng công nghệ thông tin.",
-            status: "APPROVED"
+            status: "DRAFT"
           },
           {
             id: "CAND_CD_B_02",
@@ -1443,16 +1443,7 @@ export const SEED_CLASS_CONGRESSES: ClassCongress[] = [
             classId: "K2-GDTH B",
             ballotType: "BCH_CHI_DOAN",
             manifesto: "Gắn kết các thành viên, đẩy mạnh phong trào thể dục thể thao rèn luyện thân thể.",
-            status: "APPROVED"
-          },
-          {
-            id: "CAND_CD_B_03",
-            studentId: "SV20CN05",
-            studentName: "Nguyễn Thị Mai",
-            classId: "K2-GDTH B",
-            ballotType: "BCH_CHI_DOAN",
-            manifesto: "Tích cực hỗ trợ học tập và hoạt động ngoại khóa.",
-            status: "APPROVED"
+            status: "DRAFT"
           }
         ],
         votes: []
@@ -1461,7 +1452,7 @@ export const SEED_CLASS_CONGRESSES: ClassCongress[] = [
         id: "BOX_CH_K2_GDTH_B",
         type: "BCH_CHI_HOI",
         title: "Bầu Ban Chấp hành Chi hội Sinh viên K2-GDTH B (3 đồng chí)",
-        status: "OPEN",
+        status: "DRAFT",
         maxWinners: 3,
         maxVotesPerBallot: 3,
         candidates: [
@@ -1472,25 +1463,16 @@ export const SEED_CLASS_CONGRESSES: ClassCongress[] = [
             classId: "K2-GDTH B",
             ballotType: "BCH_CHI_HOI",
             manifesto: "Đại diện tiếng nói và quyền lợi chính đáng của hội viên sinh viên.",
-            status: "APPROVED"
+            status: "DRAFT"
           },
           {
             id: "CAND_CH_B_02",
-            studentId: "SV20CN05",
-            studentName: "Nguyễn Thị Mai",
-            classId: "K2-GDTH B",
-            ballotType: "BCH_CHI_HOI",
-            manifesto: "Tổ chức phong trào tình nguyện và các câu lạc bộ học thuật.",
-            status: "APPROVED"
-          },
-          {
-            id: "CAND_CH_B_03",
             studentId: "SV20CN04",
             studentName: "Vũ Đăng Khoa",
             classId: "K2-GDTH B",
             ballotType: "BCH_CHI_HOI",
             manifesto: "Đồng hành cùng các bạn sinh viên vượt khó vươn lên trong học tập.",
-            status: "APPROVED"
+            status: "DRAFT"
           }
         ],
         votes: []
@@ -1499,7 +1481,7 @@ export const SEED_CLASS_CONGRESSES: ClassCongress[] = [
         id: "BOX_BCS_K2_GDTH_B",
         type: "BAN_CAN_SU",
         title: "Bầu Ban cán sự lớp K2-GDTH B (3 thành viên)",
-        status: "OPEN",
+        status: "DRAFT",
         maxWinners: 3,
         maxVotesPerBallot: 3,
         candidates: [
@@ -1510,7 +1492,7 @@ export const SEED_CLASS_CONGRESSES: ClassCongress[] = [
             classId: "K2-GDTH B",
             ballotType: "BAN_CAN_SU",
             manifesto: "Quản lý nề nếp lớp học nghiêm túc, hỗ trợ tài liệu học tập kịp thời.",
-            status: "APPROVED"
+            status: "DRAFT"
           },
           {
             id: "CAND_BCS_B_02",
@@ -1519,16 +1501,7 @@ export const SEED_CLASS_CONGRESSES: ClassCongress[] = [
             classId: "K2-GDTH B",
             ballotType: "BAN_CAN_SU",
             manifesto: "Phối hợp chặt chẽ với Cố vấn học tập và ban cán sự các tổ.",
-            status: "APPROVED"
-          },
-          {
-            id: "CAND_BCS_B_03",
-            studentId: "SV20CN05",
-            studentName: "Nguyễn Thị Mai",
-            classId: "K2-GDTH B",
-            ballotType: "BAN_CAN_SU",
-            manifesto: "Thực hiện tốt vai trò thủ quỹ và chăm lo đời sống sinh viên trong lớp.",
-            status: "APPROVED"
+            status: "DRAFT"
           }
         ],
         votes: []

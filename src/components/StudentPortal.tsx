@@ -516,6 +516,18 @@ export const StudentPortal: React.FC = () => {
     return classCongresses?.find(c => normalizeClassId(c.classId) === normClass) || null;
   }, [currentUser, classCongresses, sObj]);
 
+  const isStudentClassSecretary = useMemo(() => {
+    if (!currentUser || !myClassCongress) return false;
+    const normClass = normalizeClassId(myClassCongress.classId);
+    const secClass = currentUser.classSecretaryForClassId ? normalizeClassId(currentUser.classSecretaryForClassId) : "";
+    const curId = (currentUser.targetId || currentUser.username || "").toLowerCase();
+    const secId = (myClassCongress.secretaryStudentId || "").toLowerCase();
+    return Boolean(
+      (secClass && secClass === normClass) ||
+      (secId && secId === curId)
+    );
+  }, [currentUser, myClassCongress]);
+
   const normalizeStudentKey = (value?: string | null) => (value || "").trim().toLowerCase();
   const studentIdentityKeys = useMemo(() => {
     const rawKeys = [
@@ -2552,8 +2564,41 @@ export const StudentPortal: React.FC = () => {
                 </div>
               )}
 
-              {/* BANNER THÔNG BÁO ĐẠI HỘI CHI ĐOÀN (KẾ HOẠCH V4) */}
-              {myClassCongress && (
+              {/* KHỐI QUYỀN BÍ THƯ CHI ĐOÀN: ĐỀ XUẤT NHÂN SỰ BẦU CỬ */}
+              {isStudentClassSecretary && myClassCongress && (
+                <div className="bg-gradient-to-r from-indigo-900 via-blue-900 to-indigo-950 text-white rounded-3xl p-6 sm:p-7 shadow-xl border border-indigo-500/20 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 animate-in slide-in-from-top-3 duration-300">
+                  <div className="space-y-1.5 max-w-2xl text-left">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-amber-950 flex items-center gap-1.5 shadow-xs">
+                        <ShieldCheck size={13} />
+                        QUYỀN BÍ THƯ CHI ĐOÀN
+                      </span>
+                      <span className="text-xs font-semibold text-indigo-200">Chi đoàn {myClassCongress.classId}</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/15 text-indigo-100">
+                        Trạng thái: {myClassCongress.status}
+                      </span>
+                    </div>
+                    <h3 className="text-base sm:text-lg font-black text-white leading-tight">
+                      Không Gian Đề Xuất Nhân Sự & Quản Trị Đại Hội Chi Đoàn
+                    </h3>
+                    <p className="text-xs text-indigo-200 leading-relaxed">
+                      Với tư cách Bí thư Chi đoàn, bạn có quyền: Lập danh sách ứng cử viên 3 hòm phiếu (BCH Chi đoàn, BCH Chi hội, Ban cán sự), tùy chỉnh số lượng cần bầu, gửi Cố vấn học tập (CVHT) phê duyệt và mở hòm phiếu.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setActivePortletTab("DAI_HOI_CHI_DOAN")}
+                    className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 text-xs font-black shadow-md transition-all cursor-pointer whitespace-nowrap active:scale-95 flex items-center justify-center gap-2 self-start sm:self-auto min-h-[44px] shrink-0"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>ĐỀ XUẤT NHÂN SỰ NGAY</span>
+                  </button>
+                </div>
+              )}
+
+              {/* BANNER THÔNG BÁO ĐẠI HỘI CHI ĐOÀN (CHO CỬ TRI) */}
+              {myClassCongress && !isStudentClassSecretary && (
                 <div className="bg-gradient-to-r from-rose-600 via-indigo-700 to-indigo-800 text-white rounded-2xl p-5 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in slide-in-from-top-3 duration-300">
                   <div className="flex items-start gap-3.5">
                     <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-xs text-white shrink-0">

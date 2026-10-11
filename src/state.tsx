@@ -7156,6 +7156,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return nextUsers;
     });
 
+    setCurrentUser(prevUser => {
+      if (!prevUser) return prevUser;
+      const uStudentId = (prevUser.targetId || prevUser.username || "").toLowerCase();
+      if (uStudentId === studentId.toLowerCase()) {
+        const updatedUser = { ...prevUser, classSecretaryForClassId: normClass };
+        try {
+          localStorage.setItem("unihub_current_user", JSON.stringify(updatedUser));
+        } catch {}
+        return updatedUser;
+      }
+      return prevUser;
+    });
+
     const updatedCongresses = classCongresses.map(cc => {
       if (normalizeClassId(cc.classId) === normClass) {
         return { ...cc, secretaryStudentId: studentId, updatedAt: new Date().toISOString() };
