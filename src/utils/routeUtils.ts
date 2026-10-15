@@ -21,6 +21,9 @@ export const ROLE_ROUTE_PREFIX: Record<UserRole, string> = {
 };
 
 export const TAB_ROUTE_MAP: Record<string, TabRouteConfig> = {
+  // GENERAL / ALL ROLES
+  DAI_HOI_CHI_DOAN: { slug: "dai-hoi", title: "Đại hội Chi đoàn" },
+
   // STUDENT / GROUP_LEADER
   TRANG_CHU: { slug: "trang-chu", title: "Trang chủ" },
   THE_SINH_VIEN: { slug: "the-sinh-vien", title: "Thẻ sinh viên điện tử" },

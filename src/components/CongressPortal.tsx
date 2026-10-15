@@ -41,6 +41,18 @@ import {
   GraduationCap
 } from "lucide-react";
 
+const APPOINTMENT_ROLE_LABELS: Record<string, string> = {
+  BI_THU_CHI_DOAN: "Bí thư Chi đoàn",
+  PHO_BI_THU_CHI_DOAN: "Phó Bí thư Chi đoàn",
+  UY_VIEN_BCH_CHI_DOAN: "Ủy viên BCH Chi đoàn",
+  CHI_HOI_TRUONG: "Chi hội trưởng",
+  CHI_HOI_PHO: "Chi hội phó",
+  UY_VIEN_BCH_CHI_HOI: "Ủy viên BCH Chi hội",
+  LOP_TRUONG: "Lớp trưởng",
+  LOP_PHO_HOC_TAP: "Lớp phó Học tập",
+  LOP_PHO_DOI_SONG_PHONG_TRAO: "Lớp phó Đời sống & Phong trào"
+};
+
 export const CongressPortal: React.FC = () => {
   const { 
     currentUser, 
@@ -210,8 +222,17 @@ export const CongressPortal: React.FC = () => {
   // Hash kiểm tra đã bầu
   const hasVotedForBox = (box: BallotBox) => {
     if (!currentCongress || !currentVoterId) return false;
-    const expectedHash = btoa(`${currentCongress.campaignId}_${currentCongress.classId}_${box.id}_${currentVoterId.trim().toUpperCase()}`);
-    return box.votes.some(v => v.voterHash === expectedHash);
+    const rawHash = `${currentCongress.campaignId}_${currentCongress.classId}_${box.id}_${currentVoterId.trim().toUpperCase()}`;
+    let utf8Hash = "";
+    try {
+      utf8Hash = btoa(encodeURIComponent(rawHash));
+    } catch {
+      utf8Hash = btoa(rawHash);
+    }
+    const legacyHash = (() => {
+      try { return btoa(rawHash); } catch { return ""; }
+    })();
+    return (box.votes || []).some(v => v.voterHash === utf8Hash || (legacyHash && v.voterHash === legacyHash));
   };
 
   const handleToggleCandidate = (boxId: string, candidateId: string, maxVotes: number) => {
@@ -356,6 +377,97 @@ export const CongressPortal: React.FC = () => {
   const [rejectModal, setRejectModal] = useState<{ boxType: BallotBoxType } | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [appointmentsState, setAppointmentsState] = useState<{ [role: string]: string }>({});
+
+  // Tự động đồng bộ các chức danh đã được bổ nhiệm từ trước
+  React.useEffect(() => {
+    if (currentCongress?.appointments && currentCongress.appointments.length > 0) {
+      const initial: { [role: string]: string } = {};
+      currentCongress.appointments.forEach(app => {
+        initial[app.role] = app.studentId;
+      });
+      setAppointmentsState(initial);
+    } else {
+      setAppointmentsState({});
+    }
+  }, [currentCongress?.id, currentCongress?.appointments]);
+
+  // Lấy danh sách ứng viên theo từng hòm phiếu kèm số phiếu và trạng thái trúng cử (>50% và trong số ghế)
+  const getBoxCandidatesWithStatus = (boxType: BallotBoxType) => {
+    const box = currentCongress?.ballotBoxes.find(b => b.type === boxType);
+    if (!box) return [];
+    const candVoteCounts: { [candId: string]: number } = {};
+    box.candidates.forEach(c => { candVoteCounts[c.id] = 0; });
+    (box.votes || []).forEach(v => {
+      (v.selectedCandidateIds || []).forEach(cId => {
+        if (candVoteCounts[cId] !== undefined) candVoteCounts[cId]++;
+      });
+    });
+    const sorted = [...box.candidates].sort((a, b) => (candVoteCounts[b.id] || 0) - (candVoteCounts[a.id] || 0));
+    const totalBoxVotes = box.votes ? box.votes.length : 0;
+    return sorted.map((cand, idx) => {
+      const votes = candVoteCounts[cand.id] || 0;
+      const isElected = idx < box.maxWinners && totalBoxVotes > 0 && votes > (totalBoxVotes / 2);
+      return { ...cand, votes, isElected };
+    });
+  };
+
+  // Tên hiển thị người ký chuẩn xác (không hardcode)
+  const secretaryDisplayName = useMemo(() => {
+    if (currentSecretaryStudent?.name) return currentSecretaryStudent.name;
+    if (currentCongress?.secretaryStudentId) {
+      const s = students.find(item => item.id.toLowerCase() === currentCongress.secretaryStudentId?.toLowerCase());
+      if (s?.name) return s.name;
+      return currentCongress.secretaryStudentId;
+    }
+    return "Chưa chỉ định Bí thư";
+  }, [currentSecretaryStudent, currentCongress?.secretaryStudentId, students]);
+
+  const adviserDisplayName = useMemo(() => {
+    if (currentCongress?.minutesSignedBy) return currentCongress.minutesSignedBy;
+    const norm = normalizeClassId(currentCongress?.classId || "");
+    const advUser = users.find(u => u.role === UserRole.ADVISER && normalizeClassId(u.targetId || "") === norm);
+    if (advUser?.name) return advUser.name;
+    if (currentUser?.role === UserRole.ADVISER && currentUser.name) return currentUser.name;
+    return "Cố vấn học tập";
+  }, [currentCongress?.minutesSignedBy, currentCongress?.classId, users, currentUser]);
+
+  const renderAppointmentOptions = (boxType: BallotBoxType) => {
+    const cands = getBoxCandidatesWithStatus(boxType);
+    const elected = cands.filter(c => c.isElected);
+    const otherCands = cands.filter(c => !c.isElected);
+    const candIds = new Set(cands.map(c => c.studentId));
+    const otherStudents = classStudents.filter(s => !candIds.has(s.id));
+    return (
+      <>
+        <option value="">-- Chọn nhân sự bổ nhiệm --</option>
+        {elected.length > 0 && (
+          <optgroup label="⭐ Ứng viên trúng cử (>50% phiếu)">
+            {elected.map(c => (
+              <option key={c.studentId} value={c.studentId}>
+                ★ {c.studentName} ({c.studentId}) - {c.votes} phiếu [Trúng cử]
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {otherCands.length > 0 && (
+          <optgroup label="Ứng viên khác">
+            {otherCands.map(c => (
+              <option key={c.studentId} value={c.studentId}>
+                {c.studentName} ({c.studentId}) - {c.votes} phiếu
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {otherStudents.length > 0 && (
+          <optgroup label="Đoàn viên / Sinh viên lớp">
+            {otherStudents.map(s => (
+              <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
+            ))}
+          </optgroup>
+        )}
+      </>
+    );
+  };
 
   const handleApproveAllCandidates = async () => {
     if (!currentCongress) return;
@@ -1289,8 +1401,7 @@ export const CongressPortal: React.FC = () => {
                       onChange={(e) => setAppointmentsState({ ...appointmentsState, BI_THU_CHI_DOAN: e.target.value })}
                       className="w-full bg-white border border-slate-200 rounded-xl p-2 font-semibold text-slate-800"
                     >
-                      <option value="">-- Chọn nhân sự trúng cử --</option>
-                      {classStudents.map(s => <option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}
+                      {renderAppointmentOptions("BCH_CHI_DOAN")}
                     </select>
                   </div>
 
@@ -1301,8 +1412,7 @@ export const CongressPortal: React.FC = () => {
                       onChange={(e) => setAppointmentsState({ ...appointmentsState, PHO_BI_THU_CHI_DOAN: e.target.value })}
                       className="w-full bg-white border border-slate-200 rounded-xl p-2 font-semibold text-slate-800"
                     >
-                      <option value="">-- Chọn nhân sự trúng cử --</option>
-                      {classStudents.map(s => <option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}
+                      {renderAppointmentOptions("BCH_CHI_DOAN")}
                     </select>
                   </div>
 
@@ -1313,8 +1423,7 @@ export const CongressPortal: React.FC = () => {
                       onChange={(e) => setAppointmentsState({ ...appointmentsState, UY_VIEN_BCH_CHI_DOAN: e.target.value })}
                       className="w-full bg-white border border-slate-200 rounded-xl p-2 font-semibold text-slate-800"
                     >
-                      <option value="">-- Chọn nhân sự trúng cử --</option>
-                      {classStudents.map(s => <option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}
+                      {renderAppointmentOptions("BCH_CHI_DOAN")}
                     </select>
                   </div>
                 </div>
@@ -1334,8 +1443,7 @@ export const CongressPortal: React.FC = () => {
                       onChange={(e) => setAppointmentsState({ ...appointmentsState, CHI_HOI_TRUONG: e.target.value })}
                       className="w-full bg-white border border-slate-200 rounded-xl p-2 font-semibold text-slate-800"
                     >
-                      <option value="">-- Chọn nhân sự trúng cử --</option>
-                      {classStudents.map(s => <option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}
+                      {renderAppointmentOptions("BCH_CHI_HOI")}
                     </select>
                   </div>
 
@@ -1346,8 +1454,7 @@ export const CongressPortal: React.FC = () => {
                       onChange={(e) => setAppointmentsState({ ...appointmentsState, CHI_HOI_PHO: e.target.value })}
                       className="w-full bg-white border border-slate-200 rounded-xl p-2 font-semibold text-slate-800"
                     >
-                      <option value="">-- Chọn nhân sự trúng cử --</option>
-                      {classStudents.map(s => <option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}
+                      {renderAppointmentOptions("BCH_CHI_HOI")}
                     </select>
                   </div>
 
@@ -1358,8 +1465,7 @@ export const CongressPortal: React.FC = () => {
                       onChange={(e) => setAppointmentsState({ ...appointmentsState, UY_VIEN_BCH_CHI_HOI: e.target.value })}
                       className="w-full bg-white border border-slate-200 rounded-xl p-2 font-semibold text-slate-800"
                     >
-                      <option value="">-- Chọn nhân sự trúng cử --</option>
-                      {classStudents.map(s => <option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}
+                      {renderAppointmentOptions("BCH_CHI_HOI")}
                     </select>
                   </div>
                 </div>
@@ -1379,8 +1485,7 @@ export const CongressPortal: React.FC = () => {
                       onChange={(e) => setAppointmentsState({ ...appointmentsState, LOP_TRUONG: e.target.value })}
                       className="w-full bg-white border border-slate-200 rounded-xl p-2 font-semibold text-slate-800"
                     >
-                      <option value="">-- Chọn nhân sự trúng cử --</option>
-                      {classStudents.map(s => <option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}
+                      {renderAppointmentOptions("BAN_CAN_SU")}
                     </select>
                   </div>
 
@@ -1391,8 +1496,7 @@ export const CongressPortal: React.FC = () => {
                       onChange={(e) => setAppointmentsState({ ...appointmentsState, LOP_PHO_HOC_TAP: e.target.value })}
                       className="w-full bg-white border border-slate-200 rounded-xl p-2 font-semibold text-slate-800"
                     >
-                      <option value="">-- Chọn nhân sự trúng cử --</option>
-                      {classStudents.map(s => <option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}
+                      {renderAppointmentOptions("BAN_CAN_SU")}
                     </select>
                   </div>
 
@@ -1403,8 +1507,7 @@ export const CongressPortal: React.FC = () => {
                       onChange={(e) => setAppointmentsState({ ...appointmentsState, LOP_PHO_DOI_SONG_PHONG_TRAO: e.target.value })}
                       className="w-full bg-white border border-slate-200 rounded-xl p-2 font-semibold text-slate-800"
                     >
-                      <option value="">-- Chọn nhân sự trúng cử --</option>
-                      {classStudents.map(s => <option key={s.id} value={s.id}>{s.name} ({s.id})</option>)}
+                      {renderAppointmentOptions("BAN_CAN_SU")}
                     </select>
                   </div>
                 </div>
@@ -1595,7 +1698,7 @@ export const CongressPortal: React.FC = () => {
                 <span>In / Xuất Biên Bản</span>
               </button>
 
-              {isAdviser && currentCongress.status !== "MINUTES_SIGNED" && currentCongress.status !== "SUBMITTED" && currentCongress.status !== "APPROVED" && (
+              {isAdviser && (currentCongress.status === "COUNTED" || currentCongress.status === "APPOINTED") && (
                 <button
                   onClick={() => signCongressMinutes(currentCongress.id, currentUser?.name || "Cố vấn học tập", "Đã xác nhận kết quả bầu cử và danh sách bổ nhiệm chức danh.")}
                   className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-2 cursor-pointer min-h-[44px]"
@@ -1606,6 +1709,31 @@ export const CongressPortal: React.FC = () => {
               )}
             </div>
           </div>
+
+          {/* CSS IN BIÊN BẢN CHUẨN */}
+          <style>{`
+            @media print {
+              body * {
+                visibility: hidden !important;
+              }
+              #congress-minutes-print-area, #congress-minutes-print-area * {
+                visibility: visible !important;
+              }
+              #congress-minutes-print-area {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 15mm !important;
+                box-shadow: none !important;
+                border: none !important;
+                border-radius: 0 !important;
+                background: white !important;
+              }
+            }
+          `}</style>
 
           {/* MẪU BIÊN BẢN CHUẨN IN */}
           <div id="congress-minutes-print-area" className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200/80 shadow-sm space-y-8 max-w-4xl mx-auto">
@@ -1636,59 +1764,81 @@ export const CongressPortal: React.FC = () => {
                 I. KẾT QUẢ BẦU CỬ 3 HÒM PHIẾU
               </h4>
 
-              {currentCongress.ballotBoxes.map((box, bIdx) => {
-                // Đếm số phiếu cho từng ứng viên
-                const candVoteCounts: { [candId: string]: number } = {};
-                box.candidates.forEach(c => { candVoteCounts[c.id] = 0; });
-                box.votes.forEach(v => {
-                  v.selectedCandidateIds.forEach(cId => {
-                    if (candVoteCounts[cId] !== undefined) candVoteCounts[cId]++;
+              {(() => {
+                const isVotingActive = currentCongress.status === "VOTING" || currentCongress.ballotBoxes.some(b => b.status === "OPEN" || b.status === "WAITING_APPROVAL" || b.status === "DRAFT");
+                if (isVotingActive) {
+                  return (
+                    <div className="p-6 rounded-2xl bg-amber-50 border border-amber-200/80 text-center space-y-2 my-2">
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+                        <Lock size={20} />
+                      </div>
+                      <h5 className="text-xs font-bold text-amber-900 uppercase tracking-wider">Hòm phiếu đang mở / Chưa khóa sổ kiểm phiếu</h5>
+                      <p className="text-xs text-amber-700 max-w-lg mx-auto">
+                        Theo quy chế Đại hội Đoàn, hòm phiếu được niêm phong bảo mật trong suốt thời gian cử tri bỏ phiếu. Kết quả kiểm phiếu chi tiết và tỷ lệ trúng cử sẽ được tự động công bố sau khi Ban kiểm phiếu và Bí thư Chi đoàn thực hiện khóa hòm và kiểm phiếu.
+                      </p>
+                    </div>
+                  );
+                }
+
+                return currentCongress.ballotBoxes.map((box, bIdx) => {
+                  const candVoteCounts: { [candId: string]: number } = {};
+                  box.candidates.forEach(c => { candVoteCounts[c.id] = 0; });
+                  (box.votes || []).forEach(v => {
+                    (v.selectedCandidateIds || []).forEach(cId => {
+                      if (candVoteCounts[cId] !== undefined) candVoteCounts[cId]++;
+                    });
                   });
+
+                  const sortedCandidates = [...box.candidates].sort((a, b) => (candVoteCounts[b.id] || 0) - (candVoteCounts[a.id] || 0));
+                  const totalBoxVotes = box.votes ? box.votes.length : 0;
+                  const majorityThreshold = Math.floor(totalBoxVotes / 2) + 1;
+
+                  return (
+                    <div key={box.id} className="space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-1">
+                        <p className="font-bold text-slate-800">
+                          {bIdx + 1}. {box.title} (Số lượng cần bầu: {box.maxWinners})
+                        </p>
+                        <p className="text-slate-500 text-[11px]">
+                          Số phiếu thu về: <strong className="font-mono text-slate-800">{totalBoxVotes}</strong> | Quá bán: <strong className="font-mono text-slate-800">&gt;{totalBoxVotes / 2}</strong> ({majorityThreshold} phiếu)
+                        </p>
+                      </div>
+                      <table className="w-full text-xs text-left border border-slate-200">
+                        <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                          <tr>
+                            <th className="p-2 border-r border-slate-200 w-12 text-center">STT</th>
+                            <th className="p-2 border-r border-slate-200">Họ và tên ứng viên</th>
+                            <th className="p-2 border-r border-slate-200 w-28">Mã sinh viên</th>
+                            <th className="p-2 border-r border-slate-200 w-24 text-right">Số phiếu</th>
+                            <th className="p-2 border-r border-slate-200 w-24 text-right">Tỷ lệ %</th>
+                            <th className="p-2 w-28 text-center">Kết quả</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {sortedCandidates.map((c, idx) => {
+                            const votes = candVoteCounts[c.id] || 0;
+                            const pct = totalBoxVotes > 0 ? ((votes / totalBoxVotes) * 100).toFixed(1) : "0.0";
+                            const isElected = idx < box.maxWinners && totalBoxVotes > 0 && votes > (totalBoxVotes / 2);
+
+                            return (
+                              <tr key={c.id}>
+                                <td className="p-2 border-r border-slate-200 text-center font-mono">{idx + 1}</td>
+                                <td className="p-2 border-r border-slate-200 font-semibold">{c.studentName}</td>
+                                <td className="p-2 border-r border-slate-200 font-mono text-slate-500">{c.studentId}</td>
+                                <td className="p-2 border-r border-slate-200 text-right font-mono font-bold">{votes}</td>
+                                <td className="p-2 border-r border-slate-200 text-right font-mono">{pct}%</td>
+                                <td className="p-2 text-center font-semibold">
+                                  {isElected ? <span className="text-emerald-600 font-bold">Trúng cử</span> : <span className="text-slate-400">Không trúng</span>}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
                 });
-
-                const sortedCandidates = [...box.candidates].sort((a, b) => (candVoteCounts[b.id] || 0) - (candVoteCounts[a.id] || 0));
-
-                return (
-                  <div key={box.id} className="space-y-2">
-                    <p className="text-xs font-bold text-slate-800">
-                      {bIdx + 1}. {box.title} (Số lượng cần bầu: {box.maxWinners})
-                    </p>
-                    <table className="w-full text-xs text-left border border-slate-200">
-                      <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
-                        <tr>
-                          <th className="p-2 border-r border-slate-200 w-12 text-center">STT</th>
-                          <th className="p-2 border-r border-slate-200">Họ và tên ứng viên</th>
-                          <th className="p-2 border-r border-slate-200 w-28">Mã sinh viên</th>
-                          <th className="p-2 border-r border-slate-200 w-24 text-right">Số phiếu</th>
-                          <th className="p-2 border-r border-slate-200 w-24 text-right">Tỷ lệ %</th>
-                          <th className="p-2 w-28 text-center">Kết quả</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {sortedCandidates.map((c, idx) => {
-                          const votes = candVoteCounts[c.id] || 0;
-                          const totalV = box.votes.length || 1;
-                          const pct = ((votes / totalV) * 100).toFixed(1);
-                          const isElected = idx < box.maxWinners;
-
-                          return (
-                            <tr key={c.id}>
-                              <td className="p-2 border-r border-slate-200 text-center font-mono">{idx + 1}</td>
-                              <td className="p-2 border-r border-slate-200 font-semibold">{c.studentName}</td>
-                              <td className="p-2 border-r border-slate-200 font-mono text-slate-500">{c.studentId}</td>
-                              <td className="p-2 border-r border-slate-200 text-right font-mono font-bold">{votes}</td>
-                              <td className="p-2 border-r border-slate-200 text-right font-mono">{pct}%</td>
-                              <td className="p-2 text-center font-semibold">
-                                {isElected ? <span className="text-emerald-600">Trúng cử</span> : <span className="text-slate-400">Không trúng</span>}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })}
+              })()}
             </div>
 
             {/* QUYẾT ĐỊNH BỔ NHIỆM CHỨC DANH */}
@@ -1712,7 +1862,9 @@ export const CongressPortal: React.FC = () => {
                   <tbody className="divide-y divide-slate-200">
                     {currentCongress.appointments.map(app => (
                       <tr key={app.id}>
-                        <td className="p-2 border-r border-slate-200 font-bold text-indigo-900">{app.role}</td>
+                        <td className="p-2 border-r border-slate-200 font-bold text-indigo-900">
+                          {APPOINTMENT_ROLE_LABELS[app.role] || app.role}
+                        </td>
                         <td className="p-2 border-r border-slate-200 font-semibold">{app.studentName}</td>
                         <td className="p-2 border-r border-slate-200 font-mono text-slate-500">{app.studentId}</td>
                         <td className="p-2 text-slate-600">{app.appointedBy}</td>
@@ -1730,7 +1882,7 @@ export const CongressPortal: React.FC = () => {
                   <p className="font-bold uppercase">BÍ THƯ CHI ĐOÀN</p>
                   <p className="text-[11px] text-slate-500 italic">(Ký và ghi rõ họ tên)</p>
                 </div>
-                <p className="font-bold text-slate-900">{currentCongress.secretaryStudentId || "Ma Văn Long"}</p>
+                <p className="font-bold text-slate-900">{secretaryDisplayName}</p>
               </div>
 
               <div className="space-y-12">
@@ -1738,7 +1890,7 @@ export const CongressPortal: React.FC = () => {
                   <p className="font-bold uppercase">CỐ VẤN HỌC TẬP</p>
                   <p className="text-[11px] text-slate-500 italic">(Ký và xác nhận biên bản)</p>
                 </div>
-                <p className="font-bold text-slate-900">{currentCongress.minutesSignedBy || "Hoàng Minh Đức"}</p>
+                <p className="font-bold text-slate-900">{adviserDisplayName}</p>
               </div>
             </div>
           </div>

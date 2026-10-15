@@ -886,7 +886,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   });
 
   const [congressCampaigns, setCongressCampaigns] = useState<CongressCampaign[]>(() => {
-    const cached = localStorage.getItem("unihub_congress_campaigns");
+    const cached = localStorage.getItem("unihub_congressCampaigns") || localStorage.getItem("unihub_congress_campaigns");
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
@@ -897,7 +897,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   });
 
   const [classCongresses, setClassCongresses] = useState<ClassCongress[]>(() => {
-    const cached = localStorage.getItem("unihub_class_congresses");
+    const cached = localStorage.getItem("unihub_classCongresses") || localStorage.getItem("unihub_class_congresses");
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
@@ -1925,6 +1925,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       cacheCollection<RegistrationPeriod>("registrationPeriods", setRegistrationPeriods, items => items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())),
       cacheCollection<CourseOffering>("courseOfferings", setCourseOfferings, items => items.sort((a, b) => a.subjectCode.localeCompare(b.subjectCode))),
       cacheCollection<CreditEnrollment>("creditEnrollments", setCreditEnrollments, items => items.sort((a, b) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime())),
+      cacheCollection<CongressCampaign>("congressCampaigns", setCongressCampaigns),
+      cacheCollection<ClassCongress>("classCongresses", setClassCongresses),
       onSnapshot(
         doc(db, "settings", "period"),
         (snap) => {
@@ -6994,6 +6996,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const persistCongressCampaigns = (newList: CongressCampaign[]) => {
     setCongressCampaigns(newList);
     try {
+      localStorage.setItem("unihub_congressCampaigns", JSON.stringify(newList));
       localStorage.setItem("unihub_congress_campaigns", JSON.stringify(newList));
     } catch {}
   };
@@ -7001,6 +7004,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const persistClassCongresses = (newList: ClassCongress[]) => {
     setClassCongresses(newList);
     try {
+      localStorage.setItem("unihub_classCongresses", JSON.stringify(newList));
       localStorage.setItem("unihub_class_congresses", JSON.stringify(newList));
     } catch {}
   };
@@ -7108,6 +7112,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     await saveCongressCampaign(updatedCampaign);
     persistClassCongresses(nextCongresses);
+    try {
+      await Promise.all(
+        nextCongresses.map(c => setDoc(doc(db, "classCongresses", c.id), c, { merge: true }))
+      );
+    } catch (e) {
+      console.warn("Lỗi lưu classCongresses Firestore:", e);
+    }
     return { createdCount };
   };
 
@@ -7142,11 +7153,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const assignClassSecretary = async (studentId: string, classId: string) => {
     const normClass = normalizeClassId(classId);
+    let matchedUser: UserAccount | null = null;
     setUsers(prevUsers => {
       const nextUsers = prevUsers.map(u => {
         const uStudentId = (u.targetId || u.username || "").toLowerCase();
         if (uStudentId === studentId.toLowerCase()) {
-          return { ...u, classSecretaryForClassId: normClass };
+          matchedUser = { ...u, classSecretaryForClassId: normClass };
+          return matchedUser;
         }
         return u;
       });
@@ -7155,6 +7168,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch {}
       return nextUsers;
     });
+
+    if (matchedUser && (matchedUser as any).id) {
+      try {
+        await setDoc(doc(db, "users", (matchedUser as any).id), { classSecretaryForClassId: normClass }, { merge: true });
+      } catch (e) {
+        console.warn("Lỗi lưu user secretary lên Firestore:", e);
+      }
+    }
 
     setCurrentUser(prevUser => {
       if (!prevUser) return prevUser;
@@ -7176,6 +7197,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return cc;
     });
     persistClassCongresses(updatedCongresses);
+    const targetCc = updatedCongresses.find(cc => normalizeClassId(cc.classId) === normClass);
+    if (targetCc) {
+      try {
+        await setDoc(doc(db, "classCongresses", targetCc.id), targetCc, { merge: true });
+      } catch (e) {
+        console.warn("Lỗi lưu secretaryStudentId lên Firestore:", e);
+      }
+    }
   };
 
   const submitCandidatesForApproval = async (congressId: string) => {
@@ -7281,7 +7310,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     voterStudentId: string, 
     selectedCandidateIds: string[]
   ): Promise<{ success: boolean; message: string }> => {
-    const congress = classCongresses.find(c => c.id === congressId);
+    // Luôn ưu tiên đọc dữ liệu mới nhất từ Firestore để tránh ghi đè mất phiếu
+    let congress = classCongresses.find(c => c.id === congressId);
+    try {
+      const snap = await getDoc(doc(db, "classCongresses", congressId));
+      if (snap.exists()) {
+        congress = snap.data() as ClassCongress;
+      }
+    } catch {}
+
     if (!congress) return { success: false, message: "Không tìm thấy phiên đại hội." };
 
     const boxIdx = congress.ballotBoxes.findIndex(b => b.id === ballotBoxId);
@@ -7313,8 +7350,20 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return { success: false, message: `Bạn chỉ được chọn tối đa ${box.maxVotesPerBallot} ứng viên.` };
     }
 
-    const voterHash = btoa(`${congress.campaignId}_${congress.classId}_${ballotBoxId}_${voterStudentId.trim().toUpperCase()}`);
-    if (box.votes.some(v => v.voterHash === voterHash)) {
+    // Safe UTF-8 Base64 hash
+    const rawHash = `${congress.campaignId}_${congress.classId}_${ballotBoxId}_${voterStudentId.trim().toUpperCase()}`;
+    let voterHash = "";
+    try {
+      voterHash = btoa(encodeURIComponent(rawHash));
+    } catch {
+      voterHash = btoa(rawHash);
+    }
+    const legacyHash = (() => {
+      try { return btoa(rawHash); } catch { return ""; }
+    })();
+
+    const existingVotes = box.votes || [];
+    if (existingVotes.some(v => v.voterHash === voterHash || (legacyHash && v.voterHash === legacyHash))) {
       return { success: false, message: "Bạn đã hoàn thành bỏ phiếu cho hòm phiếu này rồi." };
     }
 
@@ -7326,11 +7375,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       submittedAt: new Date().toISOString()
     };
 
-    const nextVotes = [...box.votes, newVote];
+    const nextVotes = [...existingVotes, newVote];
     const nextBoxes = [...congress.ballotBoxes];
     nextBoxes[boxIdx] = { ...box, votes: nextVotes };
 
-    const nextVoterIds = Array.from(new Set([...congress.voterIds, voterStudentId.trim()]));
+    const nextVoterIds = Array.from(new Set([...(congress.voterIds || []), voterStudentId.trim()]));
     const updatedCongress: ClassCongress = {
       ...congress,
       voterIds: nextVoterIds,
