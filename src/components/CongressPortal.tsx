@@ -142,14 +142,27 @@ export const CongressPortal: React.FC = () => {
     if (!currentUser || !currentCongress) return false;
     const normCurrentClass = normalizeClassId(currentCongress.classId);
     const secClass = currentUser.classSecretaryForClassId ? normalizeClassId(currentUser.classSecretaryForClassId) : "";
-    const curId = (currentUser.targetId || currentUser.username || "").toLowerCase();
-    const secId = (currentCongress.secretaryStudentId || "").toLowerCase();
+    const secId = (currentCongress.secretaryStudentId || "").trim().toLowerCase();
+
+    // Thu thập tất cả các mã định danh của user hiện tại
+    const userKeys = [
+      currentUser.targetId,
+      currentUser.username,
+      currentUser.id,
+      myStudentObj?.id,
+      (myStudentObj as any)?.code,
+      (currentUser as any)?.studentId,
+      (currentUser as any)?.code
+    ].map(k => (k || "").trim().toLowerCase()).filter(Boolean);
+
+    const isDesignatedSecretary = Boolean(secId && userKeys.includes(secId));
+
     return Boolean(
       (secClass && secClass === normCurrentClass) ||
-      (secId && secId === curId) ||
+      isDesignatedSecretary ||
       currentUser.role === UserRole.ADMIN
     );
-  }, [currentUser, currentCongress]);
+  }, [currentUser, currentCongress, myStudentObj]);
 
   // Thông tin sinh viên giữ vai trò Bí thư Chi đoàn
   const currentSecretaryStudent = useMemo(() => {
@@ -211,6 +224,27 @@ export const CongressPortal: React.FC = () => {
   const [selectedVotes, setSelectedVotes] = useState<{ [boxId: string]: string[] }>({});
   const [votingConfirmModal, setVotingConfirmModal] = useState<{ box: BallotBox; selectedIds: string[] } | null>(null);
   const [feedbackToast, setFeedbackToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  // --- STATE TƯƠNG TÁC CHỈ ĐỊNH BÍ THƯ CHI ĐOÀN ---
+  const [selectedSecStudentId, setSelectedSecStudentId] = useState<string>("");
+  const [isAssigningSec, setIsAssigningSec] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    if (currentCongress?.secretaryStudentId) {
+      setSelectedSecStudentId(currentCongress.secretaryStudentId);
+    } else {
+      setSelectedSecStudentId("");
+    }
+  }, [currentCongress?.secretaryStudentId, currentCongress?.id]);
+
+  // Tự động chuyển tab sang SECRETARY nếu user là Bí thư Chi đoàn khi truy cập trang
+  const hasAutoSwitchedTabRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!hasAutoSwitchedTabRef.current && isClassSecretary && activeTab === "VOTE") {
+      setActiveTab("SECRETARY");
+      hasAutoSwitchedTabRef.current = true;
+    }
+  }, [isClassSecretary, activeTab]);
 
   const showToast = (type: "success" | "error", message: string) => {
     setFeedbackToast({ type, message });
@@ -520,40 +554,65 @@ export const CongressPortal: React.FC = () => {
   // --- THANH THÔNG TIN & GÁN QUYỀN BÍ THƯ CHI ĐOÀN DÙNG CHUNG CHO CVHT VÀ BÍ THƯ ---
   const renderSecretaryAssignmentBar = () => {
     if (!currentCongress) return null;
+    const isSelectionChanged = Boolean(selectedSecStudentId && selectedSecStudentId !== (currentCongress.secretaryStudentId || ""));
+
     return (
-      <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+      <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 shadow-2xs">
             <Award size={20} />
           </div>
           <div>
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Bí thư Chi đoàn lớp hiện tại</span>
-            <span className="font-bold text-slate-900">
+            <span className="font-bold text-slate-900 text-sm">
               {currentSecretaryStudent ? `${currentSecretaryStudent.name} (${currentSecretaryStudent.id})` : (currentCongress.secretaryStudentId || "Chưa chỉ định Bí thư")}
             </span>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Nếu là Admin hoặc CVHT: Dropdown chỉ định Bí thư */}
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+          {/* Nếu là Admin hoặc CVHT: Dropdown chỉ định Bí thư kèm NÚT XÁC NHẬN CHỈ ĐỊNH */}
           {(isAdminOrYouthUnion || isAdviser) && (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-slate-500 font-semibold">Chỉ định Bí thư:</span>
-              <select
-                value={currentCongress.secretaryStudentId || ""}
-                onChange={async (e) => {
-                  if (e.target.value) {
-                    await assignClassSecretary(e.target.value, currentCongress.classId);
-                    showToast("success", `Đã chỉ định sinh viên làm Bí thư Chi đoàn ${currentCongress.classId}.`);
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
+                <span className="text-[11px] text-slate-500 font-semibold whitespace-nowrap">Chỉ định Bí thư:</span>
+                <select
+                  value={selectedSecStudentId}
+                  onChange={(e) => setSelectedSecStudentId(e.target.value)}
+                  className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer min-h-[40px] flex-1 sm:w-64"
+                >
+                  <option value="" disabled>-- Chọn sinh viên làm Bí thư --</option>
+                  {classStudents.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                type="button"
+                disabled={!selectedSecStudentId || isAssigningSec}
+                onClick={async () => {
+                  if (!selectedSecStudentId || !currentCongress) return;
+                  setIsAssigningSec(true);
+                  try {
+                    await assignClassSecretary(selectedSecStudentId, currentCongress.classId);
+                    const targetStud = classStudents.find(s => s.id === selectedSecStudentId);
+                    showToast("success", `Đã xác nhận chỉ định đồng chí ${targetStud?.name || selectedSecStudentId} làm Bí thư Chi đoàn ${currentCongress.classId}.`);
+                  } catch (err) {
+                    showToast("error", "Lỗi khi lưu chỉ định Bí thư.");
+                  } finally {
+                    setIsAssigningSec(false);
                   }
                 }}
-                className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer min-h-[38px]"
+                className={`px-4 py-2 rounded-xl text-xs font-bold shadow-xs active:scale-98 transition-all flex items-center justify-center gap-1.5 cursor-pointer min-h-[40px] ${
+                  isSelectionChanged
+                    ? "bg-amber-600 hover:bg-amber-700 text-white ring-2 ring-amber-400/50"
+                    : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                } disabled:opacity-40 disabled:pointer-events-none`}
               >
-                <option value="" disabled>-- Chọn sinh viên làm Bí thư --</option>
-                {classStudents.map(s => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
-                ))}
-              </select>
+                <CheckCircle size={15} />
+                <span>{isAssigningSec ? "Đang lưu..." : "Xác nhận chỉ định"}</span>
+              </button>
             </div>
           )}
 
@@ -567,7 +626,7 @@ export const CongressPortal: React.FC = () => {
                   showToast("success", `Đã kích hoạt quyền Bí thư Chi đoàn ${currentCongress.classId} cho bạn.`);
                 }
               }}
-              className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-98 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[38px]"
+              className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-98 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[40px]"
             >
               <ShieldCheck size={14} />
               <span>Kích hoạt quyền Bí thư của tôi</span>
@@ -1320,6 +1379,24 @@ export const CongressPortal: React.FC = () => {
                 <CheckCircle size={15} />
                 <span>Phê Duyệt Toàn Bộ Ứng Viên</span>
               </button>
+
+              {(currentCongress.status === "CANDIDATE_APPROVED" || currentCongress.status === "WAITING_ADVISER_APPROVAL") && (
+                <button
+                  onClick={async () => {
+                    const nextBoxes = currentCongress.ballotBoxes.map(b => ({ ...b, status: "DRAFT" as const }));
+                    await saveClassCongress({
+                      ...currentCongress,
+                      status: "CANDIDATE_DRAFT",
+                      ballotBoxes: nextBoxes
+                    });
+                    showToast("success", "Đã mở lại trạng thái để Bí thư Chi đoàn đề xuất ứng viên.");
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-white/20 shadow-md active:scale-98 transition-all flex items-center gap-1.5 cursor-pointer min-h-[44px]"
+                >
+                  <Edit3 size={15} />
+                  <span>Mở Lại Đề Xuất Cho Bí Thư</span>
+                </button>
+              )}
             </div>
           </div>
 

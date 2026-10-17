@@ -516,18 +516,6 @@ export const StudentPortal: React.FC = () => {
     return classCongresses?.find(c => normalizeClassId(c.classId) === normClass) || null;
   }, [currentUser, classCongresses, sObj]);
 
-  const isStudentClassSecretary = useMemo(() => {
-    if (!currentUser || !myClassCongress) return false;
-    const normClass = normalizeClassId(myClassCongress.classId);
-    const secClass = currentUser.classSecretaryForClassId ? normalizeClassId(currentUser.classSecretaryForClassId) : "";
-    const curId = (currentUser.targetId || currentUser.username || "").toLowerCase();
-    const secId = (myClassCongress.secretaryStudentId || "").toLowerCase();
-    return Boolean(
-      (secClass && secClass === normClass) ||
-      (secId && secId === curId)
-    );
-  }, [currentUser, myClassCongress]);
-
   const normalizeStudentKey = (value?: string | null) => (value || "").trim().toLowerCase();
   const studentIdentityKeys = useMemo(() => {
     const rawKeys = [
@@ -542,6 +530,17 @@ export const StudentPortal: React.FC = () => {
     ];
     return new Set(rawKeys.map(normalizeStudentKey).filter(Boolean));
   }, [studentId, sObj, currentUser]);
+
+  const isStudentClassSecretary = useMemo(() => {
+    if (!currentUser || !myClassCongress) return false;
+    const normClass = normalizeClassId(myClassCongress.classId);
+    const secClass = currentUser.classSecretaryForClassId ? normalizeClassId(currentUser.classSecretaryForClassId) : "";
+    const secId = normalizeStudentKey(myClassCongress.secretaryStudentId);
+    return Boolean(
+      (secClass && secClass === normClass) ||
+      (secId && studentIdentityKeys.has(secId))
+    );
+  }, [currentUser, myClassCongress, studentIdentityKeys]);
   const isCurrentStudentMember = (m: { studentId?: string }) => {
     const key = normalizeStudentKey(m.studentId);
     return Boolean(key && studentIdentityKeys.has(key));

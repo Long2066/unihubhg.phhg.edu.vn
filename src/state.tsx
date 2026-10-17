@@ -3124,6 +3124,20 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Xây dựng profile người dùng
     const profileEmail = matchedStudent?.email && matchedStudent.email.includes("@") ? matchedStudent.email : targetEmail;
+    
+    // Đồng bộ chức danh Bí thư Chi đoàn từ classCongresses hoặc matchedStudent
+    const secCongress = classCongresses.find(cc => {
+      const sId = (cc.secretaryStudentId || "").trim().toLowerCase();
+      return Boolean(sId && (
+        sId === (matchedStudent?.id || "").trim().toLowerCase() ||
+        sId === trimmedInput.toLowerCase() ||
+        (matchedStudent?.email && sId === matchedStudent.email.toLowerCase())
+      ));
+    });
+    const assignedSecretaryClass = secCongress?.classId 
+      || (matchedStudent as any)?.classSecretaryForClassId 
+      || matchedUser?.classSecretaryForClassId;
+
     const userDoc: UserAccount = matchedStudent
       ? {
           ...(matchedUser || {}),
@@ -3132,11 +3146,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           name: matchedStudent.name || matchedUser?.name || matchedStudent.id,
           role: UserRole.STUDENT,
           targetId: matchedStudent.id,
-          email: profileEmail
+          email: profileEmail,
+          classSecretaryForClassId: assignedSecretaryClass ? normalizeClassId(assignedSecretaryClass) : (matchedUser?.classSecretaryForClassId || undefined)
         }
       : {
           ...matchedUser!,
-          email: targetEmail
+          email: targetEmail,
+          classSecretaryForClassId: assignedSecretaryClass ? normalizeClassId(assignedSecretaryClass) : matchedUser?.classSecretaryForClassId
         };
 
     const matchedStudentId = matchedStudent?.id || "";
@@ -7153,11 +7169,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const assignClassSecretary = async (studentId: string, classId: string) => {
     const normClass = normalizeClassId(classId);
+    const lowerStudentId = studentId.trim().toLowerCase();
+
+    // 1. Cập nhật state users cục bộ
     let matchedUser: UserAccount | null = null;
     setUsers(prevUsers => {
       const nextUsers = prevUsers.map(u => {
         const uStudentId = (u.targetId || u.username || "").toLowerCase();
-        if (uStudentId === studentId.toLowerCase()) {
+        if (uStudentId === lowerStudentId) {
           matchedUser = { ...u, classSecretaryForClassId: normClass };
           return matchedUser;
         }
@@ -7169,18 +7188,25 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return nextUsers;
     });
 
-    if (matchedUser && (matchedUser as any).id) {
+    // 2. Cập nhật state students cục bộ
+    setStudents(prevStudents => {
+      const nextStudents = prevStudents.map(s => {
+        if (s.id.toLowerCase() === lowerStudentId) {
+          return { ...s, isClassSecretary: true, classSecretaryForClassId: normClass };
+        }
+        return s;
+      });
       try {
-        await setDoc(doc(db, "users", (matchedUser as any).id), { classSecretaryForClassId: normClass }, { merge: true });
-      } catch (e) {
-        console.warn("Lỗi lưu user secretary lên Firestore:", e);
-      }
-    }
+        localStorage.setItem("unihub_students", JSON.stringify(nextStudents));
+      } catch {}
+      return nextStudents;
+    });
 
+    // 3. Cập nhật currentUser nếu chính là sinh viên này đang online
     setCurrentUser(prevUser => {
       if (!prevUser) return prevUser;
       const uStudentId = (prevUser.targetId || prevUser.username || "").toLowerCase();
-      if (uStudentId === studentId.toLowerCase()) {
+      if (uStudentId === lowerStudentId) {
         const updatedUser = { ...prevUser, classSecretaryForClassId: normClass };
         try {
           localStorage.setItem("unihub_current_user", JSON.stringify(updatedUser));
@@ -7190,6 +7216,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return prevUser;
     });
 
+    // 4. Cập nhật và lưu classCongresses vào Firestore
     const updatedCongresses = classCongresses.map(cc => {
       if (normalizeClassId(cc.classId) === normClass) {
         return { ...cc, secretaryStudentId: studentId, updatedAt: new Date().toISOString() };
@@ -7204,6 +7231,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch (e) {
         console.warn("Lỗi lưu secretaryStudentId lên Firestore:", e);
       }
+    }
+
+    // 5. Đồng bộ Firestore cho users và students collections
+    try {
+      await setDoc(doc(db, "students", studentId), { isClassSecretary: true, classSecretaryForClassId: normClass }, { merge: true });
+    } catch {}
+    try {
+      await setDoc(doc(db, "users", `U_STUD_${studentId}`), { classSecretaryForClassId: normClass }, { merge: true });
+    } catch {}
+    if (matchedUser && (matchedUser as any).id) {
+      try {
+        await setDoc(doc(db, "users", (matchedUser as any).id), { classSecretaryForClassId: normClass }, { merge: true });
+      } catch {}
     }
   };
 
