@@ -517,6 +517,67 @@ export const CongressPortal: React.FC = () => {
     window.print();
   };
 
+  // --- THANH THÔNG TIN & GÁN QUYỀN BÍ THƯ CHI ĐOÀN DÙNG CHUNG CHO CVHT VÀ BÍ THƯ ---
+  const renderSecretaryAssignmentBar = () => {
+    if (!currentCongress) return null;
+    return (
+      <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+            <Award size={20} />
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Bí thư Chi đoàn lớp hiện tại</span>
+            <span className="font-bold text-slate-900">
+              {currentSecretaryStudent ? `${currentSecretaryStudent.name} (${currentSecretaryStudent.id})` : (currentCongress.secretaryStudentId || "Chưa chỉ định Bí thư")}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Nếu là Admin hoặc CVHT: Dropdown chỉ định Bí thư */}
+          {(isAdminOrYouthUnion || isAdviser) && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-slate-500 font-semibold">Chỉ định Bí thư:</span>
+              <select
+                value={currentCongress.secretaryStudentId || ""}
+                onChange={async (e) => {
+                  if (e.target.value) {
+                    await assignClassSecretary(e.target.value, currentCongress.classId);
+                    showToast("success", `Đã chỉ định sinh viên làm Bí thư Chi đoàn ${currentCongress.classId}.`);
+                  }
+                }}
+                className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer min-h-[38px]"
+              >
+                <option value="" disabled>-- Chọn sinh viên làm Bí thư --</option>
+                {classStudents.map(s => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Nếu là sinh viên lớp này nhưng chưa có quyền Bí thư: Nút nhận vai trò Bí thư */}
+          {isStudentOrMonitor && !isClassSecretary && (
+            <button
+              onClick={async () => {
+                const sId = myStudentObj?.id || currentUser?.targetId || currentUser?.username || "";
+                if (sId) {
+                  await assignClassSecretary(sId, currentCongress.classId);
+                  showToast("success", `Đã kích hoạt quyền Bí thư Chi đoàn ${currentCongress.classId} cho bạn.`);
+                }
+              }}
+              className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-98 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[38px]"
+            >
+              <ShieldCheck size={14} />
+              <span>Kích hoạt quyền Bí thư của tôi</span>
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16 font-sans">
       {/* Toast Notification */}
@@ -1061,60 +1122,7 @@ export const CongressPortal: React.FC = () => {
           </div>
 
           {/* THANH THÔNG TIN & GÁN QUYỀN BÍ THƯ CHI ĐOÀN */}
-          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
-                <Award size={20} />
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Bí thư Chi đoàn lớp hiện tại</span>
-                <span className="font-bold text-slate-900">
-                  {currentSecretaryStudent ? `${currentSecretaryStudent.name} (${currentSecretaryStudent.id})` : (currentCongress.secretaryStudentId || "Chưa chỉ định Bí thư")}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Nếu là Admin hoặc CVHT: Dropdown chỉ định Bí thư */}
-              {(isAdminOrYouthUnion || isAdviser) && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-slate-500 font-semibold">Chỉ định Bí thư:</span>
-                  <select
-                    onChange={async (e) => {
-                      if (e.target.value) {
-                        await assignClassSecretary(e.target.value, currentCongress.classId);
-                        showToast("success", `Đã chỉ định sinh viên làm Bí thư Chi đoàn ${currentCongress.classId}.`);
-                      }
-                    }}
-                    defaultValue=""
-                    className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer min-h-[38px]"
-                  >
-                    <option value="" disabled>-- Chọn sinh viên làm Bí thư --</option>
-                    {classStudents.map(s => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Nếu là sinh viên lớp này nhưng chưa có quyền Bí thư: Nút nhận vai trò Bí thư */}
-              {isStudentOrMonitor && !isClassSecretary && (
-                <button
-                  onClick={async () => {
-                    const sId = myStudentObj?.id || currentUser?.targetId || currentUser?.username || "";
-                    if (sId) {
-                      await assignClassSecretary(sId, currentCongress.classId);
-                      showToast("success", `Đã kích hoạt quyền Bí thư Chi đoàn ${currentCongress.classId} cho bạn.`);
-                    }
-                  }}
-                  className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-98 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer min-h-[38px]"
-                >
-                  <ShieldCheck size={14} />
-                  <span>Kích hoạt quyền Bí thư của tôi</span>
-                </button>
-              )}
-            </div>
-          </div>
+          {renderSecretaryAssignmentBar()}
 
           {/* QUẢN TRỊ 3 HÒM PHIẾU ĐỀ XUẤT NHÂN SỰ */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1314,6 +1322,9 @@ export const CongressPortal: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* THANH THÔNG TIN & GÁN QUYỀN BÍ THƯ CHI ĐOÀN CHO CVHT */}
+          {renderSecretaryAssignmentBar()}
 
           {/* DUYỆT ỨNG VIÊN CHO TỪNG HÒM */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
