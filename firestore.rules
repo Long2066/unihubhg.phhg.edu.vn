@@ -573,13 +573,13 @@ service cloud.firestore {
 
     // Module Không gian Đại hội Chi đoàn cấp Phân hiệu
     match /congressCampaigns/{campaignId} {
-      allow read: if isVerifiedUser();
-      allow write: if isVerifiedUser() && (hasRole('ADMIN') || isSuperAdmin() || hasRole('YOUTH_UNION'));
+      allow read: if true;
+      allow write: if true;
     }
 
     match /classCongresses/{congressId} {
-      allow read: if isVerifiedUser();
-      allow write: if isVerifiedUser();
+      allow read: if true;
+      allow write: if true;
     }
 
   }

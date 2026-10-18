@@ -532,15 +532,22 @@ export const StudentPortal: React.FC = () => {
   }, [studentId, sObj, currentUser]);
 
   const isStudentClassSecretary = useMemo(() => {
-    if (!currentUser || !myClassCongress) return false;
-    const normClass = normalizeClassId(myClassCongress.classId);
+    if (!currentUser) return false;
     const secClass = currentUser.classSecretaryForClassId ? normalizeClassId(currentUser.classSecretaryForClassId) : "";
-    const secId = normalizeStudentKey(myClassCongress.secretaryStudentId);
-    return Boolean(
-      (secClass && secClass === normClass) ||
+    const normClass = myClassCongress ? normalizeClassId(myClassCongress.classId) : "";
+    const secId = normalizeStudentKey(myClassCongress?.secretaryStudentId);
+    const isDirectMatch = Boolean(
+      (secClass && normClass && secClass === normClass) ||
       (secId && studentIdentityKeys.has(secId))
     );
-  }, [currentUser, myClassCongress, studentIdentityKeys]);
+    if (isDirectMatch) return true;
+
+    // Kiểm tra trên toàn bộ danh sách đại hội nếu sinh viên được phân công làm Bí thư
+    return (classCongresses || []).some(cc => {
+      const s = normalizeStudentKey(cc.secretaryStudentId);
+      return Boolean(s && studentIdentityKeys.has(s));
+    });
+  }, [currentUser, myClassCongress, studentIdentityKeys, classCongresses]);
   const isCurrentStudentMember = (m: { studentId?: string }) => {
     const key = normalizeStudentKey(m.studentId);
     return Boolean(key && studentIdentityKeys.has(key));

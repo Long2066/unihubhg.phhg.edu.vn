@@ -2091,7 +2091,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               prev.username === safeUser.username &&
               prev.name === safeUser.name &&
               prev.avatar === safeUser.avatar &&
-              prev.targetId === safeUser.targetId
+              prev.targetId === safeUser.targetId &&
+              prev.classSecretaryForClassId === safeUser.classSecretaryForClassId
             ) {
               return prev;
             }
@@ -2113,6 +2114,33 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
     return () => unsubscribe();
   }, []);
+
+  // Tự động đồng bộ quyền Bí thư Chi đoàn vào currentUser từ Firestore classCongresses trong thời gian thực
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== UserRole.STUDENT) return;
+    const userKeys = [
+      currentUser.targetId,
+      currentUser.username,
+      currentUser.id,
+      currentUser.email
+    ].map(k => (k || "").trim().toLowerCase()).filter(Boolean);
+
+    const matchedCongress = classCongresses.find(cc => {
+      const secId = (cc.secretaryStudentId || "").trim().toLowerCase();
+      return Boolean(secId && userKeys.includes(secId));
+    });
+
+    if (matchedCongress) {
+      const normClass = normalizeClassId(matchedCongress.classId);
+      if (currentUser.classSecretaryForClassId !== normClass) {
+        const updatedUser = { ...currentUser, classSecretaryForClassId: normClass };
+        setCurrentUser(updatedUser);
+        try {
+          localStorage.setItem("unihub_current_user", JSON.stringify(updatedUser));
+        } catch {}
+      }
+    }
+  }, [classCongresses, currentUser]);
 
   // Validate Connection to Firestore on startup
   const testConnection = async () => {
@@ -7217,17 +7245,45 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     // 4. Cập nhật và lưu classCongresses vào Firestore
+    let targetCc: ClassCongress | undefined;
+    let found = false;
     const updatedCongresses = classCongresses.map(cc => {
       if (normalizeClassId(cc.classId) === normClass) {
-        return { ...cc, secretaryStudentId: studentId, updatedAt: new Date().toISOString() };
+        targetCc = { ...cc, secretaryStudentId: studentId, updatedAt: new Date().toISOString() };
+        found = true;
+        return targetCc;
       }
       return cc;
     });
+
+    if (!found) {
+      const seed = SEED_CLASS_CONGRESSES.find(c => normalizeClassId(c.classId) === normClass);
+      if (seed) {
+        targetCc = { ...seed, secretaryStudentId: studentId, updatedAt: new Date().toISOString() };
+      } else {
+        targetCc = {
+          id: `CONG_CAMP_2026_2027_01_${normClass.replace(/[^a-zA-Z0-9]/g, "_")}`,
+          campaignId: congressCampaigns[0]?.id || "CAMP_2026_2027_01",
+          classId: normClass,
+          title: `Đại hội Chi đoàn ${normClass} nhiệm kỳ 2026 - 2027`,
+          status: "CANDIDATE_APPROVED",
+          voterIds: [studentId],
+          bchChiDoanSeats: 3,
+          bchChiHoiSeats: 3,
+          banCanSuSeats: 3,
+          secretaryStudentId: studentId,
+          ballotBoxes: [],
+          appointments: [],
+          updatedAt: new Date().toISOString()
+        };
+      }
+      updatedCongresses.push(targetCc);
+    }
+
     persistClassCongresses(updatedCongresses);
-    const targetCc = updatedCongresses.find(cc => normalizeClassId(cc.classId) === normClass);
     if (targetCc) {
       try {
-        await setDoc(doc(db, "classCongresses", targetCc.id), targetCc, { merge: true });
+        await setDoc(doc(db, "classCongresses", (targetCc as ClassCongress).id), targetCc, { merge: true });
       } catch (e) {
         console.warn("Lỗi lưu secretaryStudentId lên Firestore:", e);
       }
@@ -7435,17 +7491,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const congress = classCongresses.find(c => c.id === congressId);
     if (!congress) return;
 
-    const updated: ClassCongress = {
-      ...congress,
-      appointments,
-      status: "APPOINTED",
-      updatedAt: new Date().toISOString()
-    };
-
     const secApp = appointments.find(a => a.role === "BI_THU_CHI_DOAN");
     if (secApp && secApp.studentId) {
       await assignClassSecretary(secApp.studentId, congress.classId);
     }
+
+    const updated: ClassCongress = {
+      ...congress,
+      appointments,
+      secretaryStudentId: secApp?.studentId || congress.secretaryStudentId,
+      status: "APPOINTED",
+      updatedAt: new Date().toISOString()
+    };
 
     await saveClassCongress(updated);
   };

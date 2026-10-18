@@ -139,30 +139,39 @@ export const CongressPortal: React.FC = () => {
 
   // Kiểm tra quyền Bí thư Chi đoàn
   const isClassSecretary = useMemo(() => {
-    if (!currentUser || !currentCongress) return false;
-    const normCurrentClass = normalizeClassId(currentCongress.classId);
-    const secClass = currentUser.classSecretaryForClassId ? normalizeClassId(currentUser.classSecretaryForClassId) : "";
-    const secId = (currentCongress.secretaryStudentId || "").trim().toLowerCase();
+    if (!currentUser) return false;
+    if (currentUser.role === UserRole.ADMIN) return true;
 
     // Thu thập tất cả các mã định danh của user hiện tại
     const userKeys = [
       currentUser.targetId,
       currentUser.username,
       currentUser.id,
+      currentUser.email,
       myStudentObj?.id,
       (myStudentObj as any)?.code,
+      myStudentObj?.email,
       (currentUser as any)?.studentId,
       (currentUser as any)?.code
     ].map(k => (k || "").trim().toLowerCase()).filter(Boolean);
 
-    const isDesignatedSecretary = Boolean(secId && userKeys.includes(secId));
+    // 1. Kiểm tra trực tiếp trên đại hội lớp đang chọn
+    if (currentCongress) {
+      const normCurrentClass = normalizeClassId(currentCongress.classId);
+      const secClass = currentUser.classSecretaryForClassId ? normalizeClassId(currentUser.classSecretaryForClassId) : "";
+      const secId = (currentCongress.secretaryStudentId || "").trim().toLowerCase();
+      const isDesignatedSecretary = Boolean(secId && userKeys.includes(secId));
+      if ((secClass && secClass === normCurrentClass) || isDesignatedSecretary) {
+        return true;
+      }
+    }
 
-    return Boolean(
-      (secClass && secClass === normCurrentClass) ||
-      isDesignatedSecretary ||
-      currentUser.role === UserRole.ADMIN
-    );
-  }, [currentUser, currentCongress, myStudentObj]);
+    // 2. Kiểm tra nếu user là Bí thư trong bất kỳ đại hội nào
+    return classCongresses.some(cc => {
+      const s = (cc.secretaryStudentId || "").trim().toLowerCase();
+      return Boolean(s && userKeys.includes(s));
+    });
+  }, [currentUser, currentCongress, myStudentObj, classCongresses]);
 
   // Thông tin sinh viên giữ vai trò Bí thư Chi đoàn
   const currentSecretaryStudent = useMemo(() => {
@@ -588,31 +597,56 @@ export const CongressPortal: React.FC = () => {
                 </select>
               </div>
 
-              <button
-                type="button"
-                disabled={!selectedSecStudentId || isAssigningSec}
-                onClick={async () => {
-                  if (!selectedSecStudentId || !currentCongress) return;
-                  setIsAssigningSec(true);
-                  try {
-                    await assignClassSecretary(selectedSecStudentId, currentCongress.classId);
-                    const targetStud = classStudents.find(s => s.id === selectedSecStudentId);
-                    showToast("success", `Đã xác nhận chỉ định đồng chí ${targetStud?.name || selectedSecStudentId} làm Bí thư Chi đoàn ${currentCongress.classId}.`);
-                  } catch (err) {
-                    showToast("error", "Lỗi khi lưu chỉ định Bí thư.");
-                  } finally {
-                    setIsAssigningSec(false);
-                  }
-                }}
-                className={`px-4 py-2 rounded-xl text-xs font-bold shadow-xs active:scale-98 transition-all flex items-center justify-center gap-1.5 cursor-pointer min-h-[40px] ${
-                  isSelectionChanged
-                    ? "bg-amber-600 hover:bg-amber-700 text-white ring-2 ring-amber-400/50"
-                    : "bg-emerald-600 hover:bg-emerald-700 text-white"
-                } disabled:opacity-40 disabled:pointer-events-none`}
-              >
-                <CheckCircle size={15} />
-                <span>{isAssigningSec ? "Đang lưu..." : "Xác nhận chỉ định"}</span>
-              </button>
+              {isSelectionChanged ? (
+                <button
+                  type="button"
+                  disabled={!selectedSecStudentId || isAssigningSec}
+                  onClick={async () => {
+                    if (!selectedSecStudentId || !currentCongress) return;
+                    setIsAssigningSec(true);
+                    try {
+                      await assignClassSecretary(selectedSecStudentId, currentCongress.classId);
+                      const targetStud = classStudents.find(s => s.id === selectedSecStudentId);
+                      showToast("success", `Đã lưu chỉ định đồng chí ${targetStud?.name || selectedSecStudentId} làm Bí thư Chi đoàn ${currentCongress.classId}.`);
+                    } catch (err) {
+                      showToast("error", "Lỗi khi lưu chỉ định Bí thư.");
+                    } finally {
+                      setIsAssigningSec(false);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold shadow-xs active:scale-98 transition-all flex items-center justify-center gap-1.5 cursor-pointer min-h-[40px] bg-amber-600 hover:bg-amber-700 text-white ring-2 ring-amber-400/50 disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  <CheckCircle size={15} />
+                  <span>{isAssigningSec ? "Đang lưu..." : "Lưu thay đổi Bí thư"}</span>
+                </button>
+              ) : currentCongress.secretaryStudentId ? (
+                <div className="px-3.5 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/90 text-xs font-bold flex items-center gap-1.5 min-h-[40px] shadow-2xs">
+                  <CheckCircle size={15} className="text-emerald-600 shrink-0" />
+                  <span>Đã chỉ định chính thức</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={!selectedSecStudentId || isAssigningSec}
+                  onClick={async () => {
+                    if (!selectedSecStudentId || !currentCongress) return;
+                    setIsAssigningSec(true);
+                    try {
+                      await assignClassSecretary(selectedSecStudentId, currentCongress.classId);
+                      const targetStud = classStudents.find(s => s.id === selectedSecStudentId);
+                      showToast("success", `Đã xác nhận chỉ định đồng chí ${targetStud?.name || selectedSecStudentId} làm Bí thư Chi đoàn ${currentCongress.classId}.`);
+                    } catch (err) {
+                      showToast("error", "Lỗi khi lưu chỉ định Bí thư.");
+                    } finally {
+                      setIsAssigningSec(false);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold shadow-xs active:scale-98 transition-all flex items-center justify-center gap-1.5 cursor-pointer min-h-[40px] bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  <CheckCircle size={15} />
+                  <span>{isAssigningSec ? "Đang lưu..." : "Xác nhận chỉ định"}</span>
+                </button>
+              )}
             </div>
           )}
 
