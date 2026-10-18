@@ -312,10 +312,30 @@ export const CongressPortal: React.FC = () => {
 
   // --- STATE QUẢN TRỊ CHI ĐOÀN (BÍ THƯ) ---
   const [candidateModal, setCandidateModal] = useState<{ boxType: BallotBoxType } | null>(null);
+  const [candidateSearch, setCandidateSearch] = useState("");
   const [candidateForm, setCandidateForm] = useState<{ studentId: string; manifesto: string }>({
     studentId: "",
     manifesto: ""
   });
+
+  const filteredNominationStudents = useMemo(() => {
+    if (!classStudents) return [];
+    const currentBox = candidateModal ? currentCongress?.ballotBoxes.find(b => b.type === candidateModal.boxType) : null;
+    const existingCandidateIds = new Set(currentBox?.candidates.map(c => c.studentId) || []);
+
+    const term = candidateSearch.trim().toLowerCase();
+    const normalizedTerm = term.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    return classStudents.map(student => ({
+      ...student,
+      isAlreadyNominated: existingCandidateIds.has(student.id)
+    })).filter(student => {
+      if (!term) return true;
+      const normalizedName = (student.name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const studentId = (student.id || "").toLowerCase();
+      return normalizedName.includes(normalizedTerm) || studentId.includes(term);
+    });
+  }, [classStudents, candidateModal, currentCongress, candidateSearch]);
 
   const handleAddCandidate = async () => {
     if (!candidateModal || !currentCongress || !candidateForm.studentId) return;
@@ -355,6 +375,7 @@ export const CongressPortal: React.FC = () => {
 
     showToast("success", `Đã thêm ứng viên ${student.name} vào ${box.title}.`);
     setCandidateModal(null);
+    setCandidateSearch("");
     setCandidateForm({ studentId: "", manifesto: "" });
   };
 
@@ -1272,7 +1293,11 @@ export const CongressPortal: React.FC = () => {
                     <div className="flex justify-between items-center text-xs">
                       <span className="font-bold text-slate-700">Ứng cử viên đề xuất ({box.candidates.length}/{box.maxWinners})</span>
                       <button
-                        onClick={() => setCandidateModal({ boxType: box.type })}
+                        onClick={() => {
+                          setCandidateSearch("");
+                          setCandidateForm({ studentId: "", manifesto: "" });
+                          setCandidateModal({ boxType: box.type });
+                        }}
                         disabled={box.status === "CLOSED"}
                         className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-40 min-h-[36px] transition-all shadow-2xs"
                       >
@@ -1333,7 +1358,11 @@ export const CongressPortal: React.FC = () => {
                 Đề Xuất Ứng Cử Viên Mới ({candidateModal.boxType === "BCH_CHI_DOAN" ? "BCH Chi đoàn" : candidateModal.boxType === "BCH_CHI_HOI" ? "BCH Chi hội" : "Ban cán sự lớp"})
               </h3>
               <button 
-                onClick={() => setCandidateModal(null)}
+                onClick={() => {
+                  setCandidateModal(null);
+                  setCandidateSearch("");
+                  setCandidateForm({ studentId: "", manifesto: "" });
+                }}
                 className="text-slate-400 hover:text-slate-600 p-1 rounded-full cursor-pointer"
               >
                 <X size={18} />
@@ -1342,17 +1371,99 @@ export const CongressPortal: React.FC = () => {
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Chọn sinh viên từ danh sách lớp {currentCongress.classId}:</label>
+                <label className="font-bold text-slate-700 block mb-1.5">Chọn sinh viên từ danh sách lớp {currentCongress.classId}:</label>
+                
+                {/* Thanh tìm kiếm sinh viên */}
+                <div className="relative mb-2">
+                  <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={candidateSearch}
+                    onChange={(e) => setCandidateSearch(e.target.value)}
+                    placeholder="Tìm theo tên hoặc MSSV..."
+                    className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all min-h-[40px]"
+                  />
+                  {candidateSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setCandidateSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                      title="Xóa tìm kiếm"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Dropdown danh sách đã lọc */}
                 <select
                   value={candidateForm.studentId}
                   onChange={(e) => setCandidateForm({ ...candidateForm, studentId: e.target.value })}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer min-h-[44px]"
                 >
-                  <option value="">-- Chọn sinh viên ứng cử --</option>
-                  {classStudents.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
+                  <option value="">
+                    {filteredNominationStudents.length === 0
+                      ? "-- Không tìm thấy sinh viên nào --"
+                      : candidateSearch.trim()
+                        ? `-- Kết quả tìm kiếm (${filteredNominationStudents.length} sinh viên) --`
+                        : "-- Chọn sinh viên ứng cử --"}
+                  </option>
+                  {filteredNominationStudents.map(s => (
+                    <option key={s.id} value={s.id} disabled={s.isAlreadyNominated}>
+                      {s.name} ({s.id}){s.isAlreadyNominated ? " - Đã ứng cử" : ""}
+                    </option>
                   ))}
                 </select>
+
+                {/* Gợi ý chọn nhanh khi gõ tìm kiếm */}
+                {candidateSearch.trim() && filteredNominationStudents.length > 0 && !candidateForm.studentId && (
+                  <div className="mt-2 max-h-36 overflow-y-auto space-y-1 p-1 bg-slate-50 rounded-xl border border-slate-200/70">
+                    {filteredNominationStudents.slice(0, 6).map(s => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        disabled={s.isAlreadyNominated}
+                        onClick={() => setCandidateForm({ ...candidateForm, studentId: s.id })}
+                        className={`w-full text-left p-2 rounded-lg text-xs flex items-center justify-between transition-all ${
+                          s.isAlreadyNominated
+                            ? "opacity-40 cursor-not-allowed bg-slate-100"
+                            : "hover:bg-indigo-50/80 bg-white border border-slate-100 cursor-pointer"
+                        }`}
+                      >
+                        <div className="min-w-0 pr-2">
+                          <span className="font-semibold text-slate-900 block truncate">{s.name}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">{s.id}</span>
+                        </div>
+                        <span className="text-[10px] font-bold text-indigo-600 shrink-0">
+                          {s.isAlreadyNominated ? "Đã có trong DS" : "Chọn"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Xác nhận sinh viên đã chọn */}
+                {candidateForm.studentId && (() => {
+                  const sel = classStudents.find(s => s.id === candidateForm.studentId);
+                  return sel ? (
+                    <div className="mt-2 p-2.5 bg-indigo-50 border border-indigo-200/80 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <CheckCircle size={15} className="text-indigo-600 shrink-0" />
+                        <div className="min-w-0">
+                          <span className="font-bold text-indigo-950 block truncate">{sel.name}</span>
+                          <span className="text-[10px] text-indigo-600 font-mono">{sel.id}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setCandidateForm({ ...candidateForm, studentId: "" })}
+                        className="text-[11px] text-slate-500 hover:text-rose-600 font-semibold px-2 py-1 rounded-lg hover:bg-white cursor-pointer shrink-0"
+                      >
+                        Bỏ chọn
+                      </button>
+                    </div>
+                  ) : null;
+                })()}
               </div>
 
               <div>
@@ -1369,7 +1480,11 @@ export const CongressPortal: React.FC = () => {
 
             <div className="flex justify-end gap-2 pt-2">
               <button
-                onClick={() => setCandidateModal(null)}
+                onClick={() => {
+                  setCandidateModal(null);
+                  setCandidateSearch("");
+                  setCandidateForm({ studentId: "", manifesto: "" });
+                }}
                 className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 min-h-[44px] cursor-pointer"
               >
                 Hủy
