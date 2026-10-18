@@ -161,7 +161,11 @@ export const CongressPortal: React.FC = () => {
       const secClass = currentUser.classSecretaryForClassId ? normalizeClassId(currentUser.classSecretaryForClassId) : "";
       const secId = (currentCongress.secretaryStudentId || "").trim().toLowerCase();
       const isDesignatedSecretary = Boolean(secId && userKeys.includes(secId));
-      if ((secClass && secClass === normCurrentClass) || isDesignatedSecretary) {
+      const hasSecretaryFlag = Boolean(
+        ((currentUser as any)?.isClassSecretary && normalizeClassId((currentUser as any)?.classSecretaryForClassId || "") === normCurrentClass) ||
+        (myStudentObj?.isClassSecretary && normalizeClassId(myStudentObj?.classSecretaryForClassId || "") === normCurrentClass)
+      );
+      if ((secClass && secClass === normCurrentClass) || isDesignatedSecretary || hasSecretaryFlag) {
         return true;
       }
     }
@@ -858,7 +862,7 @@ export const CongressPortal: React.FC = () => {
           <span>Bỏ Phiếu 3 Hòm Phiếu</span>
         </button>
 
-        {(isClassSecretary || isAdminOrYouthUnion || isAdviser) && (
+        {(isClassSecretary || isAdminOrYouthUnion) && (
           <button
             onClick={() => setActiveTab("SECRETARY")}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all min-h-[44px] cursor-pointer whitespace-nowrap ${
@@ -868,7 +872,7 @@ export const CongressPortal: React.FC = () => {
             }`}
           >
             <ShieldCheck size={16} />
-            <span>Đề Xuất Nhân Sự (Bí Thư)</span>
+            <span>Điều Hành Bầu Cử (Bí Thư)</span>
           </button>
         )}
 
@@ -918,8 +922,171 @@ export const CongressPortal: React.FC = () => {
       {/* ========================================================= */}
       {activeTab === "VOTE" && currentCongress && (
         <div className="space-y-6 animate-fade-in">
-          {currentCongress.status !== "VOTING" && currentCongress.status !== "COUNTED" && currentCongress.status !== "APPOINTED" && currentCongress.status !== "APPROVED" && (
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/80 rounded-2xl p-5 text-blue-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          {/* BANNER ĐIỀU HÀNH BẦU CỬ CỦA BÍ THƯ CHI ĐOÀN */}
+          {(isClassSecretary || isAdminOrYouthUnion) && (
+            <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 text-white rounded-3xl p-5 sm:p-6 shadow-md border border-indigo-500/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-left">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-400 text-amber-950 flex items-center gap-1 shadow-xs">
+                    <ShieldCheck size={12} />
+                    ⭐ Thẩm Quyền Bí Thư Chi Đoàn
+                  </span>
+                  <span className="text-xs text-indigo-200 font-semibold">
+                    Chi đoàn {currentCongress.classId}
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-white">
+                  Bảng Điều Hành Khóa & Mở Hòm Phiếu Bầu Cử
+                </h3>
+                <p className="text-xs text-indigo-200 mt-0.5 max-w-2xl leading-relaxed">
+                  Quyền khóa và mở cho phép bầu cử thuộc về Bí thư Chi đoàn (GVCN chỉ phê duyệt đề án nhân sự và bổ nhiệm). Bạn có thể mở/khóa toàn bộ hoặc điều hành riêng từng hòm phiếu.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {(currentCongress.status === "CANDIDATE_APPROVED" || currentCongress.ballotBoxes.some(b => b.status === "APPROVED" || b.status === "CLOSED")) && (
+                  <button
+                    onClick={async () => {
+                      await openCongressBallotBox(currentCongress.id);
+                      showToast("success", "Bí thư Chi đoàn đã mở tất cả hòm phiếu cho cử tri bắt đầu bỏ phiếu.");
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-md active:scale-98 transition-all flex items-center gap-1.5 cursor-pointer min-h-[44px]"
+                  >
+                    <Unlock size={15} />
+                    <span>Mở Tất Cả Hòm Phiếu</span>
+                  </button>
+                )}
+
+                {currentCongress.status === "VOTING" && (
+                  <button
+                    onClick={async () => {
+                      await closeCongressBallotBox(currentCongress.id);
+                      showToast("success", "Bí thư Chi đoàn đã khóa hòm phiếu & chuyển sang kiểm phiếu.");
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold shadow-md active:scale-98 transition-all flex items-center gap-1.5 cursor-pointer min-h-[44px]"
+                  >
+                    <Lock size={15} />
+                    <span>Khóa Hòm Phiếu & Kiểm Phiếu</span>
+                  </button>
+                )}
+
+                {currentCongress.status === "COUNTED" && (
+                  <button
+                    onClick={async () => {
+                      await openCongressBallotBox(currentCongress.id);
+                      showToast("success", "Bí thư Chi đoàn đã mở lại hòm phiếu bầu cử.");
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md active:scale-98 transition-all flex items-center gap-1.5 cursor-pointer min-h-[44px]"
+                  >
+                    <Unlock size={15} />
+                    <span>Mở Lại Bầu Cử</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setActiveTab("SECRETARY")}
+                  className="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/20 shadow-xs active:scale-98 transition-all flex items-center gap-1.5 cursor-pointer min-h-[44px]"
+                >
+                  <Edit3 size={14} />
+                  <span>Cấu Hình Nhân Sự</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* BANNER THÔNG TIN PHÂN ĐỊNH THẨM QUYỀN DÀNH CHO GVCN (CỐ VẤN HỌC TẬP) */}
+          {isAdviser && !isClassSecretary && (
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <UserCheck size={18} />
+                </div>
+                <div className="text-xs">
+                  <span className="font-bold text-slate-900 block">
+                    Vai trò: Cố vấn học tập (GVCN)
+                  </span>
+                  <span className="text-slate-500">
+                    Quyền khóa và mở cho phép bầu cử thuộc về Bí thư Chi đoàn điều hành Đại hội. Thầy/Cô thực hiện duyệt danh sách ứng viên và bổ nhiệm chức danh sau khi có kết quả kiểm phiếu.
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveTab("ADVISER")}
+                className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shrink-0 min-h-[40px] cursor-pointer flex items-center gap-1.5"
+              >
+                <span>Vào Duyệt & Bổ Nhiệm CVHT</span>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          )}
+          {/* BANNER THÔNG BÁO TIẾN ĐỘ THEO TRẠNG THÁI */}
+          {currentCongress.status === "CANDIDATE_APPROVED" && (
+            <div className="bg-emerald-50 border border-emerald-200/80 rounded-2xl p-5 text-emerald-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-left">
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                  <CheckCircle size={20} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-900">
+                    Đề án nhân sự đã được CVHT phê chuẩn!
+                  </h4>
+                  <p className="text-xs text-emerald-800 mt-1 leading-relaxed">
+                    Danh sách ứng viên 3 hòm phiếu đã sẵn sàng. Bí thư Chi đoàn thực hiện mở hòm phiếu để toàn thể cử tri trong Chi đoàn tiến hành bỏ phiếu bầu cử.
+                  </p>
+                </div>
+              </div>
+              {(isClassSecretary || isAdminOrYouthUnion) && (
+                <button
+                  onClick={async () => {
+                    await openCongressBallotBox(currentCongress.id);
+                    showToast("success", "Bí thư Chi đoàn đã mở hòm phiếu bầu cử cho toàn bộ Chi đoàn!");
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white text-xs font-bold shadow-md whitespace-nowrap min-h-[44px] cursor-pointer flex items-center gap-2 shrink-0"
+                >
+                  <Unlock size={16} />
+                  <span>Mở Hòm Phiếu Bầu Cử Ngay</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {currentCongress.status === "VOTING" && (
+            <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50 border border-emerald-200/80 rounded-2xl p-4 text-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                  <Vote size={18} />
+                </div>
+                <div className="text-xs">
+                  <span className="font-bold text-slate-900 flex items-center gap-2">
+                    <span>Hòm phiếu đang mở bỏ phiếu</span>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                  </span>
+                  <span className="text-slate-500">
+                    Đã có <strong className="text-emerald-700 font-mono">{currentCongress.voterIds?.length || 0} cử tri</strong> tham gia. Bí thư Chi đoàn có quyền khóa hòm phiếu khi đại hội kết thúc phần bỏ phiếu.
+                  </span>
+                </div>
+              </div>
+              {(isClassSecretary || isAdminOrYouthUnion) && (
+                <button
+                  onClick={async () => {
+                    await closeCongressBallotBox(currentCongress.id);
+                    showToast("success", "Bí thư Chi đoàn đã khóa hòm phiếu & chuyển sang kiểm phiếu.");
+                  }}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-98 text-white text-xs font-bold shadow-xs whitespace-nowrap min-h-[40px] cursor-pointer flex items-center gap-1.5 shrink-0"
+                >
+                  <Lock size={14} />
+                  <span>Khóa Bầu Cử & Kiểm Phiếu</span>
+                </button>
+              )}
+            </div>
+          )}
+
+
+          {currentCongress.status !== "VOTING" && currentCongress.status !== "COUNTED" && currentCongress.status !== "APPOINTED" && currentCongress.status !== "APPROVED" && currentCongress.status !== "CANDIDATE_APPROVED" && (
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/80 rounded-2xl p-5 text-blue-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-left">
               <div className="flex items-start gap-3.5">
                 <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
                   <Users size={18} />
@@ -929,17 +1096,26 @@ export const CongressPortal: React.FC = () => {
                     Giai đoạn: Bí thư Chi đoàn lập danh sách & đề xuất nhân sự bầu cử
                   </h4>
                   <p className="text-xs text-blue-800 mt-1 leading-relaxed">
-                    Bí thư Chi đoàn đang thực hiện đề xuất danh sách ứng cử viên 3 hòm phiếu (BCH Chi đoàn, BCH Chi hội, Ban cán sự) và gửi Cố vấn học tập (CVHT) phê duyệt. Hòm phiếu sẽ mở sau khi hoàn tất phê chuẩn.
+                    Bí thư Chi đoàn đang thực hiện đề xuất danh sách ứng cử viên 3 hòm phiếu (BCH Chi đoàn, BCH Chi hội, Ban cán sự) và gửi Cố vấn học tập (CVHT) phê duyệt. Quyền khóa và mở hòm phiếu bầu cử thuộc về Bí thư Chi đoàn sau khi CVHT phê chuẩn.
                   </p>
                 </div>
               </div>
-              {(isClassSecretary || isAdminOrYouthUnion || isAdviser) && (
+              {(isClassSecretary || isAdminOrYouthUnion) && (
                 <button
                   onClick={() => setActiveTab("SECRETARY")}
                   className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white text-xs font-bold shadow-xs whitespace-nowrap min-h-[44px] cursor-pointer flex items-center gap-1.5 shrink-0"
                 >
                   <UserCheck size={15} />
-                  <span>Vào Đề Xuất Nhân Sự Ngay</span>
+                  <span>Vào Điều Hành & Đề Xuất Ngay</span>
+                </button>
+              )}
+              {isAdviser && !isClassSecretary && (
+                <button
+                  onClick={() => setActiveTab("ADVISER")}
+                  className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white text-xs font-bold shadow-xs whitespace-nowrap min-h-[44px] cursor-pointer flex items-center gap-1.5 shrink-0"
+                >
+                  <UserCheck size={15} />
+                  <span>Vào Xét Duyệt CVHT</span>
                 </button>
               )}
             </div>
@@ -955,19 +1131,59 @@ export const CongressPortal: React.FC = () => {
                 <div key={box.id} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs flex flex-col justify-between">
                   <div>
                     {/* Header box */}
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                        box.type === "BCH_CHI_DOAN" ? "bg-rose-50 text-rose-700 ring-1 ring-rose-600/10" :
-                        box.type === "BCH_CHI_HOI" ? "bg-blue-50 text-blue-700 ring-1 ring-blue-600/10" :
-                        "bg-purple-50 text-purple-700 ring-1 ring-purple-600/10"
-                      }`}>
-                        {box.type === "BCH_CHI_DOAN" ? "BCH Chi đoàn" : box.type === "BCH_CHI_HOI" ? "BCH Chi hội" : "Ban cán sự lớp"}
-                      </span>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                        isOpen ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/10" : "bg-slate-100 text-slate-500"
-                      }`}>
-                        {isOpen ? "Đang mở" : box.status}
-                      </span>
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100 gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                          box.type === "BCH_CHI_DOAN" ? "bg-rose-50 text-rose-700 ring-1 ring-rose-600/10" :
+                          box.type === "BCH_CHI_HOI" ? "bg-blue-50 text-blue-700 ring-1 ring-blue-600/10" :
+                          "bg-purple-50 text-purple-700 ring-1 ring-purple-600/10"
+                        }`}>
+                          {box.type === "BCH_CHI_DOAN" ? "BCH Chi đoàn" : box.type === "BCH_CHI_HOI" ? "BCH Chi hội" : "Ban cán sự lớp"}
+                        </span>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                          isOpen ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/10" :
+                          box.status === "CLOSED" ? "bg-rose-50 text-rose-700 ring-1 ring-rose-600/10" :
+                          box.status === "APPROVED" ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-600/10" :
+                          "bg-slate-100 text-slate-500"
+                        }`}>
+                          {isOpen ? "Đang mở" : box.status === "CLOSED" ? "Đã khóa" : box.status === "APPROVED" ? "Đã duyệt" : box.status}
+                        </span>
+                      </div>
+
+                      {/* Nút Khóa / Mở từng hòm độc lập cho Bí thư Chi đoàn */}
+                      {(isClassSecretary || isAdminOrYouthUnion) && (
+                        <div>
+                          {isOpen ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                closeCongressBallotBox(currentCongress.id, box.id);
+                                showToast("success", `Bí thư đã khóa hòm phiếu ${box.title}.`);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 ring-1 ring-rose-200 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                              title="Bí thư Chi đoàn khóa hòm này"
+                            >
+                              <Lock size={11} />
+                              <span>Khóa hòm</span>
+                            </button>
+                          ) : (currentCongress.status === "CANDIDATE_APPROVED" || currentCongress.status === "VOTING" || currentCongress.status === "COUNTED" || box.status === "APPROVED" || box.status === "CLOSED") ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openCongressBallotBox(currentCongress.id, box.id);
+                                showToast("success", `Bí thư đã mở hòm phiếu ${box.title} cho cử tri.`);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 ring-1 ring-emerald-200 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                              title="Bí thư Chi đoàn mở hòm này"
+                            >
+                              <Unlock size={11} />
+                              <span>Mở hòm</span>
+                            </button>
+                          ) : null}
+                        </div>
+                      )}
                     </div>
 
                     <h3 className="text-sm font-bold text-slate-900 mt-3 leading-snug">
@@ -1160,21 +1376,40 @@ export const CongressPortal: React.FC = () => {
       )}
 
       {/* ========================================================= */}
-      {/* 2. TAB ĐỀ XUẤT NHÂN SỰ & QUẢN TRỊ (BÍ THƯ CHI ĐOÀN) */}
+      {/* 2. TAB ĐIỀU HÀNH BẦU CỬ & QUẢN TRỊ (BÍ THƯ CHI ĐOÀN) */}
       {/* ========================================================= */}
       {activeTab === "SECRETARY" && currentCongress && (
+        (!isClassSecretary && !isAdminOrYouthUnion) ? (
+          <div className="bg-white rounded-3xl p-8 border border-slate-200/80 text-center space-y-3 animate-fade-in">
+            <ShieldCheck size={36} className="text-amber-500 mx-auto" />
+            <h3 className="text-base font-bold text-slate-900">
+              Khu Vực Thao Tác Dành Riêng Cho Bí Thư Chi Đoàn
+            </h3>
+            <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+              Theo Điều lệ Đoàn, quyền khóa và mở cho phép bầu cử và điều hành đề xuất nhân sự thuộc về Bí thư Chi đoàn. Với vai trò Cố vấn học tập (GVCN), Thầy/Cô vui lòng chuyển sang tab Xét Duyệt & Bổ Nhiệm.
+            </p>
+            <div className="pt-2">
+              <button
+                onClick={() => setActiveTab("ADVISER")}
+                className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs cursor-pointer min-h-[44px]"
+              >
+                Chuyển Sang Tab Xét Duyệt & Bổ Nhiệm (CVHT)
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="space-y-6 animate-fade-in text-left">
           {/* Banner Bí thư Chi đoàn */}
           <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 text-white rounded-3xl p-6 sm:p-7 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block mb-1">
-                ⭐ Quyền Bí thư Chi đoàn • Đề xuất nhân sự ứng cử
+                ⭐ Thẩm Quyền Bí thư Chi đoàn • Điều Hành Bầu Cử & Đề Xuất Nhân Sự
               </span>
               <h2 className="text-lg font-bold text-white">
-                Đề Xuất Nhân Sự Bầu Cử Đại Hội Chi Đoàn {currentCongress.classId}
+                Điều Hành Bầu Cử & Đề Xuất Nhân Sự Đại Hội {currentCongress.classId}
               </h2>
-              <p className="text-xs text-indigo-200 mt-0.5">
-                Quyền hạn Bí thư: Thiết lập số lượng cần bầu, đề xuất danh sách ứng cử viên 3 hòm phiếu (BCH Chi đoàn, BCH Chi hội, Ban cán sự lớp) và gửi Cố vấn học tập (CVHT) phê duyệt.
+              <p className="text-xs text-indigo-200 mt-0.5 leading-relaxed">
+                Quyền hạn Bí thư Chi đoàn: Chuẩn bị nhân sự 3 hòm phiếu gửi CVHT duyệt; TOÀN QUYỀN KHÓA VÀ MỞ HÒM PHIẾU BẦU CỬ cho cử tri trong đại hội.
               </p>
             </div>
 
@@ -1190,7 +1425,10 @@ export const CongressPortal: React.FC = () => {
                 </button>
               ) : currentCongress.status === "CANDIDATE_APPROVED" ? (
                 <button
-                  onClick={() => openCongressBallotBox(currentCongress.id)}
+                  onClick={async () => {
+                    await openCongressBallotBox(currentCongress.id);
+                    showToast("success", "Bí thư Chi đoàn đã mở tất cả hòm phiếu bầu cử cho cử tri.");
+                  }}
                   className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-md active:scale-98 transition-all flex items-center gap-2 cursor-pointer min-h-[44px]"
                 >
                   <Unlock size={15} />
@@ -1198,11 +1436,25 @@ export const CongressPortal: React.FC = () => {
                 </button>
               ) : currentCongress.status === "VOTING" ? (
                 <button
-                  onClick={() => closeCongressBallotBox(currentCongress.id)}
+                  onClick={async () => {
+                    await closeCongressBallotBox(currentCongress.id);
+                    showToast("success", "Bí thư Chi đoàn đã khóa hòm phiếu & chuyển sang kiểm phiếu.");
+                  }}
                   className="px-4 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold shadow-md active:scale-98 transition-all flex items-center gap-2 cursor-pointer min-h-[44px]"
                 >
                   <Lock size={15} />
                   <span>Khóa Hòm Phiếu & Kiểm Phiếu</span>
+                </button>
+              ) : currentCongress.status === "COUNTED" ? (
+                <button
+                  onClick={async () => {
+                    await openCongressBallotBox(currentCongress.id);
+                    showToast("success", "Bí thư Chi đoàn đã mở lại hòm phiếu bầu cử.");
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md active:scale-98 transition-all flex items-center gap-2 cursor-pointer min-h-[44px]"
+                >
+                  <Unlock size={15} />
+                  <span>Mở Lại Hòm Phiếu Bầu Cử</span>
                 </button>
               ) : currentCongress.status === "MINUTES_SIGNED" ? (
                 <button
@@ -1215,7 +1467,7 @@ export const CongressPortal: React.FC = () => {
               ) : null}
 
               {/* Nút mở lại soạn thảo để đề xuất nhân sự nếu cần */}
-              {(currentCongress.status === "VOTING" || currentCongress.status === "CANDIDATE_APPROVED") && (
+              {(currentCongress.status === "VOTING" || currentCongress.status === "CANDIDATE_APPROVED" || currentCongress.status === "COUNTED") && (
                 <button
                   onClick={async () => {
                     const nextBoxes = currentCongress.ballotBoxes.map(b => ({ ...b, status: "DRAFT" as const }));
@@ -1248,9 +1500,43 @@ export const CongressPortal: React.FC = () => {
                       <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Hòm phiếu</span>
                       <h4 className="text-sm font-bold text-slate-900">{box.title}</h4>
                     </div>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
-                      {box.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
+                        box.status === "OPEN" ? "bg-emerald-100 text-emerald-800" :
+                        box.status === "CLOSED" ? "bg-rose-100 text-rose-800" :
+                        box.status === "APPROVED" ? "bg-indigo-100 text-indigo-800" :
+                        "bg-slate-100 text-slate-600"
+                      }`}>
+                        {box.status === "OPEN" ? "Đang mở" : box.status === "CLOSED" ? "Đã khóa" : box.status === "APPROVED" ? "Đã duyệt" : box.status}
+                      </span>
+                      {box.status === "OPEN" ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            closeCongressBallotBox(currentCongress.id, box.id);
+                            showToast("success", `Đã khóa hòm phiếu ${box.title}.`);
+                          }}
+                          className="px-2 py-1 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                          title="Khóa riêng hòm này"
+                        >
+                          <Lock size={11} />
+                          <span>Khóa</span>
+                        </button>
+                      ) : (currentCongress.status === "CANDIDATE_APPROVED" || currentCongress.status === "VOTING" || currentCongress.status === "COUNTED" || box.status === "APPROVED" || box.status === "CLOSED") ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            openCongressBallotBox(currentCongress.id, box.id);
+                            showToast("success", `Đã mở hòm phiếu ${box.title} cho cử tri.`);
+                          }}
+                          className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                          title="Mở riêng hòm này"
+                        >
+                          <Unlock size={11} />
+                          <span>Mở</span>
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
 
                   {/* Thiết lập số ghế cần bầu */}
@@ -1347,6 +1633,7 @@ export const CongressPortal: React.FC = () => {
             ))}
           </div>
         </div>
+        )
       )}
 
       {/* MODAL THÊM ỨNG VIÊN */}
@@ -1510,14 +1797,18 @@ export const CongressPortal: React.FC = () => {
           <div className="bg-gradient-to-r from-blue-900 to-indigo-950 text-white rounded-3xl p-6 sm:p-7 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-blue-300 block mb-1">
-                Không gian Cố vấn học tập (CVHT)
+                Không gian Cố vấn học tập (CVHT / GVCN)
               </span>
               <h2 className="text-lg font-bold text-white">
-                Xét duyệt & Bổ nhiệm chức danh Đại hội {currentCongress.classId}
+                Xét Duyệt Đề Án & Bổ Nhiệm Chức Danh Đại Hội {currentCongress.classId}
               </h2>
-              <p className="text-xs text-blue-200 mt-0.5">
-                Phê duyệt danh sách ứng viên, giám sát kiểm phiếu, bổ nhiệm chức danh và ký xác nhận biên bản.
+              <p className="text-xs text-blue-200 mt-0.5 leading-relaxed">
+                Thẩm quyền CVHT (GVCN): Phê duyệt danh sách ứng viên, quan sát kiểm phiếu, bổ nhiệm chức danh và ký xác nhận biên bản.
               </p>
+              <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-blue-950/70 border border-blue-400/30 text-[11px] font-semibold text-amber-300">
+                <ShieldCheck size={13} className="text-amber-400 shrink-0" />
+                <span>Quy chuẩn: Quyền khóa và mở cho phép cử tri bầu cử thuộc về Bí thư Chi đoàn điều hành Đại hội.</span>
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2">

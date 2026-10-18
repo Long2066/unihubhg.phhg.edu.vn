@@ -2585,10 +2585,10 @@ export const StudentPortal: React.FC = () => {
                       </span>
                     </div>
                     <h3 className="text-base sm:text-lg font-black text-white leading-tight">
-                      Không Gian Đề Xuất Nhân Sự & Quản Trị Đại Hội Chi Đoàn
+                      Không Gian Điều Hành Bầu Cử & Quản Trị Đại Hội Chi Đoàn
                     </h3>
                     <p className="text-xs text-indigo-200 leading-relaxed">
-                      Với tư cách Bí thư Chi đoàn, bạn có quyền: Lập danh sách ứng cử viên 3 hòm phiếu (BCH Chi đoàn, BCH Chi hội, Ban cán sự), tùy chỉnh số lượng cần bầu, gửi Cố vấn học tập (CVHT) phê duyệt và mở hòm phiếu.
+                      Với tư cách Bí thư Chi đoàn, bạn có quyền: Lập danh sách ứng cử viên 3 hòm phiếu, gửi Cố vấn học tập (CVHT) phê duyệt và toàn quyền KHÓA & MỞ HÒM PHIẾU BẦU CỬ cho cử tri.
                     </p>
                   </div>
 
@@ -2597,8 +2597,8 @@ export const StudentPortal: React.FC = () => {
                     onClick={() => setActivePortletTab("DAI_HOI_CHI_DOAN")}
                     className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 text-xs font-black shadow-md transition-all cursor-pointer whitespace-nowrap active:scale-95 flex items-center justify-center gap-2 self-start sm:self-auto min-h-[44px] shrink-0"
                   >
-                    <Send className="w-4 h-4" />
-                    <span>ĐỀ XUẤT NHÂN SỰ NGAY</span>
+                    <Vote className="w-4 h-4" />
+                    <span>ĐIỀU HÀNH BẦU CỬ NGAY</span>
                   </button>
                 </div>
               )}

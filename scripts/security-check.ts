@@ -3059,8 +3059,51 @@ assert(
   "Student profile/menu still renders raw facultyId in visible faculty fields"
 );
 
+// =========================================================
+// BATCH 71: Congress Election Lock & Open Voting Permission Belongs to Class Secretary
+// =========================================================
+
+console.log("\n--- BATCH 71: Congress Voting Lock/Open Belongs To Secretary Not Adviser ---");
+
+const congressPortalContent = fs.readFileSync(path.join(__dirname, "../src/components/CongressPortal.tsx"), "utf8");
+
+assert(
+  congressPortalContent.includes("(isClassSecretary || isAdminOrYouthUnion) && (") &&
+  !congressPortalContent.includes("(isClassSecretary || isAdminOrYouthUnion || isAdviser) && ("),
+  "Batch 71 Issue 1: Congress tab navigation restricts secretary controls to isClassSecretary || isAdminOrYouthUnion and excludes plain isAdviser",
+  "Congress tab navigation still allows plain adviser to access secretary management tab"
+);
+
+assert(
+  congressPortalContent.includes("Bảng Điều Hành Khóa & Mở Hòm Phiếu Bầu Cử") &&
+  congressPortalContent.includes("openCongressBallotBox(currentCongress.id)") &&
+  congressPortalContent.includes("closeCongressBallotBox(currentCongress.id)"),
+  "Batch 71 Issue 2: CongressPortal renders Secretary voting control bar with open/close ballot box controls",
+  "CongressPortal missing executive Secretary voting control panel"
+);
+
+assert(
+  congressPortalContent.includes("Quyền khóa và mở cho phép bầu cử thuộc về Bí thư Chi đoàn điều hành Đại hội") &&
+  congressPortalContent.includes("Vai trò: Cố vấn học tập (GVCN)"),
+  "Batch 71 Issue 3: CongressPortal renders GVCN advisory notice clarifying lock/open belongs to Secretary",
+  "CongressPortal missing GVCN guidance note on Secretary voting authority"
+);
+
+assert(
+  congressPortalContent.includes("title=\"Bí thư Chi đoàn khóa hòm này\"") &&
+  congressPortalContent.includes("title=\"Bí thư Chi đoàn mở hòm này\""),
+  "Batch 71 Issue 4: CongressPortal renders individual ballot box lock/open buttons for Bí thư Chi đoàn",
+  "CongressPortal missing per-box lock/open controls for Secretary"
+);
+
+assert(
+  congressPortalContent.includes("Quy chuẩn: Quyền khóa và mở cho phép cử tri bầu cử thuộc về Bí thư Chi đoàn điều hành Đại hội"),
+  "Batch 71 Issue 5: CongressPortal ADVISER tab explicitly clarifies voting lock/open belongs to Bí thư Chi đoàn",
+  "CongressPortal ADVISER tab missing explicit statement on Secretary lock/open authority"
+);
+
 if (failures === 0) {
-  console.log("🎉 ALL BATCH 1 - 70 SECURITY & INTEGRITY REGRESSION TESTS PASSED (350 CHECKS)!");
+  console.log("🎉 ALL BATCH 1 - 71 SECURITY & INTEGRITY REGRESSION TESTS PASSED (355 CHECKS)!");
   console.log("=========================================\n");
   process.exit(0);
 } else {
