@@ -2613,11 +2613,21 @@ export const StudentPortal: React.FC = () => {
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                          myClassCongress.status === "VOTING" 
+                          myClassCongress.isYouthUnionClosed
+                            ? "bg-rose-400/20 text-rose-200 border border-rose-400/30"
+                            : !myClassCongress.isYouthUnionApproved
+                            ? "bg-amber-400/20 text-amber-200 border border-amber-400/30"
+                            : myClassCongress.status === "VOTING" 
                             ? "bg-emerald-400/20 text-emerald-300 border border-emerald-400/30"
                             : "bg-white/20 text-white border border-white/30"
                         }`}>
-                          {myClassCongress.status === "VOTING" ? "🗳️ ĐANG MỞ BỎ PHIẾU" : `🏛️ ${myClassCongress.status}`}
+                          {myClassCongress.isYouthUnionClosed 
+                            ? "🔒 ĐÃ ĐÓNG BỞI ĐOÀN PHÂN HIỆU" 
+                            : !myClassCongress.isYouthUnionApproved 
+                            ? "⏳ CHỜ ĐTN CẤP PHÉP" 
+                            : myClassCongress.status === "VOTING" 
+                            ? "🗳️ ĐANG MỞ BỎ PHIẾU" 
+                            : `🏛️ ${myClassCongress.status}`}
                         </span>
                         <h4 className="font-bold text-white text-base">{myClassCongress.title}</h4>
                       </div>

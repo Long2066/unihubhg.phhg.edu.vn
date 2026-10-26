@@ -986,5 +986,10 @@ export interface ClassCongress {
   submittedAt?: string;
   approvedAt?: string;
   updatedAt?: string;
+  isYouthUnionApproved?: boolean; // Được ĐTN Phân hiệu cấp phép mở Đại hội
+  youthUnionApprovedAt?: string;
+  youthUnionApprovedBy?: string;
+  isYouthUnionClosed?: boolean;   // Bị ĐTN Phân hiệu đóng/khóa Đại hội
+  youthUnionClosedAt?: string;
 }
 

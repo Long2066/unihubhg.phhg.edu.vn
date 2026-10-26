@@ -72,7 +72,8 @@ export const CongressPortal: React.FC = () => {
     appointCongressRoles,
     signCongressMinutes,
     submitCongressToAdmin,
-    approveCongressFinal
+    approveCongressFinal,
+    setCongressYouthUnionPermission
   } = useUniHub();
 
   // Xác định vai trò sinh viên / BCS
@@ -800,6 +801,114 @@ export const CongressPortal: React.FC = () => {
           </div>
         </div>
 
+        {/* BANNER THẨM QUYỀN CẤP PHÉP & MỞ/ĐÓNG CỦA ĐOÀN THANH NIÊN */}
+        {currentCongress && (
+          <div className="mt-5 pt-4 border-t border-slate-100">
+            {!currentCongress.isYouthUnionApproved ? (
+              <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-900 shadow-2xs">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-amber-100/90 text-amber-700 shrink-0 mt-0.5">
+                    <AlertTriangle size={20} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-bold text-xs uppercase tracking-wider text-amber-900">
+                        Chưa được Đoàn Phân hiệu cấp phép mở Đại hội
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200/70 text-amber-800">
+                        CHỜ ĐTN CẤP PHÉP
+                      </span>
+                    </div>
+                    <p className="text-xs text-amber-800/90 mt-0.5 leading-relaxed">
+                      Theo Điều lệ Đoàn, Đại hội Chi đoàn cần quyết định cấp phép từ BCH Đoàn TNCS Hồ Chí Minh Phân hiệu để Bí thư được mở hòm phiếu và cử tri được bỏ phiếu.
+                    </p>
+                  </div>
+                </div>
+                {isAdminOrYouthUnion && (
+                  <button
+                    onClick={async () => {
+                      await setCongressYouthUnionPermission(currentCongress.id, "OPEN");
+                      showToast("success", `Đoàn Phân hiệu đã phê duyệt cấp phép & Mở Đại hội cho Chi đoàn ${currentCongress.classId}!`);
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs active:scale-98 transition-all flex items-center gap-1.5 shrink-0 min-h-[44px] cursor-pointer"
+                  >
+                    <Unlock size={15} />
+                    <span>Cấp Phép & Mở Đại Hội</span>
+                  </button>
+                )}
+              </div>
+            ) : currentCongress.isYouthUnionClosed ? (
+              <div className="bg-rose-50/80 border border-rose-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-rose-900 shadow-2xs">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-rose-100/90 text-rose-700 shrink-0 mt-0.5">
+                    <Lock size={20} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-bold text-xs uppercase tracking-wider text-rose-900">
+                        Đại hội đã được Đoàn Phân hiệu đóng / khóa
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-200/70 text-rose-800">
+                        ĐÃ KHÓA / ĐÓNG
+                      </span>
+                    </div>
+                    <p className="text-xs text-rose-800/90 mt-0.5 leading-relaxed">
+                      BCH Đoàn TNCS Hồ Chí Minh Phân hiệu đã đóng phiên Đại hội của Chi đoàn {currentCongress.classId} {currentCongress.youthUnionClosedAt ? `vào lúc ${new Date(currentCongress.youthUnionClosedAt).toLocaleString("vi-VN")}` : ""}.
+                    </p>
+                  </div>
+                </div>
+                {isAdminOrYouthUnion && (
+                  <button
+                    onClick={async () => {
+                      await setCongressYouthUnionPermission(currentCongress.id, "OPEN");
+                      showToast("success", `Đã mở lại Đại hội cho Chi đoàn ${currentCongress.classId}!`);
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs active:scale-98 transition-all flex items-center gap-1.5 shrink-0 min-h-[44px] cursor-pointer"
+                  >
+                    <Unlock size={15} />
+                    <span>Mở Lại Đại Hội</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="bg-emerald-50/70 border border-emerald-200/70 rounded-2xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-emerald-900 shadow-2xs">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-emerald-100/90 text-emerald-700 shrink-0 mt-0.5">
+                    <ShieldCheck size={18} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-bold text-xs uppercase tracking-wider text-emerald-900">
+                        Đã được BCH Đoàn Phân hiệu cấp phép mở Đại hội
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200/70 text-emerald-800">
+                        ✓ ĐANG MỞ
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-emerald-800/90 mt-0.5">
+                      Cấp phép bởi: <strong>{currentCongress.youthUnionApprovedBy || "BCH Đoàn Phân hiệu"}</strong> {currentCongress.youthUnionApprovedAt ? `• ${new Date(currentCongress.youthUnionApprovedAt).toLocaleString("vi-VN")}` : ""}. Chi đoàn đủ thẩm quyền tiến hành bỏ phiếu.
+                    </p>
+                  </div>
+                </div>
+                {isAdminOrYouthUnion && (
+                  <button
+                    onClick={async () => {
+                      if (confirm(`Xác nhận ĐÓNG / KHÓA phiên Đại hội của Chi đoàn "${currentCongress.classId}"? Hòm phiếu sẽ lập tức dừng nhận phiếu.`)) {
+                        await setCongressYouthUnionPermission(currentCongress.id, "CLOSE");
+                        showToast("success", `Đã đóng phiên Đại hội của Chi đoàn ${currentCongress.classId}!`);
+                      }
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold active:scale-98 transition-all flex items-center gap-1.5 shrink-0 min-h-[40px] cursor-pointer"
+                  >
+                    <Lock size={14} />
+                    <span>Đóng / Khóa Đại Hội</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* CẢNH BÁO MỀM 2/3 CỬ TRI & THANH TIẾN ĐỘ */}
         <div className="mt-6 pt-5 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-slate-50 rounded-2xl p-4 ring-1 ring-slate-900/5 flex items-center justify-between">
@@ -1118,6 +1227,23 @@ export const CongressPortal: React.FC = () => {
                   <span>Vào Xét Duyệt CVHT</span>
                 </button>
               )}
+            </div>
+          )}
+
+          {/* CẢNH BÁO KHI CHƯA ĐƯỢC ĐTN CẤP PHÉP HOẶC ĐÃ ĐÓNG */}
+          {(!currentCongress.isYouthUnionApproved || currentCongress.isYouthUnionClosed) && (
+            <div className="bg-amber-50/90 border border-amber-200/90 rounded-3xl p-6 sm:p-8 text-center space-y-3">
+              <AlertCircle size={36} className="text-amber-600 mx-auto" />
+              <h3 className="text-base font-bold text-slate-900">
+                {currentCongress.isYouthUnionClosed 
+                  ? "Phiên Đại Hội Đang Tạm Khóa Bởi Đoàn Phân Hiệu" 
+                  : "Đại Hội Chi Đoàn Chưa Được Cấp Phép Mở Bỏ Phiếu"}
+              </h3>
+              <p className="text-xs text-slate-600 max-w-lg mx-auto leading-relaxed">
+                {currentCongress.isYouthUnionClosed 
+                  ? "BCH Đoàn TNCS Hồ Chí Minh Phân hiệu đã đóng phiên Đại hội của Chi đoàn. Cử tri không thể bỏ phiếu trong thời gian này." 
+                  : "Theo quy định, Đại hội Chi đoàn cần quyết định cấp phép chính thức từ BCH Đoàn TNCS Hồ Chí Minh Phân hiệu. Cử tri vui lòng quay lại khi có thông báo mở bỏ phiếu."}
+              </p>
             </div>
           )}
 
@@ -2126,10 +2252,45 @@ export const CongressPortal: React.FC = () => {
 
           {/* BẢNG TIẾN ĐỘ 28 CHI ĐOÀN */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-sm font-bold text-slate-900">
-                Bảng theo dõi tiến độ Đại hội các Chi đoàn ({classCongresses.length})
-              </h3>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Bảng theo dõi tiến độ & Thẩm quyền Mở / Đóng Đại hội ({classCongresses.length} Chi đoàn)
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  BCH Đoàn Phân hiệu nắm thẩm quyền cấp phép mở và đóng Đại hội cho từng hoặc toàn bộ Chi đoàn.
+                </p>
+              </div>
+
+              {isAdminOrYouthUnion && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={async () => {
+                      if (confirm(`Xác nhận CẤP PHÉP & MỞ ĐẠI HỘI cho toàn bộ ${classCongresses.length} Chi đoàn?`)) {
+                        await setCongressYouthUnionPermission("ALL", "OPEN");
+                        showToast("success", `Đoàn Phân hiệu đã cấp phép & mở Đại hội cho toàn bộ ${classCongresses.length} Chi đoàn!`);
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs active:scale-98 transition-all flex items-center gap-1.5 cursor-pointer min-h-[38px]"
+                  >
+                    <Unlock size={13} />
+                    <span>Mở Toàn Bộ Chi Đoàn</span>
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      if (confirm(`Xác nhận ĐÓNG / KHÓA toàn bộ Đại hội các Chi đoàn trong Phân hiệu? Hòm phiếu sẽ lập tức đóng.`)) {
+                        await setCongressYouthUnionPermission("ALL", "CLOSE");
+                        showToast("success", `Đoàn Phân hiệu đã đóng toàn bộ Đại hội các Chi đoàn!`);
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold active:scale-98 transition-all flex items-center gap-1.5 cursor-pointer min-h-[38px]"
+                  >
+                    <Lock size={13} />
+                    <span>Đóng Toàn Bộ Chi Đoàn</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="overflow-x-auto">
@@ -2138,6 +2299,7 @@ export const CongressPortal: React.FC = () => {
                   <tr>
                     <th className="p-3">Chi đoàn lớp</th>
                     <th className="p-3">Bí thư phụ trách</th>
+                    <th className="p-3">Cấp phép ĐTN</th>
                     <th className="p-3">Tiến độ trạng thái</th>
                     <th className="p-3 text-right">Cử tri tham gia</th>
                     <th className="p-3 text-right">Chuẩn 2/3</th>
@@ -2157,6 +2319,21 @@ export const CongressPortal: React.FC = () => {
                         <td className="p-3 font-bold text-slate-900">{cong.classId}</td>
                         <td className="p-3 text-slate-600 font-medium">
                           {cong.secretaryStudentId || <span className="text-slate-400 italic">Chưa phân công</span>}
+                        </td>
+                        <td className="p-3">
+                          {!cong.isYouthUnionApproved ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                              <Clock size={11} /> Chờ cấp phép
+                            </span>
+                          ) : cong.isYouthUnionClosed ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
+                              <Lock size={11} /> Đã đóng
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              <ShieldCheck size={11} /> Đang mở
+                            </span>
+                          )}
                         </td>
                         <td className="p-3">
                           <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -2179,6 +2356,35 @@ export const CongressPortal: React.FC = () => {
                           )}
                         </td>
                         <td className="p-3 text-right space-x-1">
+                          {isAdminOrYouthUnion && (
+                            (!cong.isYouthUnionApproved || cong.isYouthUnionClosed) ? (
+                              <button
+                                onClick={async () => {
+                                  await setCongressYouthUnionPermission(cong.id, "OPEN");
+                                  showToast("success", `Đoàn Phân hiệu đã cấp phép & mở Đại hội Chi đoàn ${cong.classId}!`);
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+                                title="Cấp phép & Mở Đại hội cho Chi đoàn này"
+                              >
+                                <Unlock size={11} />
+                                <span>Mở ĐH</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={async () => {
+                                  if (confirm(`Xác nhận ĐÓNG Đại hội Chi đoàn "${cong.classId}"?`)) {
+                                    await setCongressYouthUnionPermission(cong.id, "CLOSE");
+                                    showToast("success", `Đoàn Phân hiệu đã đóng Đại hội Chi đoàn ${cong.classId}!`);
+                                  }
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold cursor-pointer inline-flex items-center gap-1"
+                                title="Đóng / Khóa Đại hội Chi đoàn này"
+                              >
+                                <Lock size={11} />
+                                <span>Đóng ĐH</span>
+                              </button>
+                            )
+                          )}
                           <button
                             onClick={() => {
                               setSelectedClassId(cong.classId);

@@ -266,6 +266,7 @@ interface UniHubContextType {
   signCongressMinutes: (congressId: string, signerName: string, note?: string) => Promise<void>;
   submitCongressToAdmin: (congressId: string) => Promise<void>;
   approveCongressFinal: (congressId: string) => Promise<void>;
+  setCongressYouthUnionPermission: (congressId: string | "ALL", action: "OPEN" | "CLOSE", actorName?: string) => Promise<void>;
 }
 
 export const normalizeClassId = (classId: string | undefined | null): string => {
@@ -7389,6 +7390,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const openCongressBallotBox = async (congressId: string, ballotBoxId?: string) => {
     const congress = classCongresses.find(c => c.id === congressId);
     if (!congress) return;
+
+    if (!congress.isYouthUnionApproved) {
+      alert("Chi đoàn chưa được BCH Đoàn TNCS Hồ Chí Minh Phân hiệu cấp phép mở Đại hội! Vui lòng liên hệ Đoàn cấp trên phê duyệt trước khi mở hòm phiếu.");
+      return;
+    }
+    if (congress.isYouthUnionClosed) {
+      alert("Đại hội Chi đoàn hiện đang bị ĐÓNG / KHÓA bởi BCH Đoàn Phân hiệu. Không thể mở hòm phiếu!");
+      return;
+    }
+
     const now = new Date().toISOString();
     const updatedBoxes = congress.ballotBoxes.map(b => {
       if (!ballotBoxId || b.id === ballotBoxId) {
@@ -7461,6 +7472,20 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return { 
         success: false, 
         message: `Bạn thuộc lớp "${voter?.classId || 'Chưa phân lớp'}", không phải đoàn viên/sinh viên thuộc Chi đoàn "${congress.classId}". Bạn không có quyền bỏ phiếu tại Đại hội này!` 
+      };
+    }
+
+    if (!congress.isYouthUnionApproved) {
+      return { 
+        success: false, 
+        message: "Đại hội Chi đoàn chưa được Đoàn TNCS Hồ Chí Minh Phân hiệu cấp phép mở. Cử tri chưa thể bỏ phiếu lúc này!" 
+      };
+    }
+
+    if (congress.isYouthUnionClosed) {
+      return { 
+        success: false, 
+        message: "Đoàn TNCS Hồ Chí Minh Phân hiệu đã đóng phiên Đại hội của Chi đoàn. Hòm phiếu đã dừng tiếp nhận phiếu!" 
       };
     }
 
@@ -7570,6 +7595,52 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       updatedAt: new Date().toISOString()
     };
     await saveClassCongress(updated);
+  };
+
+  const setCongressYouthUnionPermission = async (
+    congressId: string | "ALL", 
+    action: "OPEN" | "CLOSE", 
+    actorName?: string
+  ) => {
+    const now = new Date().toISOString();
+    const actor = actorName || currentUser?.name || "BCH Đoàn Phân hiệu";
+
+    const targetList = congressId === "ALL" 
+      ? [...classCongresses] 
+      : classCongresses.filter(c => c.id === congressId);
+
+    if (targetList.length === 0) return;
+
+    for (const cong of targetList) {
+      if (action === "OPEN") {
+        const updated: ClassCongress = {
+          ...cong,
+          isYouthUnionApproved: true,
+          youthUnionApprovedAt: now,
+          youthUnionApprovedBy: actor,
+          isYouthUnionClosed: false,
+          youthUnionClosedAt: undefined,
+          updatedAt: now
+        };
+        await saveClassCongress(updated);
+      } else {
+        // CLOSE
+        const closedBoxes = cong.ballotBoxes.map(b => ({
+          ...b,
+          status: (b.status === "OPEN" ? "CLOSED" : b.status) as BallotBoxStatus,
+          closedAt: b.status === "OPEN" ? now : b.closedAt
+        }));
+        const updated: ClassCongress = {
+          ...cong,
+          isYouthUnionClosed: true,
+          youthUnionClosedAt: now,
+          status: cong.status === "VOTING" ? "VOTING_CLOSED" : cong.status,
+          ballotBoxes: closedBoxes,
+          updatedAt: now
+        };
+        await saveClassCongress(updated);
+      }
+    }
   };
 
   return (
@@ -7730,7 +7801,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       appointCongressRoles,
       signCongressMinutes,
       submitCongressToAdmin,
-      approveCongressFinal
+      approveCongressFinal,
+      setCongressYouthUnionPermission
     }}>
       {children}
     </UniHubContext.Provider>

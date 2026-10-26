@@ -36,7 +36,8 @@ import {
   FileSignature,
   XCircle,
   Lock,
-  Unlock
+  Unlock,
+  Vote
 } from "lucide-react";
 import { OrganizationMember, ExtracurricularActivity, UserRole, Organization, ClubAnnouncement } from "../types";
 import { compressImage } from "../utils/imageCompressor";
@@ -70,6 +71,7 @@ export const OrganizerPortal: React.FC = () => {
     deleteMember,
     updateMemberDetails,
     importMembersExcel,
+    classCongresses,
     activePortletTab,
     setActivePortletTab
   } = useUniHub();
@@ -1131,6 +1133,38 @@ export const OrganizerPortal: React.FC = () => {
             {/* SUBTAB 1: MEMBERS LIST (With custom attachments, deletions and details updates) */}
             {activeSubTab === "DS_THANHVIEN" && (
               <div className="space-y-6">
+
+                {/* 0. SPECIAL YOUTH UNION CONGRESS MANAGEMENT CARD */}
+                {currentUser?.role === UserRole.YOUTH_UNION && (
+                  <div className="p-5 rounded-2xl border border-rose-200/80 bg-gradient-to-br from-rose-50/70 via-white to-indigo-50/30 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div className="space-y-1.5 max-w-xl text-left">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 bg-rose-100/80 px-2.5 py-0.5 rounded-full border border-rose-200">
+                          THẨM QUYỀN ĐOÀN THANH NIÊN PHÂN HIỆU
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[10px] uppercase">
+                          <Vote size={11} className="text-emerald-600" />
+                          Đại hội Chi đoàn theo chiến dịch
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-black text-slate-900">
+                        Cấp phép & Mở / Đóng Đại hội Chi đoàn Toàn Phân hiệu
+                      </h4>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Theo quy định Điều lệ Đoàn, các Chi đoàn cần cấp phép từ Đoàn TNCS Hồ Chí Minh Phân hiệu mới được tổ chức bỏ phiếu. Tài khoản Đoàn Thanh niên nắm thẩm quyền mở, đóng và duyệt kết quả đại hội toàn bộ các Chi đoàn.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setActivePortletTab("DAI_HOI_CHI_DOAN")}
+                      className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs cursor-pointer shadow-xs transition-all flex items-center gap-2 active:scale-95 shrink-0 min-h-[44px]"
+                    >
+                      <Vote size={15} />
+                      <span>Vào Quản Lý & Mở / Đóng Đại Hội</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* 1. RECRUITMENT GATE MANAGEMENT CARD */}
                 <div className="p-5 rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50/80 via-white to-indigo-50/20 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
