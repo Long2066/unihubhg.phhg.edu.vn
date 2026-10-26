@@ -36,9 +36,12 @@ export const isStudentPortal = (): boolean => getPortalMode() === "STUDENT";
 
 /**
  * Roles permitted in Student Portal stream
+ * - Sinh viên & Ban cán sự lớp
+ * - Admin tối cao (Master Bypass): được phép vào cả 2 cổng để thanh tra & cứu hộ
  */
 export const isRoleAllowedInStudentPortal = (role?: UserRole | string): boolean => {
   if (!role) return false;
+  if (role === UserRole.ADMIN) return true; // Đặc quyền Admin tối cao
   return role === UserRole.STUDENT || role === UserRole.CLASS_MONITOR;
 };
 
