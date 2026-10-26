@@ -984,6 +984,15 @@ export interface ClassCongress {
   minutesSignedBy?: string;
   minutesSignedAt?: string;
   submittedAt?: string;
+  submittedBySecretary?: boolean;
+  submittedBy?: string;
+  submittedNote?: string;
+  adviserReceived?: boolean;
+  adviserReceivedAt?: string;
+  adviserReceivedBy?: string;
+  youthUnionReceived?: boolean;
+  youthUnionReceivedAt?: string;
+  youthUnionReceivedBy?: string;
   approvedAt?: string;
   updatedAt?: string;
   isYouthUnionApproved?: boolean; // Được ĐTN Phân hiệu cấp phép mở Đại hội

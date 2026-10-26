@@ -265,6 +265,9 @@ interface UniHubContextType {
   appointCongressRoles: (congressId: string, appointments: CongressAppointment[]) => Promise<void>;
   signCongressMinutes: (congressId: string, signerName: string, note?: string) => Promise<void>;
   submitCongressToAdmin: (congressId: string) => Promise<void>;
+  submitCongressMinutes: (congressId: string, note?: string) => Promise<void>;
+  receiveCongressMinutesByAdviser: (congressId: string, receiverName?: string) => Promise<void>;
+  receiveCongressMinutesByYouthUnion: (congressId: string, receiverName?: string) => Promise<void>;
   approveCongressFinal: (congressId: string) => Promise<void>;
   setCongressYouthUnionPermission: (congressId: string | "ALL", action: "OPEN" | "CLOSE", actorName?: string) => Promise<void>;
 }
@@ -7573,16 +7576,58 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     await saveClassCongress(updated);
   };
 
-  const submitCongressToAdmin = async (congressId: string) => {
+  const submitCongressMinutes = async (congressId: string, note?: string) => {
     const congress = classCongresses.find(c => c.id === congressId);
     if (!congress) return;
+    const now = new Date().toISOString();
     const updated: ClassCongress = {
       ...congress,
       status: "SUBMITTED",
-      submittedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      submittedBySecretary: true,
+      submittedAt: now,
+      submittedBy: currentUser?.name || "Bí thư Chi đoàn",
+      submittedNote: note || congress.submittedNote || "Biên bản Đại hội Chi đoàn và danh sách nhân sự bầu cử đã được gửi tới GVCN và Đoàn Phân hiệu.",
+      adviserReceived: false,
+      adviserReceivedAt: undefined,
+      youthUnionReceived: false,
+      youthUnionReceivedAt: undefined,
+      updatedAt: now
     };
     await saveClassCongress(updated);
+  };
+
+  const receiveCongressMinutesByAdviser = async (congressId: string, receiverName?: string) => {
+    const congress = classCongresses.find(c => c.id === congressId);
+    if (!congress) return;
+    const now = new Date().toISOString();
+    const actor = receiverName || currentUser?.name || "Cố vấn học tập";
+    const updated: ClassCongress = {
+      ...congress,
+      adviserReceived: true,
+      adviserReceivedAt: now,
+      adviserReceivedBy: actor,
+      updatedAt: now
+    };
+    await saveClassCongress(updated);
+  };
+
+  const receiveCongressMinutesByYouthUnion = async (congressId: string, receiverName?: string) => {
+    const congress = classCongresses.find(c => c.id === congressId);
+    if (!congress) return;
+    const now = new Date().toISOString();
+    const actor = receiverName || currentUser?.name || "BCH Đoàn Phân hiệu";
+    const updated: ClassCongress = {
+      ...congress,
+      youthUnionReceived: true,
+      youthUnionReceivedAt: now,
+      youthUnionReceivedBy: actor,
+      updatedAt: now
+    };
+    await saveClassCongress(updated);
+  };
+
+  const submitCongressToAdmin = async (congressId: string) => {
+    await submitCongressMinutes(congressId);
   };
 
   const approveCongressFinal = async (congressId: string) => {
@@ -7801,6 +7846,9 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       appointCongressRoles,
       signCongressMinutes,
       submitCongressToAdmin,
+      submitCongressMinutes,
+      receiveCongressMinutesByAdviser,
+      receiveCongressMinutesByYouthUnion,
       approveCongressFinal,
       setCongressYouthUnionPermission
     }}>

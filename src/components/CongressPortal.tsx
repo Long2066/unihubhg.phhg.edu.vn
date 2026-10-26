@@ -38,7 +38,10 @@ import {
   Flag,
   UserCheck,
   Building,
-  GraduationCap
+  GraduationCap,
+  Inbox,
+  CheckCheck,
+  FileCheck
 } from "lucide-react";
 
 const APPOINTMENT_ROLE_LABELS: Record<string, string> = {
@@ -72,6 +75,9 @@ export const CongressPortal: React.FC = () => {
     appointCongressRoles,
     signCongressMinutes,
     submitCongressToAdmin,
+    submitCongressMinutes,
+    receiveCongressMinutesByAdviser,
+    receiveCongressMinutesByYouthUnion,
     approveCongressFinal,
     setCongressYouthUnionPermission
   } = useUniHub();
@@ -1582,13 +1588,16 @@ export const CongressPortal: React.FC = () => {
                   <Unlock size={15} />
                   <span>Mở Lại Hòm Phiếu Bầu Cử</span>
                 </button>
-              ) : currentCongress.status === "MINUTES_SIGNED" ? (
+              ) : (currentCongress.status === "MINUTES_SIGNED" || currentCongress.status === "APPOINTED" || currentCongress.status === "COUNTED" || currentCongress.status === "SUBMITTED") ? (
                 <button
-                  onClick={() => submitCongressToAdmin(currentCongress.id)}
+                  onClick={async () => {
+                    await submitCongressMinutes(currentCongress.id);
+                    showToast("success", "Đã gửi biên bản Đại hội tới Cố vấn học tập (GVCN) và Đoàn Phân hiệu!");
+                  }}
                   className="px-4 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold shadow-md active:scale-98 transition-all flex items-center gap-2 cursor-pointer min-h-[44px]"
                 >
                   <Send size={15} />
-                  <span>Gửi Biên Bản Lên Phân Hiệu</span>
+                  <span>{currentCongress.submittedAt ? "Gửi Lại Biên Bản Cho GVCN & ĐTN" : "Gửi Biên Bản Cho GVCN & ĐTN"}</span>
                 </button>
               ) : null}
 
@@ -1612,6 +1621,40 @@ export const CongressPortal: React.FC = () => {
               )}
             </div>
           </div>
+
+          {/* TRẠNG THÁI TIẾP NHẬN BIÊN BẢN CỦA GVCN VÀ ĐOÀN PHÂN HIỆU */}
+          {currentCongress.submittedAt && (
+            <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 block">
+                  Tiến trình tiếp nhận hồ sơ Đại hội
+                </span>
+                <p className="text-xs text-slate-700">
+                  Biên bản đã gửi lúc <strong>{new Date(currentCongress.submittedAt).toLocaleString("vi-VN")}</strong>. Đang chờ 2 đầu nhận phê duyệt:
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5 text-xs">
+                <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 ${
+                  currentCongress.adviserReceived 
+                    ? "bg-emerald-50 text-emerald-800 border-emerald-200" 
+                    : "bg-amber-50 text-amber-800 border-amber-200"
+                }`}>
+                  <GraduationCap size={14} />
+                  <span>GVCN: {currentCongress.adviserReceived ? `✓ Đã tiếp nhận` : `⏳ Chờ nhận`}</span>
+                </div>
+
+                <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 ${
+                  currentCongress.youthUnionReceived 
+                    ? "bg-emerald-50 text-emerald-800 border-emerald-200" 
+                    : "bg-amber-50 text-amber-800 border-amber-200"
+                }`}>
+                  <ShieldCheck size={14} />
+                  <span>ĐTN: {currentCongress.youthUnionReceived ? `✓ Đã tiếp nhận` : `⏳ Chờ nhận`}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* THANH THÔNG TIN & GÁN QUYỀN BÍ THƯ CHI ĐOÀN */}
           {renderSecretaryAssignmentBar()}
@@ -1969,6 +2012,63 @@ export const CongressPortal: React.FC = () => {
           {/* THANH THÔNG TIN & GÁN QUYỀN BÍ THƯ CHI ĐOÀN CHO CVHT */}
           {renderSecretaryAssignmentBar()}
 
+          {/* KHỐI TIẾP NHẬN BIÊN BẢN CỦA CVHT */}
+          {currentCongress.submittedAt && (
+            <div className={`p-5 rounded-3xl border shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${
+              currentCongress.adviserReceived 
+                ? "bg-emerald-50/70 border-emerald-200/80 text-emerald-950" 
+                : "bg-blue-50/80 border-blue-200/80 text-blue-950"
+            }`}>
+              <div className="space-y-1 max-w-xl">
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                    currentCongress.adviserReceived 
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-300" 
+                      : "bg-blue-100 text-blue-800 border-blue-300"
+                  }`}>
+                    {currentCongress.adviserReceived ? "✓ ĐÃ TIẾP NHẬN BIÊN BẢN" : "📥 BIÊN BẢN MỚI TỪ BÍ THƯ"}
+                  </span>
+                  <span className="text-xs text-slate-500 font-mono">
+                    Gửi lúc {new Date(currentCongress.submittedAt).toLocaleString("vi-VN")}
+                  </span>
+                </div>
+                <h4 className="text-sm font-bold text-slate-900">
+                  {currentCongress.adviserReceived 
+                    ? `CVHT đã xác nhận tiếp nhận biên bản Đại hội (${currentCongress.adviserReceivedBy || 'Cố vấn học tập'})`
+                    : "Bí thư Chi đoàn đã gửi biên bản Đại hội đến Cố vấn học tập & Đoàn Phân hiệu"}
+                </h4>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  {currentCongress.adviserReceived 
+                    ? "Cố vấn học tập tiến hành bổ nhiệm chức danh và ký xác nhận biên bản chính thức để gửi lên BCH Đoàn Phân hiệu phê duyệt cuối."
+                    : "Vui lòng bấm nút 'Tiếp nhận biên bản' để xác nhận đã nhận đầy đủ hồ sơ đại hội từ Bí thư Chi đoàn."}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {!currentCongress.adviserReceived ? (
+                  <button
+                    onClick={async () => {
+                      await receiveCongressMinutesByAdviser(currentCongress.id);
+                      showToast("success", "Cố vấn học tập đã xác nhận tiếp nhận biên bản Đại hội!");
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs active:scale-98 transition-all flex items-center gap-2 cursor-pointer min-h-[44px]"
+                  >
+                    <Inbox size={15} />
+                    <span>Xác Nhận Tiếp Nhận Biên Bản</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setActiveTab("MINUTES")}
+                    className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs active:scale-98 transition-all flex items-center gap-2 cursor-pointer min-h-[44px]"
+                  >
+                    <FileCheck size={15} />
+                    <span>Xem & Ký Xác Nhận Biên Bản</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* DUYỆT ỨNG VIÊN CHO TỪNG HÒM */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -2301,6 +2401,7 @@ export const CongressPortal: React.FC = () => {
                     <th className="p-3">Bí thư phụ trách</th>
                     <th className="p-3">Cấp phép ĐTN</th>
                     <th className="p-3">Tiến độ trạng thái</th>
+                    <th className="p-3">Tiếp nhận BB (GVCN / ĐTN)</th>
                     <th className="p-3 text-right">Cử tri tham gia</th>
                     <th className="p-3 text-right">Chuẩn 2/3</th>
                     <th className="p-3 text-right">Thao tác</th>
@@ -2345,6 +2446,40 @@ export const CongressPortal: React.FC = () => {
                             {cong.status}
                           </span>
                         </td>
+                        <td className="p-3 space-y-1">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-slate-400 font-semibold w-10">GVCN:</span>
+                            {cong.minutesSignedAt ? (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800">
+                                ✓ Đã ký
+                              </span>
+                            ) : cong.adviserReceived ? (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-100 text-blue-800">
+                                ✓ Đã nhận
+                              </span>
+                            ) : (
+                              <span className="text-[9px] text-slate-400 italic">Chờ nhận</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-slate-400 font-semibold w-10">ĐTN:</span>
+                            {cong.status === "APPROVED" ? (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800">
+                                ✓ Chuẩn y
+                              </span>
+                            ) : cong.youthUnionReceived ? (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-100 text-blue-800">
+                                ✓ Đã nhận
+                              </span>
+                            ) : cong.submittedAt ? (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800">
+                                📥 Chờ nhận
+                              </span>
+                            ) : (
+                              <span className="text-[9px] text-slate-400 italic">Chưa gửi</span>
+                            )}
+                          </div>
+                        </td>
                         <td className="p-3 text-right font-mono tabular-nums text-slate-700">
                           {vCount}/{totalS} ({ratio}%)
                         </td>
@@ -2385,6 +2520,19 @@ export const CongressPortal: React.FC = () => {
                               </button>
                             )
                           )}
+                          {isAdminOrYouthUnion && cong.submittedAt && !cong.youthUnionReceived && (
+                            <button
+                              onClick={async () => {
+                                await receiveCongressMinutesByYouthUnion(cong.id);
+                                showToast("success", `Đoàn Phân hiệu đã tiếp nhận biên bản Chi đoàn ${cong.classId}!`);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+                              title="Đoàn Phân hiệu tiếp nhận biên bản"
+                            >
+                              <Inbox size={11} />
+                              <span>Nhận BB</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => {
                               setSelectedClassId(cong.classId);
@@ -2397,9 +2545,11 @@ export const CongressPortal: React.FC = () => {
                           {cong.status === "SUBMITTED" && (
                             <button
                               onClick={() => approveCongressFinal(cong.id)}
-                              className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold cursor-pointer"
+                              className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold cursor-pointer inline-flex items-center gap-1"
+                              title="BCH Đoàn Phân hiệu chuẩn y kết quả Đại hội"
                             >
-                              Duyệt cuối
+                              <CheckCheck size={11} />
+                              <span>Chuẩn y</span>
                             </button>
                           )}
                         </td>
@@ -2418,29 +2568,205 @@ export const CongressPortal: React.FC = () => {
       {/* ========================================================= */}
       {activeTab === "MINUTES" && currentCongress && (
         <div className="space-y-6 animate-fade-in text-left">
-          {/* Action Bar */}
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Biên bản Đại hội Chi đoàn điện tử
-            </span>
-            <div className="flex gap-2">
-              <button
-                onClick={handlePrintMinutes}
-                className="px-4 py-2.5 rounded-xl bg-white border border-slate-200/80 hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs transition-all flex items-center gap-2 cursor-pointer min-h-[44px]"
-              >
-                <Printer size={15} />
-                <span>In / Xuất Biên Bản</span>
-              </button>
+          {/* LUỒNG GỬI VÀ TIẾP NHẬN BIÊN BẢN (2 ĐẦU NHẬN: GVCN & ĐOÀN THANH NIÊN) */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-100">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 block mb-0.5">
+                  Quy trình gửi & tiếp nhận biên bản
+                </span>
+                <h3 className="text-base font-bold text-slate-900">
+                  Biên Bản Đại Hội Chi Đoàn & Phê Duyệt Kết Quả
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Bí thư Chi đoàn gửi biên bản đồng thời tới cả 2 đầu nhận: <strong>Cố vấn học tập (GVCN)</strong> và <strong>Đoàn Phân hiệu (ĐTN)</strong>.
+                </p>
+              </div>
 
-              {isAdviser && (currentCongress.status === "COUNTED" || currentCongress.status === "APPOINTED") && (
+              <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={() => signCongressMinutes(currentCongress.id, currentUser?.name || "Cố vấn học tập", "Đã xác nhận kết quả bầu cử và danh sách bổ nhiệm chức danh.")}
-                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-2 cursor-pointer min-h-[44px]"
+                  onClick={handlePrintMinutes}
+                  className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs transition-all flex items-center gap-2 cursor-pointer min-h-[44px]"
                 >
-                  <CheckCircle size={15} />
-                  <span>CVHT Ký Xác Nhận Biên Bản</span>
+                  <Printer size={15} />
+                  <span>In / Xuất PDF</span>
                 </button>
-              )}
+
+                {/* Nút gửi biên bản của Bí thư Chi đoàn */}
+                {(isClassSecretary || isAdminOrYouthUnion) && (
+                  <button
+                    onClick={async () => {
+                      await submitCongressMinutes(currentCongress.id);
+                      showToast("success", "Đã gửi biên bản Đại hội tới Cố vấn học tập và Đoàn Phân hiệu!");
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs active:scale-98 transition-all flex items-center gap-2 cursor-pointer min-h-[44px]"
+                  >
+                    <Send size={15} />
+                    <span>{currentCongress.submittedAt ? "Gửi Lại Bản Mới Cho GVCN & ĐTN" : "Gửi Biên Bản Cho GVCN & ĐTN"}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* 3 Khối theo dõi: Phía Bí thư gửi + Phía GVCN nhận + Phía ĐTN nhận */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              {/* 1. Phía Bí thư Chi đoàn */}
+              <div className="p-4 rounded-2xl bg-slate-50 ring-1 ring-slate-900/5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-700 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
+                    <UserCheck size={13} className="text-indigo-600" />
+                    Bí thư Chi đoàn gửi
+                  </span>
+                  {currentCongress.submittedAt ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                      ✓ Đã gửi
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                      ⏳ Chưa gửi
+                    </span>
+                  )}
+                </div>
+                <p className="text-slate-600">
+                  {currentCongress.submittedAt ? (
+                    <>Gửi bởi: <strong>{currentCongress.submittedBy || "Bí thư Chi đoàn"}</strong> vào lúc {new Date(currentCongress.submittedAt).toLocaleString("vi-VN")}</>
+                  ) : (
+                    "Bí thư Chi đoàn hoàn tất đại hội rồi bấm gửi biên bản cho GVCN và Đoàn Phân hiệu."
+                  )}
+                </p>
+              </div>
+
+              {/* 2. Đầu nhận 1: GVCN / Cố vấn học tập */}
+              <div className="p-4 rounded-2xl bg-slate-50 ring-1 ring-slate-900/5 space-y-2.5 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-700 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
+                      <GraduationCap size={13} className="text-blue-600" />
+                      Đầu nhận: CVHT (GVCN)
+                    </span>
+                    {currentCongress.minutesSignedAt ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                        ✓ Đã ký duyệt
+                      </span>
+                    ) : currentCongress.adviserReceived ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+                        ✓ Đã tiếp nhận
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                        ⏳ Chờ tiếp nhận
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-slate-600">
+                    {currentCongress.adviserReceived ? (
+                      <>Tiếp nhận bởi: <strong>{currentCongress.adviserReceivedBy || "Cố vấn học tập"}</strong> ({new Date(currentCongress.adviserReceivedAt || "").toLocaleString("vi-VN")})</>
+                    ) : (
+                      "Cố vấn học tập nhận biên bản để thẩm định kết quả bầu cử và ký xác nhận."
+                    )}
+                  </p>
+                </div>
+
+                {/* Nút hành động cho GVCN */}
+                {(isAdviser || isAdminOrYouthUnion) && (
+                  <div className="pt-2 flex flex-wrap gap-2">
+                    {!currentCongress.adviserReceived && (
+                      <button
+                        onClick={async () => {
+                          await receiveCongressMinutesByAdviser(currentCongress.id);
+                          showToast("success", "Cố vấn học tập đã xác nhận tiếp nhận biên bản!");
+                        }}
+                        className="w-full px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs active:scale-98 transition-all cursor-pointer min-h-[38px]"
+                      >
+                        <Inbox size={14} />
+                        <span>GVCN Tiếp Nhận Biên Bản</span>
+                      </button>
+                    )}
+
+                    {!currentCongress.minutesSignedAt && (
+                      <button
+                        onClick={async () => {
+                          if (!currentCongress.adviserReceived) {
+                            await receiveCongressMinutesByAdviser(currentCongress.id);
+                          }
+                          await signCongressMinutes(currentCongress.id, currentUser?.name || "Cố vấn học tập", "Đã xác nhận kết quả bầu cử và danh sách bổ nhiệm chức danh.");
+                          showToast("success", "Cố vấn học tập đã ký xác nhận biên bản!");
+                        }}
+                        className="w-full px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs active:scale-98 transition-all cursor-pointer min-h-[38px]"
+                      >
+                        <FileCheck size={14} />
+                        <span>GVCN Ký Xác Nhận Biên Bản</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Đầu nhận 2: Đoàn Thanh niên (Đoàn Phân hiệu) */}
+              <div className="p-4 rounded-2xl bg-slate-50 ring-1 ring-slate-900/5 space-y-2.5 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-700 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
+                      <ShieldCheck size={13} className="text-rose-600" />
+                      Đầu nhận: Đoàn Phân hiệu (ĐTN)
+                    </span>
+                    {currentCongress.status === "APPROVED" ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                        ✓ Đã chuẩn y cuối
+                      </span>
+                    ) : currentCongress.youthUnionReceived ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+                        ✓ Đã tiếp nhận
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                        ⏳ Chờ tiếp nhận
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-slate-600">
+                    {currentCongress.youthUnionReceived ? (
+                      <>Tiếp nhận bởi: <strong>{currentCongress.youthUnionReceivedBy || "BCH Đoàn Phân hiệu"}</strong> ({new Date(currentCongress.youthUnionReceivedAt || "").toLocaleString("vi-VN")})</>
+                    ) : (
+                      "Đoàn TNCS Hồ Chí Minh Phân hiệu tiếp nhận biên bản để ra quyết định công nhận BCH Chi đoàn."
+                    )}
+                  </p>
+                </div>
+
+                {/* Nút hành động cho ĐTN */}
+                {isAdminOrYouthUnion && (
+                  <div className="pt-2 flex flex-wrap gap-2">
+                    {!currentCongress.youthUnionReceived && (
+                      <button
+                        onClick={async () => {
+                          await receiveCongressMinutesByYouthUnion(currentCongress.id);
+                          showToast("success", "Đoàn Phân hiệu đã xác nhận tiếp nhận biên bản!");
+                        }}
+                        className="w-full px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs active:scale-98 transition-all cursor-pointer min-h-[38px]"
+                      >
+                        <Inbox size={14} />
+                        <span>ĐTN Tiếp Nhận Biên Bản</span>
+                      </button>
+                    )}
+
+                    {currentCongress.status !== "APPROVED" && (
+                      <button
+                        onClick={async () => {
+                          if (!currentCongress.youthUnionReceived) {
+                            await receiveCongressMinutesByYouthUnion(currentCongress.id);
+                          }
+                          await approveCongressFinal(currentCongress.id);
+                          showToast("success", "Đoàn Phân hiệu đã chuẩn y & phê duyệt kết quả Đại hội!");
+                        }}
+                        className="w-full px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs active:scale-98 transition-all cursor-pointer min-h-[38px]"
+                      >
+                        <CheckCheck size={14} />
+                        <span>Đoàn Phân Hiệu Chuẩn Y Cuối</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
