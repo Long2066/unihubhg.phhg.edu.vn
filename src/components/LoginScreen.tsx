@@ -927,25 +927,51 @@ export const LoginScreen: React.FC = () => {
                 </div>
 
                 <div>
-                  <h4 className="font-bold text-slate-900 text-xs uppercase mb-1.5">
-                    🎓 Các ngành đào tạo Đại học chính quy tiêu biểu
+                  <h4 className="font-bold text-slate-900 text-xs uppercase mb-2 tracking-wide">
+                    Các ngành đào tạo Đại học chính quy tiêu biểu
                   </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
-                      <span className="font-semibold text-[#0c529c] block mb-1">📚 Khối Sư phạm & Giáo dục:</span>
-                      <ul className="list-disc pl-4 space-y-0.5 text-slate-600">
-                        <li>Giáo dục Tiểu học</li>
-                        <li>Giáo dục Mầm non</li>
-                        <li>Sư phạm Tiếng Anh</li>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="bg-slate-50/90 rounded-xl p-3.5 ring-1 ring-slate-200/60 shadow-2xs transition-all">
+                      <div className="font-bold text-[#0c529c] uppercase text-[11px] tracking-wider pb-1.5 mb-2 border-b border-slate-200/70">
+                        Khối Sư phạm
+                      </div>
+                      <ul className="space-y-1.5 text-slate-700 text-[11.5px]">
+                        <li className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#0c529c]/60 shrink-0" />
+                          <span>Giáo dục Tiểu học</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#0c529c]/60 shrink-0" />
+                          <span>Giáo dục Mầm non (Hệ Cao đẳng & Đại học)</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#0c529c]/60 shrink-0" />
+                          <span>Sư phạm Tiếng Mông</span>
+                        </li>
                       </ul>
                     </div>
-                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
-                      <span className="font-semibold text-[#0c529c] block mb-1">💻 Khối Kỹ thuật, Kinh tế & Xã hội:</span>
-                      <ul className="list-disc pl-4 space-y-0.5 text-slate-600">
-                        <li>Công nghệ Thông tin</li>
-                        <li>Quản trị Dịch vụ Du lịch và Lữ hành</li>
-                        <li>Ngôn ngữ Trung Quốc</li>
-                        <li>Luật Kinh tế & Quản lý Đất đai</li>
+
+                    <div className="bg-slate-50/90 rounded-xl p-3.5 ring-1 ring-slate-200/60 shadow-2xs transition-all">
+                      <div className="font-bold text-emerald-800 uppercase text-[11px] tracking-wider pb-1.5 mb-2 border-b border-slate-200/70">
+                        Khối liên ngành
+                      </div>
+                      <ul className="space-y-1.5 text-slate-700 text-[11.5px]">
+                        <li className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-700/60 shrink-0" />
+                          <span>Công nghệ Thông tin</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-700/60 shrink-0" />
+                          <span>Quản trị Dịch vụ Du lịch và Lữ hành</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-700/60 shrink-0" />
+                          <span>Ngôn ngữ Trung Quốc</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-700/60 shrink-0" />
+                          <span>Ngôn ngữ Anh</span>
+                        </li>
                       </ul>
                     </div>
                   </div>
