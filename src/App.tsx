@@ -5,6 +5,13 @@
 
 import React, { Component, Suspense, lazy, useState, useEffect } from "react";
 import * as QRCode from "qrcode";
+import { 
+  getPortalMode, 
+  isStaffPortal, 
+  isStudentPortal, 
+  STAFF_PORTAL_URL, 
+  STUDENT_PORTAL_URL 
+} from "./utils/portalMode";
 import { UniHubProvider, useUniHub, normalizeClassId, getCachedAvatar, rememberAvatar } from "./state";
 import { UserRole, isOrgRole, STUDENT_FIELDS_META, Student, SEMESTER_LIST, convertGoogleDriveUrlToDirectUrl, getStudentStartYear, getSemesterStartYear } from "./types";
 import { TnuLogo } from "./components/TnuLogo";
@@ -1399,8 +1406,21 @@ const AppContent: React.FC = () => {
           </div>
         </div>
 
-          <div className="flex items-center gap-3 font-sans">
+          <div className="flex items-center gap-2.5 font-sans">
             
+            {/* Stream indicator pill */}
+            {isStudentPortal() ? (
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold">
+                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                <span>Cổng Sinh viên</span>
+              </span>
+            ) : (
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">
+                <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse" />
+                <span>Cổng Cán bộ & Tổ chức</span>
+              </span>
+            )}
+
             {/* Top-Right Compact Profile Avatar + Name Block */}
             <div className="relative flex items-center gap-2">
               <button

@@ -24,6 +24,14 @@ import { initializeApp, deleteApp } from "firebase/app";
 import firebaseConfig from "../firebase-applet-config.json";
 
 import { 
+  getPortalMode, 
+  isRoleAllowedInStudentPortal, 
+  isRoleAllowedInStaffPortal, 
+  STAFF_PORTAL_URL, 
+  STUDENT_PORTAL_URL 
+} from "./utils/portalMode";
+
+import { 
   UserAccount, 
   UserRole, 
   isOrgRole,
@@ -430,7 +438,19 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
     try {
       const cached = localStorage.getItem("unihub_current_user");
-      if (cached) return JSON.parse(cached) as UserAccount;
+      if (cached) {
+        const u = JSON.parse(cached) as UserAccount;
+        const portalMode = getPortalMode();
+        if (portalMode === "STUDENT" && !isRoleAllowedInStudentPortal(u.role)) {
+          localStorage.removeItem("unihub_current_user");
+          return null;
+        }
+        if (portalMode === "STAFF" && !isRoleAllowedInStaffPortal(u.role)) {
+          localStorage.removeItem("unihub_current_user");
+          return null;
+        }
+        return u;
+      }
     } catch {}
     return null;
   });
@@ -3224,6 +3244,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (authCred?.user?.uid) {
       setDoc(doc(db, "users", authCred.user.uid), userDoc, { merge: true }).catch(() => {});
+    }
+
+    // Kiểm tra phân luồng 2 cổng (Sinh viên unihubhg vs Cán bộ unihubhg-ad)
+    const portalMode = getPortalMode();
+    if (portalMode === "STUDENT" && !isRoleAllowedInStudentPortal(userDoc.role)) {
+      console.warn(`Phân luồng: Chặn đăng nhập Cán bộ tại Cổng Sinh viên. Vai trò: ${userDoc.role}`);
+      throw new Error(`PORTAL_MISMATCH_STAFF:${userDoc.role}`);
+    }
+    if (portalMode === "STAFF" && !isRoleAllowedInStaffPortal(userDoc.role)) {
+      console.warn(`Phân luồng: Chặn đăng nhập Sinh viên tại Cổng Cán bộ. Vai trò: ${userDoc.role}`);
+      throw new Error(`PORTAL_MISMATCH_STUDENT:${userDoc.role}`);
     }
 
     const { password: _, ...safeUser } = userDoc as any;
