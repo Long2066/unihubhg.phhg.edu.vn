@@ -1401,7 +1401,7 @@ export const ClassPortal: React.FC = () => {
                   )}
                   <button
                     onClick={() => {
-                      if (window.confirm("Chốt và gửi toàn bộ kết quả chấm điểm rèn luyện của lớp lên GVCN xét duyệt?")) {
+                      if (window.confirm("Chốt và gửi toàn bộ kết quả chấm điểm rèn luyện của lớp lên Cố vấn học tập (CVHT) xét duyệt?")) {
                         approveClassScores(classId);
                         alert("Đã chốt và gửi báo cáo điểm rèn luyện lớp thành công!");
                       }
@@ -1409,7 +1409,7 @@ export const ClassPortal: React.FC = () => {
                     className={`py-1.5 px-4 font-black rounded-lg text-xs cursor-pointer shadow-sm transition-colors text-center border-0 ${classReviewInfo?.representativeApproved ? "bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-not-allowed" : "bg-indigo-650 hover:bg-indigo-700 text-white"}`}
                     disabled={!!classReviewInfo?.representativeApproved}
                   >
-                    {classReviewInfo?.representativeApproved ? "Lớp đã chốt & gửi GVCN" : "Khóa & Gửi GVCN duyệt"}
+                    {classReviewInfo?.representativeApproved ? "Lớp đã chốt & gửi CVHT" : "Khóa & Gửi CVHT duyệt"}
                   </button>
                 </>
               )}
@@ -1506,7 +1506,7 @@ export const ClassPortal: React.FC = () => {
                         </td>
                         <td className="p-3 text-center">
                           <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${r.status.startsWith("APPROVED") || r.status === "LOCKED" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                            {r.status === "AUTO" || r.status === "DRAFT" ? "Chưa duyệt" : r.status === "APPROVED_CLASS" ? "Lớp đã duyệt" : r.status === "APPROVED_ADVISER" ? "GVCN đã duyệt" : "Đã khóa"}
+                            {r.status === "AUTO" || r.status === "DRAFT" ? "Chưa duyệt" : r.status === "APPROVED_CLASS" ? "Lớp đã duyệt" : r.status === "APPROVED_ADVISER" ? "CVHT đã duyệt" : "Đã khóa"}
                           </span>
                         </td>
                         {isGL && (

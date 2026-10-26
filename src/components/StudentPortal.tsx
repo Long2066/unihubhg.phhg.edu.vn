@@ -4473,7 +4473,7 @@ export const StudentPortal: React.FC = () => {
                 <textarea 
                   required
                   rows={3}
-                  placeholder="Mô tả cụ thể thời gian, địa điểm, vai trò, thành tích đạt được để GVCN/Bộ phận quản lý xác minh..."
+                  placeholder="Mô tả cụ thể thời gian, địa điểm, vai trò, thành tích đạt được để Cố vấn học tập (CVHT) / Bộ phận quản lý xác minh..."
                   value={evDesc}
                   onChange={(e) => setEvDesc(e.target.value)}
                   className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-slate-800 transition-all"

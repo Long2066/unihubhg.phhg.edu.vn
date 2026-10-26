@@ -1051,24 +1051,21 @@ const AppContent: React.FC = () => {
       case UserRole.STUDENT: return { label: "Sinh viên", color: "bg-blue-100 text-blue-800 border-blue-200", icon: GraduationCap };
       case UserRole.ORGANIZER:
       case UserRole.CLUB_MANAGER:
+        return { label: "Câu lạc bộ", color: "bg-purple-100 text-purple-800 border-purple-200", icon: Users };
       case UserRole.YOUTH_UNION:
-      case UserRole.STUDENT_UNION: {
-        const orgId = currentUser?.targetId || "";
-        const org = organizations.find(o => o.id === orgId);
-        let label = "CLB / Đoàn / Hội";
-        if (org) {
-          if (org.type === "CLB") label = "Câu lạc bộ";
-          else if (org.type === "DOAN") label = "BCH Đoàn";
-          else if (org.type === "HOI") label = "BCH Hội";
-        }
-        return { label, color: "bg-purple-100 text-purple-800 border-purple-200", icon: Users };
-      }
+        return { label: "Đoàn Thanh niên", color: "bg-rose-100 text-rose-800 border-rose-200", icon: Users };
+      case UserRole.STUDENT_UNION:
+        return { label: "Hội Sinh viên", color: "bg-sky-100 text-sky-800 border-sky-200", icon: Users };
       case UserRole.TRAINING_DEPT: return { label: "Phòng Đào tạo", color: "bg-amber-100 text-amber-800 border-amber-200", icon: BookOpen };
-      case UserRole.CLASS_MONITOR: return { label: "Ban Cán sự Lớp", color: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: UserCheck };
-      case UserRole.ADVISER: return { label: "GVCN", color: "bg-rose-100 text-rose-800 border-rose-200", icon: AdviserIcon };
+      case UserRole.CLASS_MONITOR: return { 
+        label: currentUser?.isGroupLeader ? "Tổ trưởng" : "Ban Cán sự Lớp", 
+        color: "bg-emerald-100 text-emerald-800 border-emerald-200", 
+        icon: UserCheck 
+      };
+      case UserRole.ADVISER: return { label: "Cố vấn học tập (CVHT)", color: "bg-amber-100 text-amber-800 border-amber-200", icon: AdviserIcon };
       case UserRole.FACULTY: return { label: "Văn phòng Khoa", color: "bg-indigo-100 text-indigo-800 border-indigo-200", icon: School };
-      case UserRole.TEACHER: return { label: "Giáo viên Bộ môn", color: "bg-blue-100 text-blue-800 border-blue-200", icon: GraduationCap };
-      case UserRole.ADMIN: return { label: "Admin tổng", color: "bg-slate-800 text-white border-slate-700", icon: Settings };
+      case UserRole.TEACHER: return { label: "Giảng viên Bộ môn", color: "bg-blue-100 text-blue-800 border-blue-200", icon: GraduationCap };
+      case UserRole.ADMIN: return { label: "Phòng CTHSSV (Admin)", color: "bg-slate-800 text-white border-slate-700", icon: Settings };
     }
   };
 
@@ -1096,16 +1093,30 @@ const AppContent: React.FC = () => {
           { id: "MINHCHUNG", label: "Minh chứng", icon: FileText },
           { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList }
         ];
-      case UserRole.ORGANIZER:
-      case UserRole.CLUB_MANAGER:
       case UserRole.YOUTH_UNION:
+        return [
+          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
+          { id: "DS_THANHVIEN", label: "Danh sách Đoàn viên", icon: Users },
+          { id: "TAO_HOATDONG", label: "Khai báo hoạt động Đoàn", icon: PlusCircle },
+          { id: "TAO_THONGBAO", label: "Bảng thông báo Đoàn", icon: Megaphone },
+          { id: "QUANLY_DIEMDANH", label: "Sổ điểm danh phong trào", icon: UserCheck }
+        ];
       case UserRole.STUDENT_UNION:
         return [
           { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
-          { id: "DS_THANHVIEN", label: "Danh sách thành viên", icon: Users },
-          { id: "TAO_HOATDONG", label: "Khai báo hoạt động", icon: PlusCircle },
-          { id: "TAO_THONGBAO", label: "Đăng tải bảng thông báo", icon: Megaphone },
-          { id: "QUANLY_DIEMDANH", label: "Sổ điểm danh & Event", icon: UserCheck },
+          { id: "DS_THANHVIEN", label: "Danh sách Hội viên", icon: Users },
+          { id: "TAO_HOATDONG", label: "Khai báo hoạt động Hội", icon: PlusCircle },
+          { id: "TAO_THONGBAO", label: "Bảng thông báo Hội", icon: Megaphone },
+          { id: "QUANLY_DIEMDANH", label: "Sổ điểm danh phong trào", icon: UserCheck }
+        ];
+      case UserRole.ORGANIZER:
+      case UserRole.CLUB_MANAGER:
+        return [
+          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
+          { id: "DS_THANHVIEN", label: "Danh sách thành viên CLB", icon: Users },
+          { id: "TAO_HOATDONG", label: "Khai báo hoạt động CLB", icon: PlusCircle },
+          { id: "TAO_THONGBAO", label: "Bảng thông báo CLB", icon: Megaphone },
+          { id: "QUANLY_DIEMDANH", label: "Sổ điểm danh & Sự kiện", icon: UserCheck },
           ...(currentUser.targetId?.toUpperCase() === "CLBNCKH" ? [{ id: "EXT_SRC", label: "Web CLB SRC", icon: Globe }] : [])
         ];
       case UserRole.TRAINING_DEPT:
@@ -1137,7 +1148,7 @@ const AppContent: React.FC = () => {
           { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
           { id: "PERIOD", label: "Quản lý Đợt đánh giá", icon: Clock },
           { id: "STATIONS", label: "Động cơ hệ thống", icon: Cpu },
-          { id: "CLUBS", label: "Quản lý Tài khoản CLB", icon: Users },
+          { id: "CLUBS", label: "Quản lý Tổ chức & CLB", icon: Users },
           { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList }
         ];
       case UserRole.CLASS_MONITOR:
@@ -2548,11 +2559,14 @@ const AppContent: React.FC = () => {
                   <span className="text-slate-400 block font-semibold text-[10px] uppercase tracking-wider">Vai trò</span>
                   <span className="px-2 py-0.5 bg-indigo-50 border border-indigo-150 text-indigo-650 font-black rounded-lg text-[9px]">
                     {currentUser.role === UserRole.STUDENT ? "Sinh viên" : 
-                     currentUser.role === UserRole.CLASS_MONITOR ? "Ban cán sự" : 
-                     currentUser.role === UserRole.ADVISER ? "Cố vấn lớp" : 
-                     currentUser.role === UserRole.FACULTY ? "Khoa" : 
+                     currentUser.role === UserRole.CLASS_MONITOR ? (currentUser.isGroupLeader ? "Tổ trưởng" : "Ban Cán sự") : 
+                     currentUser.role === UserRole.ADVISER ? "Cố vấn học tập (CVHT)" : 
+                     currentUser.role === UserRole.FACULTY ? "Văn phòng Khoa" : 
+                     currentUser.role === UserRole.TEACHER ? "Giảng viên Bộ môn" :
                      currentUser.role === UserRole.TRAINING_DEPT ? "Phòng Đào tạo" : 
-                     isOrgRole(currentUser.role) ? (currentUser.role === UserRole.CLUB_MANAGER ? "Câu lạc bộ" : currentUser.role === UserRole.YOUTH_UNION ? "Đoàn TN" : currentUser.role === UserRole.STUDENT_UNION ? "Hội SV" : "CLB / Đoàn Hội") : "Admin"}
+                     currentUser.role === UserRole.YOUTH_UNION ? "Đoàn Thanh niên" :
+                     currentUser.role === UserRole.STUDENT_UNION ? "Hội Sinh viên" :
+                     currentUser.role === UserRole.CLUB_MANAGER || currentUser.role === UserRole.ORGANIZER ? "Câu lạc bộ" : "Phòng CTHSSV (Admin)"}
                   </span>
                 </div>
               </div>

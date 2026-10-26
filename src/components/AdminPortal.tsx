@@ -211,7 +211,7 @@ export const AdminPortal: React.FC = () => {
       case UserRole.FACULTY:
         return { label: "Vấn phòng Khoa", className: "bg-amber-50 text-amber-700 border-amber-150" };
       case UserRole.ADVISER:
-        return { label: "GV Cố vấn (GVCN)", className: "bg-emerald-50 text-emerald-700 border-emerald-150" };
+        return { label: "Cố vấn học tập (CVHT)", className: "bg-emerald-50 text-emerald-700 border-emerald-150" };
       case UserRole.TEACHER:
         return { label: "Giảng viên Bộ môn", className: "bg-blue-50 text-blue-700 border-blue-150" };
       case UserRole.CLASS_MONITOR:
@@ -543,7 +543,7 @@ export const AdminPortal: React.FC = () => {
       }
 
       createClubWithAccount(orgData, userData);
-      alert("Khởi tạo Câu lạc bộ mới & cấp tài khoản Ban chủ nhiệm thành công!");
+      alert("Khởi tạo Tổ chức/CLB mới & cấp tài khoản thành công!");
     }
 
     clearClubForm();
@@ -560,9 +560,9 @@ export const AdminPortal: React.FC = () => {
       return;
     }
 
-    if (confirm(`Bạn có chắc chắn muốn xóa Câu lạc bộ "${org.name}" cùng toàn bộ thông tin đăng nhập liên kết? Các tài khoản Ban chủ nhiệm cũng sẽ bị vô hiệu hóa.`)) {
+    if (confirm(`Bạn có chắc chắn muốn xóa đơn vị "${org.name}" cùng toàn bộ thông tin đăng nhập liên kết? Các tài khoản liên kết cũng sẽ bị vô hiệu hóa.`)) {
       deleteClubAndAccount(orgId);
-      alert(`Đã xóa thành công Câu lạc bộ ${org.name}`);
+      alert(`Đã xóa thành công ${org.name}`);
       if (selectedClubId === orgId) {
         clearClubForm();
       }
@@ -1194,11 +1194,11 @@ export const AdminPortal: React.FC = () => {
       <div className="bg-slate-900 text-white p-6 rounded-2xl border border-slate-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <span className="text-[10px] font-mono font-bold px-2.5 py-1 bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30 uppercase tracking-wider">
-            PHÒNG CÔNG TÁC HSSV (AMDIN TỔNG)
+            PHÒNG CÔNG TÁC HSSV (ADMIN TỔNG)
           </span>
           <h2 className="text-xl font-extrabold mt-2">Cổng Kiểm Soát Quy Trình Đánh Giá Phân Hiệu Hà Giang</h2>
           <p className="text-xs text-slate-400 mt-1">
-            Thiết lập danh mục tiêu chí, điều động mốc thời gian, xử lý cứu xét tối cao và giám sát đồng bộ nề nếp thi đua toàn phân hiệu.
+            Thiết lập danh mục tiêu chí, điều động mốc thời gian, xử lý cứu xét và giám sát đồng bộ nề nếp thi đua toàn phân hiệu.
           </p>
         </div>
 
@@ -1498,7 +1498,7 @@ export const AdminPortal: React.FC = () => {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-sm font-bold text-slate-800 uppercase mb-1 font-sans">
-                    Quản lý Câu lạc bộ & Tài khoản Đăng nhập
+                    Quản lý Tổ chức, CLB & Tài khoản Đăng nhập
                   </h3>
                   <p className="text-[11px] text-slate-400 leading-relaxed">
                     Thiết lập danh sách các đơn vị trực thuộc (Đoàn, Hội, CLB) hoặc quản lý, cấp phát mật khẩu cho tất cả tài khoản thuộc các luồng vai trò khác trong hệ thống.
@@ -1521,7 +1521,7 @@ export const AdminPortal: React.FC = () => {
                         : "text-slate-500 hover:text-slate-800"
                     }`}
                   >
-                    Tài khoản Ban chủ nhiệm (CLB/Đoàn/Hội)
+                    Tài khoản Ban điều hành (Đoàn / Hội / CLB)
                   </button>
                   <button
                     onClick={() => {
@@ -1535,7 +1535,7 @@ export const AdminPortal: React.FC = () => {
                         : "text-slate-500 hover:text-slate-800"
                     }`}
                   >
-                    Tài khoản theo Lớp (SV/Cán bộ/GVCN)
+                    Tài khoản theo Lớp (SV / Cán bộ / CVHT)
                   </button>
                   <button
                     onClick={() => {
@@ -1647,7 +1647,7 @@ export const AdminPortal: React.FC = () => {
                               <button
                                 onClick={() => handleDeleteClub(org.id)}
                                 className="p-1 text-rose-600 hover:bg-rose-50 border border-rose-100 hover:border-rose-200 rounded-lg cursor-pointer flex items-center justify-center transition-colors"
-                                title="Xóa Câu lạc bộ"
+                                title="Xóa Tổ chức / CLB"
                               >
                                 <Trash2 size={12} />
                               </button>
@@ -1698,7 +1698,7 @@ export const AdminPortal: React.FC = () => {
                     <div className="flex-1">
                       <input
                         type="text"
-                        placeholder="Tìm kiếm sinh viên, cán bộ, GVCN theo tên, tài khoản hoặc lớp..."
+                        placeholder="Tìm kiếm sinh viên, cán bộ, CVHT theo tên, tài khoản hoặc lớp..."
                         value={accountSearch}
                         onChange={(e) => setAccountSearch(e.target.value)}
                         className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
@@ -1714,7 +1714,7 @@ export const AdminPortal: React.FC = () => {
                         <option value={UserRole.STUDENT}>SINH VIÊN</option>
                         <option value={UserRole.CLASS_MONITOR}>CÁN BỘ LỚP (BCS)</option>
                         <option value={UserRole.GROUP_LEADER}>TỔ TRƯỞNG LỚP</option>
-                        <option value={UserRole.ADVISER}>GV CỐ VẤN (GVCN)</option>
+                        <option value={UserRole.ADVISER}>CỐ VẤN HỌC TẬP (CVHT)</option>
                       </select>
                     </div>
                   </div>
@@ -2053,7 +2053,7 @@ export const AdminPortal: React.FC = () => {
                         <option value={UserRole.STUDENT}>SINH VIÊN</option>
                         <option value={UserRole.CLASS_MONITOR}>CÁN BỘ LỚP</option>
                         <option value={UserRole.GROUP_LEADER}>TỔ TRƯỞNG LỚP</option>
-                        <option value={UserRole.ADVISER}>GV CỐ VẤN (GVCN)</option>
+                        <option value={UserRole.ADVISER}>CỐ VẤN HỌC TẬP (CVHT)</option>
                         <option value={UserRole.TEACHER}>GIẢNG VIÊN BỘ MÔN</option>
                         <option value={UserRole.CLUB_MANAGER}>CÂU LẠC BỘ</option>
                         <option value={UserRole.YOUTH_UNION}>ĐOÀN THANH NIÊN</option>
@@ -2435,7 +2435,7 @@ export const AdminPortal: React.FC = () => {
                 </span>
                 <div>
                   <h3 className="text-sm font-black text-slate-850 uppercase">
-                    {selectedClubId ? "Cập nhật CLB & Tài khoản" : "Khởi tạo CLB & Cấp tài khoản"}
+                    {selectedClubId ? "Cập nhật Tổ chức/CLB & Tài khoản" : "Khởi tạo Tổ chức/CLB & Cấp tài khoản"}
                   </h3>
                   <p className="text-[10px] text-slate-450 font-medium">Thiết lập đơn vị Đoàn/Hội/CLB đồng bộ với tài khoản đăng nhập</p>
                 </div>
@@ -2455,13 +2455,13 @@ export const AdminPortal: React.FC = () => {
             <form onSubmit={handleSaveClub} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-650 mb-1">Mã định danh CLB (Viết liền, viết hoa)*</label>
+                  <label className="block text-[11px] font-bold text-slate-650 mb-1">Mã định danh đơn vị (DOANTN, HOISV, CLB...)*</label>
                   <input 
                     type="text"
                     value={clubFormId}
                     onChange={(e) => setClubFormId(e.target.value)}
                     disabled={selectedClubId !== null}
-                    placeholder="Ví dụ: VANNX"
+                    placeholder="Ví dụ: DOANTN, HOISV, VANNX"
                     className="w-full px-3 py-1.5 border border-slate-200 font-mono uppercase bg-white disabled:bg-slate-100 disabled:text-slate-500 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg"
                     required
                   />
@@ -2508,7 +2508,7 @@ export const AdminPortal: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-655 mb-1 font-sans">Trưởng đơn vị / Đại diện đại biểu Ban chủ nhiệm*</label>
+                <label className="block text-[11px] font-bold text-slate-655 mb-1 font-sans">Trưởng đơn vị / Đại diện Ban điều hành (Bí thư / Chủ tịch / Chủ nhiệm)*</label>
                 <input 
                   type="text"
                   value={clubFormLeader}
@@ -2544,7 +2544,7 @@ export const AdminPortal: React.FC = () => {
                       type="text"
                       value={clubFormUsername}
                       onChange={(e) => setClubFormUsername(e.target.value)}
-                      placeholder="Ví dụ: clb.vannghe@phhg.edu.vn"
+                      placeholder="Ví dụ: doantn@phhg.edu.vn hoặc clb.vannghe@phhg.edu.vn"
                       className="w-full px-3 py-1.5 border border-slate-200 font-mono bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 rounded-lg"
                       required
                     />
@@ -2649,7 +2649,7 @@ export const AdminPortal: React.FC = () => {
                   >
                     <option value={UserRole.STUDENT}>SINH VIÊN (DÙNG MÃ SINH VIÊN)</option>
                     <option value={UserRole.CLASS_MONITOR}>CÁN BỘ LỚP (BCS - @phhg.edu.vn)</option>
-                    <option value={UserRole.ADVISER}>GV CỐ VẤN (GVCN - @phhg.edu.vn)</option>
+                    <option value={UserRole.ADVISER}>CỐ VẤN HỌC TẬP (CVHT - @phhg.edu.vn)</option>
                     <option value={UserRole.FACULTY}>VĂN PHÒNG KHOA (@phhg.edu.vn)</option>
                     <option value={UserRole.TRAINING_DEPT}>PHÒNG ĐÀO TẠO (@phhg.edu.vn)</option>
                     <option value={UserRole.ADMIN}>ADMIN / PHÒNG CTHSSV (@phhg.edu.vn)</option>

@@ -56,7 +56,7 @@ export const AdviserPortal: React.FC = () => {
       <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
         <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
         <h3 className="text-lg font-bold text-slate-800">Không có quyền truy cập</h3>
-        <p className="text-slate-500 text-sm mt-1">Bạn không có quyền truy cập vào cổng quản lý Cố vấn học tập / GVCN.</p>
+        <p className="text-slate-500 text-sm mt-1">Bạn không có quyền truy cập vào cổng quản lý Cố vấn học tập (CVHT).</p>
       </div>
     );
   }
@@ -65,8 +65,8 @@ export const AdviserPortal: React.FC = () => {
     return (
       <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
         <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
-        <h3 className="text-lg font-bold text-slate-800">Chưa được phân công Lớp chủ nhiệm</h3>
-        <p className="text-slate-500 text-sm mt-1">Tài khoản GVCN / Cố vấn chưa được gán mã lớp phụ trách. Vui lòng liên hệ Phòng Đào tạo hoặc Quản trị viên.</p>
+        <h3 className="text-lg font-bold text-slate-800">Chưa được phân công Lớp cố vấn</h3>
+        <p className="text-slate-500 text-sm mt-1">Tài khoản Cố vấn học tập (CVHT) chưa được gán mã lớp phụ trách. Vui lòng liên hệ Phòng Đào tạo hoặc Quản trị viên.</p>
       </div>
     );
   }
@@ -356,7 +356,7 @@ export const AdviserPortal: React.FC = () => {
       case "APPROVED_CLASS":
         return <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">BCS Đã Duyệt</span>;
       case "APPROVED_ADVISER":
-        return <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold">GVCN Đã Duyệt</span>;
+        return <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold">CVHT Đã Duyệt</span>;
       case "APPROVED_FACULTY":
         return <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-605 border border-amber-200 text-[10px] font-bold font-mono">Chờ Phân hiệu khóa</span>;
       case "APPROVED_FINAL":
@@ -718,7 +718,7 @@ export const AdviserPortal: React.FC = () => {
                       </div>
 
                       <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                        <label className="text-[9px] font-bold text-slate-450 uppercase block">Nhật ký can thiệp của GVCN</label>
+                        <label className="text-[9px] font-bold text-slate-450 uppercase block">Nhật ký can thiệp của CVHT</label>
                         <div className="flex gap-2">
                           <input 
                             type="text"
@@ -773,7 +773,7 @@ export const AdviserPortal: React.FC = () => {
                   <option value="ALL">Tất cả trạng thái</option>
                   <option value="SELF_SUBMITTED">Đã nộp tự đánh giá</option>
                   <option value="SELF_PENDING">Chưa tự đánh giá</option>
-                  <option value="APPROVED">Đã duyệt xong (GVCN)</option>
+                  <option value="APPROVED">Đã duyệt xong (CVHT)</option>
                   <option value="RE_EVALUATE">Cần rà soát (Có phản hồi)</option>
                 </select>
               </div>
@@ -803,7 +803,7 @@ export const AdviserPortal: React.FC = () => {
                     className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg cursor-pointer transition-all shadow-sm flex items-center gap-1"
                   >
                     <ShieldCheck size={13} />
-                    <span>Ký duyệt loạt GVCN</span>
+                    <span>Ký duyệt loạt CVHT</span>
                   </button>
 
                   <button
@@ -1148,7 +1148,7 @@ export const AdviserPortal: React.FC = () => {
                   <div className="border-b pb-1.5">
                     <span className="text-xs font-black text-slate-700 uppercase flex items-center gap-1">
                       <UserPen size={13} className="text-rose-600" />
-                      Nhập Biên Bản Can Thiệp Rèn Luyện (GVCN)
+                      Nhập Biên Bản Can Thiệp Rèn Luyện (CVHT)
                     </span>
                   </div>
 
@@ -1194,7 +1194,7 @@ export const AdviserPortal: React.FC = () => {
                         }}
                         className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black rounded-lg text-center text-xs hover:cursor-pointer shadow-sm transition-colors"
                       >
-                        Ký Duyệt GVCN
+                        Ký Duyệt CVHT
                       </button>
                     </div>
                   </div>

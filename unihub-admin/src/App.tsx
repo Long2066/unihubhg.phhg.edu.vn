@@ -1495,7 +1495,7 @@ export default function App() {
       case UserRole.CLASS_MONITOR: 
         if (user?.isGroupLeader) return `Tổ trưởng (${user.groupInCharge || 'Tổ'})`;
         return user?.monitorTitle || "Lớp trưởng (BCS)";
-      case UserRole.ADVISER: return "Giảng viên Cố vấn (GVCN)";
+      case UserRole.ADVISER: return "Cố vấn học tập (CVHT)";
       case UserRole.TEACHER: return "Giảng viên Bộ môn";
       case UserRole.ORGANIZER: return "CLB / Đoàn / Hội";
       case UserRole.CLUB_MANAGER: return "Câu lạc bộ";
@@ -2454,7 +2454,7 @@ export default function App() {
                   <option value="ALL">Tất cả vai trò</option>
                   <option value={UserRole.STUDENT}>Sinh viên</option>
                   <option value={UserRole.CLASS_MONITOR}>Lớp trưởng (BCS)</option>
-                  <option value={UserRole.ADVISER}>Giáo viên chủ nhiệm (GVCN)</option>
+                  <option value={UserRole.ADVISER}>Cố vấn học tập (CVHT)</option>
                   <option value={UserRole.TEACHER}>Giảng viên Bộ môn</option>
                   <option value={UserRole.CLUB_MANAGER}>Câu lạc bộ</option>
                   <option value={UserRole.YOUTH_UNION}>Đoàn Thanh niên</option>
@@ -3125,7 +3125,7 @@ export default function App() {
                       <option value="ALL">Tất cả vai trò</option>
                       <option value={UserRole.STUDENT}>Sinh viên</option>
                       <option value={UserRole.CLASS_MONITOR}>Ban cán sự</option>
-                      <option value={UserRole.ADVISER}>Cố vấn (GVCN)</option>
+                      <option value={UserRole.ADVISER}>Cố vấn học tập (CVHT)</option>
                       <option value={UserRole.FACULTY}>Văn phòng Khoa</option>
                       <option value={UserRole.TRAINING_DEPT}>Phòng Đào tạo</option>
                       <option value={UserRole.CLUB_MANAGER}>Câu lạc bộ</option>
@@ -3153,7 +3153,7 @@ export default function App() {
 
                     const roleText = fb.userRole === UserRole.STUDENT ? "Sinh viên" :
                                      fb.userRole === UserRole.CLASS_MONITOR ? "Ban cán sự" :
-                                     fb.userRole === UserRole.ADVISER ? "Cố vấn (GVCN)" :
+                                     fb.userRole === UserRole.ADVISER ? "Cố vấn học tập (CVHT)" :
                                      fb.userRole === UserRole.FACULTY ? "Khoa" :
                                      fb.userRole === UserRole.TRAINING_DEPT ? "Phòng Đào tạo" :
                                      fb.userRole === UserRole.ORGANIZER ? "CLB / Đoàn Hội" :
@@ -3733,7 +3733,7 @@ export default function App() {
                     <option value={UserRole.STUDENT}>Sinh viên</option>
                     <option value={UserRole.GROUP_LEADER}>Tổ trưởng</option>
                     <option value={UserRole.CLASS_MONITOR}>Lớp trưởng (BCS)</option>
-                    <option value={UserRole.ADVISER}>Giảng viên Cố vấn (GVCN)</option>
+                    <option value={UserRole.ADVISER}>Cố vấn học tập (CVHT)</option>
                     <option value={UserRole.CLUB_MANAGER}>Câu lạc bộ</option>
                     <option value={UserRole.YOUTH_UNION}>Đoàn Thanh niên</option>
                     <option value={UserRole.STUDENT_UNION}>Hội Sinh viên</option>

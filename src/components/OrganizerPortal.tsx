@@ -481,6 +481,14 @@ export const OrganizerPortal: React.FC = () => {
   const themeTextLabel = isDoan ? "ĐOÀN THANH NIÊN PHÂN HIỆU" : (isHoi ? "HỘI SINH VIÊN VIỆT NAM" : "CÂU LẠC BỘ PHONG TRÀO");
   const themeTextPrimary = isDoan ? "text-rose-600" : (isHoi ? "text-sky-600" : "text-purple-600");
 
+  const entityTypeName = isDoan ? "Đoàn Thanh niên" : isHoi ? "Hội Sinh viên" : "Câu lạc bộ";
+  const entityShortName = isDoan ? "ĐTN" : isHoi ? "HSV" : "CLB";
+  const entityMemberSingle = isDoan ? "đoàn viên" : isHoi ? "hội viên" : "thành viên";
+  const entityMemberTitle = isDoan ? "Đoàn viên & Cán bộ Đoàn" : isHoi ? "Hội viên & Cán bộ Hội" : "Thành viên CLB";
+  const entityLeaderTitle = isDoan ? "Bí thư Đoàn" : isHoi ? "Chủ tịch Hội" : "Chủ nhiệm CLB";
+  const entityManagementBoard = isDoan ? "BCH Đoàn Phân hiệu" : isHoi ? "BCH Hội Sinh viên" : "Ban Chủ nhiệm CLB";
+  const entityUnitScope = isDoan ? "Nội bộ Đoàn TN" : isHoi ? "Nội bộ Hội SV" : "Nội bộ CLB";
+
   // Filter activities by weekly, monthly, quarterly
   const filterActivitiesByMilestone = (act: ExtracurricularActivity) => {
     // Standard timestamp checks
@@ -991,12 +999,12 @@ export const OrganizerPortal: React.FC = () => {
       .filter(sid => !currentAttendance.some(att => att.studentId === sid));
     
     if (unregisteredMemberIds.length === 0) {
-      alert("Tất cả thành viên của CLB đều đã có trong danh sách đăng ký rèn luyện!");
+      alert(`Tất cả ${entityMemberSingle} của ${entityShortName} đều đã có trong danh sách đăng ký rèn luyện!`);
       return;
     }
     
     addBulkAttendance(selectedActId, unregisteredMemberIds);
-    alert(`Đã nộp danh sách từ CLB sang điểm danh! Đã bổ sung nhanh ${unregisteredMemberIds.length} thành viên.`);
+    alert(`Đã nộp danh sách từ ${entityShortName} sang điểm danh! Đã bổ sung nhanh ${unregisteredMemberIds.length} ${entityMemberSingle}.`);
   };
 
   const selectedAct = activities.find(a => a.id === selectedActId);
@@ -1004,7 +1012,7 @@ export const OrganizerPortal: React.FC = () => {
   const liveMatchRule = selectedAct ? criteria.flatMap(c => c.rules).find(r => r.id === selectedAct.criteriaId) : null;
   const realActPoints = selectedAct ? Number(selectedAct.points || 0) : 0;
 
-  // Xuất file Excel danh sách điểm danh sự kiện làm căn cứ xét đánh giá nội bộ CLB
+  // Xuất file Excel danh sách điểm danh sự kiện làm căn cứ xét đánh giá nội bộ đơn vị
   const handleExportAttendanceExcel = () => {
     if (!selectedAct) return;
     if (currentAttendance.length === 0) {
@@ -1043,13 +1051,13 @@ export const OrganizerPortal: React.FC = () => {
     });
 
     const metaRows = [
-      ["BIÊN BẢN DANH SÁCH ĐIỂM DANH SỰ KIỆN NỘI BỘ CLB"],
+      [`BIÊN BẢN DANH SÁCH ĐIỂM DANH SỰ KIỆN NỘI BỘ ${entityShortName.toUpperCase()}`],
       ["Tên sự kiện:", selectedAct.title],
       ["Đơn vị tổ chức:", selectedAct.orgName],
       ["Thời gian tổ chức:", selectedAct.dateTime],
       ["Địa điểm:", selectedAct.location],
       ["Trạng thái sự kiện:", selectedAct.status === "COMPLETED" ? "ĐÃ CHỐT SỔ NỘI BỘ" : "ĐANG THEO DÕI ĐIỂM DANH"],
-      ["Người chốt sổ:", selectedAct.verifiedBy || "Ban Chủ nhiệm CLB"],
+      ["Người chốt sổ:", selectedAct.verifiedBy || entityManagementBoard],
       ["Tổng số đăng ký:", currentAttendance.length, "Tổng số có mặt:", currentAttendance.filter(a => a.attended).length],
       ["Ngày xuất báo cáo:", new Date().toLocaleDateString("vi-VN")],
       [] // Dòng ngăn cách
@@ -1099,7 +1107,7 @@ export const OrganizerPortal: React.FC = () => {
           </span>
           <h2 className="text-xl font-extrabold text-slate-900 mt-2">{org.name}</h2>
           <p className="text-xs text-slate-500 mt-1 italic">
-            Lĩnh vực hoạt động: {org.field} | Đại diện CLB: {org.leaderName}
+            Lĩnh vực hoạt động: {org.field} | Đại diện {entityShortName}: {org.leaderName}
           </p>
         </div>
 
@@ -1587,10 +1595,10 @@ export const OrganizerPortal: React.FC = () => {
                             onChange={(e) => setManualRole(e.target.value as any)}
                             className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white font-bold"
                           >
-                            <option value="THÀNH VIÊN">Thành viên thường trực</option>
-                            <option value="ỦY VIÊN">Ủy viên ban chấp hành</option>
-                            <option value="BAN CHẤP HÀNH">Phó bí thư / Phó CN</option>
-                            <option value="CHỦ NHIỆM">Chủ nhiệm tối cao</option>
+                            <option value="THÀNH VIÊN">{isDoan ? "Đoàn viên" : isHoi ? "Hội viên" : "Thành viên"}</option>
+                            <option value="ỦY VIÊN">Ủy viên Ban Chấp hành</option>
+                            <option value="BAN CHẤP HÀNH">{isDoan ? "Phó Bí thư Đoàn" : isHoi ? "Phó Chủ tịch Hội" : "Phó Chủ nhiệm CLB"}</option>
+                            <option value="CHỦ NHIỆM">{isDoan ? "Bí thư Đoàn" : isHoi ? "Chủ tịch Hội" : "Chủ nhiệm CLB"}</option>
                           </select>
                         </div>
                       </div>
@@ -1716,12 +1724,12 @@ export const OrganizerPortal: React.FC = () => {
                               </button>
                               <button 
                                 onClick={() => {
-                                  if (confirm(`Bạn có chắc chắn muốn xóa thành viên ${m.studentName || m.studentId} ra khỏi CLB?`)) {
+                                  if (confirm(`Bạn có chắc chắn muốn xóa ${entityMemberSingle} ${m.studentName || m.studentId} ra khỏi ${entityShortName}?`)) {
                                     deleteMember(m.id);
                                   }
                                 }}
                                 className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors border border-slate-100 rounded-xl cursor-pointer"
-                                title="Khai trừ khỏi CLB"
+                                title={`Xóa khỏi ${entityShortName}`}
                               >
                                 <Trash2 size={13} />
                               </button>
@@ -1879,10 +1887,10 @@ export const OrganizerPortal: React.FC = () => {
                         onChange={(e) => setManualRole(e.target.value as any)}
                         className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white font-bold"
                       >
-                        <option value="THÀNH VIÊN">Thành viên thường trực</option>
-                        <option value="ỦY VIÊN">Ủy viên ban chấp hành</option>
-                        <option value="BAN CHẤP HÀNH">Phó bí thư / Phó CN</option>
-                        <option value="CHỦ NHIỆM">Chủ nhiệm tối cao</option>
+                        <option value="THÀNH VIÊN">{isDoan ? "Đoàn viên" : isHoi ? "Hội viên" : "Thành viên"}</option>
+                        <option value="ỦY VIÊN">Ủy viên Ban Chấp hành</option>
+                        <option value="BAN CHẤP HÀNH">{isDoan ? "Phó Bí thư Đoàn" : isHoi ? "Phó Chủ tịch Hội" : "Phó Chủ nhiệm CLB"}</option>
+                        <option value="CHỦ NHIỆM">{isDoan ? "Bí thư Đoàn" : isHoi ? "Chủ tịch Hội" : "Chủ nhiệm CLB"}</option>
                       </select>
                     </div>
                   </div>
@@ -1975,8 +1983,8 @@ export const OrganizerPortal: React.FC = () => {
                       >
                         <span className="text-base leading-none">🔒</span>
                         <div className="min-w-0">
-                          <div className="text-xs font-bold leading-tight">Nội bộ CLB</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5 leading-snug">Chỉ thành viên chính thức CLB mới xem & đk</div>
+                          <div className="text-xs font-bold leading-tight">{entityUnitScope}</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5 leading-snug">Chỉ {entityMemberSingle} chính thức {entityShortName} mới xem & đăng ký</div>
                         </div>
                       </button>
                     </div>
@@ -2213,8 +2221,8 @@ export const OrganizerPortal: React.FC = () => {
             {activeSubTab === "TAO_THONGBAO" && (
               <div className="space-y-4 max-w-lg">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-850 uppercase mb-1">Tạo thông báo CLB mới phát sóng sinh viên</h3>
-                  <p className="text-[11px] text-slate-400 leading-relaxed">Đăng tải các chỉ thị hành động hoặc hoạt động chi đoàn. Độc lập thời hạn tự động dọn dẹp hệ thống khi hết ngày hiển thị.</p>
+                  <h3 className="text-sm font-bold text-slate-850 uppercase mb-1">Tạo thông báo {entityShortName} mới phát sóng sinh viên</h3>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">Đăng tải các chỉ thị hành động hoặc hoạt động phong trào. Độc lập thời hạn tự động dọn dẹp hệ thống khi hết ngày hiển thị.</p>
                 </div>
 
                 <form onSubmit={handleCreateAnnouncement} className="space-y-3.5 pt-2">
@@ -2274,8 +2282,8 @@ export const OrganizerPortal: React.FC = () => {
                       >
                         <span className="text-base leading-none">🔒</span>
                         <div className="min-w-0">
-                          <div className="text-xs font-bold leading-tight">Nội bộ CLB</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5 leading-snug">Chỉ thành viên chính thức CLB mới xem được</div>
+                          <div className="text-xs font-bold leading-tight">{entityUnitScope}</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5 leading-snug">Chỉ {entityMemberSingle} chính thức {entityShortName} mới xem được</div>
                         </div>
                       </button>
                     </div>
@@ -2294,7 +2302,7 @@ export const OrganizerPortal: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Ảnh Marketing / Bìa Thông Báo CLB (Tùy chọn)</label>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Ảnh Marketing / Bìa Thông Báo {entityShortName} (Tùy chọn)</label>
                     <input 
                       type="file" 
                       ref={annFileInputRef} 
@@ -2394,7 +2402,7 @@ export const OrganizerPortal: React.FC = () => {
                                   ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
                                   : "bg-purple-50 text-purple-700 border border-purple-200"
                               }`}>
-                                {item.scope === "PUBLIC" ? "🌐 Toàn phân hiệu" : "🔒 Nội bộ CLB"}
+                                {item.scope === "PUBLIC" ? "🌐 Toàn phân hiệu" : `🔒 ${entityUnitScope}`}
                               </span>
                             </div>
                             <h5 className="font-extrabold text-slate-900 mt-0.5">{item.title}</h5>
@@ -2530,7 +2538,7 @@ export const OrganizerPortal: React.FC = () => {
                                   ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
                                   : "bg-purple-50 text-purple-700 border border-purple-200"
                               }`}>
-                                {selectedAct.scope === "PUBLIC" ? "🌐 Toàn phân hiệu" : "🔒 Nội bộ CLB"}
+                                {selectedAct.scope === "PUBLIC" ? "🌐 Toàn phân hiệu" : `🔒 ${entityUnitScope}`}
                               </span>
                             </div>
                             <div className="flex gap-3 text-[10px] text-slate-500 mt-1 flex-wrap">
@@ -2579,17 +2587,17 @@ export const OrganizerPortal: React.FC = () => {
                           <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3 shadow-2xs">
                             <div>
                               <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 block">Duyệt nạp danh sách điểm danh</span>
-                              <p className="text-[10px] text-slate-500 mt-0.5">Sử dụng tính năng nạp nhanh toàn bộ thành viên từ CLB hoặc bổ sung lẻ tẻ từng trường hợp quên đăng ký.</p>
+                              <p className="text-[10px] text-slate-500 mt-0.5">Sử dụng tính năng nạp nhanh toàn bộ {entityMemberSingle} từ {entityShortName} hoặc bổ sung lẻ tẻ từng trường hợp quên đăng ký.</p>
                             </div>
 
                             <div className="flex flex-col sm:flex-row gap-2 justify-between items-stretch sm:items-center pt-1 border-t border-slate-100">
                               <button
                                 onClick={handleImportClubMembersToAttendance}
                                 className={`px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white text-[11px] font-black rounded-lg cursor-pointer transition-colors flex items-center justify-center gap-1 shadow-sm shrink-0`}
-                                title="Lấy tất cả thành viên của CLB sang danh sách để điểm danh"
+                                title={`Lấy tất cả ${entityMemberSingle} của ${entityShortName} sang danh sách để điểm danh`}
                               >
                                 <Users size={12} />
-                                <span>Lấy danh sách từ Ban CLB sang điểm danh (+{orgMembers.filter(m => !currentAttendance.some(att => att.studentId === m.studentId)).length})</span>
+                                <span>Lấy danh sách từ {entityManagementBoard} sang điểm danh (+{orgMembers.filter(m => !currentAttendance.some(att => att.studentId === m.studentId)).length})</span>
                               </button>
 
                               <div className="flex items-center gap-2 flex-grow sm:max-w-md w-full">
@@ -2598,7 +2606,7 @@ export const OrganizerPortal: React.FC = () => {
                                   onChange={(e) => setBulkInput(e.target.value)}
                                   className="flex-1 px-3 py-1.5 bg-white border rounded-lg text-xs"
                                 >
-                                  <option value="">-- Thêm lẻ Sinh viên ngoài CLB --</option>
+                                  <option value="">-- Thêm lẻ Sinh viên ngoài {entityShortName} --</option>
                                   {students.filter(s => !currentAttendance.some(att => att.studentId === s.id)).map(st => (
                                     <option key={st.id} value={st.id}>{st.name} ({st.id}) - {st.classId}</option>
                                   ))}
@@ -2741,7 +2749,7 @@ export const OrganizerPortal: React.FC = () => {
                         {selectedAct.status !== "COMPLETED" ? (
                           <div className="pt-3 border-t flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                             <span className="text-[11px] text-slate-500">
-                              Lưu ý: Bấm Chốt sổ để khóa danh sách điểm danh và lưu trữ hồ sơ phục vụ đánh giá nội bộ CLB.
+                              Lưu ý: Bấm Chốt sổ để khóa danh sách điểm danh và lưu trữ hồ sơ phục vụ đánh giá nội bộ {entityShortName}.
                             </span>
                             <div className="flex gap-2 w-full sm:w-auto">
                               <button 
@@ -2755,7 +2763,7 @@ export const OrganizerPortal: React.FC = () => {
                               <button 
                                 type="button"
                                 onClick={() => {
-                                  if (confirm(`Bạn có chắc chắn muốn CHỐT SỔ ĐIỂM DANH sự kiện "${selectedAct.title}"? Sau khi chốt, danh sách được khóa và làm căn cứ xét đánh giá nội bộ CLB.`)) {
+                                  if (confirm(`Bạn có chắc chắn muốn CHỐT SỔ ĐIỂM DANH sự kiện "${selectedAct.title}"? Sau khi chốt, danh sách được khóa và làm căn cứ xét đánh giá nội bộ ${entityShortName}.`)) {
                                     updateActivityStatus(selectedAct.id, "COMPLETED");
                                   }
                                 }}
@@ -2774,7 +2782,7 @@ export const OrganizerPortal: React.FC = () => {
                                 <span>Đã chốt sổ điểm danh sự kiện</span>
                               </span>
                               <p className="text-[10px] text-slate-500 mt-0.5">
-                                Ghi nhận có mặt: <strong className="text-emerald-700 font-bold font-mono">{currentAttendance.filter(a => a.attended).length}</strong>/{currentAttendance.length} sinh viên • Lưu trữ làm căn cứ xét duyệt & khen thưởng nội bộ CLB
+                                Ghi nhận có mặt: <strong className="text-emerald-700 font-bold font-mono">{currentAttendance.filter(a => a.attended).length}</strong>/{currentAttendance.length} sinh viên • Lưu trữ làm căn cứ xét duyệt & khen thưởng nội bộ {entityShortName}
                               </p>
                             </div>
                             <button 
@@ -2804,7 +2812,7 @@ export const OrganizerPortal: React.FC = () => {
 
           <div className="bg-slate-50 p-4 border-t border-slate-100 shrink-0 text-center rounded-b-xl mt-6">
             <span className="text-[9px] text-slate-400 font-mono">
-              PHÂN HỆ QUẢN LÝ BCN SỔ CLB SINH VIÊN UNIHUB © 2026 • Độc quyền tự hóa dữ liệu đầu cuối
+              PHÂN HỆ QUẢN LÝ {isDoan ? "ĐOÀN THANH NIÊN" : isHoi ? "HỘI SINH VIÊN" : "CLB SINH VIÊN"} UNIHUB © 2026 • Độc quyền tự động hóa dữ liệu đầu cuối
             </span>
           </div>
 
@@ -2851,7 +2859,7 @@ export const OrganizerPortal: React.FC = () => {
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-150 space-y-4 animate-scale-up">
             <div className="flex items-center gap-2 text-rose-600 font-extrabold text-sm">
               <AlertCircle size={18} />
-              <span>Từ chối đơn xin gia nhập CLB</span>
+              <span>Từ chối đơn xin gia nhập {entityShortName}</span>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
               Bạn đang từ chối hồ sơ đăng ký của sinh viên <strong>{rejectPromptMember.studentName || rejectPromptMember.studentId}</strong> ({rejectPromptMember.classId}). Vui lòng nhập lý do để hệ thống gửi phản hồi minh bạch:
@@ -2967,7 +2975,7 @@ export const OrganizerPortal: React.FC = () => {
                   rows={4}
                   value={recruitmentContentInput}
                   onChange={e => setRecruitmentContentInput(e.target.value)}
-                  placeholder="Giới thiệu về CLB, mục tiêu đợt tuyển, các quyền lợi khi tham gia, tiêu chí tuyển chọn..."
+                  placeholder={`Giới thiệu về ${entityShortName}, mục tiêu đợt tuyển, các quyền lợi khi tham gia, tiêu chí tuyển chọn...`}
                   className="w-full px-3 py-2 rounded-xl border border-slate-250 bg-white leading-relaxed focus:border-indigo-500 focus:outline-none"
                 />
               </div>
@@ -3115,10 +3123,10 @@ export const OrganizerPortal: React.FC = () => {
                     onChange={(e) => setEditRole(e.target.value as any)}
                     className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold"
                   >
-                    <option value="THÀNH VIÊN">Thành viên thường trực</option>
-                    <option value="ỦY VIÊN">Ủy viên ban chấp hành</option>
-                    <option value="BAN CHẤP HÀNH">Phó bí thư / Phó CN</option>
-                    <option value="CHỦ NHIỆM">Chủ nhiệm tối cao</option>
+                    <option value="THÀNH VIÊN">{isDoan ? "Đoàn viên" : isHoi ? "Hội viên" : "Thành viên"}</option>
+                    <option value="ỦY VIÊN">Ủy viên Ban Chấp hành</option>
+                    <option value="BAN CHẤP HÀNH">{isDoan ? "Phó Bí thư Đoàn" : isHoi ? "Phó Chủ tịch Hội" : "Phó Chủ nhiệm CLB"}</option>
+                    <option value="CHỦ NHIỆM">{isDoan ? "Bí thư Đoàn" : isHoi ? "Chủ tịch Hội" : "Chủ nhiệm CLB"}</option>
                   </select>
                 </div>
               </div>
@@ -3164,7 +3172,7 @@ export const OrganizerPortal: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-800">Chỉnh sửa sự kiện / hoạt động</h3>
-                  <p className="text-[10px] text-slate-400">Cập nhật thông tin chi tiết sự kiện cho CLB và Sinh viên</p>
+                  <p className="text-[10px] text-slate-400">Cập nhật thông tin chi tiết sự kiện cho {entityShortName} và Sinh viên</p>
                 </div>
               </div>
               <button 
@@ -3217,8 +3225,8 @@ export const OrganizerPortal: React.FC = () => {
                   >
                     <span className="text-base leading-none">🔒</span>
                     <div className="min-w-0">
-                      <div className="text-xs leading-tight">Nội bộ CLB</div>
-                      <div className="text-[10px] text-slate-500 font-normal mt-0.5 leading-snug">Chỉ thành viên chính thức CLB</div>
+                      <div className="text-xs leading-tight">{entityUnitScope}</div>
+                      <div className="text-[10px] text-slate-500 font-normal mt-0.5 leading-snug">Chỉ {entityMemberSingle} chính thức {entityShortName}</div>
                     </div>
                   </button>
                 </div>
@@ -3463,8 +3471,8 @@ export const OrganizerPortal: React.FC = () => {
                   >
                     <span className="text-base leading-none">🔒</span>
                     <div className="min-w-0">
-                      <div className="text-xs leading-tight">Nội bộ CLB</div>
-                      <div className="text-[10px] text-slate-500 font-normal mt-0.5 leading-snug">Chỉ thành viên chính thức CLB</div>
+                      <div className="text-xs leading-tight">{entityUnitScope}</div>
+                      <div className="text-[10px] text-slate-500 font-normal mt-0.5 leading-snug">Chỉ {entityMemberSingle} chính thức {entityShortName}</div>
                     </div>
                   </button>
                 </div>

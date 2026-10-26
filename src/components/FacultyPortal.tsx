@@ -160,7 +160,7 @@ export const FacultyPortal: React.FC = () => {
           </span>
           <h2 className="text-xl font-extrabold text-slate-900 mt-2">Bàn Điều Hành & Thẩm Thư Cấp Khoa</h2>
           <p className="text-xs text-slate-505 mt-1 italic">
-            Kiểm soát tổng số, kiểm toán tỷ lệ xếp loại, rà soát tiến trình ký quyết định của các GVCN lớp và khóa sổ nộp ban giám hiệu.
+            Kiểm soát tổng số, kiểm toán tỷ lệ xếp loại, rà soát tiến trình ký quyết định của các CVHT lớp và khóa sổ nộp ban giám hiệu.
           </p>
         </div>
 
@@ -332,7 +332,7 @@ export const FacultyPortal: React.FC = () => {
                       </div>
 
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] text-slate-400">Giáo viên chủ nhiệm:</span>
+                        <span className="text-[10px] text-slate-400">Cố vấn học tập (CVHT):</span>
                         <span className={`px-2 py-0.5 text-[9px] font-black tracking-wider rounded border leading-none ${isGVCN ? 'bg-emerald-50 text-emerald-700 border-emerald-150' : 'bg-slate-50 text-slate-400'}`}>
                           {isGVCN ? "ĐÃ DUYỆT" : "CHƯA KÝ"}
                         </span>
