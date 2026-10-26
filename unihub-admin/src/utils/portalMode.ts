@@ -2,13 +2,13 @@ import { UserRole } from "../types";
 
 export type PortalMode = "STUDENT" | "STAFF";
 
-export const STAFF_PORTAL_URL = "https://unihubhg-ad.vercel.app";
-export const STUDENT_PORTAL_URL = "https://unihubhg.phhg.edu.vn";
+export const STAFF_PORTAL_URL = "https://unihub-admin.vercel.app";
+export const STUDENT_PORTAL_URL = "https://unihubhg.vercel.app";
 
 /**
  * Detect current portal stream:
- * - "STAFF" on unihubhg-ad.vercel.app, port 4001, or VITE_PORTAL_MODE="STAFF"
- * - "STUDENT" on unihubhg.phhg.edu.vn, unihubhg.vercel.app, port 4000, or default
+ * - "STAFF" on unihub-admin.vercel.app, unihubhg-ad.vercel.app, port 4001, or VITE_PORTAL_MODE="STAFF"
+ * - "STUDENT" on unihubhg.vercel.app, unihubhg.phhg.edu.vn, port 4000, or default
  */
 export const getPortalMode = (): PortalMode => {
   const envMode = (import.meta as any)?.env?.VITE_PORTAL_MODE;
@@ -19,6 +19,7 @@ export const getPortalMode = (): PortalMode => {
     const host = window.location.hostname.toLowerCase();
     const port = window.location.port;
     if (
+      host.includes("unihub-admin") ||
       host.includes("unihubhg-ad") || 
       host.includes("admin-") || 
       host.includes("canbo") || 
