@@ -381,6 +381,59 @@ export const AdminPortal: React.FC = () => {
       }
     }
 
+    // === QUY TẮC BẮT BUỘC: Mỗi tổ chức, phòng ban, lớp chỉ có DUY NHẤT 1 tài khoản ===
+    if (accFormRole === UserRole.YOUTH_UNION) {
+      const dupYouth = users.find(u => u.id !== selectedAccId && u.role === UserRole.YOUTH_UNION);
+      if (dupYouth) {
+        alert(`Quy tắc hệ thống: Đoàn Thanh niên chỉ được có DUY NHẤT 1 tài khoản! Đã tồn tại tài khoản: ${dupYouth.username || dupYouth.email}`);
+        return;
+      }
+    } else if (accFormRole === UserRole.STUDENT_UNION) {
+      const dupHoi = users.find(u => u.id !== selectedAccId && u.role === UserRole.STUDENT_UNION);
+      if (dupHoi) {
+        alert(`Quy tắc hệ thống: Hội Sinh viên chỉ được có DUY NHẤT 1 tài khoản! Đã tồn tại tài khoản: ${dupHoi.username || dupHoi.email}`);
+        return;
+      }
+    } else if (accFormRole === UserRole.TRAINING_DEPT) {
+      const dupDaoTao = users.find(u => u.id !== selectedAccId && u.role === UserRole.TRAINING_DEPT);
+      if (dupDaoTao) {
+        alert(`Quy tắc hệ thống: Phòng Đào tạo chỉ được có DUY NHẤT 1 tài khoản! Đã tồn tại tài khoản: ${dupDaoTao.username || dupDaoTao.email}`);
+        return;
+      }
+    } else if (accFormRole === UserRole.CLUB_MANAGER || accFormRole === UserRole.ORGANIZER) {
+      if (resolvedTargetId) {
+        const dupClub = users.find(u => u.id !== selectedAccId && (u.role === UserRole.CLUB_MANAGER || u.role === UserRole.ORGANIZER) && (u.targetId || "").toUpperCase() === resolvedTargetId.toUpperCase());
+        if (dupClub) {
+          alert(`Quy tắc hệ thống: Mỗi Câu lạc bộ/Tổ chức chỉ được có DUY NHẤT 1 tài khoản! Đơn vị "${resolvedTargetId}" đã có tài khoản: ${dupClub.username || dupClub.email}`);
+          return;
+        }
+      }
+    } else if (accFormRole === UserRole.FACULTY) {
+      if (resolvedTargetId) {
+        const dupFac = users.find(u => u.id !== selectedAccId && u.role === UserRole.FACULTY && (u.targetId || "").toUpperCase() === resolvedTargetId.toUpperCase());
+        if (dupFac) {
+          alert(`Quy tắc hệ thống: Mỗi Khoa chỉ được có DUY NHẤT 1 tài khoản! Khoa "${resolvedTargetId}" đã có tài khoản: ${dupFac.username || dupFac.email}`);
+          return;
+        }
+      }
+    } else if (accFormRole === UserRole.CLASS_MONITOR) {
+      if (resolvedTargetId) {
+        const dupMon = users.find(u => u.id !== selectedAccId && u.role === UserRole.CLASS_MONITOR && (u.targetId || "").toUpperCase() === resolvedTargetId.toUpperCase());
+        if (dupMon) {
+          alert(`Quy tắc hệ thống: Mỗi Lớp chỉ được có DUY NHẤT 1 tài khoản Ban cán sự! Lớp "${resolvedTargetId}" đã có tài khoản: ${dupMon.username || dupMon.email}`);
+          return;
+        }
+      }
+    } else if (accFormRole === UserRole.ADVISER) {
+      if (resolvedTargetId) {
+        const dupAdv = users.find(u => u.id !== selectedAccId && u.role === UserRole.ADVISER && (u.targetId || "").toUpperCase() === resolvedTargetId.toUpperCase());
+        if (dupAdv) {
+          alert(`Quy tắc hệ thống: Mỗi Lớp chỉ được có DUY NHẤT 1 tài khoản Cố vấn học tập! Lớp "${resolvedTargetId}" đã có tài khoản: ${dupAdv.username || dupAdv.email}`);
+          return;
+        }
+      }
+    }
+
     const userData: UserAccount & { password?: string } = {
       id: selectedAccId || `U_GEN_${Date.now()}`,
       username: finalUsername,

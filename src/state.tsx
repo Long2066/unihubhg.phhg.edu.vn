@@ -2265,7 +2265,22 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const usersSnap = await getDocs(collection(db, "users"));
       if (!usersSnap.empty) {
         const list: UserAccount[] = [];
-        usersSnap.forEach(d => list.push(normalizeUserAccount(d.data() as UserAccount)));
+        usersSnap.forEach(d => {
+          const raw = d.data() as UserAccount;
+          const uEmail = (raw.email || "").trim().toLowerCase();
+          const uUser = (raw.username || "").trim().toLowerCase();
+          // Tự động dọn dẹp tài khoản thừa / rác của Đoàn Thanh niên hoặc không có targetId
+          if (
+            uEmail === "doantnphhg@phhg.edu.vn" || 
+            uUser === "doantnphhg@phhg.edu.vn" || 
+            (raw.role === UserRole.YOUTH_UNION && raw.id !== "U_ORG02" && uEmail !== "doantn@phhg.edu.vn" && (!raw.targetId || raw.targetId !== "DOANTN"))
+          ) {
+            console.warn("Tự động dọn tài khoản Đoàn TN thừa khỏi Firestore:", d.id);
+            deleteDoc(doc(db, "users", d.id)).catch(() => {});
+            return;
+          }
+          list.push(normalizeUserAccount(raw));
+        });
         const merged = smartMerge(list, "unihub_users", u => u.id || u.username || u.email);
 
         let customAvatars: Record<string, string> = {};
@@ -2675,6 +2690,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const usersSnapCheck = await getDocs(collection(db, "users"));
           for (const d of usersSnapCheck.docs) {
             const userDoc = d.data() as UserAccount;
+            const uEmail = (userDoc.email || "").trim().toLowerCase();
+            const uUser = (userDoc.username || "").trim().toLowerCase();
+            if (
+              uEmail === "doantnphhg@phhg.edu.vn" || 
+              uUser === "doantnphhg@phhg.edu.vn" || 
+              (userDoc.role === UserRole.YOUTH_UNION && userDoc.id !== "U_ORG02" && uEmail !== "doantn@phhg.edu.vn" && (!userDoc.targetId || userDoc.targetId !== "DOANTN"))
+            ) {
+              console.warn("Tự động dọn dẹp tài khoản Đoàn TN trùng lặp khỏi Firestore:", d.id);
+              await deleteDoc(doc(db, "users", d.id)).catch(() => {});
+              continue;
+            }
             const normalized = normalizeUserAccount(userDoc);
             if (normalized.username !== userDoc.username || normalized.email !== userDoc.email) {
               await setDoc(doc(db, "users", d.id), normalized, { merge: true });

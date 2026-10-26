@@ -934,7 +934,22 @@ export default function App() {
       onSnapshot(collection(db, "users"), (snap) => {
         setIsFirebaseConnected(true);
         const list: UserAccount[] = [];
-        snap.forEach(d => list.push(d.data() as UserAccount));
+        snap.forEach(d => {
+          const u = d.data() as UserAccount;
+          const uEmail = (u.email || "").trim().toLowerCase();
+          const uUser = (u.username || "").trim().toLowerCase();
+          // Tự động dọn dẹp tài khoản thừa / rác của Đoàn Thanh niên hoặc không có targetId
+          if (
+            uEmail === "doantnphhg@phhg.edu.vn" || 
+            uUser === "doantnphhg@phhg.edu.vn" || 
+            (u.role === UserRole.YOUTH_UNION && u.id !== "U_ORG02" && uEmail !== "doantn@phhg.edu.vn" && (!u.targetId || u.targetId !== "DOANTN"))
+          ) {
+            console.warn("Tự động xóa tài khoản Đoàn TN trùng lặp khỏi Firestore:", d.id);
+            deleteDoc(doc(db, "users", d.id)).catch(() => {});
+            return;
+          }
+          list.push(u);
+        });
         if (list.length > 0) {
           setUsers(list);
         } else {
@@ -1285,8 +1300,73 @@ export default function App() {
         }
       }
 
+      // === QUY TẮC BẮT BUỘC: Mỗi tổ chức, phòng ban, lớp chỉ có DUY NHẤT 1 tài khoản ===
+      const editingId = selectedUser ? selectedUser.id : null;
+      if (userForm.role === UserRole.YOUTH_UNION) {
+        const dupYouth = users.find(u => u.id !== editingId && u.role === UserRole.YOUTH_UNION);
+        if (dupYouth) {
+          alert(`Quy tắc hệ thống: Đoàn Thanh niên chỉ được có DUY NHẤT 1 tài khoản! Đã tồn tại tài khoản: ${dupYouth.username || dupYouth.email}`);
+          return;
+        }
+      } else if (userForm.role === UserRole.STUDENT_UNION) {
+        const dupHoi = users.find(u => u.id !== editingId && u.role === UserRole.STUDENT_UNION);
+        if (dupHoi) {
+          alert(`Quy tắc hệ thống: Hội Sinh viên chỉ được có DUY NHẤT 1 tài khoản! Đã tồn tại tài khoản: ${dupHoi.username || dupHoi.email}`);
+          return;
+        }
+      } else if (userForm.role === UserRole.TRAINING_DEPT) {
+        const dupDaoTao = users.find(u => u.id !== editingId && u.role === UserRole.TRAINING_DEPT);
+        if (dupDaoTao) {
+          alert(`Quy tắc hệ thống: Phòng Đào tạo chỉ được có DUY NHẤT 1 tài khoản! Đã tồn tại tài khoản: ${dupDaoTao.username || dupDaoTao.email}`);
+          return;
+        }
+      } else if (userForm.role === UserRole.CLUB_MANAGER || userForm.role === UserRole.ORGANIZER) {
+        if (resolvedTargetId) {
+          const dupClub = users.find(u => u.id !== editingId && (u.role === UserRole.CLUB_MANAGER || u.role === UserRole.ORGANIZER) && (u.targetId || "").toUpperCase() === resolvedTargetId.toUpperCase());
+          if (dupClub) {
+            alert(`Quy tắc hệ thống: Mỗi Câu lạc bộ/Tổ chức chỉ được có DUY NHẤT 1 tài khoản! Đơn vị "${resolvedTargetId}" đã có tài khoản: ${dupClub.username || dupClub.email}`);
+            return;
+          }
+        }
+      } else if (userForm.role === UserRole.FACULTY) {
+        if (resolvedTargetId) {
+          const dupFac = users.find(u => u.id !== editingId && u.role === UserRole.FACULTY && (u.targetId || "").toUpperCase() === resolvedTargetId.toUpperCase());
+          if (dupFac) {
+            alert(`Quy tắc hệ thống: Mỗi Khoa chỉ được có DUY NHẤT 1 tài khoản! Khoa "${resolvedTargetId}" đã có tài khoản: ${dupFac.username || dupFac.email}`);
+            return;
+          }
+        }
+      } else if (userForm.role === UserRole.CLASS_MONITOR) {
+        if (resolvedTargetId) {
+          const dupMon = users.find(u => u.id !== editingId && u.role === UserRole.CLASS_MONITOR && (u.targetId || "").toUpperCase() === resolvedTargetId.toUpperCase());
+          if (dupMon) {
+            alert(`Quy tắc hệ thống: Mỗi Lớp chỉ được có DUY NHẤT 1 tài khoản Ban cán sự! Lớp "${resolvedTargetId}" đã có tài khoản: ${dupMon.username || dupMon.email}`);
+            return;
+          }
+        }
+      } else if (userForm.role === UserRole.ADVISER) {
+        if (resolvedTargetId) {
+          const dupAdv = users.find(u => u.id !== editingId && u.role === UserRole.ADVISER && (u.targetId || "").toUpperCase() === resolvedTargetId.toUpperCase());
+          if (dupAdv) {
+            alert(`Quy tắc hệ thống: Mỗi Lớp chỉ được có DUY NHẤT 1 tài khoản Cố vấn học tập! Lớp "${resolvedTargetId}" đã có tài khoản: ${dupAdv.username || dupAdv.email}`);
+            return;
+          }
+        }
+      }
+
       const cleanUsername = userForm.username.trim();
       const cleanEmail = targetEmail.trim();
+
+      if (!selectedUser) {
+        const dupAccount = users.find(u => 
+          (u.username && u.username.trim().toLowerCase() === cleanUsername.toLowerCase()) ||
+          (u.email && u.email.trim().toLowerCase() === cleanEmail.toLowerCase())
+        );
+        if (dupAccount) {
+          alert(`Tài khoản hoặc email "${cleanUsername}" đã tồn tại trên hệ thống! Vui lòng dùng tên đăng nhập khác.`);
+          return;
+        }
+      }
       const cleanName = userForm.name.trim();
       const targetPassword = userForm.password && userForm.password.trim() ? userForm.password.trim() : ((selectedUser as any)?.password || "123456");
 
