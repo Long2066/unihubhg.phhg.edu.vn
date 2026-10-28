@@ -9,8 +9,10 @@ import {
   getPortalMode, 
   isStaffPortal, 
   isStudentPortal, 
+  isAdminPortal,
   STAFF_PORTAL_URL, 
-  STUDENT_PORTAL_URL 
+  STUDENT_PORTAL_URL,
+  ADMIN_PORTAL_URL 
 } from "./utils/portalMode";
 import { UniHubProvider, useUniHub, normalizeClassId, getCachedAvatar, rememberAvatar } from "./state";
 import { UserRole, isOrgRole, STUDENT_FIELDS_META, Student, SEMESTER_LIST, convertGoogleDriveUrlToDirectUrl, getStudentStartYear, getSemesterStartYear } from "./types";
@@ -1413,6 +1415,11 @@ const AppContent: React.FC = () => {
               <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold">
                 <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
                 <span>Cổng Sinh viên</span>
+              </span>
+            ) : isAdminPortal() ? (
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 border border-purple-200 text-purple-700 text-xs font-bold">
+                <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+                <span>Cổng Admin Tối cao</span>
               </span>
             ) : (
               <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">

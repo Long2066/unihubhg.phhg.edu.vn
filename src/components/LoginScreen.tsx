@@ -7,7 +7,8 @@ import { convertGoogleDriveUrlToDirectUrl } from "../types";
 import { 
   getPortalMode, 
   STAFF_PORTAL_URL, 
-  STUDENT_PORTAL_URL 
+  STUDENT_PORTAL_URL,
+  ADMIN_PORTAL_URL 
 } from "../utils/portalMode";
 import { TnuLogo } from "./TnuLogo";
 import { 
@@ -53,7 +54,7 @@ export const LoginScreen: React.FC = () => {
   const { login, themeConfig, announcements, activities, organizations } = useUniHub();
   const portalMode = getPortalMode();
   const [redirectNotice, setRedirectNotice] = useState<{
-    type: "STAFF" | "STUDENT";
+    type: "STAFF" | "STUDENT" | "ADMIN";
     title: string;
     message: string;
     buttonText: string;
@@ -255,7 +256,7 @@ export const LoginScreen: React.FC = () => {
         setRedirectNotice({
           type: "STAFF",
           title: "Tài khoản Cán bộ & Tổ chức",
-          message: "Tài khoản của bạn thuộc phân hệ Cán bộ, Giảng viên hoặc Tổ chức. Để tránh lỗi máy chủ giờ cao điểm của sinh viên, vui lòng đăng nhập tại Cổng Cán bộ & Tổ chức chuyên biệt.",
+          message: "Tài khoản của bạn thuộc phân hệ Cán bộ, Giảng viên hoặc Tổ chức. Để tối ưu hiệu năng và tránh quá tải, vui lòng đăng nhập tại Cổng Cán bộ & Tổ chức chuyên biệt.",
           buttonText: "Chuyển sang Cổng Cán bộ (unihubhg-ad.vercel.app)",
           targetUrl: STAFF_PORTAL_URL
         });
@@ -263,8 +264,24 @@ export const LoginScreen: React.FC = () => {
         setRedirectNotice({
           type: "STUDENT",
           title: "Tài khoản Sinh viên",
-          message: "Tài khoản của bạn là Sinh viên. Cổng này dành riêng cho Cán bộ & Tổ chức. Vui lòng đăng nhập tại Cổng Sinh viên chính thức.",
-          buttonText: "Chuyển sang Cổng Sinh viên (unihubhg.phhg.edu.vn)",
+          message: "Tài khoản của bạn là Sinh viên. Cổng này dành riêng cho phân hệ Quản lý. Vui lòng đăng nhập tại Cổng Sinh viên chính thức.",
+          buttonText: "Chuyển sang Cổng Sinh viên (unihubhg.vercel.app)",
+          targetUrl: STUDENT_PORTAL_URL
+        });
+      } else if (msg.startsWith("PORTAL_MISMATCH_ADMIN_STAFF")) {
+        setRedirectNotice({
+          type: "STAFF",
+          title: "Cổng Admin Tối Cao",
+          message: "Tài khoản của bạn thuộc phân hệ Cán bộ, Giảng viên hoặc Đơn vị. Cổng này dành riêng cho Super Admin tối cao. Vui lòng đăng nhập tại Cổng Cán bộ & Tổ chức.",
+          buttonText: "Chuyển sang Cổng Cán bộ (unihubhg-ad.vercel.app)",
+          targetUrl: STAFF_PORTAL_URL
+        });
+      } else if (msg.startsWith("PORTAL_MISMATCH_ADMIN_STUDENT")) {
+        setRedirectNotice({
+          type: "STUDENT",
+          title: "Cổng Admin Tối Cao",
+          message: "Tài khoản của bạn là Sinh viên. Cổng này dành riêng cho Quản trị viên tối cao. Vui lòng đăng nhập tại Cổng Sinh viên.",
+          buttonText: "Chuyển sang Cổng Sinh viên (unihubhg.vercel.app)",
           targetUrl: STUDENT_PORTAL_URL
         });
       } else {
@@ -351,7 +368,11 @@ export const LoginScreen: React.FC = () => {
                   PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI HÀ GIANG
                 </span>
                 <h1 className="text-[8px] min-[340px]:text-[8.8px] min-[370px]:text-[9.8px] min-[400px]:text-[10.5px] sm:text-base md:text-lg lg:text-xl font-extrabold text-[#0c529c] uppercase tracking-normal leading-snug whitespace-nowrap block mt-0.5">
-                  {portalMode === "STAFF" ? "CỔNG ĐIỀU HÀNH CÁN BỘ & TỔ CHỨC" : (themeConfig?.loginTitle || "CỔNG THÔNG TIN SINH VIÊN")}
+                  {portalMode === "ADMIN" 
+                    ? "CỔNG ĐIỀU HÀNH ADMIN TỐI CAO" 
+                    : portalMode === "STAFF" 
+                    ? "CỔNG ĐIỀU HÀNH CÁN BỘ & TỔ CHỨC" 
+                    : (themeConfig?.loginTitle || "CỔNG THÔNG TIN SINH VIÊN")}
                 </h1>
               </div>
             </div>
@@ -362,7 +383,7 @@ export const LoginScreen: React.FC = () => {
               <div className="w-72 sm:w-80 md:w-96 max-w-full">
                 <div className="relative w-full">
                   <input 
-                    type="text"
+                    type="text" 
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search..."
@@ -406,25 +427,39 @@ export const LoginScreen: React.FC = () => {
                   </button>
                 </nav>
 
-                {portalMode === "STUDENT" ? (
-                  <a 
-                    href={STAFF_PORTAL_URL}
-                    className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-full transition-colors whitespace-nowrap"
-                    title="Dành cho Giảng viên, CVHT, Phòng ban & Đoàn - Hội - CLB"
-                  >
-                    <span>Cổng Cán bộ</span>
-                    <ExternalLink size={12} />
-                  </a>
-                ) : (
-                  <a 
-                    href={STUDENT_PORTAL_URL}
-                    className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 hover:bg-sky-100 rounded-full transition-colors whitespace-nowrap"
-                    title="Dành cho Sinh viên & Ban cán sự lớp"
-                  >
-                    <span>Cổng Sinh viên</span>
-                    <ExternalLink size={12} />
-                  </a>
-                )}
+                {/* Switcher links between 3 portals */}
+                <div className="hidden sm:flex items-center gap-1.5">
+                  {portalMode !== "STUDENT" && (
+                    <a 
+                      href={STUDENT_PORTAL_URL}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 hover:bg-sky-100 rounded-full transition-colors whitespace-nowrap"
+                      title="Dành cho Sinh viên & Ban cán sự lớp"
+                    >
+                      <span>Cổng Sinh viên</span>
+                      <ExternalLink size={11} />
+                    </a>
+                  )}
+                  {portalMode !== "STAFF" && (
+                    <a 
+                      href={STAFF_PORTAL_URL}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-full transition-colors whitespace-nowrap"
+                      title="Dành cho Giảng viên, CVHT, Phòng ban & Đoàn - Hội - CLB"
+                    >
+                      <span>Cổng Cán bộ</span>
+                      <ExternalLink size={11} />
+                    </a>
+                  )}
+                  {portalMode !== "ADMIN" && (
+                    <a 
+                      href={ADMIN_PORTAL_URL}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100 rounded-full transition-colors whitespace-nowrap"
+                      title="Dành riêng cho Quản trị viên tối cao (Super Admin)"
+                    >
+                      <span>Cổng Admin</span>
+                      <ExternalLink size={11} />
+                    </a>
+                  )}
+                </div>
 
                 <button 
                   onClick={() => setShowLoginModal(true)}
@@ -790,21 +825,27 @@ export const LoginScreen: React.FC = () => {
                   PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI HÀ GIANG
                 </span>
                 <span className="text-xs sm:text-sm font-mono font-black uppercase tracking-wider text-[#0c529c] block">
-                  {portalMode === "STAFF" ? "CỔNG ĐIỀU HÀNH CÁN BỘ & TỔ CHỨC" : (themeConfig?.loginTitle || "CỔNG THÔNG TIN SINH VIÊN")}
+                  {portalMode === "ADMIN" 
+                    ? "CỔNG ĐIỀU HÀNH ADMIN TỐI CAO" 
+                    : portalMode === "STAFF" 
+                    ? "CỔNG ĐIỀU HÀNH CÁN BỘ & TỔ CHỨC" 
+                    : (themeConfig?.loginTitle || "CỔNG THÔNG TIN SINH VIÊN")}
                 </span>
               </div>
               <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-2">Đăng nhập hệ thống</h2>
               <p className="text-xs text-slate-500 mt-1">
-                {portalMode === "STAFF" 
+                {portalMode === "ADMIN" 
+                  ? "Dành riêng cho Quản trị viên tối cao (Super Admin) & Ban Giám đốc" 
+                  : portalMode === "STAFF" 
                   ? "Dành cho Cán bộ, Giảng viên, CVHT, Phòng ban & Đoàn - Hội - CLB" 
                   : "Dành riêng cho Sinh viên & Ban cán sự lớp"}
               </p>
 
               {/* Thông báo phân luồng cổng */}
-              <div className="mt-3 p-2.5 rounded-xl border bg-slate-50/80 text-[11px] flex items-center justify-between gap-2 text-left">
-                {portalMode === "STUDENT" ? (
-                  <>
-                    <span className="text-slate-600 font-medium">Thầy/Cô & Cán bộ các đơn vị?</span>
+              <div className="mt-3 p-2.5 rounded-xl border bg-slate-50/80 text-[11px] flex flex-col gap-1.5 text-left">
+                {portalMode === "STUDENT" && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-slate-600 font-medium">Thầy/Cô & Cán bộ đơn vị?</span>
                     <a 
                       href={STAFF_PORTAL_URL} 
                       className="font-bold text-indigo-700 hover:text-indigo-900 flex items-center gap-1 shrink-0 hover:underline"
@@ -812,9 +853,10 @@ export const LoginScreen: React.FC = () => {
                       <span>Vào Cổng Cán bộ</span>
                       <ExternalLink size={12} />
                     </a>
-                  </>
-                ) : (
-                  <>
+                  </div>
+                )}
+                {portalMode === "STAFF" && (
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-slate-600 font-medium">Bạn là Sinh viên?</span>
                     <a 
                       href={STUDENT_PORTAL_URL} 
@@ -823,7 +865,29 @@ export const LoginScreen: React.FC = () => {
                       <span>Vào Cổng Sinh viên</span>
                       <ExternalLink size={12} />
                     </a>
-                  </>
+                  </div>
+                )}
+                {portalMode === "ADMIN" && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-slate-600 font-medium">Cán bộ, Giảng viên hoặc SV?</span>
+                    <div className="flex items-center gap-2">
+                      <a 
+                        href={STAFF_PORTAL_URL} 
+                        className="font-bold text-indigo-700 hover:text-indigo-900 flex items-center gap-0.5 shrink-0 hover:underline"
+                      >
+                        <span>Cán bộ</span>
+                        <ExternalLink size={11} />
+                      </a>
+                      <span className="text-slate-300">|</span>
+                      <a 
+                        href={STUDENT_PORTAL_URL} 
+                        className="font-bold text-sky-700 hover:text-sky-900 flex items-center gap-0.5 shrink-0 hover:underline"
+                      >
+                        <span>Sinh viên</span>
+                        <ExternalLink size={11} />
+                      </a>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -854,7 +918,11 @@ export const LoginScreen: React.FC = () => {
             <form onSubmit={handleManualLogin} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {portalMode === "STAFF" ? "Tên đăng nhập / Email công vụ" : "Mã sinh viên / CCCD / Email"}
+                  {portalMode === "ADMIN" 
+                    ? "Tài khoản Quản trị viên tối cao (admin@phhg.edu.vn)" 
+                    : portalMode === "STAFF" 
+                    ? "Tên đăng nhập / Email công vụ" 
+                    : "Mã sinh viên / CCCD / Email"}
                 </label>
                 <input 
                   type="text" 
@@ -863,7 +931,13 @@ export const LoginScreen: React.FC = () => {
                     setEmail(e.target.value);
                     setErrorMsg("");
                   }}
-                  placeholder={portalMode === "STAFF" ? "Email @phhg.edu.vn hoặc tên đơn vị..." : "Mã số sinh viên hoặc CCCD..."} 
+                  placeholder={
+                    portalMode === "ADMIN" 
+                      ? "admin@phhg.edu.vn hoặc tên quản trị..." 
+                      : portalMode === "STAFF" 
+                      ? "Email @phhg.edu.vn hoặc tên đơn vị..." 
+                      : "Mã số sinh viên hoặc CCCD..."
+                  } 
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0c529c]/20 focus:border-[#0c529c] text-sm transition-all text-slate-800"
                   autoFocus
                 />

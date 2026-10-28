@@ -27,8 +27,10 @@ import {
   getPortalMode, 
   isRoleAllowedInStudentPortal, 
   isRoleAllowedInStaffPortal, 
+  isRoleAllowedInAdminPortal,
   STAFF_PORTAL_URL, 
-  STUDENT_PORTAL_URL 
+  STUDENT_PORTAL_URL,
+  ADMIN_PORTAL_URL 
 } from "./utils/portalMode";
 
 import { 
@@ -446,6 +448,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return null;
         }
         if (portalMode === "STAFF" && !isRoleAllowedInStaffPortal(u.role)) {
+          localStorage.removeItem("unihub_current_user");
+          return null;
+        }
+        if (portalMode === "ADMIN" && !isRoleAllowedInAdminPortal(u.role)) {
           localStorage.removeItem("unihub_current_user");
           return null;
         }
@@ -3246,7 +3252,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setDoc(doc(db, "users", authCred.user.uid), userDoc, { merge: true }).catch(() => {});
     }
 
-    // Kiểm tra phân luồng 2 cổng (Sinh viên unihubhg vs Cán bộ unihubhg-ad)
+    // Kiểm tra phân luồng 3 cổng: Sinh viên (unihubhg) vs Admin tối cao (unihub-admin) vs Cán bộ & Tổ chức (unihubhg-ad)
     const portalMode = getPortalMode();
     if (portalMode === "STUDENT" && !isRoleAllowedInStudentPortal(userDoc.role)) {
       console.warn(`Phân luồng: Chặn đăng nhập Cán bộ tại Cổng Sinh viên. Vai trò: ${userDoc.role}`);
@@ -3255,6 +3261,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (portalMode === "STAFF" && !isRoleAllowedInStaffPortal(userDoc.role)) {
       console.warn(`Phân luồng: Chặn đăng nhập Sinh viên tại Cổng Cán bộ. Vai trò: ${userDoc.role}`);
       throw new Error(`PORTAL_MISMATCH_STUDENT:${userDoc.role}`);
+    }
+    if (portalMode === "ADMIN" && !isRoleAllowedInAdminPortal(userDoc.role)) {
+      if (isRoleAllowedInStaffPortal(userDoc.role)) {
+        console.warn(`Phân luồng: Chặn Cán bộ tại Cổng Admin tối cao. Vai trò: ${userDoc.role}`);
+        throw new Error(`PORTAL_MISMATCH_ADMIN_STAFF:${userDoc.role}`);
+      } else {
+        console.warn(`Phân luồng: Chặn Sinh viên tại Cổng Admin tối cao. Vai trò: ${userDoc.role}`);
+        throw new Error(`PORTAL_MISMATCH_ADMIN_STUDENT:${userDoc.role}`);
+      }
     }
 
     const { password: _, ...safeUser } = userDoc as any;
