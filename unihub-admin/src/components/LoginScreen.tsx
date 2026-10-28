@@ -427,40 +427,6 @@ export const LoginScreen: React.FC = () => {
                   </button>
                 </nav>
 
-                {/* Switcher links between 3 portals */}
-                <div className="hidden sm:flex items-center gap-1.5">
-                  {portalMode !== "STUDENT" && (
-                    <a 
-                      href={STUDENT_PORTAL_URL}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 hover:bg-sky-100 rounded-full transition-colors whitespace-nowrap"
-                      title="Dành cho Sinh viên & Ban cán sự lớp"
-                    >
-                      <span>Cổng Sinh viên</span>
-                      <ExternalLink size={11} />
-                    </a>
-                  )}
-                  {portalMode !== "STAFF" && (
-                    <a 
-                      href={STAFF_PORTAL_URL}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-full transition-colors whitespace-nowrap"
-                      title="Dành cho Giảng viên, CVHT, Phòng ban & Đoàn - Hội - CLB"
-                    >
-                      <span>Cổng Cán bộ</span>
-                      <ExternalLink size={11} />
-                    </a>
-                  )}
-                  {portalMode !== "ADMIN" && (
-                    <a 
-                      href={ADMIN_PORTAL_URL}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100 rounded-full transition-colors whitespace-nowrap"
-                      title="Dành riêng cho Quản trị viên tối cao (Super Admin)"
-                    >
-                      <span>Cổng Admin</span>
-                      <ExternalLink size={11} />
-                    </a>
-                  )}
-                </div>
-
                 <button 
                   onClick={() => setShowLoginModal(true)}
                   className="bg-[#0c529c] hover:bg-blue-800 text-white font-bold text-xs sm:text-sm py-1.5 px-4 rounded-full shadow-sm hover:shadow-md transition-all flex items-center gap-1.5 cursor-pointer transform active:scale-95 whitespace-nowrap"
@@ -840,56 +806,6 @@ export const LoginScreen: React.FC = () => {
                   ? "Dành cho Cán bộ, Giảng viên, CVHT, Phòng ban & Đoàn - Hội - CLB" 
                   : "Dành riêng cho Sinh viên & Ban cán sự lớp"}
               </p>
-
-              {/* Thông báo phân luồng cổng */}
-              <div className="mt-3 p-2.5 rounded-xl border bg-slate-50/80 text-[11px] flex flex-col gap-1.5 text-left">
-                {portalMode === "STUDENT" && (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-slate-600 font-medium">Thầy/Cô & Cán bộ đơn vị?</span>
-                    <a 
-                      href={STAFF_PORTAL_URL} 
-                      className="font-bold text-indigo-700 hover:text-indigo-900 flex items-center gap-1 shrink-0 hover:underline"
-                    >
-                      <span>Vào Cổng Cán bộ</span>
-                      <ExternalLink size={12} />
-                    </a>
-                  </div>
-                )}
-                {portalMode === "STAFF" && (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-slate-600 font-medium">Bạn là Sinh viên?</span>
-                    <a 
-                      href={STUDENT_PORTAL_URL} 
-                      className="font-bold text-sky-700 hover:text-sky-900 flex items-center gap-1 shrink-0 hover:underline"
-                    >
-                      <span>Vào Cổng Sinh viên</span>
-                      <ExternalLink size={12} />
-                    </a>
-                  </div>
-                )}
-                {portalMode === "ADMIN" && (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-slate-600 font-medium">Cán bộ, Giảng viên hoặc SV?</span>
-                    <div className="flex items-center gap-2">
-                      <a 
-                        href={STAFF_PORTAL_URL} 
-                        className="font-bold text-indigo-700 hover:text-indigo-900 flex items-center gap-0.5 shrink-0 hover:underline"
-                      >
-                        <span>Cán bộ</span>
-                        <ExternalLink size={11} />
-                      </a>
-                      <span className="text-slate-300">|</span>
-                      <a 
-                        href={STUDENT_PORTAL_URL} 
-                        className="font-bold text-sky-700 hover:text-sky-900 flex items-center gap-0.5 shrink-0 hover:underline"
-                      >
-                        <span>Sinh viên</span>
-                        <ExternalLink size={11} />
-                      </a>
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
 
             {/* Thông báo chuyển cổng khi phát hiện sai luồng */}
