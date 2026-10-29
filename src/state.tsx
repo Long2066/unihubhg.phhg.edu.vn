@@ -74,7 +74,8 @@ import {
   BallotBox,
   CongressCandidate,
   CongressVote,
-  BallotBoxType
+  BallotBoxType,
+  BallotBoxStatus
 } from "./types";
 import { getRouteForTab, getTabFromPath, getPageTitle } from "./utils/routeUtils";
 import { 
@@ -523,16 +524,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const [selectedSemesterId, setSelectedSemesterId] = useState<string>(SEED_PERIOD.id);
 
-  const lastActiveUserKeyRef = useRef<string | null>(() => {
-    try {
-      const cached = localStorage.getItem("unihub_current_user");
-      if (cached) {
-        const u = JSON.parse(cached);
-        return `${u.id}_${u.role}`;
-      }
-    } catch {}
-    return null;
-  });
+  const lastActiveUserKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (currentUser) {
@@ -2097,6 +2089,29 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
         }
         if (found) {
+          const portalMode = getPortalMode();
+          if (portalMode === "STUDENT" && !isRoleAllowedInStudentPortal(found.role)) {
+            console.warn(`User with role ${found.role} is not permitted on Student Portal. Signing out.`);
+            signOut(auth).catch(() => {});
+            setCurrentUser(null);
+            localStorage.removeItem("unihub_current_user");
+            return;
+          }
+          if (portalMode === "STAFF" && !isRoleAllowedInStaffPortal(found.role)) {
+            console.warn(`User with role ${found.role} is not permitted on Staff Portal. Signing out.`);
+            signOut(auth).catch(() => {});
+            setCurrentUser(null);
+            localStorage.removeItem("unihub_current_user");
+            return;
+          }
+          if (portalMode === "ADMIN" && !isRoleAllowedInAdminPortal(found.role)) {
+            console.warn(`User with role ${found.role} is not permitted on Admin Portal. Signing out.`);
+            signOut(auth).catch(() => {});
+            setCurrentUser(null);
+            localStorage.removeItem("unihub_current_user");
+            return;
+          }
+
           const targetId = found.targetId || found.username || found.id;
           let customAvatars: Record<string, string> = {};
           try {
@@ -7165,8 +7180,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let createdCount = 0;
     const nextCongresses = [...classCongresses];
 
-    uniqueClasses.forEach(rawClassId => {
-      const normClass = normalizeClassId(rawClassId);
+    uniqueClasses.forEach((rawClassId: any) => {
+      const normClass = normalizeClassId(String(rawClassId || ""));
       const exists = nextCongresses.some(
         cc => cc.campaignId === campaignId && normalizeClassId(cc.classId) === normClass
       );

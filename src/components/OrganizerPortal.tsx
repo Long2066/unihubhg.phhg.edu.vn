@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import * as XLSX from "xlsx";
 import { useUniHub, normalizeClassId } from "../state";
-import { motion } from "motion/react";
 import { 
   Users, 
   PlusCircle, 
@@ -75,16 +74,6 @@ export const OrganizerPortal: React.FC = () => {
     activePortletTab,
     setActivePortletTab
   } = useUniHub();
-
-  if (currentUser && !([UserRole.ORGANIZER, UserRole.CLUB_MANAGER, UserRole.YOUTH_UNION, UserRole.STUDENT_UNION, UserRole.ADMIN] as UserRole[]).includes(currentUser.role)) {
-    return (
-      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
-        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
-        <h3 className="text-lg font-bold text-slate-800">Không có quyền truy cập</h3>
-        <p className="text-slate-500 text-sm mt-1">Bạn không có quyền quản trị Đoàn Thanh niên, Hội Sinh viên hoặc Câu lạc bộ.</p>
-      </div>
-    );
-  }
 
   const activeSubTab = (activePortletTab as "DS_THANHVIEN" | "THEM_HUY_THANHVIEN" | "TAO_HOATDONG" | "TAO_THONGBAO" | "QUANLY_DIEMDANH") || "DS_THANHVIEN";
   const setActiveSubTab = (tab: "DS_THANHVIEN" | "THEM_HUY_THANHVIEN" | "TAO_HOATDONG" | "TAO_THONGBAO" | "QUANLY_DIEMDANH") => {
@@ -1087,9 +1076,20 @@ export const OrganizerPortal: React.FC = () => {
     XLSX.utils.book_append_sheet(wb, ws, "DiemDanh_NoiBo");
     XLSX.writeFile(wb, `DIEM_DANH_${safeTitle}_${selectedAct.id}.xlsx`);
   };
+
+  if (currentUser && !([UserRole.ORGANIZER, UserRole.CLUB_MANAGER, UserRole.YOUTH_UNION, UserRole.STUDENT_UNION, UserRole.ADMIN] as UserRole[]).includes(currentUser.role)) {
+    return (
+      <div className="p-8 text-center bg-white rounded-2xl shadow-xs border border-slate-200 m-6 max-w-lg mx-auto">
+        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-800">Không có quyền truy cập</h3>
+        <p className="text-slate-500 text-sm mt-1">Bạn không có quyền quản trị Đoàn Thanh niên, Hội Sinh viên hoặc Câu lạc bộ.</p>
+      </div>
+    );
+  }
+
   if (!orgId) {
     return (
-      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
+      <div className="p-8 text-center bg-white rounded-2xl shadow-xs border border-slate-200 m-6 max-w-lg mx-auto">
         <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
         <h3 className="text-lg font-bold text-slate-800">Chưa được phân công Câu lạc bộ / Tổ chức</h3>
         <p className="text-slate-500 text-sm mt-1">Tài khoản chưa được liên kết với Câu lạc bộ hoặc Tổ chức nào. Vui lòng liên hệ Quản trị viên để được gán quyền quản lý.</p>
@@ -1130,13 +1130,9 @@ export const OrganizerPortal: React.FC = () => {
       {/* Workspace Display Area (Using full-width layout since we have the primary left navigation sidebar menu) */}
       <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-xs min-h-[500px] flex flex-col justify-between transition-all duration-300 w-full">
           
-          <motion.div 
+          <div 
             key={activeSubTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-            className="flex-1"
+            className="flex-1 transition-opacity duration-200 animate-in fade-in"
           >
             {/* SUBTAB 1: MEMBERS LIST (With custom attachments, deletions and details updates) */}
             {activeSubTab === "DS_THANHVIEN" && (
@@ -1460,11 +1456,8 @@ export const OrganizerPortal: React.FC = () => {
 
                 {/* Manual Add Member Collapsible Form inside Members List (Requirement 1) */}
                 {showAddManualForm && (
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.98, y: -10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.98, y: -10 }}
-                    className="p-5 bg-slate-50/55 border border-slate-200 rounded-2xl shadow-sm space-y-4 max-w-2xl overflow-hidden"
+                  <div 
+                    className="p-5 bg-slate-50/55 border border-slate-200 rounded-2xl shadow-sm space-y-4 max-w-2xl overflow-hidden transition-all duration-200 animate-in fade-in"
                   >
                     <div className="flex justify-between items-center pb-2 border-b border-slate-100">
                       <div>
@@ -1631,7 +1624,7 @@ export const OrganizerPortal: React.FC = () => {
                         </button>
                       </div>
                     </form>
-                  </motion.div>
+                  </div>
                 )}
 
                 {/* Import verified previews in-place */}
@@ -2808,7 +2801,7 @@ export const OrganizerPortal: React.FC = () => {
 
               </div>
             )}
-          </motion.div>
+          </div>
 
           <div className="bg-slate-50 p-4 border-t border-slate-100 shrink-0 text-center rounded-b-xl mt-6">
             <span className="text-[9px] text-slate-400 font-mono">

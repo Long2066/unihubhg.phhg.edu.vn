@@ -51,26 +51,6 @@ export const AdviserPortal: React.FC = () => {
 
   const classId = normalizeClassId(currentUser?.targetId || "");
 
-  if (currentUser && currentUser.role !== UserRole.ADVISER && currentUser.role !== UserRole.ADMIN) {
-    return (
-      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
-        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
-        <h3 className="text-lg font-bold text-slate-800">Không có quyền truy cập</h3>
-        <p className="text-slate-500 text-sm mt-1">Bạn không có quyền truy cập vào cổng quản lý Cố vấn học tập (CVHT).</p>
-      </div>
-    );
-  }
-
-  if (currentUser?.role === UserRole.ADVISER && !classId) {
-    return (
-      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
-        <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
-        <h3 className="text-lg font-bold text-slate-800">Chưa được phân công Lớp cố vấn</h3>
-        <p className="text-slate-500 text-sm mt-1">Tài khoản Cố vấn học tập (CVHT) chưa được gán mã lớp phụ trách. Vui lòng liên hệ Phòng Đào tạo hoặc Quản trị viên.</p>
-      </div>
-    );
-  }
-
   // Filter class reviews
   const normClassId = normalizeClassId(classId);
   const classReviewInfo = classReviews.find(cr => normalizeClassId(cr.classId) === normClassId);
@@ -562,6 +542,16 @@ export const AdviserPortal: React.FC = () => {
       notes: student.notes || ""
     };
   });
+
+  if (currentUser && currentUser.role !== UserRole.ADVISER && currentUser.role !== UserRole.ADMIN) {
+    return (
+      <div className="p-8 text-center bg-white rounded-2xl shadow-xs border border-slate-200 m-6 max-w-lg mx-auto font-sans">
+        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-800">Không có quyền truy cập</h3>
+        <p className="text-slate-500 text-sm mt-1">Bạn không có quyền truy cập vào cổng quản lý Cố vấn học tập (CVHT).</p>
+      </div>
+    );
+  }
 
   if (!classId) {
     return (

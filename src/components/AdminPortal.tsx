@@ -63,16 +63,6 @@ export const AdminPortal: React.FC = () => {
     systemNotifications
   } = useUniHub();
 
-  if (currentUser && currentUser.role !== UserRole.ADMIN) {
-    return (
-      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
-        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
-        <h3 className="text-lg font-bold text-slate-800">Không có quyền truy cập</h3>
-        <p className="text-slate-500 text-sm mt-1">Bạn không có quyền quản trị hệ thống (Chỉ dành riêng cho Quản trị viên cấp cao).</p>
-      </div>
-    );
-  }
-
   const activeTab = (activePortletTab as "CONFIG" | "PERIOD" | "STATIONS" | "CLUBS") || "CONFIG";
   const setActiveTab = (tab: "CONFIG" | "PERIOD" | "STATIONS" | "CLUBS") => {
     setActivePortletTab(tab);
@@ -1187,6 +1177,16 @@ export const AdminPortal: React.FC = () => {
       alert("Đã làm sạch và khôi phục cơ sở dữ liệu gốc thành công!");
     }
   };
+
+  if (currentUser && currentUser.role !== UserRole.ADMIN) {
+    return (
+      <div className="p-8 text-center bg-white rounded-2xl shadow-xs border border-slate-200 m-6 max-w-lg mx-auto font-sans">
+        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-slate-800">Không có quyền truy cập</h3>
+        <p className="text-slate-500 text-sm mt-1">Bạn không có quyền quản trị hệ thống (Chỉ dành riêng cho Quản trị viên cấp cao).</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6" id="admin-portal-container">

@@ -568,7 +568,7 @@ export const CongressPortal: React.FC = () => {
         const student = students.find(s => s.id === studentId);
         newAppointments.push({
           id: `APP_${Date.now()}_${roleKey}`,
-          studentId,
+          studentId: String(studentId),
           studentName: student?.name,
           role: roleKey as CongressAppointmentRole,
           appointedBy: currentUser?.name || "Cố vấn học tập",

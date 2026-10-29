@@ -317,16 +317,6 @@ export const TrainingPortal: React.FC = () => {
     creditEnrollments
   } = useUniHub();
 
-  if (currentUser && currentUser.role !== UserRole.TRAINING_DEPT && currentUser.role !== UserRole.ADMIN) {
-    return (
-      <div className="p-8 text-center bg-white rounded-xl shadow-xs border border-slate-200 m-6">
-        <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
-        <h3 className="text-lg font-bold text-slate-800">Không có quyền truy cập</h3>
-        <p className="text-slate-500 text-sm mt-1">Bạn không có quyền quản lý học vụ của Phòng Đào tạo.</p>
-      </div>
-    );
-  }
-
   const validTrainingTabs = ["OVERVIEW", "IMPORT", "DANG_KY_TIN_CHI", "TEACHER_ASSIGNMENTS", "UNLOCK_REQUESTS", "GRADE_APPEALS", "IMPORT_CLASSES", "LIST", "THOI_KHOA_BIEU", "XET_HOC_BONG"] as const;
   type TrainingTab = typeof validTrainingTabs[number];
   const activeTab: TrainingTab = validTrainingTabs.includes(activePortletTab as any) 

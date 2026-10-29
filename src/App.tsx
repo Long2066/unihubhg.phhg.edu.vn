@@ -85,17 +85,56 @@ import {
   formatStudentCardName,
   resolveTrainingStudent
 } from "./utils/studentCard";
-const StudentPortal = lazy(() => import("./components/StudentPortal").then(module => ({ default: module.StudentPortal })));
+const safeLazy = (importer: () => Promise<any>, namedExport: string) => {
+  return lazy(async () => {
+    try {
+      const module = await importer();
+      const Component = module[namedExport] || module.default;
+      if (!Component) {
+        throw new Error(`Export ${namedExport} not found in module`);
+      }
+      return { default: Component };
+    } catch (err) {
+      console.error(`Chunk load failure for ${namedExport}:`, err);
+      const reloadKey = `chunk_reload_${namedExport}`;
+      if (typeof window !== "undefined" && !sessionStorage.getItem(reloadKey)) {
+        sessionStorage.setItem(reloadKey, "true");
+        window.location.reload();
+      }
+      const SafeFallback: React.FC = () => (
+        <div className="p-8 text-center bg-white rounded-2xl shadow-xs border border-slate-200 m-6 max-w-lg mx-auto">
+          <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <ShieldAlert size={28} />
+          </div>
+          <h3 className="text-base font-bold text-slate-800">Không thể nạp phân hệ</h3>
+          <p className="text-xs text-slate-500 mt-1">Đã có bản cập nhật mới hoặc kết nối mạng bị gián đoạn. Vui lòng bấm để tải lại.</p>
+          <button
+            onClick={() => {
+              sessionStorage.removeItem(reloadKey);
+              window.location.reload();
+            }}
+            className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+          >
+            Tải lại phân hệ
+          </button>
+        </div>
+      );
+      return { default: SafeFallback };
+    }
+  });
+};
+
 import { SEED_STUDENTS } from "./data";
-const OrganizerPortal = lazy(() => import("./components/OrganizerPortal").then(module => ({ default: module.OrganizerPortal })));
-const TrainingPortal = lazy(() => import("./components/TrainingPortal").then(module => ({ default: module.TrainingPortal })));
-const ClassPortal = lazy(() => import("./components/ClassPortal").then(module => ({ default: module.ClassPortal })));
-const AdviserPortal = lazy(() => import("./components/AdviserPortal").then(module => ({ default: module.AdviserPortal })));
-const FacultyPortal = lazy(() => import("./components/FacultyPortal").then(module => ({ default: module.FacultyPortal })));
-const AdminPortal = lazy(() => import("./components/AdminPortal").then(module => ({ default: module.AdminPortal })));
-const TeacherPortal = lazy(() => import("./components/TeacherPortal").then(module => ({ default: module.TeacherPortal })));
-const ClassStatisticsBottom = lazy(() => import("./components/ClassStatisticsBottom").then(module => ({ default: module.ClassStatisticsBottom })));
-const CongressPortal = lazy(() => import("./components/CongressPortal").then(module => ({ default: module.CongressPortal })));
+const StudentPortal = safeLazy(() => import("./components/StudentPortal"), "StudentPortal");
+const OrganizerPortal = safeLazy(() => import("./components/OrganizerPortal"), "OrganizerPortal");
+const TrainingPortal = safeLazy(() => import("./components/TrainingPortal"), "TrainingPortal");
+const ClassPortal = safeLazy(() => import("./components/ClassPortal"), "ClassPortal");
+const AdviserPortal = safeLazy(() => import("./components/AdviserPortal"), "AdviserPortal");
+const FacultyPortal = safeLazy(() => import("./components/FacultyPortal"), "FacultyPortal");
+const AdminPortal = safeLazy(() => import("./components/AdminPortal"), "AdminPortal");
+const TeacherPortal = safeLazy(() => import("./components/TeacherPortal"), "TeacherPortal");
+const ClassStatisticsBottom = safeLazy(() => import("./components/ClassStatisticsBottom"), "ClassStatisticsBottom");
+const CongressPortal = safeLazy(() => import("./components/CongressPortal"), "CongressPortal");
 
 const PortalLoader: React.FC = () => (
   <div className="min-h-[45vh] flex items-center justify-center">
@@ -171,6 +210,27 @@ const AppContent: React.FC = () => {
       });
     }
   }, [currentUser?.id]);
+
+  // Safeguard: Automatically normalize and redirect invalid staff/admin URLs on student portal
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const portalMode = getPortalMode();
+    const pathname = window.location.pathname;
+
+    if (portalMode === "STUDENT") {
+      const staffPrefixes = ["/to-chuc", "/dao-tao", "/co-van", "/khoa", "/giang-vien", "/quan-tri"];
+      const isStaffRoute = staffPrefixes.some(p => pathname.startsWith(p));
+      if (isStaffRoute) {
+        console.warn(`[RouteGuard] Normalizing route from ${pathname} on Student Portal.`);
+        if (currentUser) {
+          setActivePortletTab("TRANG_CHU");
+          window.history.replaceState({ role: currentUser.role, tab: "TRANG_CHU" }, "", "/sinh-vien/trang-chu");
+        } else {
+          window.history.replaceState(null, "", "/");
+        }
+      }
+    }
+  }, [currentUser?.role, currentUser?.id]);
 
   const handleFreshSync = async () => {
     setIsSyncingCloud(true);
@@ -2715,6 +2775,14 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       localStorage.removeItem("unihub_current_user");
       localStorage.removeItem("unihub_theme_config");
       localStorage.removeItem("unihub_custom_classes");
+      sessionStorage.clear();
+    } catch {}
+    window.location.href = window.location.origin;
+  };
+
+  handleReload = () => {
+    try {
+      sessionStorage.clear();
     } catch {}
     window.location.href = window.location.origin;
   };
@@ -2748,10 +2816,10 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
                 🧹 Xóa bộ nhớ đệm & Đăng nhập lại
               </button>
               <button
-                onClick={() => window.location.reload()}
+                onClick={this.handleReload}
                 className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium text-xs rounded-xl transition-all cursor-pointer"
               >
-                🔄 Tải lại trang
+                🔄 Trở về Trang chủ Cổng
               </button>
             </div>
           </div>
