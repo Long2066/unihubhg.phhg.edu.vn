@@ -906,6 +906,16 @@ const AppContent: React.FC = () => {
     };
   }, [showStudentIdCard, studentId]);
 
+  // Mở thẻ sinh viên khi tab THE_SINH_VIEN được kích hoạt.
+  // LƯU Ý: Hook phải nằm TRƯỚC mọi early return (Rules of Hooks) — nếu đặt sau
+  // `if (!currentUser) return <LoginScreen />`, số hook thay đổi giữa lần render
+  // chưa đăng nhập và đã đăng nhập → React ném lỗi #310 / #318 và sập toàn trang.
+  useEffect(() => {
+    if (activePortletTab === "THE_SINH_VIEN") {
+      setShowStudentIdCard(true);
+    }
+  }, [activePortletTab]);
+
   const isStudentVerificationRoute = window.location.pathname === STUDENT_VERIFICATION_PATH;
   if (isStudentVerificationRoute) {
     return <StudentVerificationPage />;
@@ -1401,12 +1411,6 @@ const AppContent: React.FC = () => {
   };
 
   const sidebarTabs = getSidebarTabs();
-
-  useEffect(() => {
-    if (activePortletTab === "THE_SINH_VIEN") {
-      setShowStudentIdCard(true);
-    }
-  }, [activePortletTab]);
 
   const handleTabClick = (tabId: string) => {
     if (tabId === "EXT_SRC") {
