@@ -13,11 +13,6 @@ export const ADMIN_PORTAL_URL = "https://unihub-admin.vercel.app";
  * - "STUDENT" on unihubhg.vercel.app, unihubhg.phhg.edu.vn, port 4000, or default
  */
 export const getPortalMode = (): PortalMode => {
-  const envMode = (import.meta as any)?.env?.VITE_PORTAL_MODE;
-  if (envMode === "ADMIN") return "ADMIN";
-  if (envMode === "STAFF") return "STAFF";
-  if (envMode === "STUDENT") return "STUDENT";
-
   if (typeof window !== "undefined") {
     const host = window.location.hostname.toLowerCase();
     const port = window.location.port;
@@ -36,9 +31,16 @@ export const getPortalMode = (): PortalMode => {
       return "STAFF";
     }
 
-    // 3. Mặc định Cổng Sinh viên
-    return "STUDENT";
+    // 3. Cổng Sinh viên
+    if (host.includes("unihubhg") || host.includes("phhg.edu.vn") || port === "4000") {
+      return "STUDENT";
+    }
   }
+
+  const envMode = (import.meta as any)?.env?.VITE_PORTAL_MODE;
+  if (envMode === "ADMIN") return "ADMIN";
+  if (envMode === "STAFF") return "STAFF";
+  if (envMode === "STUDENT") return "STUDENT";
 
   return "STUDENT";
 };
