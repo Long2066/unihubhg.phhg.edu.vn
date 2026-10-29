@@ -47,7 +47,6 @@ export interface UserAccount {
   name: string;
   role: UserRole;
   email: string;
-  avatar?: string;
   targetId?: string; // Links to Student ID, Organization ID, Class ID, or Faculty ID if applicable
   isGroupLeader?: boolean;
   groupInCharge?: string;
@@ -90,41 +89,11 @@ export interface StudentPeriodAcademicData {
   updatedAt?: string;
 }
 
-export interface SemesterItem {
-  id: string;
-  name: string;
-  isCustom?: boolean;
-  term?: string;
-  academicYear?: string;
-}
-
-export const getStudentStartYear = (student?: { id?: string; classId?: string } | null): number => {
-  if (!student) return 2024;
-  const classMatch = (student.classId || "").match(/^K(\d+)/i);
-  if (classMatch) {
-    const kNum = parseInt(classMatch[1], 10);
-    return 2022 + kNum;
-  }
-  const idMatch = (student.id || "").match(/^DTG(\d{2})/i);
-  if (idMatch) {
-    return 2000 + parseInt(idMatch[1], 10);
-  }
-  return 2024;
-};
-
-export const getSemesterStartYear = (semIdOrYear: string): number => {
-  const match = String(semIdOrYear || "").match(/(?:HOCKY_\d_)?(\d{4})/i);
-  return match ? parseInt(match[1], 10) : 2024;
-};
-
-export const SEMESTER_LIST: SemesterItem[] = [
-  { id: "HOCKY_1_2026_2027", name: "Học kỳ I - 2026-2027", academicYear: "2026-2027", term: "Học kỳ I" },
-  { id: "HOCKY_2_2025_2026", name: "Học kỳ II - 2025-2026", academicYear: "2025-2026", term: "Học kỳ II" },
-  { id: "HOCKY_1_2025_2026", name: "Học kỳ I - 2025-2026", academicYear: "2025-2026", term: "Học kỳ I" },
-  { id: "HOCKY_2_2024_2025", name: "Học kỳ II - 2024-2025", academicYear: "2024-2025", term: "Học kỳ II" },
-  { id: "HOCKY_1_2024_2025", name: "Học kỳ I - 2024-2025", academicYear: "2024-2025", term: "Học kỳ I" },
-  { id: "HOCKY_2_2023_2024", name: "Học kỳ II - 2023-2024", academicYear: "2023-2024", term: "Học kỳ II" },
-  { id: "HOCKY_1_2023_2024", name: "Học kỳ I - 2023-2024", academicYear: "2023-2024", term: "Học kỳ I" }
+export const SEMESTER_LIST = [
+  { id: "HOCKY_2_2025_2026", name: "Học kỳ II - 2025-2026" },
+  { id: "HOCKY_1_2025_2026", name: "Học kỳ I - 2025-2026" },
+  { id: "HOCKY_2_2024_2025", name: "Học kỳ II - 2024-2025" },
+  { id: "HOCKY_1_2024_2025", name: "Học kỳ I - 2024-2025" }
 ];
 
 export interface Student {
@@ -237,7 +206,7 @@ export const STUDENT_FIELDS_META: FieldMeta[] = [
   { key: "motherPhone", label: "SĐT mẹ", category: "family", type: "text" },
   
   // Đào tạo / Học vụ
-  { key: "classId", label: "Lớp", category: "education", type: "text" },
+  { key: "classId", label: "Lớp", category: "education", type: "text", readOnly: true },
   { key: "trainingSystem", label: "Hệ đào tạo", category: "education", type: "text" },
   { key: "trainingCourse", label: "Khóa đào tạo", category: "education", type: "text" },
   { key: "trainingMajor", label: "Ngành đào tạo", category: "education", type: "text" },
@@ -294,30 +263,6 @@ export const isStudentProfileComplete = (s: any): boolean => {
   return filled >= 20;
 };
 
-export interface SrcClubApplication {
-  fullName: string;
-  dob: string;
-  gender: string;
-  studentId: string;
-  academicYear: string; // Khóa
-  classId: string;
-  major: string;
-  faculty: string;
-  phone: string;
-  email: string;
-  zalo?: string;
-  researchFields: string[];
-  otherResearchField?: string;
-  skills: string[];
-  otherSkill?: string;
-  academicExperience?: string;
-  joinReason: string;
-  desiredSubgroup: string[];
-  firstYearGoal: string;
-  agreedTerms: boolean;
-  submittedAt: string;
-}
-
 export interface Organization {
   id: string;           // Code - e.g. "UNITECH"
   name: string;
@@ -325,12 +270,6 @@ export interface Organization {
   leaderName: string;
   field: string;        // Lĩnh vực hoạt động
   level: "TRUONG" | "KHOA";
-  recruitmentOpen?: boolean;
-  recruitmentTitle?: string;
-  recruitmentContent?: string;
-  recruitmentDeadline?: string;
-  recruitmentTarget?: string;
-  recruitmentUpdatedAt?: string;
 }
 
 export interface OrganizationMember {
@@ -341,7 +280,7 @@ export interface OrganizationMember {
   role: "CHỦ NHIỆM" | "BAN CHẤP HÀNH" | "ỦY VIÊN" | "THÀNH VIÊN";
   joinedDate: string;
   term: string; // Nhiệm kỳ: e.g. "2025-2026"
-  status: "PENDING" | "ACTIVE" | "INACTIVE" | "REJECTED";
+  status: "PENDING" | "ACTIVE" | "INACTIVE";
   
   // Custom club membership attachment fields
   gender?: string;
@@ -355,13 +294,6 @@ export interface OrganizationMember {
   facultyInCharge?: string;
   studentName?: string;
   attachmentUrl?: string;
-
-  // Detailed recruitment application data & review feedback
-  applicationData?: SrcClubApplication;
-  rejectReason?: string;
-  reviewNote?: string;
-  reviewedAt?: string;
-  reviewedBy?: string;
 }
 
 export interface ExtracurricularActivity {
@@ -379,9 +311,6 @@ export interface ExtracurricularActivity {
   imageUrl?: string;
   expiryDate?: string; // Customizable display expiry date
   maxParticipants?: number;
-  scope?: "PUBLIC" | "INTERNAL"; // PUBLIC: toàn phân hiệu, INTERNAL: chỉ nội bộ CLB
-  completedAt?: string; // Thời điểm chốt danh sách sự kiện
-  verifiedBy?: string; // Ban chủ nhiệm/người thực hiện chốt sổ
 }
 
 export interface ActivityAttendance {
@@ -394,8 +323,6 @@ export interface ActivityAttendance {
   role: "MEM" | "BTC" | "SUPPORTER"; // Thành viên, Ban tổ chức, Hỗ trợ
   attended: boolean;
   verified: boolean; // Chốt danh sách có mặt hay chưa
-  verifiedAt?: string;
-  verifiedBy?: string;
 }
 
 export interface EvidenceSubmission {
@@ -524,8 +451,6 @@ export interface ClubAnnouncement {
   expiryDate: string; // Customizable expiry date
   activityId?: string;
   imageUrl?: string;
-  isRecruitment?: boolean; // When true, displays on all students feed
-  scope?: "PUBLIC" | "INTERNAL"; // PUBLIC: toàn phân hiệu, INTERNAL: chỉ nội bộ CLB
 }
 
 export interface ScheduleSlot {
@@ -779,7 +704,6 @@ export interface RecycleBinItem {
 export interface RegistrationPeriod {
   id: string;                    // e.g. "REGPERIOD_HOCKY_2_2025_2026"
   semesterId: string;            // FK: "HOCKY_2_2025_2026"
-  semesterName?: string;         // e.g. "Học kỳ II - 2025-2026"
   name: string;                  // "Đăng ký tín chỉ HK II năm 2025-2026"
   startDate: string;             // ISO 8601
   endDate: string;               // ISO 8601
@@ -828,177 +752,6 @@ export interface CreditEnrollment {
   registeredBy: "STUDENT" | "TRAINING_DEPT" | "ADMIN";
   isActive: boolean;
 }
-/** Bản ghi lượt truy cập hệ thống thời gian thực */
-export interface SystemVisitLog {
-  id: string;
-  timestamp: number;
-  isoString: string;
-  date: string; // "YYYY-MM-DD"
-  hour: number; // 0 - 23
-  dayOfWeek: number; // 0 (CN) - 6 (T7)
-  weekString: string; // "YYYY-Wxx"
-  month: string; // "YYYY-MM"
-  year: number; // YYYY
-  role: string;
-  username: string;
-  name: string;
-  clientType?: string;
-}
 
-/** =========================================================
- * KHÔNG GIAN ĐẠI HỘI CHI ĐOÀN THEO CHIẾN DỊCH CẤP PHÂN HIỆU (KẾ HOẠCH V4)
- * ========================================================= */
 
-export type CongressRules = {
-  twoThirdsQuorumWarning?: boolean;
-  maxSeatsRatioWarning?: number; // Mặc định 0.5 (50% sĩ số)
-  allowCustomSeats?: boolean;
-};
-
-export type CongressCampaignStatus =
-  | "DRAFT"
-  | "LOCKED"
-  | "DISTRIBUTED"
-  | "IN_PROGRESS"
-  | "COLLECTING_RESULTS"
-  | "FINALIZED";
-
-export interface CongressCampaign {
-  id: string;
-  title: string;
-  academicYear: string;
-  semesterId: string;
-  scope: "ALL_CLASSES" | "FACULTY" | "CLASS";
-  status: CongressCampaignStatus;
-  rules: CongressRules;
-  startDate: string;
-  endDate: string;
-  createdBy: string;
-  createdAt: string;
-  lockedAt?: string;
-  distributedAt?: string;
-  finalizedAt?: string;
-}
-
-export type BallotBoxType = "BCH_CHI_DOAN" | "BCH_CHI_HOI" | "BAN_CAN_SU";
-
-export type CongressCandidateStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
-
-export interface CongressCandidate {
-  id: string;
-  studentId: string;
-  studentName?: string;
-  classId: string;
-  ballotType: BallotBoxType;
-  manifesto?: string; // Lời ngỏ / Chương trình hành động
-  status: CongressCandidateStatus;
-  adviserNote?: string;
-}
-
-export interface CongressVote {
-  id: string;
-  ballotBoxId: string;
-  voterHash: string; // Hash ẩn danh: campaignId + classId + ballotBoxId + voterHash
-  selectedCandidateIds: string[];
-  submittedAt: string;
-}
-
-export type BallotBoxStatus =
-  | "DRAFT"
-  | "WAITING_APPROVAL"
-  | "APPROVED"
-  | "OPEN"
-  | "CLOSED"
-  | "COUNTED"
-  | "PUBLISHED";
-
-export interface BallotBox {
-  id: string;
-  type: BallotBoxType;
-  title: string;
-  status: BallotBoxStatus;
-  maxWinners: number;
-  maxVotesPerBallot: number;
-  candidates: CongressCandidate[];
-  votes: CongressVote[];
-  approvedAt?: string;
-  openedAt?: string;
-  closedAt?: string;
-}
-
-export type CongressAppointmentRole =
-  | "BI_THU_CHI_DOAN"
-  | "PHO_BI_THU_CHI_DOAN"
-  | "UY_VIEN_BCH_CHI_DOAN"
-  | "CHI_HOI_TRUONG"
-  | "CHI_HOI_PHO"
-  | "UY_VIEN_BCH_CHI_HOI"
-  | "LOP_TRUONG"
-  | "LOP_PHO_HOC_TAP"
-  | "LOP_PHO_DOI_SONG_PHONG_TRAO"
-  | "LOP_PHO_VAN_THE"
-  | "TO_TRUONG"
-  | "TO_PHO"
-  | "THU_QUY";
-
-export interface CongressAppointment {
-  id: string;
-  studentId: string;
-  studentName?: string;
-  role: CongressAppointmentRole;
-  appointedBy: string;
-  appointedAt: string;
-  source: "ELECTION_RESULT";
-  note?: string;
-}
-
-export type ClassCongressStatus =
-  | "RECEIVED"
-  | "CANDIDATE_DRAFT"
-  | "WAITING_ADVISER_APPROVAL"
-  | "CANDIDATE_APPROVED"
-  | "VOTING"
-  | "VOTING_CLOSED"
-  | "COUNTED"
-  | "APPOINTMENT_PENDING"
-  | "APPOINTED"
-  | "MINUTES_SIGNED"
-  | "SUBMITTED"
-  | "APPROVED";
-
-export interface ClassCongress {
-  id: string;
-  campaignId: string;
-  classId: string;
-  adviserId?: string;
-  secretaryStudentId?: string;
-  title: string;
-  status: ClassCongressStatus;
-  voterIds: string[]; // Danh sách mã SV đã tham gia bỏ phiếu
-  bchChiDoanSeats: number;
-  bchChiHoiSeats: number;
-  banCanSuSeats: number;
-  ballotBoxes: BallotBox[];
-  appointments: CongressAppointment[];
-  minutesNote?: string;
-  minutesSignedBy?: string;
-  minutesSignedAt?: string;
-  submittedAt?: string;
-  submittedBySecretary?: boolean;
-  submittedBy?: string;
-  submittedNote?: string;
-  adviserReceived?: boolean;
-  adviserReceivedAt?: string;
-  adviserReceivedBy?: string;
-  youthUnionReceived?: boolean;
-  youthUnionReceivedAt?: string;
-  youthUnionReceivedBy?: string;
-  approvedAt?: string;
-  updatedAt?: string;
-  isYouthUnionApproved?: boolean; // Được ĐTN Phân hiệu cấp phép mở Đại hội
-  youthUnionApprovedAt?: string;
-  youthUnionApprovedBy?: string;
-  isYouthUnionClosed?: boolean;   // Bị ĐTN Phân hiệu đóng/khóa Đại hội
-  youthUnionClosedAt?: string;
-}
 

@@ -1,2777 +1,3978 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import React, { Component, Suspense, lazy, useState, useEffect } from "react";
-import * as QRCode from "qrcode";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { 
-  getPortalMode, 
-  isStaffPortal, 
-  isStudentPortal, 
-  isAdminPortal,
-  STAFF_PORTAL_URL, 
-  STUDENT_PORTAL_URL,
-  ADMIN_PORTAL_URL 
-} from "./utils/portalMode";
-import { UniHubProvider, useUniHub, normalizeClassId, getCachedAvatar, rememberAvatar } from "./state";
-import { UserRole, isOrgRole, STUDENT_FIELDS_META, Student, SEMESTER_LIST, convertGoogleDriveUrlToDirectUrl, getStudentStartYear, getSemesterStartYear } from "./types";
-import { TnuLogo } from "./components/TnuLogo";
-import { StudentVerificationPage } from "./components/StudentVerificationPage";
+  collection, 
+  onSnapshot, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  getDocs,
+  getDoc 
+} from "firebase/firestore";
+import { db, auth, firebaseConfig, storage } from "./firebase";
 import { 
-  LogOut, 
-  School, 
-  BookOpen, 
-  User, 
-  Cpu, 
-  HelpCircle,
-  GraduationCap,
-  Users,
-  UserCheck,
-  ShieldAlert,
-  Settings,
-  Home,
-  ClipboardList,
-  Award,
-  Calendar,
-  FileText,
-  PlusCircle,
-  Megaphone,
-  UserPlus,
-  UploadCloud,
-  FileCode,
-  BarChart2,
-  Lock,
-  Clock,
-  ChevronLeft,
-  ChevronRight,
-  Bell,
-  Trash2,
-  Inbox,
-  CheckCircle2,
-  AlertCircle,
-  AlertTriangle,
-  Check,
-  Info,
-  X,
-  MapPin,
-  Sparkles,
-  ChevronDown,
-  RefreshCw,
-  Upload,
-  MessageSquare,
-  FileSpreadsheet,
-  Grid,
-  Menu,
-  Globe,
-  LayoutDashboard,
-  IdCard,
-  Vote
-} from "lucide-react";
-
-const AdviserIcon = ShieldAlert;
-
-import { uploadAvatarHybrid } from "./utils/imageCompressor";
-import { LoginScreen } from "./components/LoginScreen";
+  getAuth,
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged 
+} from "firebase/auth";
+import { initializeApp, deleteApp } from "firebase/app";
 import {
-  STUDENT_CARD_DEFAULT_AVATAR,
-  STUDENT_CARD_TEMPLATE,
-  STUDENT_VERIFICATION_PATH,
-  formatFacultyName,
-  formatStudentDob,
-  getStudentCardCourse,
-  getStudentCardValidity,
-  getStudentVerificationUrl,
-  formatStudentCardName,
-  resolveTrainingStudent
-} from "./utils/studentCard";
-const StudentPortal = lazy(() => import("./components/StudentPortal").then(module => ({ default: module.StudentPortal })));
-import { SEED_STUDENTS } from "./data";
-const OrganizerPortal = lazy(() => import("./components/OrganizerPortal").then(module => ({ default: module.OrganizerPortal })));
-const TrainingPortal = lazy(() => import("./components/TrainingPortal").then(module => ({ default: module.TrainingPortal })));
-const ClassPortal = lazy(() => import("./components/ClassPortal").then(module => ({ default: module.ClassPortal })));
-const AdviserPortal = lazy(() => import("./components/AdviserPortal").then(module => ({ default: module.AdviserPortal })));
-const FacultyPortal = lazy(() => import("./components/FacultyPortal").then(module => ({ default: module.FacultyPortal })));
-const AdminPortal = lazy(() => import("./components/AdminPortal").then(module => ({ default: module.AdminPortal })));
-const TeacherPortal = lazy(() => import("./components/TeacherPortal").then(module => ({ default: module.TeacherPortal })));
-const ClassStatisticsBottom = lazy(() => import("./components/ClassStatisticsBottom").then(module => ({ default: module.ClassStatisticsBottom })));
-const CongressPortal = lazy(() => import("./components/CongressPortal").then(module => ({ default: module.CongressPortal })));
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject
+} from "firebase/storage";
+import { 
+  UserAccount, 
+  UserRole, 
+  isOrgRole,
+  Student, 
+  Organization, 
+  OrganizationMember, 
+  ExtracurricularActivity, 
+  ActivityAttendance, 
+  EvidenceSubmission, 
+  EvaluationResult, 
+  PointCriteria,
+  DailyAttendanceReport,
+  ScheduleSlot,
+  SystemFeedback,
+  ThemeConfig,
+  CourseClassAssignment
+} from "./types";
+import { 
+  SEED_USERS, 
+  SEED_CRITERIA, 
+  SEED_STUDENTS, 
+  SEED_ORGANIZATIONS, 
+  SEED_MEMBERS, 
+  SEED_ACTIVITIES, 
+  SEED_ATTENDANCE, 
+  SEED_EVIDENCE, 
+  SEED_CLASS_REVIEW, 
+  SEED_FACULTY_REVIEW, 
+  SEED_RESULTS,
+  SEED_DAILY_ATTENDANCE,
+  SEED_SCHEDULES,
+  SEED_PERIOD,
+  SEED_TEACHER_ASSIGNMENTS
+} from "./data";
+import { 
+  LayoutDashboard, 
+  Users, 
+  Database, 
+  Cpu, 
+  Settings, 
+  LogOut, 
+  Search, 
+  Plus, 
+  Trash2, 
+  Edit2, 
+  Check, 
+  X, 
+  RefreshCw, 
+  AlertTriangle,
+  Info,
+  Shield,
+  FileCheck,
+  TrendingUp,
+  Download,
+  BookOpen,
+  Mail,
+  Image,
+  Palette,
+  Menu,
+  ChevronLeft,
+  ChevronRight
+} from "lucide-react";
+import * as XLSX from "xlsx";
+import { recordSystemVisit } from "./visitTracker";
+import { AdminRealtimeVisits } from "./AdminRealtimeVisits";
 
-const PortalLoader: React.FC = () => (
-  <div className="min-h-[45vh] flex items-center justify-center">
-    <div className="rounded-3xl border border-white/60 bg-white/80 px-8 py-6 text-center shadow-2xl shadow-indigo-100/60 backdrop-blur-xl">
-      <div className="mx-auto mb-4 h-11 w-11 animate-spin rounded-full border-4 border-indigo-100 border-t-indigo-600" />
-      <p className="text-sm font-bold text-slate-700">Đang tải phân hệ...</p>
-      <p className="mt-1 text-xs text-slate-500">UniHub đang tối ưu tài nguyên cho đúng vai trò của bạn.</p>
-    </div>
-  </div>
-);
-interface NotificationItem {
-  id: string;
-  title: string;
-  message: string;
-  time: string;
-  type: "info" | "success" | "warning" | "alert";
-  isRead: boolean;
-  linkTab?: string;
-  isClubAnnouncement?: boolean;
-  clubName?: string;
-  fullContent?: string;
-  activityId?: string;
-}
+type ActiveTab = "DASHBOARD" | "USERS" | "DATABASE" | "RULES" | "TOOLS" | "FEEDBACK" | "THEME";
 
-const AppContent: React.FC = () => {
-  const { 
-    currentUser, 
-    logout, 
-    period, 
-    activePortletTab, 
-    setActivePortletTab,
-    announcements,
-    activities,
-    registerForActivity,
-    attendance,
-    students,
-    organizations,
-    members,
-    resetToSeeds,
-    updateStudentProfile,
-    selectedSemesterId,
-    setSelectedSemesterId,
-    evidence,
-    classReviews,
-    facultyReviews,
-    feedbacks,
-    results,
-    dailyAttendance,
-    groupAttendances,
-    sendSystemFeedback,
-    themeConfig,
-    unlockRequests,
-    gradeAppeals,
-    teacherAssignments,
-    syncFreshFromCloud,
-    systemNotifications,
-    classCongresses
-  } = useUniHub();
+const THEME_BACKGROUND_LIMIT = 8;
+const THEME_MAX_IMAGE_BYTES = 25 * 1024 * 1024;
+const THEME_FIRESTORE_SAFE_BYTES = 900 * 1024;
+const THEME_URL_MAX_LENGTH = 2048;
+const LEGACY_BASE64_MIN_LENGTH = 4096;
 
-  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
-  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [profileTab, setProfileTab] = useState<"info" | "password">("info");
-  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+};
 
-  // Tự động làm mới dữ liệu từ Cloud khi người dùng truy cập / có phiên đăng nhập
-  React.useEffect(() => {
-    if (currentUser?.id) {
-      syncFreshFromCloud().catch(err => {
-        console.warn("Auto fresh sync cloud error:", err);
-      });
+const normalizeClassId = (classId: string | undefined | null): string => {
+  if (!classId) return "";
+  const str = String(classId).trim().toUpperCase().replace(/\s+/g, " ");
+  return str.replace(/^(K\d+)[-_ ]+GDTH[-_ ]+([A-Z0-9]+)$/i, "$1-GDTH $2");
+};
+
+const sanitizeForFirestore = <T extends Record<string, any>>(obj: T): T => {
+  if (!obj || typeof obj !== "object") return obj;
+  const clean: Record<string, any> = {};
+  Object.keys(obj).forEach(key => {
+    if (obj[key] !== undefined && obj[key] !== null) {
+      clean[key] = obj[key];
     }
-  }, [currentUser?.id]);
+  });
+  return clean as T;
+};
 
-  const handleFreshSync = async () => {
-    setIsSyncingCloud(true);
-    try {
-      await syncFreshFromCloud();
-    } catch (e) {
-      console.warn("Lỗi sync cloud:", e);
-    } finally {
-      setIsSyncingCloud(false);
+const getJsonSizeBytes = (value: unknown) => {
+  try {
+    const json = JSON.stringify(value ?? {});
+    if (typeof TextEncoder !== "undefined") {
+      return new TextEncoder().encode(json).length;
     }
-  };
+    return new Blob([json]).size;
+  } catch {
+    return Number.MAX_SAFE_INTEGER;
+  }
+};
 
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [feedbackCategory, setFeedbackCategory] = useState("Giao diện");
-  const [feedbackTitle, setFeedbackTitle] = useState("");
-  const [feedbackContent, setFeedbackContent] = useState("");
-  const [isSendingFeedback, setIsSendingFeedback] = useState(false);
+const looksLikeInlineImagePayload = (value?: string) => {
+  if (!value || typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
 
-  // States for Editing profile
-  const [editName, setEditName] = useState("");
-  const [editAvatar, setEditAvatar] = useState("");
-  const [editPassword, setEditPassword] = useState("");
-  const [editOldPassword, setEditOldPassword] = useState("");
-  const [editPasswordConfirm, setEditPasswordConfirm] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [showStudentIdCard, setShowStudentIdCard] = useState(false);
-  const [studentCardQrDataUrl, setStudentCardQrDataUrl] = useState("");
-  const [profileSuccessMsg, setProfileSuccessMsg] = useState("");
-  const [profileFields, setProfileFields] = useState<Partial<any>>({});
-  const [activeSubProfileTab, setActiveSubProfileTab] = useState<"personal" | "family" | "education" | "account">("personal");
+  if (/data:|blob:/i.test(trimmed)) return true;
+  if (/;base64,/i.test(trimmed.slice(0, 2048))) return true;
+  if (trimmed.length > THEME_URL_MAX_LENGTH && !/^https?:\/\//i.test(trimmed)) return true;
+  if (!/^https?:\/\//i.test(trimmed) && trimmed.length > 500) return true;
 
-  const isStudentOrMonitor = currentUser?.role === UserRole.STUDENT || currentUser?.role === UserRole.CLASS_MONITOR;
-  const studentObj = isStudentOrMonitor 
-    ? (() => {
-        const found = resolveTrainingStudent(currentUser, students, SEED_STUDENTS);
-        if (!found || !found.id) return undefined;
-        const targetId = found.id || currentUser?.targetId || currentUser?.username?.split("@")[0] || "";
-        const persistentAvatar = found.avatar || currentUser?.avatar || getCachedAvatar(targetId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
-        if (persistentAvatar) {
-          rememberAvatar(persistentAvatar, targetId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
-        }
-        return {
-          ...found,
-          avatar: persistentAvatar || found.avatar
-        } as Student;
-      })()
-    : undefined;
-  const studentId = studentObj?.id || (isStudentOrMonitor ? currentUser?.targetId : undefined);
-
-  // Sync profile editing states for detailed student fields
-  React.useEffect(() => {
-    if (currentUser && !showProfileModal) {
-      const persistentAvatar = studentObj?.avatar || currentUser?.avatar || getCachedAvatar(studentId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.username}`;
-      setEditName(currentUser.name);
-      setEditAvatar(persistentAvatar);
-      
-      const seedMatch = SEED_STUDENTS.find(s => 
-        (currentUser.targetId && s.id === currentUser.targetId) ||
-        (currentUser.username && (s.id === currentUser.username || (s as any).code === currentUser.username)) ||
-        (currentUser.email && s.email === currentUser.email) ||
-        (currentUser.targetId && s.id.toLowerCase() === currentUser.targetId.toLowerCase()) ||
-        (currentUser.username && (s.id.toLowerCase() === currentUser.username.toLowerCase() || (s as any).code?.toLowerCase() === currentUser.username.toLowerCase())) ||
-        (currentUser.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
-      );
-      const effectiveStudent = {
-        ...(seedMatch || {}),
-        ...(studentObj || {})
-      };
-
-      const fields: Partial<any> = {};
-      STUDENT_FIELDS_META.forEach(f => {
-        let val = (effectiveStudent as any)?.[f.key];
-        if (val === undefined || val === null) {
-          if (f.key === "id") val = currentUser.targetId || currentUser.username || currentUser.id;
-          if (f.key === "name") val = currentUser.name;
-          if (f.key === "email") val = currentUser.email;
-          if (f.key === "avatar") val = persistentAvatar;
-          if (f.key === "classId") val = (currentUser as any).classId;
-          if (f.key === "facultyId") val = (currentUser as any).facultyId;
-        }
-        fields[f.key] = val || "";
-      });
-      setProfileFields(fields);
-    }
-  }, [currentUser, studentObj, showProfileModal]);
-
-  const safeParseArray = (key: string): string[] => {
-    const cached = localStorage.getItem(key);
-    if (!cached) return [];
-    try {
-      const parsed = JSON.parse(cached);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  };
-
-  // Local state to track read and deleted notification IDs
-  const [readNotifIds, setReadNotifIds] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_read_notifs_${currentUser.id}`) : []);
-  const [deletedNotifIds, setDeletedNotifIds] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_deleted_notifs_${currentUser.id}`) : []);
-  const [seenActivityIds, setSeenActivityIds] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_seen_activities_${currentUser.id}`) : []);
-  const [seenRejectedEvidenceIds, setSeenRejectedEvidenceIds] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_seen_rejected_ev_${currentUser.id}`) : []);
-  const [seenFacultyReviewIds, setSeenFacultyReviewIds] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_seen_faculty_reviews_${currentUser.id}`) : []);
-  const [seenPendingMemberIds, setSeenPendingMemberIds] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_seen_pending_members_${currentUser.id}`) : []);
-  const [seenPendingEvidenceIds, setSeenPendingEvidenceIds] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_seen_pending_evidence_${currentUser.id}`) : []);
-  const [seenClassReviewIds, setSeenClassReviewIds] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_seen_class_reviews_${currentUser.id}`) : []);
-  const [seenAdviserReviews, setSeenAdviserReviews] = useState<string[]>(() => currentUser ? safeParseArray(`unihub_seen_adviser_reviews_${currentUser.id}`) : []);
-
-  // Synchronize local states when currentUser changes (e.g. login/logout/switch user)
-  React.useEffect(() => {
-    if (!currentUser) {
-      setReadNotifIds([]);
-      setDeletedNotifIds([]);
-      setSeenActivityIds([]);
-      setSeenRejectedEvidenceIds([]);
-      setSeenFacultyReviewIds([]);
-      setSeenPendingMemberIds([]);
-      setSeenPendingEvidenceIds([]);
-      setSeenClassReviewIds([]);
-      setSeenAdviserReviews([]);
-      return;
-    }
-
-    setReadNotifIds(safeParseArray(`unihub_read_notifs_${currentUser.id}`));
-    setDeletedNotifIds(safeParseArray(`unihub_deleted_notifs_${currentUser.id}`));
-    setSeenActivityIds(safeParseArray(`unihub_seen_activities_${currentUser.id}`));
-    setSeenRejectedEvidenceIds(safeParseArray(`unihub_seen_rejected_ev_${currentUser.id}`));
-    setSeenFacultyReviewIds(safeParseArray(`unihub_seen_faculty_reviews_${currentUser.id}`));
-    setSeenPendingMemberIds(safeParseArray(`unihub_seen_pending_members_${currentUser.id}`));
-    setSeenPendingEvidenceIds(safeParseArray(`unihub_seen_pending_evidence_${currentUser.id}`));
-    setSeenClassReviewIds(safeParseArray(`unihub_seen_class_reviews_${currentUser.id}`));
-    setSeenAdviserReviews(safeParseArray(`unihub_seen_adviser_reviews_${currentUser.id}`));
-  }, [currentUser?.id]);
-
-  const [selectedAnnForModal, setSelectedAnnForModal] = useState<any | null>(null);
-
-  const saveReadNotifIds = (ids: string[]) => {
-    if (!currentUser) return;
-    setReadNotifIds(ids);
-    localStorage.setItem(`unihub_read_notifs_${currentUser.id}`, JSON.stringify(ids));
-  };
-
-  const saveDeletedNotifIds = (ids: string[]) => {
-    if (!currentUser) return;
-    setDeletedNotifIds(ids);
-    localStorage.setItem(`unihub_deleted_notifs_${currentUser.id}`, JSON.stringify(ids));
-  };
-
-  const saveSeenActivityIds = (ids: string[]) => {
-    if (!currentUser) return;
-    setSeenActivityIds(ids);
-    localStorage.setItem(`unihub_seen_activities_${currentUser.id}`, JSON.stringify(ids));
-  };
-
-  const saveSeenRejectedEvidenceIds = (ids: string[]) => {
-    if (!currentUser) return;
-    setSeenRejectedEvidenceIds(ids);
-    localStorage.setItem(`unihub_seen_rejected_ev_${currentUser.id}`, JSON.stringify(ids));
-  };
-
-  const saveSeenFacultyReviewIds = (ids: string[]) => {
-    if (!currentUser) return;
-    setSeenFacultyReviewIds(ids);
-    localStorage.setItem(`unihub_seen_faculty_reviews_${currentUser.id}`, JSON.stringify(ids));
-  };
-
-  const saveSeenPendingMemberIds = (ids: string[]) => {
-    if (!currentUser) return;
-    setSeenPendingMemberIds(ids);
-    localStorage.setItem(`unihub_seen_pending_members_${currentUser.id}`, JSON.stringify(ids));
-  };
-
-  const saveSeenPendingEvidenceIds = (ids: string[]) => {
-    if (!currentUser) return;
-    setSeenPendingEvidenceIds(ids);
-    localStorage.setItem(`unihub_seen_pending_evidence_${currentUser.id}`, JSON.stringify(ids));
-  };
-
-  const saveSeenClassReviewIds = (ids: string[]) => {
-    if (!currentUser) return;
-    setSeenClassReviewIds(ids);
-    localStorage.setItem(`unihub_seen_class_reviews_${currentUser.id}`, JSON.stringify(ids));
-  };
-
-  const saveSeenAdviserReviews = (ids: string[]) => {
-    if (!currentUser) return;
-    setSeenAdviserReviews(ids);
-    localStorage.setItem(`unihub_seen_adviser_reviews_${currentUser.id}`, JSON.stringify(ids));
-  };
-
-
-
-  // Generate dynamic notification list based on roles and DB states
-  const notifications: NotificationItem[] = React.useMemo(() => {
-    if (!currentUser) return [];
-    const list: NotificationItem[] = [];
-    const targetId = currentUser.targetId || studentObj?.id || "";
-    const todayStr = new Date().toISOString().split("T")[0];
-
-    if (currentUser.role === UserRole.STUDENT) {
-      // 1. Evidence approved/rejected
-      evidence.forEach(ev => {
-        if (ev.studentId === targetId && (ev.status === "APPROVED" || ev.status === "REJECTED")) {
-          list.push({
-            id: `ev-${ev.id}-${ev.status}`,
-            title: ev.status === "APPROVED" ? "✅ Minh chứng được duyệt" : "❌ Minh chứng bị từ chối",
-            message: `Minh chứng '${ev.activityName}' (+${ev.pointsRequested}đ) của bạn đã được duyệt ${ev.status === "APPROVED" ? "Chấp nhận" : "Từ chối"}.`,
-            time: ev.submittedAt,
-            type: ev.status === "APPROVED" ? "success" : "warning",
-            isRead: readNotifIds.includes(`ev-${ev.id}-${ev.status}`),
-            linkTab: "DIEM"
-          });
-        }
-      });
-
-      // 2. Club membership approved
-      members.forEach(m => {
-        if (m.studentId === targetId && m.status === "ACTIVE") {
-          const org = organizations.find(o => o.id === m.orgId);
-          list.push({
-            id: `member-${m.id}`,
-            title: "🎉 Thành viên CLB chính thức",
-            message: `Yêu cầu tham gia CLB '${org?.name || m.orgId}' của bạn đã được phê duyệt thành công.`,
-            time: m.joinedDate,
-            type: "success",
-            isRead: readNotifIds.includes(`member-${m.id}`),
-            linkTab: "CLB"
-          });
-        }
-      });
-
-      // 3. New club announcements / BCH Meeting Announcements
-      announcements.forEach(ann => {
-        const titleLower = ann.title.toLowerCase();
-        const contentLower = ann.content.toLowerCase();
-        const isBCHMeeting = titleLower.includes("họp bch") || 
-                             titleLower.includes("họp ban chấp hành") ||
-                             contentLower.includes("họp bch") || 
-                             contentLower.includes("họp ban chấp hành");
-
-        if (isBCHMeeting) {
-          // Check if student holds active BCH role in the publishing organization
-          let isEligible = false;
-          if (ann.orgId === "DOANTN") {
-            isEligible = members.some(m => 
-              m.studentId === targetId && 
-              m.orgId === "DOANTN" && 
-              m.status === "ACTIVE" && 
-              ["BAN CHẤP HÀNH", "ỦY VIÊN", "CHỦ NHIỆM"].includes(m.role)
-            );
-          } else if (ann.orgId === "HOISV") {
-            isEligible = members.some(m => 
-              m.studentId === targetId && 
-              m.orgId === "HOISV" && 
-              m.status === "ACTIVE" && 
-              ["BAN CHẤP HÀNH", "ỦY VIÊN", "CHỦ NHIỆM"].includes(m.role)
-            );
-          } else if (ann.orgId === "DOAN_HOI") {
-            isEligible = members.some(m => 
-              m.studentId === targetId && 
-              (m.orgId === "DOANTN" || m.orgId === "HOISV") && 
-              m.status === "ACTIVE" && 
-              ["BAN CHẤP HÀNH", "ỦY VIÊN", "CHỦ NHIỆM"].includes(m.role)
-            );
-          } else {
-            // For general clubs/orgs, check if active member has BCH/Leader role
-            isEligible = members.some(m => 
-              m.studentId === targetId && 
-              m.orgId === ann.orgId && 
-              m.status === "ACTIVE" && 
-              ["BAN CHẤP HÀNH", "ỦY VIÊN", "CHỦ NHIỆM"].includes(m.role)
-            );
-          }
-
-          if (!isEligible) return; // Non-BCH members do not get this notification
-
-          if (ann.expiryDate && todayStr > ann.expiryDate) return;
-
-          list.push({
-            id: `ann-${ann.id}`,
-            title: `📅 HỌP BCH KHẨN: ${ann.title}`,
-            message: `${ann.content.substring(0, 80)}${ann.content.length > 80 ? "..." : ""}`,
-            time: ann.createdAt,
-            type: "warning",
-            isRead: readNotifIds.includes(`ann-${ann.id}`),
-            linkTab: "CLB",
-            isClubAnnouncement: true,
-            clubName: ann.orgName,
-            fullContent: ann.content,
-            activityId: ann.activityId
-          });
-        } else {
-          // Normal announcement: check if active member
-          const isMember = members.some(m => m.studentId === targetId && m.orgId === ann.orgId && m.status === "ACTIVE");
-          if (isMember) {
-            if (ann.expiryDate && todayStr > ann.expiryDate) return;
-            list.push({
-              id: `ann-${ann.id}`,
-              title: `📢 THÔNG BÁO CLB: ${ann.title}`,
-              message: `${ann.content.substring(0, 80)}${ann.content.length > 80 ? "..." : ""}`,
-              time: ann.createdAt,
-              type: "info",
-              isRead: readNotifIds.includes(`ann-${ann.id}`),
-              linkTab: "CLB",
-              isClubAnnouncement: true,
-              clubName: ann.orgName,
-              fullContent: ann.content,
-              activityId: ann.activityId
-            });
-          }
-        }
-      });
-
-      // 4. Feedback from Adviser
-      feedbacks.forEach(fb => {
-        const studentObj = students.find(s => s.id === targetId);
-        if ((fb.studentId === targetId || (fb.toClassId === studentObj?.classId && !fb.studentId)) && !fb.resolved) {
-          list.push({
-            id: `fb-${fb.id}`,
-            title: `⚠️ Lưu ý từ ${fb.fromRole === UserRole.ADVISER ? "GVCN" : "Cán sự"} ${fb.fromName}`,
-            message: fb.comment,
-            time: fb.createdAt,
-            type: "warning",
-            isRead: readNotifIds.includes(`fb-${fb.id}`),
-            linkTab: "DIEM"
-          });
-        }
-      });
-
-      // 5. Grade appeal status updates
-      gradeAppeals.forEach(ga => {
-        if (ga.studentId === targetId || (studentObj?.id && ga.studentId === studentObj.id)) {
-          if (ga.status === "UPDATED" || ga.status === "REJECTED" || ga.status === "REVIEWING") {
-            list.push({
-              id: `appeal-${ga.id}-${ga.status}`,
-              title: ga.status === "UPDATED" ? "✅ Đơn phúc khảo được chấp nhận" : ga.status === "REJECTED" ? "❌ Đơn phúc khảo bị từ chối" : "🔍 Đơn phúc khảo đang được xử lý",
-              message: `Môn ${ga.subjectName || ga.subjectCode}: Điểm mới ${ga.newScore !== undefined ? ga.newScore : "Giữ nguyên"}.${ga.teacherResponse ? ` GV phản hồi: "${ga.teacherResponse}"` : ""}`,
-              time: ga.reviewedAt || ga.createdAt,
-              type: ga.status === "UPDATED" ? "success" : ga.status === "REJECTED" ? "warning" : "info",
-              isRead: readNotifIds.includes(`appeal-${ga.id}-${ga.status}`),
-              linkTab: "DIEM"
-            });
-          }
-        }
-      });
-    }
-
-    else if (currentUser.role === UserRole.CLASS_MONITOR) {
-      // 1. Pending evidence in their class
-      evidence.forEach(ev => {
-        if (ev.classId === targetId && ev.status === "PENDING") {
-          list.push({
-            id: `ev-pending-${ev.id}`,
-            title: "📝 Minh chứng mới chờ duyệt",
-            message: `Sinh viên ${ev.studentName} đã gửi minh chứng '${ev.activityName}' (+${ev.pointsRequested}đ) đang chờ bạn xét duyệt.`,
-            time: ev.submittedAt,
-            type: "alert",
-            isRead: readNotifIds.includes(`ev-pending-${ev.id}`),
-            linkTab: "TRANG_CHU"
-          });
-        }
-      });
-
-      // 2. Feedback unresolved for their class
-      feedbacks.forEach(fb => {
-        if (fb.toClassId === targetId && !fb.resolved) {
-          list.push({
-            id: `fb-class-${fb.id}`,
-            title: "⚠️ Phản hồi nề nếp thi đua lớp",
-            message: `${fb.fromName} lưu ý: "${fb.comment}"`,
-            time: fb.createdAt,
-            type: "warning",
-            isRead: readNotifIds.includes(`fb-class-${fb.id}`),
-            linkTab: "TRANG_CHU"
-          });
-        }
-      });
-    }
-
-    else if (currentUser.role === UserRole.ADVISER) {
-      // 1. Class scores submitted by Monitor
-      classReviews.forEach(cr => {
-        if (cr.classId === targetId && cr.representativeApproved && !cr.adviserApproved) {
-          list.push({
-            id: `class-sub-${cr.classId}`,
-            title: "📊 Điểm lớp đã chốt",
-            message: `Ban cán sự lớp ${cr.classId} đã gửi báo cáo tự xếp loại điểm rèn luyện, chờ bạn xét duyệt chính thức.`,
-            time: cr.representativeApprovedAt || new Date().toISOString().split("T")[0],
-            type: "alert",
-            isRead: readNotifIds.includes(`class-sub-${cr.classId}`),
-            linkTab: "TRANG_CHU"
-          });
-        }
-      });
-
-      // 2. Pending evidence in their class
-      evidence.forEach(ev => {
-        if (ev.classId === targetId && ev.status === "PENDING") {
-          list.push({
-            id: `ev-adv-pending-${ev.id}`,
-            title: "📝 Minh chứng mới chờ duyệt",
-            message: `Sinh viên ${ev.studentName} gửi minh chứng '${ev.activityName}' đang chờ Cố vấn lớp duyệt.`,
-            time: ev.submittedAt,
-            type: "info",
-            isRead: readNotifIds.includes(`ev-adv-pending-${ev.id}`),
-            linkTab: "TRANG_CHU"
-          });
-        }
-      });
-    }
-
-    else if (isOrgRole(currentUser.role)) {
-      // 1. Pending membership applications
-      members.forEach(m => {
-        if (m.orgId === targetId && m.status === "PENDING") {
-          list.push({
-            id: `member-pending-${m.id}`,
-            title: "📥 Đăng ký gia nhập CLB mới",
-            message: `Sinh viên ${m.studentName} (${m.classId}) gửi hồ sơ ứng tuyển xin gia nhập CLB của bạn.`,
-            time: m.joinedDate,
-            type: "alert",
-            isRead: readNotifIds.includes(`member-pending-${m.id}`),
-            linkTab: "DS_THANHVIEN"
-          });
-        }
-      });
-    }
-
-    else if (currentUser.role === UserRole.FACULTY) {
-      // 1. Adviser approved class scores in their faculty
-      classReviews.forEach(cr => {
-        const belongsToFaculty = students.some(s => s.classId === cr.classId && s.facultyId === targetId);
-        if (belongsToFaculty && cr.adviserApproved && !cr.facultyApproved) {
-          list.push({
-            id: `fac-review-${cr.classId}`,
-            title: "📋 Lớp hoàn thành duyệt ký số",
-            message: `Cố vấn lớp ${cr.classId} đã ký phê duyệt bảng rèn luyện, chờ Khoa ký duyệt số để khóa sổ.`,
-            time: cr.adviserApprovedAt || new Date().toISOString().split("T")[0],
-            type: "alert",
-            isRead: readNotifIds.includes(`fac-review-${cr.classId}`),
-            linkTab: "LOCKS"
-          });
-        }
-      });
-    }
-
-    else if (currentUser.role === UserRole.TEACHER) {
-      // 1. Pending grade appeals for this teacher
-      gradeAppeals.forEach(ga => {
-        const isMyAppeal = (ga.teacherId && (ga.teacherId === currentUser.id || ga.teacherId === currentUser.username)) ||
-          (!ga.teacherId && teacherAssignments.some(ta => (ta.teacherId === currentUser.id || ta.teacherId === currentUser.username) && ta.subjectCode === ga.subjectCode && normalizeClassId(ta.classId) === normalizeClassId(ga.classId)));
-        if (isMyAppeal && ga.status === "PENDING") {
-          list.push({
-            id: `teach-appeal-${ga.id}`,
-            title: "📝 Đơn phúc khảo điểm mới",
-            message: `Sinh viên ${ga.studentName} (${ga.classId}) gửi đơn phúc khảo môn ${ga.subjectName || ga.subjectCode}.`,
-            time: ga.createdAt,
-            type: "alert",
-            isRead: readNotifIds.includes(`teach-appeal-${ga.id}`),
-            linkTab: "APPEALS"
-          });
-        }
-      });
-
-      // 2. Unlock request status updates
-      unlockRequests.forEach(ur => {
-        if (ur.teacherId === currentUser.id || ur.teacherId === currentUser.username) {
-          if (ur.status === "APPROVED" || ur.status === "REJECTED") {
-            list.push({
-              id: `unlock-${ur.id}-${ur.status}`,
-              title: ur.status === "APPROVED" ? "✅ Yêu cầu mở khoá điểm được chấp thuận" : "❌ Yêu cầu mở khoá điểm bị từ chối",
-              message: `Bảng điểm lớp ${ur.classId} môn ${ur.subjectCode} đã ${ur.status === "APPROVED" ? "được phê duyệt mở khoá" : "bị từ chối mở khoá"}.`,
-              time: ur.reviewedAt || ur.createdAt,
-              type: ur.status === "APPROVED" ? "success" : "warning",
-              isRead: readNotifIds.includes(`unlock-${ur.id}-${ur.status}`),
-              linkTab: "GRADES"
-            });
-          }
-        }
-      });
-    }
-
-    else if (currentUser.role === UserRole.TRAINING_DEPT) {
-      // 1. Faculty locked their scores
-      facultyReviews.forEach(fr => {
-        if (fr.locked) {
-          list.push({
-            id: `fac-locked-${fr.facultyId}`,
-            title: "🔒 Khoa đã khóa dữ liệu rèn luyện",
-            message: `Khoa '${fr.facultyId}' đã ký duyệt và khóa sổ kết quả rèn luyện học kỳ, sẵn sàng đồng bộ.`,
-            time: fr.lockedAt || new Date().toISOString().split("T")[0],
-            type: "success",
-            isRead: readNotifIds.includes(`fac-locked-${fr.facultyId}`),
-            linkTab: "LIST"
-          });
-        }
-      });
-
-      // 2. Pending grade unlock requests
-      unlockRequests.forEach(ur => {
-        if (ur.status === "PENDING") {
-          list.push({
-            id: `unlock-pending-${ur.id}`,
-            title: "🔓 Yêu cầu mở khoá bảng điểm",
-            message: `Giảng viên ${ur.teacherName} yêu cầu mở khoá điểm lớp ${ur.classId} (${ur.subjectName || ur.subjectCode}). Lý do: ${ur.reason}`,
-            time: ur.createdAt,
-            type: "alert",
-            isRead: readNotifIds.includes(`unlock-pending-${ur.id}`),
-            linkTab: "LOCKS"
-          });
-        }
-      });
-    }
-
-    else if (currentUser.role === UserRole.ADMIN) {
-      if (period.status === "LOCKED") {
-        list.push({
-          id: `period-locked-${period.id}`,
-          title: "🔒 Đợt đánh giá đã khóa",
-          message: `Học kỳ hiện tại ${period.semester} (${period.academicYear}) đã được khóa sổ rèn luyện thành công.`,
-          time: period.endDate,
-          type: "warning",
-          isRead: readNotifIds.includes(`period-locked-${period.id}`),
-          linkTab: "PERIOD"
-        });
-      }
-    }
-
-    // Default welcome notification for all roles
-    list.push({
-      id: "welcome-notif",
-      title: "👋 Chào mừng bạn",
-      message: `Chào mừng bạn quay lại hệ thống quản lý rèn luyện tự động hóa UniHubHG.`,
-      time: new Date().toISOString().split("T")[0],
-      type: "info",
-      isRead: readNotifIds.includes("welcome-notif")
-    });
-
-    // System-wide notifications from Admin (visible to all users)
-    systemNotifications.forEach(sn => {
-      list.push({
-        id: `sysnotif-${sn.id}`,
-        title: `📢 ${sn.title}`,
-        message: sn.message,
-        time: sn.createdAt,
-        type: sn.type === "alert" ? "alert" : sn.type === "warning" ? "warning" : "info",
-        isRead: readNotifIds.includes(`sysnotif-${sn.id}`)
-      });
-    });
-
-    return list.filter(n => !deletedNotifIds.includes(n.id));
-  }, [currentUser, evidence, members, organizations, announcements, feedbacks, students, classReviews, facultyReviews, period, readNotifIds, deletedNotifIds, gradeAppeals, unlockRequests, teacherAssignments, studentObj, systemNotifications]);
-
-  // Reactively mark notifications/activities as seen/read when visiting tabs
-  React.useEffect(() => {
-    if (!currentUser) return;
-
-    if (currentUser.role === UserRole.STUDENT) {
-      if (activePortletTab === "TRANG_CHU") {
-        const unread = notifications.filter(n => !n.isRead && (n.linkTab === "TRANG_CHU" || n.id === "welcome-notif"));
-        if (unread.length > 0) {
-          const newReadIds = [...readNotifIds, ...unread.map(n => n.id)];
-          saveReadNotifIds(Array.from(new Set(newReadIds)));
-        }
-      } else if (activePortletTab === "DIEM") {
-        const unread = notifications.filter(n => !n.isRead && n.linkTab === "DIEM");
-        if (unread.length > 0) {
-          const newReadIds = [...readNotifIds, ...unread.map(n => n.id)];
-          saveReadNotifIds(Array.from(new Set(newReadIds)));
-        }
-      } else if (activePortletTab === "CLB") {
-        const unread = notifications.filter(n => !n.isRead && n.linkTab === "CLB");
-        if (unread.length > 0) {
-          const newReadIds = [...readNotifIds, ...unread.map(n => n.id)];
-          saveReadNotifIds(Array.from(new Set(newReadIds)));
-        }
-      } else if (activePortletTab === "HOATDONG") {
-        const upcomingUnregisteredIds = activities
-          .filter(a => a.status === "UPCOMING" && a.registrationOpen && !attendance.some(att => att.activityId === a.id && att.studentId === studentId))
-          .map(a => a.id);
-        const newSeenIds = Array.from(new Set([...seenActivityIds, ...upcomingUnregisteredIds]));
-        if (newSeenIds.length !== seenActivityIds.length) {
-          saveSeenActivityIds(newSeenIds);
-        }
-      } else if (activePortletTab === "MINHCHUNG") {
-        const rejectedEvIds = evidence
-          .filter(ev => ev.studentId === studentId && ev.status === "REJECTED")
-          .map(ev => ev.id);
-        const newSeenRejectedIds = Array.from(new Set([...seenRejectedEvidenceIds, ...rejectedEvIds]));
-        if (newSeenRejectedIds.length !== seenRejectedEvidenceIds.length) {
-          saveSeenRejectedEvidenceIds(newSeenRejectedIds);
-        }
-      }
-    } else if (isOrgRole(currentUser.role)) {
-      if (activePortletTab === "DS_THANHVIEN") {
-        const orgId = currentUser.targetId || (currentUser.role === UserRole.YOUTH_UNION ? "DOANTN" : currentUser.role === UserRole.STUDENT_UNION ? "HOISV" : "");
-        const pendingMemberIds = orgId ? members.filter(m => m.orgId === orgId && m.status === "PENDING").map(m => m.id) : [];
-        const newSeenIds = Array.from(new Set([...seenPendingMemberIds, ...pendingMemberIds]));
-        if (newSeenIds.length !== seenPendingMemberIds.length) {
-          saveSeenPendingMemberIds(newSeenIds);
-        }
-      }
-    } else if (currentUser.role === UserRole.CLASS_MONITOR) {
-      if (activePortletTab === "TRANG_CHU") {
-        const classId = currentUser.targetId || "";
-        const pendingEvIds = evidence.filter(ev => ev.classId === classId && ev.status === "PENDING").map(ev => ev.id);
-        const newSeenIds = Array.from(new Set([...seenPendingEvidenceIds, ...pendingEvIds]));
-        if (newSeenIds.length !== seenPendingEvidenceIds.length) {
-          saveSeenPendingEvidenceIds(newSeenIds);
-        }
-      }
-    } else if (currentUser.role === UserRole.ADVISER) {
-      if (activePortletTab === "TRANG_CHU") {
-        const classId = currentUser.targetId || "";
-        const pendingEvIds = evidence.filter(ev => ev.classId === classId && ev.status === "PENDING").map(ev => ev.id);
-        const newSeenIds = Array.from(new Set([...seenPendingEvidenceIds, ...pendingEvIds]));
-        if (newSeenIds.length !== seenPendingEvidenceIds.length) {
-          saveSeenPendingEvidenceIds(newSeenIds);
-        }
-        
-        const reviewClassIds = classReviews.filter(cr => cr.classId === classId && cr.representativeApproved && !cr.adviserApproved).map(cr => cr.classId);
-        const newSeenReviews = Array.from(new Set([...seenAdviserReviews, ...reviewClassIds]));
-        if (newSeenReviews.length !== seenAdviserReviews.length) {
-          saveSeenAdviserReviews(newSeenReviews);
-        }
-      }
-    } else if (currentUser.role === UserRole.FACULTY) {
-      if (activePortletTab === "LOCKS") {
-        const facultyId = currentUser.targetId || "";
-        const pendingReviewClassIds = classReviews.filter(cr => {
-          const studentObj = students.find(s => s.classId === cr.classId);
-          return studentObj?.facultyId === facultyId && cr.adviserApproved && !cr.facultyApproved;
-        }).map(cr => cr.classId);
-        const newSeenIds = Array.from(new Set([...seenClassReviewIds, ...pendingReviewClassIds]));
-        if (newSeenIds.length !== seenClassReviewIds.length) {
-          saveSeenClassReviewIds(newSeenIds);
-        }
-      }
-    } else if (currentUser.role === UserRole.TRAINING_DEPT) {
-      if (activePortletTab === "LIST") {
-        const lockedIds = facultyReviews.filter(fr => fr.locked).map(fr => fr.facultyId);
-        const newSeenIds = Array.from(new Set([...seenFacultyReviewIds, ...lockedIds]));
-        if (newSeenIds.length !== seenFacultyReviewIds.length) {
-          saveSeenFacultyReviewIds(newSeenIds);
-        }
-      }
-    }
-  }, [activePortletTab, currentUser, notifications, activities, attendance, studentId, evidence, members, classReviews, facultyReviews, students, seenActivityIds, seenRejectedEvidenceIds, seenPendingMemberIds, seenPendingEvidenceIds, seenClassReviewIds, seenAdviserReviews, seenFacultyReviewIds, readNotifIds]);
-
-  React.useEffect(() => {
-    if (!showStudentIdCard || !studentId) {
-      setStudentCardQrDataUrl("");
-      return;
-    }
-
-    let ignore = false;
-    QRCode.toDataURL(getStudentVerificationUrl(studentId), {
-      errorCorrectionLevel: "M",
-      margin: 1,
-      width: 220,
-      color: { dark: "#0f172aff", light: "#ffffffff" }
-    })
-      .then(url => {
-        if (!ignore) setStudentCardQrDataUrl(url);
-      })
-      .catch(err => {
-        console.warn("Student card QR generation failed:", err);
-        if (!ignore) setStudentCardQrDataUrl("");
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, [showStudentIdCard, studentId]);
-
-  const isStudentVerificationRoute = window.location.pathname === STUDENT_VERIFICATION_PATH;
-  if (isStudentVerificationRoute) {
-    return <StudentVerificationPage />;
+  const compact = trimmed.length > 64_000
+    ? trimmed.slice(0, 64_000).replace(/\s/g, "")
+    : trimmed.replace(/\s/g, "");
+  if (compact.length >= LEGACY_BASE64_MIN_LENGTH) {
+    return compact.startsWith("/9j/")
+      || compact.startsWith("iVBORw0KGgo")
+      || compact.startsWith("R0lGOD")
+      || compact.startsWith("UklGR")
+      || compact.startsWith("PD94bWwg")
+      || trimmed.length > 50_000;
   }
 
-  if (!currentUser) {
-    return <LoginScreen />;
+  return false;
+};
+
+const isLegacyInlineImage = (url?: string) => looksLikeInlineImagePayload(url);
+
+const convertGoogleDriveUrlToDirectUrl = (url?: string): string => {
+  if (!url || typeof url !== "string") return "";
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+
+  const driveRegex = /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?export=view&id=|uc\?id=)|lh3\.googleusercontent\.com\/d\/)([a-zA-Z0-9_-]{25,})/;
+  const match = trimmed.match(driveRegex);
+  if (match && match[1]) {
+    return `https://lh3.googleusercontent.com/d/${match[1]}`;
   }
+  return trimmed;
+};
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+const extractGoogleDriveImageUrls = (inputText: string): string[] => {
+  if (!inputText || typeof inputText !== "string") return [];
+  const driveRegex = /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?export=view&id=|uc\?id=)|lh3\.googleusercontent\.com\/d\/)([a-zA-Z0-9_-]{25,})/g;
 
-  const handleMarkAsRead = (id: string) => {
-    if (!readNotifIds.includes(id)) {
-      saveReadNotifIds([...readNotifIds, id]);
+  const results: string[] = [];
+  let match;
+  while ((match = driveRegex.exec(inputText)) !== null) {
+    if (match[1]) {
+      const url = `https://lh3.googleusercontent.com/d/${match[1]}`;
+      if (!results.includes(url)) results.push(url);
     }
+  }
+  return results;
+};
+
+const sanitizeThemeImageUrl = (url?: string): string => {
+  if (!url || typeof url !== "string") return "";
+  const converted = convertGoogleDriveUrlToDirectUrl(url);
+  const trimmed = converted.trim();
+  if (!trimmed || looksLikeInlineImagePayload(trimmed)) return "";
+  if (!/^https?:\/\//i.test(trimmed) || trimmed.length > THEME_URL_MAX_LENGTH) return "";
+
+  try {
+    new URL(trimmed);
+    return trimmed;
+  } catch {
+    return "";
+  }
+};
+
+const sanitizeTextField = (val?: string, maxLength = 1000): string => {
+  if (!val || typeof val !== "string") return "";
+  const trimmed = val.trim();
+  if (!trimmed) return "";
+  if (looksLikeInlineImagePayload(trimmed)) return "";
+  return trimmed.slice(0, maxLength);
+};
+
+const normalizeTeacherIdentity = (value?: string): string => (value || "").trim().toLowerCase();
+
+const normalizeTeacherName = (value?: string): string => (value || "")
+  .replace(/\([^)]*\)/g, " ")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLowerCase()
+  .replace(/\b(ths|ts|ths\.|ts\.|gv|giang vien|giao vien|bo mon)\b/g, " ")
+  .replace(/[^a-z0-9]+/g, " ")
+  .trim();
+
+const buildDerivedTeacherDocId = (value: string): string =>
+  `U_TEACHER_VIEW_${value.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 72) || "UNKNOWN"}`;
+
+const resolveAssignmentTeacherLogin = (assignment: CourseClassAssignment): string => {
+  const teacherId = (assignment.teacherId || "").trim();
+  if (teacherId) return teacherId;
+
+  const asciiName = (assignment.teacherName || "giangvien")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
+    .slice(0, 40);
+  return `${asciiName || "giangvien"}@phhg.edu.vn`;
+};
+
+const buildTeacherUserFromAssignment = (assignment: CourseClassAssignment): UserAccount => {
+  const login = resolveAssignmentTeacherLogin(assignment);
+  return {
+    id: buildDerivedTeacherDocId(login || assignment.teacherName || assignment.id),
+    username: login,
+    name: assignment.teacherName || login || "Giảng viên Bộ môn",
+    role: UserRole.TEACHER,
+    email: login,
+    targetId: assignment.teacherId || assignment.subjectCode
   };
-
-  const handleMarkAllAsRead = () => {
-    const allIds = notifications.map(n => n.id);
-    saveReadNotifIds(Array.from(new Set([...readNotifIds, ...allIds])));
-  };
-
-  const handleDeleteNotification = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!deletedNotifIds.includes(id)) {
-      saveDeletedNotifIds([...deletedNotifIds, id]);
-    }
-  };
-
-  const handleClearAll = () => {
-    const allIds = notifications.map(n => n.id);
-    saveDeletedNotifIds(Array.from(new Set([...deletedNotifIds, ...allIds])));
-  };
-
-  const handleNotificationClick = (n: any) => {
-    if (n.isClubAnnouncement) {
-      if (!readNotifIds.includes(n.id)) {
-        saveReadNotifIds([...readNotifIds, n.id]);
-      }
-      setSelectedAnnForModal(n);
-    } else {
-      handleMarkAsRead(n.id);
-      if (n.linkTab) {
-        setActivePortletTab(n.linkTab);
-      }
-    }
-    setShowNotificationsDropdown(false);
-  };
-
-  const openProfileEditModal = () => {
-    const seedMatch = SEED_STUDENTS.find(s => 
-      (currentUser?.targetId && s.id === currentUser.targetId) ||
-      (currentUser?.username && (s.id === currentUser.username || (s as any).code === currentUser.username)) ||
-      (currentUser?.email && s.email === currentUser.email) ||
-      (currentUser?.targetId && s.id.toLowerCase() === currentUser.targetId.toLowerCase()) ||
-      (currentUser?.username && (s.id.toLowerCase() === currentUser.username.toLowerCase() || (s as any).code?.toLowerCase() === currentUser.username.toLowerCase())) ||
-      (currentUser?.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
-    );
-    const effectiveStudent = {
-      ...(seedMatch || {}),
-      ...(studentObj || {})
-    };
-    const targetUserId = currentUser?.targetId || currentUser?.username || currentUser?.id || "";
-    const persistentAvatar = effectiveStudent?.avatar || currentUser?.avatar || (targetUserId ? localStorage.getItem(`unihub_avatar_${targetUserId}`) : null) || "";
-    setEditName(currentUser?.name || effectiveStudent?.name || "");
-    setEditAvatar(persistentAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.username}`);
-    
-    const fields: Partial<any> = {};
-    STUDENT_FIELDS_META.forEach(f => {
-      let val = (effectiveStudent as any)?.[f.key];
-      if (val === undefined || val === null) {
-        if (f.key === "id") val = currentUser?.targetId || currentUser?.username || currentUser?.id;
-        if (f.key === "name") val = currentUser?.name;
-        if (f.key === "email") val = currentUser?.email;
-        if (f.key === "avatar") val = persistentAvatar || currentUser?.avatar;
-        if (f.key === "classId") val = (currentUser as any)?.classId;
-        if (f.key === "facultyId") val = (currentUser as any)?.facultyId;
-      }
-      fields[f.key] = val || "";
-    });
-    setProfileFields(fields);
-
-    setEditPassword("");
-    setEditOldPassword("");
-    setEditPasswordConfirm("");
-    setPasswordError("");
-    setProfileSuccessMsg("");
-    setProfileTab("info");
-    setShowProfileModal(true);
-    setShowProfileDropdown(false);
-  };
-
-  const handleSaveInfo = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editName.trim()) {
-      alert("Họ và tên không được để trống!");
-      return;
-    }
-    const targetUserId = currentUser.targetId || currentUser.username || currentUser.id;
-    updateStudentProfile(targetUserId, editName, editAvatar, undefined, profileFields);
-    setProfileSuccessMsg("Đã cập nhật thông tin hồ sơ thành công!");
-    setTimeout(() => {
-      setProfileSuccessMsg("");
-      setShowProfileModal(false);
-    }, 1500);
-  };
-
-  const handleSavePassword = (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordError("");
-    
-    // Verify old password
-    const currentPassword = (currentUser as any)?.password?.trim() 
-      || (studentObj as any)?.password?.trim() 
-      || studentObj?.idCard?.trim() 
-      || "123456";
-    if (editOldPassword.trim() !== currentPassword) {
-      setPasswordError("Mật khẩu hiện tại không chính xác!");
-      return;
-    }
-    
-    // Validate new password
-    if (!editPassword.trim() || editPassword.trim().length < 6) {
-      setPasswordError("Mật khẩu mới phải có ít nhất 6 ký tự!");
-      return;
-    }
-    if (editPassword !== editPasswordConfirm) {
-      setPasswordError("Mật khẩu mới và xác nhận không khớp!");
-      return;
-    }
-    
-    const targetUserId = currentUser.targetId || currentUser.username || currentUser.id;
-    updateStudentProfile(targetUserId, currentUser.name, studentObj?.avatar || editAvatar, editPassword.trim());
-    setProfileSuccessMsg("Đã cập nhật mật khẩu đăng nhập thành công!");
-    setTimeout(() => {
-      setProfileSuccessMsg("");
-      setShowProfileModal(false);
-    }, 1500);
-  };
-
-  const handleSendFeedback = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!feedbackTitle.trim() || !feedbackContent.trim()) {
-      alert("Vui lòng điền đầy đủ tiêu đề và nội dung góp ý!");
-      return;
-    }
-    try {
-      setIsSendingFeedback(true);
-      await sendSystemFeedback(feedbackCategory, feedbackTitle, feedbackContent);
-      alert("Đóng góp ý kiến thành công! Hệ thống đã ghi nhận phản hồi của bạn.");
-      setFeedbackTitle("");
-      setFeedbackContent("");
-      setShowFeedbackModal(false);
-    } catch (err) {
-      alert("Đã xảy ra lỗi khi gửi góp ý. Vui lòng thử lại!");
-    } finally {
-      setIsSendingFeedback(false);
-    }
-  };
-
-  const renderPortal = () => {
-    let portal: React.ReactNode;
-
-    if (activePortletTab === "GIAM_SAT_SI_SO" && !isOrgRole(currentUser.role)) {
-      portal = <ClassStatisticsBottom />;
-    } else if (activePortletTab === "DAI_HOI_CHI_DOAN") {
-      portal = <CongressPortal />;
-    } else {
-      switch (currentUser.role) {
-        case UserRole.STUDENT:
-        case UserRole.GROUP_LEADER: // A9 FIX: Tổ trưởng dùng portal sinh viên
-          portal = <StudentPortal />;
-          break;
-        case UserRole.ORGANIZER:
-        case UserRole.CLUB_MANAGER:
-        case UserRole.YOUTH_UNION:
-        case UserRole.STUDENT_UNION:
-          portal = <OrganizerPortal />;
-          break;
-        case UserRole.TRAINING_DEPT:
-          portal = <TrainingPortal />;
-          break;
-        case UserRole.CLASS_MONITOR:
-          portal = <ClassPortal />;
-          break;
-        case UserRole.ADVISER:
-          portal = <AdviserPortal />;
-          break;
-        case UserRole.FACULTY:
-          portal = <FacultyPortal />;
-          break;
-        case UserRole.TEACHER:
-          portal = <TeacherPortal />;
-          break;
-        case UserRole.ADMIN:
-          portal = <AdminPortal />;
-          break;
-        default:
-          portal = <StudentPortal />;
-      }
-    }
-
-    return (
-      <ErrorBoundary>
-        <Suspense fallback={<PortalLoader />}>{portal}</Suspense>
-      </ErrorBoundary>
-    );
-  };
-
-  const getRoleLabel = (role: UserRole) => {
-    switch (role) {
-      case UserRole.STUDENT: return { label: "Sinh viên", color: "bg-blue-100 text-blue-800 border-blue-200", icon: GraduationCap };
-      case UserRole.ORGANIZER:
-      case UserRole.CLUB_MANAGER:
-        return { label: "Câu lạc bộ", color: "bg-purple-100 text-purple-800 border-purple-200", icon: Users };
-      case UserRole.YOUTH_UNION:
-        return { label: "Đoàn Thanh niên", color: "bg-rose-100 text-rose-800 border-rose-200", icon: Users };
-      case UserRole.STUDENT_UNION:
-        return { label: "Hội Sinh viên", color: "bg-sky-100 text-sky-800 border-sky-200", icon: Users };
-      case UserRole.TRAINING_DEPT: return { label: "Phòng Đào tạo", color: "bg-amber-100 text-amber-800 border-amber-200", icon: BookOpen };
-      case UserRole.CLASS_MONITOR: return { 
-        label: currentUser?.isGroupLeader ? "Tổ trưởng" : "Ban Cán sự Lớp", 
-        color: "bg-emerald-100 text-emerald-800 border-emerald-200", 
-        icon: UserCheck 
-      };
-      case UserRole.ADVISER: return { label: "Cố vấn học tập (CVHT)", color: "bg-amber-100 text-amber-800 border-amber-200", icon: AdviserIcon };
-      case UserRole.FACULTY: return { label: "Văn phòng Khoa", color: "bg-indigo-100 text-indigo-800 border-indigo-200", icon: School };
-      case UserRole.TEACHER: return { label: "Giảng viên Bộ môn", color: "bg-blue-100 text-blue-800 border-blue-200", icon: GraduationCap };
-      case UserRole.ADMIN: return { label: "Phòng CTHSSV (Admin)", color: "bg-slate-800 text-white border-slate-700", icon: Settings };
-    }
-  };
-
-  const roleMeta = getRoleLabel(currentUser.role);
-  const IconComp = roleMeta.icon;
-
-  // Active side tabs maps matching Attachment 1 design
-  const getSidebarTabs = () => {
-    switch (currentUser.role) {
-      case UserRole.TEACHER:
-        return [
-          { id: "TEACHER_GRADES", label: "Nhập & Nạp Điểm Học Phần", icon: GraduationCap },
-          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote }
-        ];
-      case UserRole.STUDENT:
-        return [
-          { id: "TRANG_CHU", label: "Trang chủ", icon: Home },
-          { id: "THE_SINH_VIEN", label: "Thẻ sinh viên điện tử", icon: IdCard },
-          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
-          { id: "DIEM", label: "Điểm số", icon: Award },
-          { id: "DANG_KY_TIN_CHI", label: "Đăng ký tín chỉ", icon: BookOpen },
-          { id: "THOI_KHOA_BIEU", label: "Thời khóa biểu", icon: Clock },
-          { id: "HOATDONG", label: "Sự kiện & ngoại khóa", icon: Calendar },
-          { id: "CLB", label: "Câu lạc bộ", icon: Users },
-          { id: "MINHCHUNG", label: "Minh chứng", icon: FileText },
-          { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList }
-        ];
-      case UserRole.YOUTH_UNION:
-        return [
-          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
-          { id: "DS_THANHVIEN", label: "Danh sách Đoàn viên", icon: Users },
-          { id: "TAO_HOATDONG", label: "Khai báo hoạt động Đoàn", icon: PlusCircle },
-          { id: "TAO_THONGBAO", label: "Bảng thông báo Đoàn", icon: Megaphone },
-          { id: "QUANLY_DIEMDANH", label: "Sổ điểm danh phong trào", icon: UserCheck }
-        ];
-      case UserRole.STUDENT_UNION:
-        return [
-          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
-          { id: "DS_THANHVIEN", label: "Danh sách Hội viên", icon: Users },
-          { id: "TAO_HOATDONG", label: "Khai báo hoạt động Hội", icon: PlusCircle },
-          { id: "TAO_THONGBAO", label: "Bảng thông báo Hội", icon: Megaphone },
-          { id: "QUANLY_DIEMDANH", label: "Sổ điểm danh phong trào", icon: UserCheck }
-        ];
-      case UserRole.ORGANIZER:
-      case UserRole.CLUB_MANAGER:
-        return [
-          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
-          { id: "DS_THANHVIEN", label: "Danh sách thành viên CLB", icon: Users },
-          { id: "TAO_HOATDONG", label: "Khai báo hoạt động CLB", icon: PlusCircle },
-          { id: "TAO_THONGBAO", label: "Bảng thông báo CLB", icon: Megaphone },
-          { id: "QUANLY_DIEMDANH", label: "Sổ điểm danh & Sự kiện", icon: UserCheck },
-          ...(currentUser.targetId?.toUpperCase() === "CLBNCKH" ? [{ id: "EXT_SRC", label: "Web CLB SRC", icon: Globe }] : [])
-        ];
-      case UserRole.TRAINING_DEPT:
-        return [
-          { id: "OVERVIEW", label: "Tổng Quan Đào Tạo", icon: LayoutDashboard },
-          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
-          { id: "IMPORT", label: "Nạp & Tổng Hợp Điểm HK", icon: FileSpreadsheet },
-          { id: "DANG_KY_TIN_CHI", label: "Đăng Ký Tín Chỉ", icon: BookOpen },
-          { id: "TEACHER_ASSIGNMENTS", label: "Phân Công Giảng Dạy", icon: Users },
-          { id: "UNLOCK_REQUESTS", label: "Duyệt Mở Khóa Điểm", icon: Lock },
-          { id: "GRADE_APPEALS", label: "Xử Lý Phúc Khảo", icon: Bell },
-          { id: "IMPORT_CLASSES", label: "Nạp Danh Sách SV Lớp Mới", icon: UploadCloud },
-          { id: "LIST", label: "Danh Sách Học Vụ SV", icon: Grid },
-          { id: "THOI_KHOA_BIEU", label: "Thời khóa biểu lớp", icon: Clock },
-          { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList },
-          { id: "XET_HOC_BONG", label: "Xét Học Bổng", icon: Award }
-        ];
-      case UserRole.FACULTY:
-        return [
-          { id: "STAT", label: "Theo dõi rèn luyện khoa", icon: BarChart2 },
-          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
-          { id: "LOCKS", label: "Khóa dữ liệu & Ký duyệt", icon: Lock },
-          { id: "EVENTS", label: "Phát động & Cộng điểm", icon: Megaphone },
-          { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList }
-        ];
-      case UserRole.ADMIN:
-        return [
-          { id: "CONFIG", label: "Cấu hình quy chế điểm", icon: Settings },
-          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
-          { id: "PERIOD", label: "Quản lý Đợt đánh giá", icon: Clock },
-          { id: "STATIONS", label: "Động cơ hệ thống", icon: Cpu },
-          { id: "CLUBS", label: "Quản lý Tổ chức & CLB", icon: Users },
-          { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList }
-        ];
-      case UserRole.CLASS_MONITOR:
-        if (currentUser?.isGroupLeader) {
-          return [
-            { id: "TRANG_CHU", label: "Trang chủ Tổ", icon: Home },
-            { id: "THE_SINH_VIEN", label: "Thẻ sinh viên điện tử", icon: IdCard },
-            { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
-            { id: "BCS_DIEMDANH", label: "Điểm danh Tổ", icon: Users },
-            { id: "BCS_XETDUYET", label: "Đề xuất ĐRL Tổ", icon: BookOpen }
-          ];
-        }
-        return [
-          { id: "TRANG_CHU", label: "Trang chủ tổng quan", icon: Home },
-          { id: "THE_SINH_VIEN", label: "Thẻ sinh viên điện tử", icon: IdCard },
-          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
-          { id: "BCS_DIEMDANH", label: "Giám sát sĩ số & điểm danh", icon: ClipboardList },
-          { id: "BCS_DUYET_TO", label: "Phê duyệt Tổ", icon: CheckCircle2 },
-          { id: "BCS_THONG_KE", label: "Thống kê chuyên cần", icon: ClipboardList },
-          { id: "BCS_CHIA_TO", label: "Phân Tổ & Cấp quyền", icon: UserPlus },
-          { id: "BCS_XETDUYET", label: "Xét duyệt ĐRL & Minh chứng", icon: BookOpen }
-        ];
-      case UserRole.ADVISER:
-        return [
-          { id: "ADVISER_DUYETDEM", label: "Thống kê & Xét duyệt lớp", icon: BookOpen },
-          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
-          { id: "ADVISER_MINHCHUNG", label: "Minh chứng của lớp", icon: FileText },
-          { id: "ADVISER_NOTIFICATIONS", label: "Nhật ký sĩ số & Thư từ lớp", icon: MessageSquare },
-          { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList }
-        ];
-      default:
-        return [
-          { id: "DAI_HOI_CHI_DOAN", label: "Đại hội Chi đoàn", icon: Vote },
-          { id: "GIAM_SAT_SI_SO", label: "Sĩ số", icon: ClipboardList }
-        ];
-    }
-  };
-
-  const getTabBadgeCount = (tabId: string): number => {
-    if (!currentUser) return 0;
-    
-    if (tabId === "DAI_HOI_CHI_DOAN") {
-      if (currentUser.role === UserRole.STUDENT || currentUser.role === UserRole.CLASS_MONITOR) {
-        const allKnown = students.length > 0 ? students : SEED_STUDENTS;
-        const student = allKnown.find(s => 
-          (currentUser.targetId && s.id.toLowerCase() === currentUser.targetId.toLowerCase()) ||
-          (currentUser.username && (s.id.toLowerCase() === currentUser.username.toLowerCase() || (s.email && s.email.toLowerCase() === currentUser.username.toLowerCase())))
-        );
-        const studentClass = student?.classId || (currentUser as any)?.classId || currentUser.classSecretaryForClassId || "";
-        const cong = classCongresses.find(c => normalizeClassId(c.classId) === normalizeClassId(studentClass));
-        if (cong && cong.status === "VOTING") {
-          const studentId = currentUser.targetId || currentUser.username || "";
-          const unvoted = cong.ballotBoxes.filter(box => {
-            if (box.status !== "OPEN") return false;
-            const hash = btoa(`${cong.campaignId}_${cong.classId}_${box.id}_${studentId.trim().toUpperCase()}`);
-            return !box.votes.some(v => v.voterHash === hash);
-          });
-          return unvoted.length;
-        }
-      } else if (currentUser.role === UserRole.ADVISER) {
-        const cong = classCongresses.find(c => normalizeClassId(c.classId) === normalizeClassId(currentUser.targetId || ""));
-        if (cong && (cong.status === "WAITING_ADVISER_APPROVAL" || cong.status === "COUNTED" || cong.status === "APPOINTMENT_PENDING")) {
-          return 1;
-        }
-      } else if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.YOUTH_UNION) {
-        return classCongresses.filter(c => c.status === "SUBMITTED").length;
-      }
-      return 0;
-    }
-
-    if (currentUser.role === UserRole.STUDENT) {
-      const studentId = currentUser.targetId || (currentUser.role === UserRole.STUDENT ? currentUser.username : "") || "";
-      switch (tabId) {
-        case "TRANG_CHU":
-          // Unread notifications linking to TRANG_CHU or welcome
-          return notifications.filter(n => !n.isRead && (n.linkTab === "TRANG_CHU" || n.id === "welcome-notif")).length;
-        case "DIEM":
-          // Unread notifications linking to DIEM (e.g. gpa update, adviser feedback, evidence status changes)
-          return notifications.filter(n => !n.isRead && n.linkTab === "DIEM").length;
-        case "HOATDONG":
-          // Number of upcoming activities open for registration that the student has not registered for and has not seen yet
-          return activities.filter(a => 
-            a.status === "UPCOMING" && 
-            a.registrationOpen && 
-            (studentId ? !attendance.some(att => att.activityId === a.id && att.studentId === studentId) : true) &&
-            !seenActivityIds.includes(a.id)
-          ).length;
-        case "CLB":
-          // Unread notifications linking to CLB (e.g. club announcements, membership approved)
-          return notifications.filter(n => !n.isRead && n.linkTab === "CLB").length;
-        case "MINHCHUNG":
-          // Count of rejected evidence submissions that the student has not seen yet
-          return studentId ? evidence.filter(ev => 
-            ev.studentId === studentId && 
-            ev.status === "REJECTED" &&
-            !seenRejectedEvidenceIds.includes(ev.id)
-          ).length : 0;
-        default:
-          return 0;
-      }
-    }
-    
-    if (isOrgRole(currentUser.role)) {
-      const orgId = currentUser.targetId || (currentUser.role === UserRole.YOUTH_UNION ? "DOANTN" : currentUser.role === UserRole.STUDENT_UNION ? "HOISV" : "");
-      switch (tabId) {
-        case "DS_THANHVIEN":
-          return orgId ? members.filter(m => m.orgId === orgId && m.status === "PENDING" && !seenPendingMemberIds.includes(m.id)).length : 0;
-        default:
-          return 0;
-      }
-    }
-    
-    if (currentUser.role === UserRole.CLASS_MONITOR) {
-      const classId = currentUser.isGroupLeader 
-        ? (students.find(s => s.id === currentUser.targetId)?.classId || "") 
-        : (currentUser.targetId || "");
-      switch (tabId) {
-        case "BCS_XETDUYET":
-          if (currentUser.isGroupLeader) {
-            const groupName = currentUser.groupInCharge;
-            const groupStudentIds = students.filter(s => s.classId === classId && s.groupName === groupName).map(s => s.id);
-            const pendingResults = results.filter(r => r.classId === classId && groupStudentIds.includes(r.studentId) && (r.status === "AUTO" || r.status === "DRAFT")).length;
-            const pendingEv = evidence.filter(ev => groupStudentIds.includes(ev.studentId) && ev.status === "PENDING").length;
-            return pendingResults + pendingEv;
-          } else {
-            const pendingResults = results.filter(r => r.classId === classId && (r.status === "AUTO" || r.status === "DRAFT")).length;
-            const pendingEv = evidence.filter(ev => ev.classId === classId && ev.status === "PENDING").length;
-            return pendingResults + pendingEv;
-          }
-        case "BCS_DUYET_TO":
-          return groupAttendances.filter(ga => ga.classId === classId && ga.status === "PENDING").length;
-        default:
-          return 0;
-      }
-    }
-    
-    if (currentUser.role === UserRole.ADVISER) {
-      const classId = currentUser.targetId || "";
-      const classStudents = students.filter(s => s.classId === classId).map(s => s.id);
-      switch (tabId) {
-        case "ADVISER_DUYETDEM":
-          return results.filter(r => r.classId === classId).length;
-        case "ADVISER_MINHCHUNG":
-          return evidence.filter(e => classStudents.includes(e.studentId) && e.status === "PENDING").length;
-        case "ADVISER_NOTIFICATIONS":
-          return dailyAttendance.filter(da => da.classId === classId).length;
-        default:
-          return 0;
-      }
-    }
-    
-    if (currentUser.role === UserRole.FACULTY) {
-      const facultyId = currentUser.targetId || "";
-      switch (tabId) {
-        case "LOCKS":
-          return classReviews.filter(cr => {
-            const studentObj = students.find(s => s.classId === cr.classId);
-            return studentObj?.facultyId === facultyId && cr.adviserApproved && !cr.facultyApproved && !seenClassReviewIds.includes(cr.classId);
-          }).length;
-        default:
-          return 0;
-      }
-    }
-
-    if (currentUser.role === UserRole.TRAINING_DEPT) {
-      switch (tabId) {
-        case "OVERVIEW":
-          return unlockRequests.filter(r => r.status === "PENDING").length + gradeAppeals.filter(a => a.status === "PENDING" || a.status === "REVIEWING").length;
-        case "UNLOCK_REQUESTS":
-          return unlockRequests.filter(r => r.status === "PENDING").length;
-        case "GRADE_APPEALS":
-          return gradeAppeals.filter(a => a.status === "PENDING" || a.status === "REVIEWING").length;
-        case "LIST":
-          return facultyReviews.filter(fr => fr.locked && !seenFacultyReviewIds.includes(fr.facultyId)).length;
-        default:
-          return 0;
-      }
-    }
-    
-    return 0;
-  };
-
-  const sidebarTabs = getSidebarTabs();
-
-  useEffect(() => {
-    if (activePortletTab === "THE_SINH_VIEN") {
-      setShowStudentIdCard(true);
-    }
-  }, [activePortletTab]);
-
-  const handleTabClick = (tabId: string) => {
-    if (tabId === "EXT_SRC") {
-      window.open("https://src-phhg.vercel.app/", "_blank");
-    } else if (tabId === "THE_SINH_VIEN") {
-      setShowStudentIdCard(true);
-      setActivePortletTab("THE_SINH_VIEN");
-    } else {
-      setShowStudentIdCard(false);
-      setActivePortletTab(tabId);
-    }
-  };
-
-  return (
-    <div className="h-screen h-dvh w-full max-w-full bg-white flex flex-col selection:bg-indigo-500 selection:text-white font-sans overflow-hidden" id="unihub-app-layout">
-      
-      {/* 1. TOP HORIZONTAL FULL-WIDTH HEADER (Xuyên thẳng sang trái toàn màn hình) */}
-      <header className="bg-white border-b border-slate-200/80 sticky top-0 z-40 backdrop-blur-md bg-white/90 shadow-2xs shrink-0 h-16 flex items-center justify-between px-2.5 sm:px-5 lg:px-6 w-full gap-1.5">
-        
-        <div className="flex items-center gap-1.5 sm:gap-3 text-left min-w-0 flex-1 overflow-hidden pr-1">
-          {/* Nút 3 vạch thu gọn / mở rộng menu (Hamburger Toggle Button) */}
-          <button
-            type="button"
-            onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
-            className="p-1.5 sm:p-2 hover:bg-slate-100 active:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-xl cursor-pointer transition-colors shrink-0 flex items-center justify-center mr-0.5"
-            title={isSidebarExpanded ? "Thu gọn menu" : "Mở rộng menu"}
-            aria-label="Toggle Sidebar"
-          >
-            <Menu size={18} />
-          </button>
-
-          {/* Institution Logo Badge (Dynamic from Admin Page) */}
-          <div className="w-7 h-7 min-[360px]:w-8 min-[360px]:h-8 sm:w-10 sm:h-10 bg-white rounded-full shadow-sm border border-slate-200/90 flex items-center justify-center overflow-hidden shrink-0 p-0.5">
-            {themeConfig?.logoUrl ? (
-              <img 
-                src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
-                alt="Logo" 
-                className="w-full h-full object-contain rounded-full"
-              />
-            ) : (
-              <TnuLogo size={32} />
-            )}
-          </div>
-
-          {/* Typography Header Block (Tự động co giãn vừa khít, giãn dòng cho dấu tiếng Việt rõ nét) */}
-          <div className="flex flex-col justify-center min-w-0 flex-1 overflow-hidden py-0.5">
-            <span className="text-[6.5px] min-[340px]:text-[7px] min-[370px]:text-[7.8px] min-[400px]:text-[8.5px] sm:text-xs font-bold text-blue-950 uppercase font-sans leading-normal block whitespace-nowrap">
-              PHÂN HIỆU ĐẠI HỌC THÁI NGUYÊN TẠI HÀ GIANG
-            </span>
-            <h1 className="text-[8px] min-[340px]:text-[8.8px] min-[370px]:text-[9.8px] min-[400px]:text-[10.5px] sm:text-base font-black text-slate-900 leading-snug font-sans mt-0.5 block whitespace-nowrap">
-              {themeConfig?.loginTitle ? (
-                themeConfig.loginTitle
-              ) : (
-                <>
-                  CỔNG THÔNG TIN <span className="text-blue-900">UNIHUBHG</span>
-                </>
-              )}
-            </h1>
-          </div>
-        </div>
-
-          <div className="flex items-center gap-2.5 font-sans">
-            
-            {/* Stream indicator pill */}
-            {isStudentPortal() ? (
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold">
-                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-                <span>Cổng Sinh viên</span>
-              </span>
-            ) : isAdminPortal() ? (
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 border border-purple-200 text-purple-700 text-xs font-bold">
-                <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
-                <span>Cổng Admin Tối cao</span>
-              </span>
-            ) : (
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">
-                <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse" />
-                <span>Cổng Cán bộ & Tổ chức</span>
-              </span>
-            )}
-
-            {/* Top-Right Compact Profile Avatar + Name Block */}
-            <div className="relative flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                className="flex items-center gap-2.5 bg-white hover:bg-slate-50 border border-slate-200/80 p-1.5 pr-3 rounded-2xl transition-all cursor-pointer group shadow-2xs min-h-[44px] active:scale-[0.98]"
-              >
-                {/* Profile Image/Avatar representation */}
-                <div className="relative shrink-0">
-                  {studentObj?.avatar || isStudentOrMonitor ? (
-                    <img 
-                      referrerPolicy="no-referrer"
-                      src={studentObj?.avatar || currentUser?.avatar || (studentId ? localStorage.getItem(`unihub_avatar_${studentId}`) : null) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name}`} 
-                      alt={currentUser.name} 
-                      className="w-8 h-8 rounded-xl object-cover border border-slate-100 group-hover:scale-105 transition-transform"
-                      onError={(e) => {
-                        e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name}`;
-                      }}
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs group-hover:scale-105 transition-transform">
-                      {(currentUser.name || currentUser.username || "U").trim().substring(0, 1).toUpperCase()}
-                    </div>
-                  )}
-                  <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 ring-1 ring-white" />
-                </div>
-                
-                <div className="hidden md:flex flex-col text-right font-sans">
-                  <span className="text-xs font-bold text-slate-900 leading-none group-hover:text-indigo-600 transition-colors">{currentUser.name || currentUser.username}</span>
-                  <span className="text-[10px] font-medium text-slate-500 mt-1 leading-none">
-                    {currentUser.role === "STUDENT" ? "Sinh viên" : currentUser.role === "ORGANIZER" ? "Ban chủ nhiệm" : "Ban giám sát"}
-                  </span>
-                </div>
-                
-                <ChevronDown size={14} className="text-slate-400 group-hover:text-slate-600 transition-colors shrink-0" />
-              </button>
-
-              {showProfileDropdown && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowProfileDropdown(false)} />
-                  <div className="fixed md:absolute top-20 md:top-12 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:right-0 mt-2 bg-white border border-slate-200/90 shadow-2xl rounded-2xl w-[92vw] max-w-[340px] md:w-80 overflow-hidden z-200 animate-fade-in text-left divide-y divide-slate-100 shrink-0 ring-1 ring-slate-900/10">
-                    <div className="p-4 bg-slate-50/80 flex items-center gap-3.5">
-                      <div>
-                        {studentObj?.avatar || isStudentOrMonitor ? (
-                          <img 
-                            referrerPolicy="no-referrer"
-                            src={studentObj?.avatar || currentUser?.avatar || (studentId ? localStorage.getItem(`unihub_avatar_${studentId}`) : null) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name || currentUser.username}`} 
-                            alt={currentUser.name || currentUser.username} 
-                            className="w-12 h-12 rounded-2xl object-cover border border-slate-200/80 shadow-2xs"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-2xs">
-                            {(currentUser.name || currentUser.username || "U").trim().substring(0, 1).toUpperCase()}
-                          </div>
-                        )}
-                      </div>
-                      <div className="space-y-0.5 min-w-0 flex-1">
-                        <h4 className="text-sm font-bold text-slate-900 leading-tight truncate">{currentUser.name}</h4>
-                        <p className="text-xs font-mono text-slate-500 font-medium leading-none">{currentUser.username}</p>
-                        <span className="inline-block text-[11px] font-semibold px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-md mt-1 ring-1 ring-indigo-600/10">
-                          {currentUser.role === "STUDENT" ? "Sinh viên chính quy" : currentUser.role === "ORGANIZER" ? "Ban chủ nhiệm" : `Vai trò: ${currentUser.role}`}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="p-3.5 space-y-3 font-sans">
-                      <div className="bg-slate-50 rounded-xl p-3 ring-1 ring-slate-900/5 space-y-2.5">
-                        {currentUser.role === "STUDENT" && studentObj && (
-                          <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 text-left">
-                            <div>
-                              <span className="text-[10px] text-slate-400 block font-medium">Lớp</span>
-                              <span className="font-semibold text-slate-900">{studentObj.classId}</span>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-slate-400 block font-medium">Khoa</span>
-                              <span className="font-semibold text-slate-900 truncate block">{formatFacultyName(studentObj.facultyInCharge || studentObj.facultyId) || studentObj.facultyId}</span>
-                            </div>
-                          </div>
-                        )}
-                      
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-medium text-slate-600 flex items-center gap-1.5 text-left">
-                            <Calendar size={13} className="text-slate-400" />
-                            <span>Học kỳ truy vấn:</span>
-                          </label>
-                          <select
-                            value={selectedSemesterId}
-                            onChange={(e) => setSelectedSemesterId(e.target.value)}
-                            className="w-full bg-white border border-slate-200 text-xs font-semibold rounded-xl px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 focus:border-indigo-500 cursor-pointer shadow-2xs transition-all"
-                          >
-                            {SEMESTER_LIST.filter(sem => {
-                              if (currentUser.role === UserRole.STUDENT) {
-                                const startYear = getStudentStartYear(studentObj);
-                                return getSemesterStartYear(sem.academicYear || sem.id) >= startYear;
-                              }
-                              return true;
-                            }).map(sem => (
-                              <option key={sem.id} value={sem.id}>
-                                {sem.name} {sem.id === (period?.id || "HOCKY_1_2026_2027") ? " (Hiện tại)" : ""}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <button 
-                          onClick={openProfileEditModal}
-                          className="w-full text-left font-medium text-xs text-slate-700 hover:text-indigo-600 hover:bg-slate-50 px-3 py-2.5 rounded-xl transition-all flex items-center gap-2.5 cursor-pointer min-h-[44px]"
-                        >
-                          <User size={15} className="text-slate-400 shrink-0" />
-                          <span>Sửa hồ sơ & mật khẩu</span>
-                        </button>
-
-                        {currentUser.role === "STUDENT" && (
-                          <button 
-                            onClick={() => {
-                              setShowStudentIdCard(true);
-                              setActivePortletTab("THE_SINH_VIEN");
-                              setShowProfileDropdown(false);
-                            }}
-                            className="w-full text-left font-medium text-xs text-slate-700 hover:text-indigo-600 hover:bg-slate-50 px-3 py-2.5 rounded-xl transition-all flex items-center gap-2.5 cursor-pointer min-h-[44px]"
-                          >
-                            <IdCard size={15} className="text-slate-400 shrink-0" />
-                            <span>Thẻ sinh viên điện tử</span>
-                          </button>
-                        )}
-
-                        <button 
-                          onClick={logout}
-                          className="w-full text-left font-medium text-xs text-rose-600 hover:bg-rose-50 px-3 py-2.5 rounded-xl transition-all flex items-center gap-2.5 cursor-pointer min-h-[44px]"
-                        >
-                          <LogOut size={15} className="text-rose-400 shrink-0" />
-                          <span>Đăng xuất tài khoản</span>
-                        </button>
-
-                        <div className="pt-1 border-t border-slate-100">
-                          <button 
-                            onClick={() => {
-                              if (confirm("Hành động này sẽ tải lại toàn bộ hạt giáo dữ liệu rèn luyện mẫu, xóa sạch các lịch sử kiểm định học kỳ của bạn. Bạn có muốn khôi phục không?")) {
-                                resetToSeeds();
-                                alert("Đã phục hồi hoàn chỉnh dữ liệu mẫu!");
-                                window.location.reload();
-                              }
-                            }}
-                            className="w-full text-left font-normal text-[11px] text-slate-400 hover:text-amber-700 hover:bg-amber-50/50 px-3 py-1.5 rounded-lg transition-all flex items-center gap-2 cursor-pointer"
-                          >
-                            <RefreshCw size={12} className="text-slate-400 shrink-0" />
-                            <span>Khôi phục dữ liệu mẫu</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Bell Notification Button and Dropdown Icon Block */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
-                className={`relative p-2.5 hover:bg-slate-50 border border-slate-150/85 hover:border-slate-350 rounded-xl text-slate-500 hover:text-indigo-600 transition-all cursor-pointer flex items-center justify-center ${
-                  showNotificationsDropdown ? "bg-slate-55 border-slate-300 text-indigo-600" : "bg-white"
-                }`}
-                title="Thông báo cá nhân"
-              >
-                <Bell size={16} className={unreadCount > 0 ? "animate-swing" : ""} />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 h-4.5 w-4.5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[9px] font-black shadow-sm ring-1 ring-white animate-pulse">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-
-              {showNotificationsDropdown && (
-                <>
-                  {/* Click overlay layer */}
-                  <div className="fixed inset-0 z-40" onClick={() => setShowNotificationsDropdown(false)} />
-                  
-                  {/* Floating Droplist Panel */}
-                  <div className="fixed md:absolute top-20 md:top-11 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:right-0 mt-2 bg-white border border-slate-200/90 shadow-2xl rounded-2xl w-[92vw] max-w-[360px] md:w-[380px] overflow-hidden z-50 text-left animate-fade-in divide-y divide-slate-100/80">
-                    {/* Header */}
-                    <div className="px-4 py-3 bg-indigo-50/50 flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <Bell size={13} className="text-indigo-600" />
-                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Thông báo ({unreadCount})</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button 
-                          onClick={handleMarkAllAsRead} 
-                          className="text-[9px] text-indigo-600 hover:text-indigo-850 font-extrabold px-1.5 py-0.5 rounded hover:bg-indigo-100/60 transition-colors cursor-pointer"
-                        >
-                          Đọc hết
-                        </button>
-                        <span className="text-slate-300">|</span>
-                        <button 
-                          onClick={handleClearAll}
-                          className="text-[9px] text-rose-600 hover:text-rose-800 font-extrabold px-1.5 py-0.5 rounded hover:bg-rose-50 transition-colors cursor-pointer"
-                        >
-                          Xóa hết
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Scroll Body */}
-                    <div className="max-h-[300px] overflow-y-auto divide-y divide-slate-100/60 custom-scrollbar text-slate-850 text-slate-800">
-                      {notifications.length === 0 ? (
-                        <div className="p-8 text-center flex flex-col items-center justify-center text-slate-400 gap-2">
-                          <Inbox size={22} className="text-slate-300" />
-                          <p className="text-[11px] font-bold text-slate-500">Bạn đã xem hết thông báo!</p>
-                          <p className="text-[9px] text-slate-400 max-w-[240px] leading-relaxed mx-auto">Tất cả thông báo phê duyệt, phản hồi, cập nhật dữ liệu của bạn sẽ nằm gọn ở đây.</p>
-                        </div>
-                      ) : (
-                        notifications.map((n: any) => {
-                          let typeColorBg = "bg-blue-50/60 text-blue-600 border-blue-105 border-blue-100";
-                          let TypeIcon = Info;
-                          if (n.type === "success") {
-                            typeColorBg = "bg-emerald-50/60 text-emerald-600 border-emerald-100";
-                            TypeIcon = CheckCircle2;
-                          } else if (n.type === "warning") {
-                            typeColorBg = "bg-amber-50/60 text-amber-600 border-amber-100";
-                            TypeIcon = AlertTriangle;
-                          } else if (n.type === "alert") {
-                            typeColorBg = "bg-rose-50/60 text-rose-600 border-rose-100";
-                            TypeIcon = AlertCircle;
-                          } else if (n.isClubAnnouncement) {
-                            typeColorBg = "bg-amber-50/60 text-amber-700 border-amber-150";
-                            TypeIcon = Megaphone;
-                          }
-
-                          return (
-                            <div 
-                              key={n.id}
-                              onClick={() => handleNotificationClick(n)}
-                              className={`p-3 hover:bg-slate-50 transition-all flex gap-3 cursor-pointer relative items-start group ${
-                                !n.isRead ? "bg-indigo-50/10" : ""
-                              }`}
-                            >
-                              {!n.isRead && (
-                                <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-600 rounded-l" />
-                              )}
-                              
-                              <div className={`p-1.5 rounded-lg border shrink-0 ${typeColorBg}`}>
-                                <TypeIcon size={12} />
-                              </div>
-
-                              <div className="flex-1 space-y-0.5">
-                                <div className="flex justify-between items-start gap-2">
-                                  <h5 className={`text-[11px] leading-snug text-left ${!n.isRead ? "font-black text-slate-900" : "font-bold text-slate-700"}`}>
-                                    {n.title}
-                                  </h5>
-                                  <span className="text-[8px] font-mono font-medium text-slate-400 shrink-0 mt-0.5">{n.time}</span>
-                                </div>
-                                <p className="text-[10px] text-slate-500 text-left font-sans">
-                                  {n.message}
-                                </p>
-                                {((n.linkTab && !n.isClubAnnouncement) || (n.isClubAnnouncement && n.activityId)) && (
-                                  <span className="inline-block text-[8px] font-black text-indigo-600 bg-indigo-55 px-1.5 py-0.5 rounded border border-indigo-150 uppercase tracking-tight mt-1.5">
-                                    {n.isClubAnnouncement ? "Xem & Đăng ký sự kiện" : "Bấm để giải quyết ngay"}
-                                  </span>
-                                )}
-                              </div>
-
-                              <button 
-                                onClick={(e) => handleDeleteNotification(n.id, e)}
-                                className="opacity-0 group-hover:opacity-100 hover:opacity-100 p-1 text-slate-300 hover:text-rose-600 transition-opacity rounded cursor-pointer self-center shrink-0"
-                                title="Xóa thông báo"
-                              >
-                                <Trash2 size={11} />
-                              </button>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-
-                    <div className="px-3.5 py-2 bg-slate-50/80 text-center text-[8.5px] text-slate-400 font-mono flex justify-between items-center">
-                      <span>Thông báo tích kiểm liên thông</span>
-                      <span>Hà Giang © 2026</span>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-          </div>
-
-        </header>
-
-        {/* 2. BODY CONTAINER (SIDEBAR MENU + MAIN CONTENT AREA) */}
-        <div className="flex-1 flex flex-row min-w-0 min-h-0 bg-[#f8fafc] overflow-hidden">
-          
-          {/* DYNAMIC EXPANDABLE/COLLAPSIBLE LEFT MENU SIDEBAR (Hạ xuống dưới header) */}
-          <aside 
-            className={`hidden md:flex flex-col py-3 justify-start bg-white border-r border-slate-200 h-full z-30 shrink-0 transition-all duration-300 ease-in-out ${
-              isSidebarExpanded ? "w-[240px] px-3" : "w-[72px] items-center px-0"
-            }`}
-          >
-            <div className="flex flex-col items-center w-full overflow-y-auto custom-scrollbar">
-              {/* Dynamic Menu Icons based on active logged in Portal */}
-              <div className={`flex flex-col gap-1.5 w-full ${isSidebarExpanded ? "items-stretch px-1" : "items-center px-0"}`}>
-                {sidebarTabs.map((tab) => {
-                  const TabIcon = tab.icon;
-                  const isActive = activePortletTab === tab.id || (tab.id === "THE_SINH_VIEN" && showStudentIdCard);
-                  const badgeCount = getTabBadgeCount(tab.id);
-                  
-                  if (isSidebarExpanded) {
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => handleTabClick(tab.id)}
-                        className={`px-3.5 py-2.5 rounded-xl transition-all relative group flex items-center gap-3 cursor-pointer w-full text-left border ${
-                          isActive 
-                            ? "bg-indigo-50 text-indigo-600 border-indigo-150/80 shadow-2xs font-extrabold" 
-                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent font-medium"
-                        }`}
-                      >
-                        <TabIcon size={16} className="shrink-0" />
-                        <span className="text-xs tracking-tight truncate whitespace-nowrap transition-all duration-300">
-                          {tab.label}
-                        </span>
-                        {badgeCount > 0 && (
-                          <span className="ml-auto bg-rose-500 text-white text-[9px] font-black h-4.5 min-w-4.5 px-1 rounded-full flex items-center justify-center shadow-xs ring-1 ring-white">
-                            {badgeCount}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  }
-
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => handleTabClick(tab.id)}
-                      className={`p-3 rounded-xl transition-all relative group flex items-center justify-center cursor-pointer border ${
-                        isActive 
-                          ? "bg-indigo-50 text-indigo-600 border-indigo-150/80 shadow-xs scale-102" 
-                          : "text-slate-405 hover:text-slate-700 hover:bg-slate-50 border-transparent"
-                      }`}
-                      title={tab.label}
-                    >
-                      <TabIcon size={18} />
-                      {badgeCount > 0 && (
-                        <span className="absolute top-1 right-1 bg-rose-500 text-white text-[9px] font-black h-4.5 min-w-4.5 px-1 rounded-full flex items-center justify-center shadow-xs ring-1 ring-white animate-pulse">
-                          {badgeCount}
-                        </span>
-                      )}
-                      <span className="absolute left-[78px] bg-slate-900 border border-slate-800 text-white text-[10px] font-bold px-2 py-1.5 rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-                        {tab.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </aside>
-
-          {/* Scrollable container for main content and footer */}
-          <div className="flex-1 overflow-y-auto w-full flex flex-col min-w-0">
-            {/* Core Main Viewport Panel */}
-            <main className="flex-1 w-full p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
-              {renderPortal()}
-            </main>
-
-            {/* Clean Bottom Footer */}
-            <footer className="bg-white border-t border-slate-200 py-5 px-6 lg:px-8 text-center text-xs text-slate-450 shrink-0 pb-20 md:pb-5">
-              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <div>
-                  UniHub Rèn luyện © 2026. Công cụ quản lý tự động hoá thuộc Phân hiệu ĐHTN tại Hà Giang UniHubHG.
-                </div>
-                <div className="font-mono text-[10px] text-slate-400 flex items-center gap-1">
-                  <Cpu size={12} className="text-slate-350" />
-                  <span>Xử lý và tính điểm tự động từ minh chứng thực tế</span>
-                </div>
-              </div>
-            </footer>
-          </div>
-
-        </div>
-
-      {selectedAnnForModal && (
-        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in font-sans">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-lg w-full overflow-hidden transform transition-all scale-100 flex flex-col max-h-[90vh] max-h-[90dvh]">
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <div className="flex items-center gap-2">
-                <span className="text-xs bg-indigo-50 border border-indigo-150 text-indigo-700 px-2 py-0.5 rounded-md font-black">
-                  {selectedAnnForModal.clubName}
-                </span>
-                <span className="text-[10px] font-mono text-slate-400">
-                  {selectedAnnForModal.time}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedAnnForModal(null)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-full hover:bg-slate-100 transition-colors"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto space-y-4 text-left">
-              <h3 className="text-base font-black text-slate-905 leading-snug">
-                {selectedAnnForModal.title}
-              </h3>
-              <div className="text-xs text-slate-655 whitespace-pre-wrap leading-relaxed">
-                {selectedAnnForModal.fullContent}
-              </div>
-            </div>
-            <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setSelectedAnnForModal(null)}
-                className="px-4 py-2 border border-slate-200 text-slate-700 font-bold hover:bg-slate-100 rounded-xl text-xs transition-colors cursor-pointer"
-              >
-                Đóng
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showProfileModal && (
-        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in font-sans">
-          <div className={`bg-white rounded-2xl border border-slate-105 border-slate-200 shadow-2xl ${currentUser?.role === UserRole.STUDENT ? 'max-w-2xl' : 'max-w-md'} w-full overflow-hidden transform transition-all scale-100 flex flex-col max-h-[90vh] max-h-[90dvh] animate-fade-in-up`}>
-            
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                  <User size={16} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900 leading-tight">
-                    Cấu Hình Tài Khoản Cá Nhân
-                  </h3>
-                  <p className="text-xs text-slate-500">Chỉnh sửa hồ sơ và thiết lập mật khẩu truy cập</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowProfileModal(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Tab Navigation */}
-            <div className="flex border-b border-slate-100 bg-slate-50/70 p-2 gap-1.5 shrink-0 select-none">
-              <button
-                type="button"
-                onClick={() => setProfileTab("info")}
-                className={`flex-1 py-2 text-center text-xs font-semibold rounded-xl transition-all cursor-pointer min-h-[38px] ${
-                  profileTab === "info"
-                    ? "bg-white text-blue-700 shadow-xs"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
-                }`}
-              >
-                Thông tin hồ sơ
-              </button>
-              <button
-                type="button"
-                onClick={() => setProfileTab("password")}
-                className={`flex-1 py-2 text-center text-xs font-semibold rounded-xl transition-all cursor-pointer min-h-[38px] ${
-                  profileTab === "password"
-                    ? "bg-white text-blue-700 shadow-xs"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
-                }`}
-              >
-                Đổi mật khẩu
-              </button>
-            </div>
-
-            {/* Form Content */}
-            <div className="p-6 overflow-y-auto flex-1 text-left">
-              {profileSuccessMsg && (
-                <div className="p-3 mb-4 bg-emerald-50 border border-emerald-150 rounded-xl text-emerald-700 text-xs font-bold flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-                  <span>{profileSuccessMsg}</span>
-                </div>
-              )}
-
-              {profileTab === "info" ? (
-                <form onSubmit={handleSaveInfo} className="space-y-4">
-                  {currentUser?.role === UserRole.STUDENT ? (
-                    <>
-                      {/* Sub-tab Navigation for student fields */}
-                      <div className="flex border-b border-slate-100 bg-slate-50/50 p-1 overflow-x-auto shrink-0 gap-1 rounded-xl select-none mb-4">
-                        <button
-                          type="button"
-                          onClick={() => setActiveSubProfileTab("personal")}
-                          className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap ${
-                            activeSubProfileTab === "personal"
-                              ? "bg-indigo-650 text-white shadow-xs"
-                              : "text-slate-500 hover:bg-slate-100"
-                          }`}
-                        >
-                          Cá nhân & Liên lạc
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setActiveSubProfileTab("family")}
-                          className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap ${
-                            activeSubProfileTab === "family"
-                              ? "bg-indigo-650 text-white shadow-xs"
-                              : "text-slate-500 hover:bg-slate-100"
-                          }`}
-                        >
-                          Gia đình
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setActiveSubProfileTab("education")}
-                          className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap ${
-                            activeSubProfileTab === "education"
-                              ? "bg-indigo-650 text-white shadow-xs"
-                              : "text-slate-500 hover:bg-slate-100"
-                          }`}
-                        >
-                          Đào tạo & Học phí
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setActiveSubProfileTab("account")}
-                          className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap ${
-                            activeSubProfileTab === "account"
-                              ? "bg-indigo-650 text-white shadow-xs"
-                              : "text-slate-500 hover:bg-slate-100"
-                          }`}
-                        >
-                          Tên & Ảnh đại diện
-                        </button>
-                      </div>
-
-                      {/* Render based on sub-tabs */}
-                      {activeSubProfileTab === "account" && (
-                        <div className="space-y-4 animate-fade-in">
-                          {/* Avatar Preview & Randomizer */}
-                          <div className="flex flex-col items-center gap-2 py-2">
-                            <div className="relative group">
-                              <img
-                                src={editAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${editName || 'avatar'}`}
-                                alt="Avatar Preview"
-                                className="w-20 h-20 rounded-2xl object-cover border-2 border-indigo-150 shadow-md group-hover:scale-105 transition-transform"
-                                onError={(e) => {
-                                  e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=fallback`;
-                                }}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const randomSeed = Math.random().toString(36).substring(7);
-                                  const seedUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${randomSeed}`;
-                                  setEditAvatar(seedUrl);
-                                  setProfileFields(prev => ({ ...prev, avatar: seedUrl }));
-                                }}
-                                className="absolute -bottom-1 -right-1 p-1.5 bg-indigo-650 text-white rounded-lg hover:bg-indigo-700 shadow-md transition-colors cursor-pointer"
-                                title="Đổi avatar ngẫu nhiên"
-                              >
-                                <RefreshCw size={12} />
-                              </button>
-                            </div>
-                            <span className="text-[10px] text-slate-400 font-mono">Nhập hoặc click đổi ngẫu nhiên</span>
-                          </div>
-
-                          {/* Name Input */}
-                          <div className="space-y-1.5">
-                            <label className="block text-[10px] font-black uppercase text-slate-450 tracking-wider">Họ và tên</label>
-                            <input
-                              type="text"
-                              value={editName}
-                              onChange={(e) => {
-                                setEditName(e.target.value);
-                                setProfileFields(prev => ({ ...prev, name: e.target.value }));
-                              }}
-                              placeholder="Nhập họ và tên..."
-                              className="w-full bg-white border border-slate-250 text-xs font-bold rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/15 text-slate-800 focus:border-indigo-500 transition-all placeholder-slate-350"
-                              required
-                            />
-                          </div>
-                          {/* Avatar URL/Seed Input & File Uploader */}
-                          <div className="space-y-1.5">
-                            <label className="block text-[10px] font-black uppercase text-slate-450 tracking-wider">Ảnh đại diện (URL hoặc tải từ máy)</label>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={editAvatar}
-                                onChange={(e) => {
-                                  setEditAvatar(e.target.value);
-                                  setProfileFields(prev => ({ ...prev, avatar: e.target.value }));
-                                }}
-                                placeholder="Đường dẫn ảnh hoặc mã seed..."
-                                className="flex-1 bg-white border border-slate-250 text-xs font-mono rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/15 text-slate-800 focus:border-indigo-500 transition-all placeholder-slate-350"
-                              />
-                              <label className="cursor-pointer shrink-0">
-                                <div className="px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 h-full">
-                                  {isUploadingAvatar ? (
-                                    <>
-                                      <RefreshCw size={14} className="animate-spin text-indigo-600" />
-                                      <span>Đang nén...</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Upload size={14} />
-                                      <span>Tải ảnh</span>
-                                    </>
-                                  )}
-                                </div>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  className="hidden"
-                                  disabled={isUploadingAvatar}
-                                  onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      setIsUploadingAvatar(true);
-                                      try {
-                                        const targetId = studentId || currentUser?.targetId || currentUser?.username || "student";
-                                        const avatarUrl = await uploadAvatarHybrid(file, targetId);
-                                        if (avatarUrl) {
-                                          setEditAvatar(avatarUrl);
-                                          rememberAvatar(avatarUrl, targetId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
-                                          setProfileFields(prev => ({ ...prev, avatar: avatarUrl }));
-                                        }
-                                      } catch (err) {
-                                        console.warn("Lỗi upload avatar:", err);
-                                      } finally {
-                                        setIsUploadingAvatar(false);
-                                        try { e.target.value = ""; } catch {}
-                                      }
-                                    }
-                                  }}
-                                />
-                              </label>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {activeSubProfileTab === "personal" && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[45vh] overflow-y-auto pr-1 py-1 animate-fade-in">
-                          {STUDENT_FIELDS_META.filter(meta => meta.category === "personal").map(meta => {
-                            const isReadOnly = meta.readOnly;
-                            const value = (profileFields as any)[meta.key] ?? "";
-                            
-                            return (
-                              <div key={meta.key} className={meta.key === "permanentAddress" || meta.key === "temporaryAddress" ? "sm:col-span-2" : ""}>
-                                <label className="block text-[10px] font-black uppercase text-slate-455 tracking-wider mb-1">{meta.label}</label>
-                                {meta.type === "select" ? (
-                                  <select
-                                    value={value}
-                                    disabled={isReadOnly}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      setProfileFields(prev => ({ ...prev, [meta.key]: val }));
-                                      if (meta.key === "name") {
-                                        setEditName(val);
-                                      }
-                                    }}
-                                    className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none text-slate-800 bg-white ${
-                                      isReadOnly ? "bg-slate-50 cursor-not-allowed border-slate-200 text-slate-400" : "border-slate-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-650"
-                                    }`}
-                                  >
-                                    <option value="">-- Chọn {meta.label} --</option>
-                                    {meta.options?.map(opt => (
-                                      <option key={opt} value={opt}>{opt}</option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <input
-                                    type={meta.type === "number" ? "number" : meta.type === "date" ? "date" : "text"}
-                                    value={value}
-                                    disabled={isReadOnly}
-                                    onChange={(e) => {
-                                      const val = meta.type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value;
-                                      setProfileFields(prev => ({ ...prev, [meta.key]: val }));
-                                      if (meta.key === "name") {
-                                        setEditName(e.target.value);
-                                      }
-                                    }}
-                                    className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none text-slate-800 bg-white ${
-                                      isReadOnly ? "bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed font-semibold animate-none" : "border-slate-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-650"
-                                    }`}
-                                  />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {activeSubProfileTab === "family" && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[45vh] overflow-y-auto pr-1 py-1 animate-fade-in">
-                          {STUDENT_FIELDS_META.filter(meta => meta.category === "family").map(meta => {
-                            const value = (profileFields as any)[meta.key] ?? "";
-                            return (
-                              <div key={meta.key}>
-                                <label className="block text-[10px] font-black uppercase text-slate-455 tracking-wider mb-1">{meta.label}</label>
-                                <input
-                                  type="text"
-                                  value={value}
-                                  onChange={(e) => setProfileFields(prev => ({ ...prev, [meta.key]: e.target.value }))}
-                                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-650 text-slate-800 bg-white"
-                                />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {activeSubProfileTab === "education" && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[45vh] overflow-y-auto pr-1 py-1 animate-fade-in">
-                          {STUDENT_FIELDS_META.filter(meta => meta.category === "education" || meta.category === "finance").map(meta => {
-                            const isReadOnly = meta.readOnly;
-                            const value = (profileFields as any)[meta.key] ?? "";
-                            return (
-                              <div key={meta.key} className={meta.key === "creditClassesList" || meta.key === "enrollmentNotes" ? "sm:col-span-2" : ""}>
-                                <label className="block text-[10px] font-black uppercase text-slate-455 tracking-wider mb-1">{meta.label}</label>
-                                <input
-                                  type={meta.type === "number" ? "number" : "text"}
-                                  value={value}
-                                  disabled={isReadOnly}
-                                  onChange={(e) => setProfileFields(prev => ({ ...prev, [meta.key]: meta.type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value }))}
-                                  className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none text-slate-800 bg-white ${
-                                    isReadOnly ? "bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed font-semibold" : "border-slate-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-650"
-                                  }`}
-                                />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      {/* Non-student simple fields */}
-                      {/* Avatar Preview & Randomizer */}
-                      <div className="flex flex-col items-center gap-2 py-2">
-                        <div className="relative group">
-                          <img
-                            src={editAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${editName || 'avatar'}`}
-                            alt="Avatar Preview"
-                            className="w-20 h-20 rounded-2xl object-cover border-2 border-indigo-150 shadow-md group-hover:scale-105 transition-transform"
-                            onError={(e) => {
-                              e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=fallback`;
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const randomSeed = Math.random().toString(36).substring(7);
-                              setEditAvatar(`https://api.dicebear.com/7.x/avataaars/svg?seed=${randomSeed}`);
-                            }}
-                            className="absolute -bottom-1 -right-1 p-1.5 bg-indigo-650 text-white rounded-lg hover:bg-indigo-700 shadow-md transition-colors cursor-pointer"
-                            title="Đổi avatar ngẫu nhiên"
-                          >
-                            <RefreshCw size={12} />
-                          </button>
-                        </div>
-                        <span className="text-[10px] text-slate-400 font-mono">Nhập hoặc click đổi ngẫu nhiên</span>
-                      </div>
-
-                      {/* Avatar URL/Seed Input & File Uploader */}
-                      <div className="space-y-1.5">
-                        <label className="block text-[10px] font-black uppercase text-slate-450 tracking-wider">Ảnh đại diện (URL hoặc tải từ máy)</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={editAvatar}
-                            onChange={(e) => setEditAvatar(e.target.value)}
-                            placeholder="Đường dẫn ảnh hoặc mã seed..."
-                            className="flex-1 bg-white border border-slate-250 text-xs font-mono rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/15 text-slate-800 focus:border-indigo-500 transition-all placeholder-slate-350"
-                          />
-                          <label className="cursor-pointer shrink-0">
-                            <div className="px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 h-full">
-                              {isUploadingAvatar ? (
-                                <>
-                                  <RefreshCw size={14} className="animate-spin text-indigo-600" />
-                                  <span>Đang nén...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Upload size={14} />
-                                  <span>Tải ảnh</span>
-                                </>
-                              )}
-                            </div>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              disabled={isUploadingAvatar}
-                              onChange={async (e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  setIsUploadingAvatar(true);
-                                  try {
-                                    const targetId = currentUser?.targetId || currentUser?.username || currentUser?.id || "user";
-                                    const avatarUrl = await uploadAvatarHybrid(file, targetId);
-                                    if (avatarUrl) {
-                                      setEditAvatar(avatarUrl);
-                                      rememberAvatar(avatarUrl, targetId, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
-                                    }
-                                  } catch (err) {
-                                    console.warn("Lỗi upload avatar:", err);
-                                  } finally {
-                                    setIsUploadingAvatar(false);
-                                  }
-                                }
-                              }}
-                            />
-                          </label>
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Submit Button */}
-                  <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setShowProfileModal(false)}
-                      className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer min-h-[44px]"
-                    >
-                      Đóng
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm shadow-blue-500/20 transition-all cursor-pointer min-h-[44px]"
-                    >
-                      Lưu thông tin hồ sơ
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <form onSubmit={handleSavePassword} className="space-y-4">
-                  {passwordError && (
-                    <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-2">
-                      <AlertCircle size={14} />
-                      {passwordError}
-                    </div>
-                  )}
-
-                  {/* Old Password */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-semibold text-slate-700">Mật khẩu hiện tại</label>
-                    <input
-                      type="password"
-                      value={editOldPassword}
-                      onChange={(e) => setEditOldPassword(e.target.value)}
-                      placeholder="Nhập mật khẩu hiện tại..."
-                      className="w-full bg-white border border-slate-200 text-xs sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-slate-800 transition-all placeholder-slate-400"
-                      required
-                    />
-                  </div>
-
-                  {/* New Password */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-semibold text-slate-700">Mật khẩu mới <span className="text-slate-400 font-normal">(tối thiểu 6 ký tự)</span></label>
-                    <input
-                      type="password"
-                      value={editPassword}
-                      onChange={(e) => setEditPassword(e.target.value)}
-                      placeholder="Nhập mật khẩu mới..."
-                      className="w-full bg-white border border-slate-200 text-xs sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-slate-800 transition-all placeholder-slate-400"
-                      required
-                      minLength={6}
-                    />
-                  </div>
-
-                  {/* Confirm Password */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-semibold text-slate-700">Xác nhận mật khẩu mới</label>
-                    <input
-                      type="password"
-                      value={editPasswordConfirm}
-                      onChange={(e) => setEditPasswordConfirm(e.target.value)}
-                      placeholder="Nhập lại mật khẩu mới..."
-                      className="w-full bg-white border border-slate-200 text-xs sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-slate-800 transition-all placeholder-slate-400"
-                      required
-                    />
-                  </div>
-
-                  {/* Submit Button */}
-                  <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setShowProfileModal(false)}
-                      className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer min-h-[44px]"
-                    >
-                      Đóng
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm shadow-blue-500/20 transition-all cursor-pointer min-h-[44px]"
-                    >
-                      Lưu mật khẩu mới
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-
-          </div>
-        </div>
-      )}
-      {showStudentIdCard && isStudentOrMonitor && (() => {
-        const s = resolveTrainingStudent(currentUser, students, SEED_STUDENTS);
-        const cardName = formatStudentCardName(s.name || currentUser?.name || "");
-        const cardId = (s.id || currentUser?.targetId || currentUser?.username?.split("@")[0] || "").trim();
-        const cardClass = (s.classId || (currentUser as any)?.classId || "").trim();
-        const cardData: Partial<Student> = { ...s, id: cardId, classId: cardClass };
-        const rawFaculty = (s.facultyInCharge || s.facultyId || (currentUser as any)?.facultyId || "").trim();
-        const cardFaculty = formatFacultyName(rawFaculty);
-        const cardDob = formatStudentDob(s.dob || (currentUser as any)?.dob || "");
-        const cardCourse = getStudentCardCourse(cardData, cardClass);
-        const cachedCardAvatar = getCachedAvatar(cardId, (s as any).code, currentUser?.targetId, currentUser?.username, currentUser?.id, currentUser?.email);
-        const cardAvatar = (s.avatar || currentUser?.avatar || cachedCardAvatar || "").trim();
-        const { startDateStr, expiryDateStr } = getStudentCardValidity(cardData, cardId);
-        const verificationUrl = getStudentVerificationUrl(cardId);
-
-        return (
-          <div 
-            className="fixed inset-0 bg-slate-950/75 backdrop-blur-md z-[100] flex items-center justify-center p-3 sm:p-4" 
-            onClick={() => {
-              setShowStudentIdCard(false);
-              if (activePortletTab === "THE_SINH_VIEN") {
-                setActivePortletTab("TRANG_CHU");
-              }
-            }}
-          >
-            <div className="w-full max-w-[620px] flex flex-col items-center gap-4" onClick={e => e.stopPropagation()}>
-              
-              {/* Card Container - Exactly matches 1448 x 954 aspect ratio */}
-              <div 
-                className="relative w-full aspect-[1448/954] rounded-2xl sm:rounded-3xl overflow-hidden shadow-[0_25px_60px_-15px_rgba(0,0,0,0.6)] ring-1 ring-white/30 select-none bg-white"
-                id="student-id-card-view"
-              >
-                {/* 1. Default/avatar layer stays below transparent photo window in official frame */}
-                <div 
-                  style={{ position: 'absolute', top: '25.3%', left: '74.3%', width: '23%', height: '43%' }}
-                  className="z-0 overflow-hidden rounded-[10px] sm:rounded-[14px] md:rounded-[18px] bg-slate-100 pointer-events-none"
-                >
-                  <img 
-                    src={STUDENT_CARD_DEFAULT_AVATAR}
-                    alt="Ảnh mặc định thẻ sinh viên"
-                    className="w-full h-full object-cover object-center"
-                  />
-                </div>
-                {cardAvatar && (
-                  <div 
-                    style={{ position: 'absolute', top: '25.3%', left: '74.3%', width: '23%', height: '43%' }}
-                    className="z-10 overflow-hidden rounded-[10px] sm:rounded-[14px] md:rounded-[18px] bg-slate-100 pointer-events-none"
-                  >
-                    <img 
-                      src={cardAvatar} 
-                      alt="Ảnh thẻ sinh viên" 
-                      className="w-full h-full object-cover object-center"
-                    />
-                  </div>
-                )}
-
-                {/* 2. Official template frame sits above avatar layers */}
-                <img 
-                  src={STUDENT_CARD_TEMPLATE} 
-                  alt="Thẻ sinh viên điện tử" 
-                  className="absolute inset-0 z-20 w-full h-full object-fill pointer-events-none" 
-                />
-
-                {/* 3. Per-student QR stays above non-transparent QR area on template */}
-                <div
-                  style={{ position: 'absolute', top: '35.1%', left: '6.8%', width: '14.0%', height: '21.2%' }}
-                  className="absolute z-30 flex items-center justify-center rounded-[6px] bg-white p-[2px] shadow-sm ring-1 ring-slate-900/10 pointer-events-none"
-                  title={verificationUrl}
-                >
-                  {studentCardQrDataUrl ? (
-                    <img src={studentCardQrDataUrl} alt={`QR xác thực sinh viên ${cardId}`} className="h-full w-full object-contain" />
-                  ) : (
-                    <div className="h-full w-full animate-pulse rounded bg-slate-200" aria-label="Đang tạo QR xác thực" />
-                  )}
-                </div>
-
-                {/* 4. Dynamic Field Overlays - Aligned horizontally with labels */}
-                {/* Họ tên: sits immediately after colon (34.60% colon right) -> 35.4%, mid 39.5% */}
-                <div 
-                  style={{ position: 'absolute', top: '39.5%', left: '35.4%', width: '38.5%', transform: 'translateY(-50%)' }} 
-                  className="z-30 text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-snug pointer-events-none tracking-wide py-0.5"
-                >
-                  {cardName}
-                </div>
-
-                {/* Ngày sinh: sits immediately after colon (39.09% colon right) -> 39.9%, mid 45.1% */}
-                <div 
-                  style={{ position: 'absolute', top: '45.1%', left: '39.9%', width: '34.0%', transform: 'translateY(-50%)' }} 
-                  className="z-30 text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
-                >
-                  {cardDob}
-                </div>
-
-                {/* Lớp: sits immediately after colon (31.15% colon right) -> 32.0%, mid 50.8% */}
-                <div 
-                  style={{ position: 'absolute', top: '50.8%', left: '32.0%', width: '42.0%', transform: 'translateY(-50%)' }} 
-                  className="z-30 text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
-                >
-                  {cardClass}
-                </div>
-
-                {/* Khoa: sits immediately after colon (32.94% colon right) -> 33.8%, mid 56.1% */}
-                <div 
-                  style={{ position: 'absolute', top: '56.1%', left: '33.8%', width: '40.0%', transform: 'translateY(-50%)' }} 
-                  className="z-30 text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
-                >
-                  {cardFaculty}
-                </div>
-
-                {/* Khóa học: sits immediately after colon (38.60% colon right) -> 39.4%, mid 61.7% */}
-                <div 
-                  style={{ position: 'absolute', top: '61.7%', left: '39.4%', width: '34.5%', transform: 'translateY(-50%)' }} 
-                  className="z-30 text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
-                >
-                  {cardCourse}
-                </div>
-
-                {/* MSSV: sits immediately after colon (33.84% colon right) -> 34.7%, mid 67.4% */}
-                <div 
-                  style={{ position: 'absolute', top: '67.4%', left: '34.7%', width: '39.0%', transform: 'translateY(-50%)' }} 
-                  className="z-30 text-slate-900 font-extrabold text-[11px] sm:text-[13px] md:text-[15.5px] truncate leading-none pointer-events-none"
-                >
-                  {cardId}
-                </div>
-
-                {/* 5. Dates Overlay (Start date & Expiry date after 6 years: 01/25  01/31) */}
-                <div 
-                  style={{ position: 'absolute', top: '81.8%', left: '17.0%', width: '23.4%', height: '5.8%', transform: 'translateY(-50%)' }} 
-                  className="z-30 bg-[#eff8fe]/95 flex items-center justify-between px-0.5 text-slate-900 font-extrabold font-mono text-[11px] sm:text-[13px] md:text-[15.5px] tracking-wider pointer-events-none"
-                >
-                  <span>{startDateStr}</span>
-                  <span>{expiryDateStr}</span>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowStudentIdCard(false);
-                    if (activePortletTab === "THE_SINH_VIEN") {
-                      setActivePortletTab("TRANG_CHU");
-                    }
-                  }}
-                  className="px-6 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-sm transition-all cursor-pointer shadow-lg hover:shadow-xl ring-1 ring-slate-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-                >
-                  Đóng thẻ
-                </button>
-              </div>
-
-            </div>
-          </div>
-        );
-      })()}
-      {/* Mobile Navigation Bottom Bar for high-quality universal platform layout */}
-      {(() => {
-        const isScrollableNav = sidebarTabs.length > 4;
-        return (
-          <nav 
-            className={`md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 py-1.5 z-50 flex shadow-[0_-4px_12px_rgba(15,23,42,0.06)] bg-white/95 backdrop-blur-md scrollbar-none ${
-              isScrollableNav 
-                ? "overflow-x-auto justify-start gap-2.5 px-3 whitespace-nowrap" 
-                : "justify-around items-center px-1"
-            }`}
-          >
-            {sidebarTabs.map((tab) => {
-              const TabIcon = tab.icon;
-              const isActive = activePortletTab === tab.id || (tab.id === "THE_SINH_VIEN" && showStudentIdCard);
-              const badgeCount = getTabBadgeCount(tab.id);
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => handleTabClick(tab.id)}
-                  className={`flex flex-col items-center gap-1.5 py-1 px-2 rounded-xl transition-all cursor-pointer relative ${
-                    isScrollableNav ? "shrink-0 min-w-[70px]" : ""
-                  } ${
-                    isActive 
-                      ? "text-indigo-600 font-extrabold scale-102" 
-                      : "text-slate-600 hover:text-slate-800"
-                  }`}
-                >
-                  <div className="relative">
-                    <TabIcon size={18} className={isActive ? "text-indigo-600" : "text-slate-400"} />
-                    {badgeCount > 0 && (
-                      <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white text-[8px] font-black h-4 min-w-4 px-1 rounded-full flex items-center justify-center shadow-xs ring-1 ring-white">
-                        {badgeCount}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[9px] font-bold tracking-tight truncate max-w-[76px]">
-                    {tab.label.split(" & ")[0].split(" / ")[0]}
-                  </span>
-                </button>
-              );
-            })}
-          </nav>
-        );
-      })()}
-
-      {/* FLOATING SYSTEM FEEDBACK BUTTON (FAB) */}
-      {currentUser && (
-        <button
-          onClick={() => setShowFeedbackModal(true)}
-          className="fixed bottom-20 md:bottom-6 right-6 z-40 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white p-3.5 rounded-full shadow-lg shadow-indigo-200/50 hover:shadow-indigo-300/60 transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer group border-0"
-          title="Góp ý & Báo lỗi hệ thống"
-        >
-          <MessageSquare size={20} className="group-hover:rotate-6 transition-transform" />
-          <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-500 ease-in-out font-bold text-[11px] uppercase tracking-wider pl-0 group-hover:pl-2 whitespace-nowrap">
-            Góp ý hệ thống
-          </span>
-        </button>
-      )}
-
-      {/* SYSTEM FEEDBACK MODAL */}
-      {showFeedbackModal && currentUser && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in animate-duration-200">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden flex flex-col justify-between transform transition-all duration-300 text-left">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-slate-50 to-slate-100/50 px-5 py-4 border-b border-slate-150 flex justify-between items-center shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
-                  <MessageSquare size={16} />
-                </div>
-                <div>
-                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-wide font-mono">Hòm Thư Góp Ý Phát Triển</h3>
-                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Ý kiến đóng góp giúp UniHub hoàn thiện hơn</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setShowFeedbackModal(false)}
-                className="text-slate-400 hover:text-slate-650 transition-colors p-1 rounded-lg hover:bg-slate-100 cursor-pointer border-0 bg-transparent flex items-center justify-center"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleSendFeedback} className="p-5 space-y-4">
-              {/* Sender Info (read-only info card) */}
-              <div className="bg-slate-50 border border-slate-150 rounded-xl p-3 flex items-center justify-between text-[11px]">
-                <div className="space-y-0.5">
-                  <span className="text-slate-400 block font-semibold text-[10px] uppercase tracking-wider">Người gửi</span>
-                  <span className="font-extrabold text-slate-800">{currentUser.name}</span>
-                </div>
-                <div className="text-right space-y-0.5">
-                  <span className="text-slate-400 block font-semibold text-[10px] uppercase tracking-wider">Vai trò</span>
-                  <span className="px-2 py-0.5 bg-indigo-50 border border-indigo-150 text-indigo-650 font-black rounded-lg text-[9px]">
-                    {currentUser.role === UserRole.STUDENT ? "Sinh viên" : 
-                     currentUser.role === UserRole.CLASS_MONITOR ? (currentUser.isGroupLeader ? "Tổ trưởng" : "Ban Cán sự") : 
-                     currentUser.role === UserRole.ADVISER ? "Cố vấn học tập (CVHT)" : 
-                     currentUser.role === UserRole.FACULTY ? "Văn phòng Khoa" : 
-                     currentUser.role === UserRole.TEACHER ? "Giảng viên Bộ môn" :
-                     currentUser.role === UserRole.TRAINING_DEPT ? "Phòng Đào tạo" : 
-                     currentUser.role === UserRole.YOUTH_UNION ? "Đoàn Thanh niên" :
-                     currentUser.role === UserRole.STUDENT_UNION ? "Hội Sinh viên" :
-                     currentUser.role === UserRole.CLUB_MANAGER || currentUser.role === UserRole.ORGANIZER ? "Câu lạc bộ" : "Phòng CTHSSV (Admin)"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Category Dropdown */}
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-black uppercase text-slate-450 tracking-wider">Phân loại góp ý</label>
-                <select
-                  value={feedbackCategory}
-                  onChange={(e) => setFeedbackCategory(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:bg-white transition-all cursor-pointer"
-                >
-                  <option value="Giao diện">Cải tiến giao diện (UI/UX)</option>
-                  <option value="Tính năng">Đề xuất tính năng mới</option>
-                  <option value="Báo lỗi">Báo cáo lỗi hệ thống (Bug)</option>
-                  <option value="Khác">Góp ý khác</option>
-                </select>
-              </div>
-
-              {/* Title Input */}
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-black uppercase text-slate-450 tracking-wider">Tiêu đề góp ý</label>
-                <input
-                  type="text"
-                  value={feedbackTitle}
-                  onChange={(e) => setFeedbackTitle(e.target.value)}
-                  placeholder="Nhập tiêu đề ngắn gọn..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:bg-white transition-all placeholder-slate-400"
-                  required
-                />
-              </div>
-
-              {/* Content Textarea */}
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-black uppercase text-slate-450 tracking-wider">Nội dung chi tiết</label>
-                <textarea
-                  value={feedbackContent}
-                  onChange={(e) => setFeedbackContent(e.target.value)}
-                  placeholder="Mô tả ý kiến hoặc lỗi bạn gặp phải..."
-                  rows={4}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-805 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:bg-white transition-all placeholder-slate-400 resize-none"
-                  required
-                ></textarea>
-              </div>
-
-              {/* Submit Buttons */}
-              <div className="pt-3 border-t border-slate-150 flex justify-end gap-2.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowFeedbackModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors cursor-pointer border-0"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSendingFeedback}
-                  className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-md shadow-indigo-100 border-0 flex items-center gap-1.5"
-                >
-                  {isSendingFeedback ? (
-                    <>
-                      <RefreshCw size={12} className="animate-spin" />
-                      <span>Đang gửi...</span>
-                    </>
-                  ) : (
-                    <span>Gửi góp ý</span>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-    </div>
+};
+
+const getTeacherDedupKey = (teacher: UserAccount): string =>
+  normalizeTeacherIdentity(teacher.email || teacher.username || teacher.targetId) ||
+  normalizeTeacherName(teacher.name) ||
+  teacher.id;
+
+const doesAssignmentBelongToTeacher = (assignment: CourseClassAssignment, teacher: UserAccount): boolean => {
+  const teacherKeys = [teacher.username, teacher.email, teacher.targetId]
+    .map(normalizeTeacherIdentity)
+    .filter(Boolean);
+  const assignmentKeys = [assignment.teacherId, resolveAssignmentTeacherLogin(assignment)]
+    .map(normalizeTeacherIdentity)
+    .filter(Boolean);
+
+  if (teacherKeys.some(key => assignmentKeys.includes(key))) return true;
+
+  const teacherName = normalizeTeacherName(teacher.name);
+  const assignmentTeacherName = normalizeTeacherName(assignment.teacherName);
+  return !!teacherName && !!assignmentTeacherName && (
+    teacherName === assignmentTeacherName ||
+    teacherName.includes(assignmentTeacherName) ||
+    assignmentTeacherName.includes(teacherName)
   );
 };
 
-interface ErrorBoundaryProps {
-  children: React.ReactNode;
-}
 
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-}
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  declare props: ErrorBoundaryProps;
-  state: ErrorBoundaryState = {
-    hasError: false,
-    error: null
+const sanitizeStorageFileName = (fileName: string) => {
+  return fileName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase() || "image";
+};
+
+const buildThemeStoragePath = (folder: "logos" | "backgrounds", file: File, index = 0) => {
+  const safeName = sanitizeStorageFileName(file.name || "image");
+  const extensionMatch = safeName.match(/\.[a-z0-9]+$/i);
+  const extension = extensionMatch ? extensionMatch[0] : "";
+  const baseName = safeName.replace(/\.[^.]+$/, "") || "image";
+  const randomId = typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+
+  return `theme/${folder}/${Date.now()}-${index}-${randomId}-${baseName}${extension}`;
+};
+
+const getThemeStoragePathFromDownloadUrl = (url?: string): string | null => {
+  if (!url || !url.includes("firebasestorage.googleapis.com")) return null;
+
+  try {
+    const match = url.match(/\/o\/([^?]+)/);
+    if (!match?.[1]) return null;
+
+    const decodedPath = decodeURIComponent(match[1]);
+    return decodedPath.startsWith("theme/") ? decodedPath : null;
+  } catch (err) {
+    console.warn("Unable to parse Firebase Storage URL", err);
+    return null;
+  }
+};
+
+const getCompactThemeConfig = (config: Partial<ThemeConfig> = {}): ThemeConfig => {
+  const rawBgUrls = [
+    ...(Array.isArray(config.loginBgUrls) ? config.loginBgUrls : []),
+    ...(config.loginBgUrl ? [config.loginBgUrl] : [])
+  ];
+  const compactBgUrls = Array.from(
+    new Set(rawBgUrls.map(url => sanitizeThemeImageUrl(url)).filter(Boolean))
+  ).slice(0, THEME_BACKGROUND_LIMIT);
+
+  return {
+    loginTitle: sanitizeTextField(config.loginTitle, 300),
+    loginSubtitle: sanitizeTextField(config.loginSubtitle, 500),
+    logoUrl: sanitizeThemeImageUrl(config.logoUrl),
+    loginBgUrl: compactBgUrls[0] || "",
+    loginBgUrls: compactBgUrls,
+    bgTransitionInterval: typeof config.bgTransitionInterval === "number" && !isNaN(config.bgTransitionInterval) ? config.bgTransitionInterval : 5,
+    bgOverlayOpacity: typeof config.bgOverlayOpacity === "number" && !isNaN(config.bgOverlayOpacity) ? config.bgOverlayOpacity : 0.75,
+    contactAddress: sanitizeTextField(config.contactAddress, 500),
+    contactEmail: sanitizeTextField(config.contactEmail, 200),
+    contactPhone: sanitizeTextField(config.contactPhone, 200)
+  };
+};
+
+const hasLegacyInlineThemeImages = (config: Partial<ThemeConfig> = {}) => {
+  return isLegacyInlineImage(config.logoUrl)
+    || isLegacyInlineImage(config.loginBgUrl)
+    || Boolean(config.loginBgUrls?.some(isLegacyInlineImage));
+};
+
+const isThemeDocumentDirtyAfterCompaction = (rawConfig: Partial<ThemeConfig>, compactConfig: ThemeConfig) => {
+  if (hasLegacyInlineThemeImages(rawConfig)) return true;
+  if (getJsonSizeBytes(rawConfig) > THEME_FIRESTORE_SAFE_BYTES) return true;
+
+  const comparableRaw = {
+    loginTitle: rawConfig.loginTitle || "",
+    loginSubtitle: rawConfig.loginSubtitle || "",
+    logoUrl: rawConfig.logoUrl || "",
+    loginBgUrl: rawConfig.loginBgUrl || "",
+    loginBgUrls: Array.isArray(rawConfig.loginBgUrls) ? rawConfig.loginBgUrls : [],
+    bgTransitionInterval: rawConfig.bgTransitionInterval ?? 5,
+    bgOverlayOpacity: rawConfig.bgOverlayOpacity ?? 0.75,
+    contactAddress: rawConfig.contactAddress || "",
+    contactEmail: rawConfig.contactEmail || "",
+    contactPhone: rawConfig.contactPhone || ""
   };
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
-  }
+  return JSON.stringify(comparableRaw) !== JSON.stringify(compactConfig);
+};
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("ErrorBoundary caught error:", error, errorInfo);
-    // Automatic silent self-healing mechanism:
-    // Clear corrupted local session cache once and auto-reload page seamlessly after 400ms
-    const autoRecoveredKey = "unihub_auto_heal_attempted";
-    if (!sessionStorage.getItem(autoRecoveredKey)) {
-      sessionStorage.setItem(autoRecoveredKey, "true");
-      try {
-        localStorage.removeItem("unihub_current_user");
-        localStorage.removeItem("unihub_theme_config");
-        localStorage.removeItem("unihub_custom_classes");
-      } catch {}
-      setTimeout(() => {
-        window.location.reload();
-      }, 400);
+const compressImageToMaxDimensions = (
+  file: File,
+  maxWidth = 1920,
+  maxHeight = 1080,
+  quality = 0.82,
+  maxBytes = THEME_MAX_IMAGE_BYTES
+): Promise<File> => {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith("image/") || file.type === "image/svg+xml" || file.type === "image/gif") {
+      resolve(file);
+      return;
     }
+
+    const objectUrl = URL.createObjectURL(file);
+    const img = new window.Image();
+
+    const cleanupObjectUrl = () => URL.revokeObjectURL(objectUrl);
+
+    img.onload = () => {
+      cleanupObjectUrl();
+
+      const originalWidth = img.naturalWidth || img.width;
+      const originalHeight = img.naturalHeight || img.height;
+      if (!originalWidth || !originalHeight) {
+        resolve(file);
+        return;
+      }
+
+      let width = originalWidth;
+      let height = originalHeight;
+
+      if (width > maxWidth || height > maxHeight) {
+        const scale = Math.min(maxWidth / width, maxHeight / height);
+        width = Math.max(1, Math.round(width * scale));
+        height = Math.max(1, Math.round(height * scale));
+      }
+
+      const resized = width !== originalWidth || height !== originalHeight;
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const releaseCanvasMemory = () => {
+        canvas.width = 1;
+        canvas.height = 1;
+      };
+
+      const ctx = canvas.getContext("2d", { alpha: false });
+      if (!ctx) {
+        releaseCanvasMemory();
+        resolve(file);
+        return;
+      }
+
+      try {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, width, height);
+      } catch (drawErr) {
+        console.warn("Canvas draw failed, using original image", drawErr);
+        releaseCanvasMemory();
+        resolve(file);
+        return;
+      }
+
+      const encodeJpeg = (attemptQuality: number) => {
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              releaseCanvasMemory();
+              resolve(file);
+              return;
+            }
+
+            const nextQuality = Number((attemptQuality - 0.1).toFixed(2));
+            if (blob.size > maxBytes && nextQuality >= 0.55) {
+              encodeJpeg(nextQuality);
+              return;
+            }
+
+            const compressedFileName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+            const compressedFile = new File([blob], compressedFileName, {
+              type: "image/jpeg",
+              lastModified: Date.now()
+            });
+
+            const shouldUseCompressed = resized || file.size > maxBytes || compressedFile.size < file.size;
+            releaseCanvasMemory();
+            resolve(shouldUseCompressed ? compressedFile : file);
+          },
+          "image/jpeg",
+          Math.min(Math.max(attemptQuality, 0.55), 0.92)
+        );
+      };
+
+      encodeJpeg(quality);
+    };
+
+    img.onerror = () => {
+      cleanupObjectUrl();
+      resolve(file);
+    };
+
+    img.src = objectUrl;
+  });
+};
+
+const uploadImageToImgBB = async (file: File): Promise<string> => {
+  const formData = new FormData();
+  formData.append("image", file);
+  const apiKey = "6d70444736614f9693d038d3f8f6e468";
+  const res = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+    method: "POST",
+    body: formData
+  });
+
+  if (!res.ok) {
+    throw new Error(`ImgBB HTTP error ${res.status}`);
   }
 
-  handleResetCache = () => {
+  const data = await res.json();
+  if (data && data.success && data.data && (data.data.display_url || data.data.url)) {
+    return data.data.display_url || data.data.url;
+  }
+  throw new Error("ImgBB upload failed: " + (data?.error?.message || "Invalid response"));
+};
+
+const uploadImageToFreeImageHost = async (file: File): Promise<string> => {
+  const formData = new FormData();
+  formData.append("source", file);
+  formData.append("action", "upload");
+  const apiKey = "6d04526721921a97d91d092c24479e0a";
+  const res = await fetch(`https://freeimage.host/api/1/upload?key=${apiKey}`, {
+    method: "POST",
+    body: formData
+  });
+
+  if (!res.ok) {
+    throw new Error(`FreeImageHost HTTP error ${res.status}`);
+  }
+
+  const data = await res.json();
+  if (data && data.status_code === 200 && data.image && (data.image.url || data.image.display_url)) {
+    return data.image.url || data.image.display_url;
+  }
+  throw new Error("FreeImageHost upload failed: " + (data?.error?.message || "Invalid response"));
+};
+
+const uploadThemeImageToStorage = async (file: File, folder: "logos" | "backgrounds", index = 0) => {
+  if (!file.type.startsWith("image/")) {
+    throw new Error(`${file.name} không phải là tệp ảnh hợp lệ.`);
+  }
+
+  let fileToUpload = file;
+  try {
+    const compressionProfile = folder === "logos"
+      ? { maxWidth: 768, maxHeight: 768, quality: 0.86 }
+      : { maxWidth: 1920, maxHeight: 1080, quality: 0.82 };
+
+    fileToUpload = await compressImageToMaxDimensions(
+      file,
+      compressionProfile.maxWidth,
+      compressionProfile.maxHeight,
+      compressionProfile.quality,
+      THEME_MAX_IMAGE_BYTES
+    );
+  } catch (compressErr) {
+    console.warn("Client compression failed, using original file", compressErr);
+  }
+
+  // 1. Try Firebase Storage
+  try {
+    const path = buildThemeStoragePath(folder, fileToUpload, index);
+    const imageRef = storageRef(storage, path);
+    const snapshot = await uploadBytes(imageRef, fileToUpload, {
+      contentType: fileToUpload.type || "image/jpeg",
+      customMetadata: {
+        originalName: file.name,
+        uploadedFor: folder === "logos" ? "login-logo" : "login-background"
+      }
+    });
+    return await getDownloadURL(snapshot.ref);
+  } catch (storageErr: any) {
+    console.warn("Firebase Storage failed (likely CORS or Spark plan limit), trying ImgBB Cloud...", storageErr);
+  }
+
+  // 2. Try ImgBB Cloud
+  try {
+    return await uploadImageToImgBB(fileToUpload);
+  } catch (imgbbErr) {
+    console.warn("ImgBB failed, trying FreeImageHost...", imgbbErr);
+  }
+
+  // 3. Try FreeImageHost Cloud
+  return await uploadImageToFreeImageHost(fileToUpload);
+};
+
+const deleteThemeStorageFileFromUrl = async (url?: string) => {
+  const path = getThemeStoragePathFromDownloadUrl(url);
+  if (!path) return;
+
+  try {
+    await deleteObject(storageRef(storage, path));
+  } catch (err) {
+    console.warn("Không thể xóa tệp ảnh cũ trên Firebase Storage:", err);
+  }
+};
+
+export default function App() {
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+
+  // Sidebar navigation
+  const [activeTab, setActiveTab] = useState<ActiveTab>("DASHBOARD");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const [isDesktopCollapsed, setIsDesktopCollapsed] = useState<boolean>(() => {
     try {
-      localStorage.removeItem("unihub_current_user");
-      localStorage.removeItem("unihub_theme_config");
-      localStorage.removeItem("unihub_custom_classes");
-    } catch {}
-    window.location.href = window.location.origin;
+      return localStorage.getItem("unihub_admin_sidebar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleDesktopSidebar = () => {
+    setIsDesktopCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem("unihub_admin_sidebar_collapsed", String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
   };
 
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-6 font-sans">
-          <div className="max-w-md w-full bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-2xl space-y-4 text-center">
-            <div className="w-14 h-14 bg-rose-500/20 text-rose-400 rounded-2xl flex items-center justify-center mx-auto border border-rose-500/30">
-              <ShieldAlert size={32} />
+  const getTabTitle = (tab: ActiveTab) => {
+    switch (tab) {
+      case "DASHBOARD": return "Tổng quan hệ thống";
+      case "USERS": return "Tài khoản & Phân quyền";
+      case "DATABASE": return "Khám phá dữ liệu thô";
+      case "RULES": return "Quy chế chấm điểm";
+      case "TOOLS": return "Công cụ Hạt nhân";
+      case "FEEDBACK": return "Hòm thư góp ý";
+      case "THEME": return "Ảnh giao diện";
+      default: return "Admin";
+    }
+  };
+
+  // Interface custom theme state
+  const [themeConfig, setThemeConfig] = useState<ThemeConfig>({
+    loginBgUrl: "",
+    logoUrl: "",
+    loginTitle: "CỔNG THÔNG TIN UNIHUBHG",
+    loginSubtitle: "Chào mừng bạn đến với Phân hiệu ĐHTN tại Hà Giang - Tra cứu ngay thông tin của bạn",
+    bgOverlayOpacity: 0.75
+  });
+
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [bgUploading, setBgUploading] = useState(false);
+  const [newBgUrlInput, setNewBgUrlInput] = useState("");
+  const pendingThemeDeletionUrlsRef = useRef<Set<string>>(new Set());
+  const autoThemeCleanupAttemptedRef = useRef(false);
+
+  const queueThemeFileDeletion = (url?: string) => {
+    if (!getThemeStoragePathFromDownloadUrl(url)) return;
+    pendingThemeDeletionUrlsRef.current.add(url as string);
+  };
+
+  const flushPendingThemeFileDeletions = async (savedConfig: ThemeConfig) => {
+    const savedUrls = new Set([
+      savedConfig.logoUrl,
+      ...(savedConfig.loginBgUrls || []),
+      savedConfig.loginBgUrl
+    ].filter(Boolean) as string[]);
+    const urlsToDelete = (Array.from(pendingThemeDeletionUrlsRef.current) as string[]).filter((url: string) => !savedUrls.has(url));
+
+    pendingThemeDeletionUrlsRef.current = new Set((Array.from(pendingThemeDeletionUrlsRef.current) as string[]).filter((url: string) => savedUrls.has(url)));
+
+    if (urlsToDelete.length === 0) return;
+    await Promise.allSettled(urlsToDelete.map(deleteThemeStorageFileFromUrl));
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLogoUploading(true);
+    setStatusMessage("Đang tối ưu ảnh logo và tải lên Firebase Storage...");
+    try {
+      const previousLogoUrl = themeConfig.logoUrl;
+      const logoUrl = await uploadThemeImageToStorage(file, "logos");
+      setThemeConfig(prev => ({ ...prev, logoUrl }));
+      queueThemeFileDeletion(previousLogoUrl);
+    } catch (err: any) {
+      alert("Lỗi khi tải ảnh logo lên Firebase Storage: " + err.message);
+    } finally {
+      setLogoUploading(false);
+      setStatusMessage("");
+      if (e.target) e.target.value = ""; // Reset value so file change is always triggered
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    const previousLogoUrl = themeConfig.logoUrl;
+    setThemeConfig(prev => ({ ...prev, logoUrl: "" }));
+    queueThemeFileDeletion(previousLogoUrl);
+  };
+
+  const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const compactCurrentConfig = getCompactThemeConfig(themeConfig);
+    const currentList = compactCurrentConfig.loginBgUrls || [];
+    const availableSlots = Math.max(THEME_BACKGROUND_LIMIT - currentList.length, 0);
+
+    if (availableSlots === 0) {
+      alert(`Danh sách đã đủ ${THEME_BACKGROUND_LIMIT} ảnh. Vui lòng xóa bớt ảnh cũ trước khi tải thêm.`);
+      if (e.target) e.target.value = "";
+      return;
+    }
+
+    const filesToUpload = files.slice(0, availableSlots);
+    setBgUploading(true);
+    setStatusMessage(`Đang tối ưu và tải ${filesToUpload.length} ảnh lên Firebase Storage...`);
+
+    try {
+      const newUrls: string[] = [];
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const file = filesToUpload[i] as File; setStatusMessage(`Đang tối ưu ảnh ${i + 1}/${filesToUpload.length}: ${file.name}...`);
+        const downloadUrl = await uploadThemeImageToStorage(file, "backgrounds", i);
+        newUrls.push(downloadUrl);
+      }
+
+      setThemeConfig(prev => {
+        const compactPrev = getCompactThemeConfig(prev);
+        const updatedList = [
+          ...(compactPrev.loginBgUrls || []),
+          ...newUrls
+        ].slice(0, THEME_BACKGROUND_LIMIT);
+
+        return { 
+          ...compactPrev, 
+          loginBgUrls: updatedList,
+          loginBgUrl: updatedList[0] || ""
+        };
+      });
+
+      if (files.length > filesToUpload.length) {
+        alert(`Đã tải ${filesToUpload.length} ảnh đầu tiên. ${files.length - filesToUpload.length} ảnh còn lại chưa tải vì giới hạn ${THEME_BACKGROUND_LIMIT} ảnh nền.`);
+      }
+    } catch (err: any) {
+      alert("Lỗi khi tải ảnh nền lên Firebase Storage: " + err.message);
+    } finally {
+      setBgUploading(false);
+      setStatusMessage("");
+      if (e.target) e.target.value = ""; // Reset value so file change is always triggered
+    }
+  };
+
+  const addBgUrlToList = (newUrl: string) => {
+    if (!newUrl || isLegacyInlineImage(newUrl)) return;
+    const directUrl = convertGoogleDriveUrlToDirectUrl(newUrl);
+    setThemeConfig(prev => {
+      const compactPrev = getCompactThemeConfig(prev);
+      const currentList = compactPrev.loginBgUrls || [];
+      if (currentList.includes(directUrl)) return compactPrev;
+      const updatedList = [...currentList, directUrl].slice(0, THEME_BACKGROUND_LIMIT);
+      return {
+        ...compactPrev,
+        loginBgUrls: updatedList,
+        loginBgUrl: updatedList[0] || ""
+      };
+    });
+  };
+
+  const handleBgUrlInputSubmit = () => {
+    if (!newBgUrlInput || !newBgUrlInput.trim()) return;
+    const raw = newBgUrlInput.trim();
+
+    if (looksLikeInlineImagePayload(raw) || (raw.length > 500 && !/^https?:\/\//i.test(raw))) {
+      alert("Không được dán chuỗi ảnh Base64 vào đây (gây quá giới hạn 1MB Firestore). Vui lòng chọn nút 'Tối ưu & tải ảnh lên Storage' hoặc dán link URL HTTP/HTTPS.");
+      setNewBgUrlInput("");
+      return;
+    }
+
+    // Check if user pasted a Google Drive FOLDER link
+    if (/\/(?:drive|u\/\d+)\/folders\/([a-zA-Z0-9_-]+)/i.test(raw)) {
+      alert(
+        "⚠️ Bạn vừa dán link Thư mục Google Drive (Folder Link).\n\n" +
+        "Do chính sách bảo mật CORS của Google, trình duyệt không thể tự động chui vào folder để lấy danh sách ảnh.\n\n" +
+        "💡 MẸO LẤY TẤT CẢ LINK ẢNH TRONG FOLDER CỰC NHANH (3 GIÂY):\n" +
+        "1. Vào thư mục Google Drive của bạn ➔ Chọn (bôi đen/Ctrl+A) tất cả các ảnh.\n" +
+        "2. Chuột phải ➔ Chọn 'Sao chép liên kết' (Copy links).\n" +
+        "3. Dán tất cả vào ô này và bấm 'Thêm ảnh' ➔ Hệ thống sẽ tự bóc tách và tạo Slide chạy tự động!"
+      );
+      return;
+    }
+
+    // Extract multiple Google Drive URLs if present
+    const extractedDriveUrls = extractGoogleDriveImageUrls(raw);
+    if (extractedDriveUrls.length > 0) {
+      const currentList = getCompactThemeConfig(themeConfig).loginBgUrls || [];
+      const availableSlots = Math.max(THEME_BACKGROUND_LIMIT - currentList.length, 0);
+
+      if (availableSlots === 0) {
+        alert(`Danh sách đã đủ ${THEME_BACKGROUND_LIMIT} ảnh nền. Vui lòng xóa bớt ảnh cũ trước khi thêm.`);
+        return;
+      }
+
+      const urlsToAdd = extractedDriveUrls.slice(0, availableSlots);
+      setThemeConfig(prev => {
+        const compactPrev = getCompactThemeConfig(prev);
+        const list = compactPrev.loginBgUrls || [];
+        const newUnique = urlsToAdd.filter(u => !list.includes(u));
+        const updatedList = [...list, ...newUnique].slice(0, THEME_BACKGROUND_LIMIT);
+        return {
+          ...compactPrev,
+          loginBgUrls: updatedList,
+          loginBgUrl: updatedList[0] || ""
+        };
+      });
+
+      setNewBgUrlInput("");
+      alert(`Đã nhận diện và thêm thành công ${urlsToAdd.length} ảnh từ Google Drive vào danh sách Slide!`);
+      return;
+    }
+
+    const directUrl = convertGoogleDriveUrlToDirectUrl(raw);
+    if (!/^https?:\/\//i.test(directUrl)) {
+      alert("Đường dẫn không hợp lệ. Vui lòng nhập URL bắt đầu bằng http:// hoặc https://");
+      return;
+    }
+
+    const currentList = getCompactThemeConfig(themeConfig).loginBgUrls || [];
+    if (currentList.length >= THEME_BACKGROUND_LIMIT) {
+      alert(`Danh sách đã đủ ${THEME_BACKGROUND_LIMIT} ảnh nền. Vui lòng xóa bớt ảnh cũ trước khi thêm.`);
+      return;
+    }
+
+    addBgUrlToList(directUrl);
+    setNewBgUrlInput("");
+  };
+
+  const removeBgImage = (indexToRemove: number) => {
+    const currentList = getCompactThemeConfig(themeConfig).loginBgUrls || [];
+    const removedUrl = currentList[indexToRemove];
+    const updated = currentList.filter((_, idx) => idx !== indexToRemove);
+
+    setThemeConfig(prev => ({
+      ...getCompactThemeConfig(prev),
+      loginBgUrls: updated,
+      loginBgUrl: updated[0] || ""
+    }));
+
+    queueThemeFileDeletion(removedUrl);
+  };
+
+  const handleClearAllBgImages = () => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa tất cả ảnh nền hiện tại không? Các ảnh đã tải qua Storage sẽ được dọn dẹp sau khi bạn bấm Lưu cấu hình.")) return;
+
+    const currentList = getCompactThemeConfig(themeConfig).loginBgUrls || [];
+    currentList.forEach(queueThemeFileDeletion);
+    setThemeConfig(prev => ({ ...getCompactThemeConfig(prev), loginBgUrl: "", loginBgUrls: [] }));
+  };
+
+  // Real-time Firestore Collections state
+  const [users, setUsers] = useState<UserAccount[]>(SEED_USERS);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [activities, setActivities] = useState<ExtracurricularActivity[]>(SEED_ACTIVITIES);
+  const [attendance, setAttendance] = useState<ActivityAttendance[]>([]);
+  const [evidence, setEvidence] = useState<EvidenceSubmission[]>([]);
+  const [results, setResults] = useState<EvaluationResult[]>([]);
+  const [criteria, setCriteria] = useState<PointCriteria[]>([]);
+  const [dailyAttendance, setDailyAttendance] = useState<DailyAttendanceReport[]>([]);
+  const [schedules, setSchedules] = useState<ScheduleSlot[]>([]);
+  const [members, setMembers] = useState<OrganizationMember[]>([]);
+  const [systemFeedbacks, setSystemFeedbacks] = useState<SystemFeedback[]>([]);
+  const [teacherAssignments, setTeacherAssignments] = useState<CourseClassAssignment[]>(SEED_TEACHER_ASSIGNMENTS);
+  const [deletedClasses, setDeletedClasses] = useState<string[]>([]);
+
+  // Feedback tab search & filters state
+  const [feedbackSearch, setFeedbackSearch] = useState("");
+  const [feedbackRoleFilter, setFeedbackRoleFilter] = useState("ALL");
+  const [feedbackCategoryFilter, setFeedbackCategoryFilter] = useState("ALL");
+  const [feedbackBulkConfirmText, setFeedbackBulkConfirmText] = useState("");
+  const [showBulkConfirmModal, setShowBulkConfirmModal] = useState(false);
+
+  // System status and loading
+  const [loading, setLoading] = useState<boolean>(true);
+  const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(true);
+  const [statusMessage, setStatusMessage] = useState<string>("");
+
+  // Sub-state for lists (Search/Filters)
+  const [userSearch, setUserSearch] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState<string>("ALL");
+  const [dbSelectedCollection, setDbSelectedCollection] = useState<string>("students");
+  const [dbSearch, setDbSearch] = useState("");
+
+  // Modals state
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserAccount | null>(null);
+  const [userForm, setUserForm] = useState({
+    name: "",
+    username: "",
+    email: "",
+    role: UserRole.STUDENT,
+    password: "",
+    targetId: "",
+    monitorTitle: "Lớp trưởng"
+  });
+
+  const [showDbEditModal, setShowDbEditModal] = useState(false);
+  const [dbEditTarget, setDbEditTarget] = useState<any>(null);
+
+  // Listen to Auth State to keep session active
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (authUser) => {
+      const allowedEmails = [
+        "admin@phhg.edu.vn",
+        "cthssv@phhg.edu.vn",
+        "superadmin@unihub.edu.vn",
+        "admin@unihub.edu.vn",
+        "pcthssv@hg.edu.vn"
+      ];
+      if (authUser && authUser.email && allowedEmails.includes(authUser.email.toLowerCase())) {
+        setIsAuthenticated(true);
+        localStorage.setItem("unihub_superadmin_auth", "true");
+      } else {
+        setIsAuthenticated(false);
+        localStorage.removeItem("unihub_superadmin_auth");
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Sync database in real-time
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    setLoading(true);
+    setStatusMessage("Đang đồng bộ dữ liệu từ Firestore...");
+
+    let cachedDeletedClasses: string[] = [];
+
+    const unsubscribes = [
+      onSnapshot(doc(db, "settings", "deletedClasses"), (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          const serverDeleted: string[] = Array.isArray(data?.classes) ? data.classes.map((c: string) => normalizeClassId(c)) : [];
+          cachedDeletedClasses = serverDeleted;
+          setDeletedClasses(serverDeleted);
+          if (serverDeleted.length > 0) {
+            setStudents(prev => prev.filter(s => !serverDeleted.includes(normalizeClassId(s.classId))));
+            setSchedules(prev => prev.filter(s => !serverDeleted.includes(normalizeClassId(s.classId))));
+            setTeacherAssignments(prev => prev.filter(ta => !serverDeleted.includes(normalizeClassId(ta.classId))));
+            setResults(prev => prev.filter(r => !serverDeleted.includes(normalizeClassId(r.classId))));
+            setDailyAttendance(prev => prev.filter(da => !serverDeleted.includes(normalizeClassId(da.classId))));
+          }
+        }
+      }),
+
+      onSnapshot(collection(db, "users"), (snap) => {
+        setIsFirebaseConnected(true);
+        const list: UserAccount[] = [];
+        snap.forEach(d => {
+          const u = d.data() as UserAccount;
+          const uEmail = (u.email || "").trim().toLowerCase();
+          const uUser = (u.username || "").trim().toLowerCase();
+          // Tự động dọn dẹp tài khoản thừa / rác của Đoàn Thanh niên hoặc không có targetId
+          if (
+            uEmail === "doantnphhg@phhg.edu.vn" || 
+            uUser === "doantnphhg@phhg.edu.vn" || 
+            (u.role === UserRole.YOUTH_UNION && u.id !== "U_ORG02" && uEmail !== "doantn@phhg.edu.vn" && (!u.targetId || u.targetId !== "DOANTN"))
+          ) {
+            console.warn("Tự động xóa tài khoản Đoàn TN trùng lặp khỏi Firestore:", d.id);
+            deleteDoc(doc(db, "users", d.id)).catch(() => {});
+            return;
+          }
+          list.push(u);
+        });
+        if (list.length > 0) {
+          setUsers(list);
+        } else {
+          setUsers(SEED_USERS);
+        }
+      }, (err) => {
+        console.error("Users sync error", err);
+        setIsFirebaseConnected(false);
+      }),
+
+      onSnapshot(collection(db, "students"), (snap) => {
+        const list: Student[] = [];
+        snap.forEach(d => {
+          const s = d.data() as Student;
+          if (!cachedDeletedClasses.includes(normalizeClassId(s.classId))) {
+            list.push(s);
+          }
+        });
+        setStudents(list);
+      }),
+
+      onSnapshot(collection(db, "organizations"), (snap) => {
+        const list: Organization[] = [];
+        snap.forEach(d => list.push(d.data() as Organization));
+        setOrganizations(list);
+      }),
+
+      onSnapshot(collection(db, "activities"), (snap) => {
+        const list: ExtracurricularActivity[] = [];
+        snap.forEach(d => list.push(d.data() as ExtracurricularActivity));
+        if (list.length > 0) {
+          setActivities(list);
+        }
+      }),
+
+      onSnapshot(collection(db, "attendance"), (snap) => {
+        const list: ActivityAttendance[] = [];
+        snap.forEach(d => list.push(d.data() as ActivityAttendance));
+        setAttendance(list);
+      }),
+
+      onSnapshot(collection(db, "evidence"), (snap) => {
+        const list: EvidenceSubmission[] = [];
+        snap.forEach(d => list.push(d.data() as EvidenceSubmission));
+        setEvidence(list);
+      }),
+
+      onSnapshot(collection(db, "results"), (snap) => {
+        const list: EvaluationResult[] = [];
+        snap.forEach(d => {
+          const r = d.data() as EvaluationResult;
+          if (!cachedDeletedClasses.includes(normalizeClassId(r.classId))) {
+            list.push(r);
+          }
+        });
+        setResults(list);
+      }),
+
+      onSnapshot(collection(db, "criteria"), (snap) => {
+        const list: PointCriteria[] = [];
+        snap.forEach(d => list.push(d.data() as PointCriteria));
+        setCriteria(list.sort((a,b) => a.id.localeCompare(b.id)));
+      }),
+
+      onSnapshot(collection(db, "dailyAttendance"), (snap) => {
+        const list: DailyAttendanceReport[] = [];
+        snap.forEach(d => {
+          const da = d.data() as DailyAttendanceReport;
+          if (!cachedDeletedClasses.includes(normalizeClassId(da.classId))) {
+            list.push(da);
+          }
+        });
+        setDailyAttendance(list);
+      }),
+
+      onSnapshot(collection(db, "schedules"), (snap) => {
+        const list: ScheduleSlot[] = [];
+        snap.forEach(d => {
+          const sc = d.data() as ScheduleSlot;
+          if (!cachedDeletedClasses.includes(normalizeClassId(sc.classId))) {
+            list.push(sc);
+          }
+        });
+        setSchedules(list);
+      }),
+
+      onSnapshot(collection(db, "teacherAssignments"), (snap) => {
+        const list: CourseClassAssignment[] = [];
+        snap.forEach(d => {
+          const ta = d.data() as CourseClassAssignment;
+          if (!cachedDeletedClasses.includes(normalizeClassId(ta.classId))) {
+            list.push(ta);
+          }
+        });
+        setTeacherAssignments(list);
+      }),
+
+      onSnapshot(collection(db, "members"), (snap) => {
+        const list: OrganizationMember[] = [];
+        snap.forEach(d => list.push(d.data() as OrganizationMember));
+        setMembers(list);
+      }),
+
+      onSnapshot(collection(db, "systemFeedbacks"), (snap) => {
+        const list: SystemFeedback[] = [];
+        snap.forEach(d => list.push(d.data() as SystemFeedback));
+        list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setSystemFeedbacks(list);
+      }),
+
+      onSnapshot(doc(db, "systemConfig", "theme"), (docSnap) => {
+        if (docSnap.exists()) {
+          const rawConfig = docSnap.data() as Partial<ThemeConfig>;
+          const compactConfig = getCompactThemeConfig(rawConfig);
+          setThemeConfig(compactConfig);
+
+          if (isThemeDocumentDirtyAfterCompaction(rawConfig, compactConfig) && !autoThemeCleanupAttemptedRef.current) {
+            autoThemeCleanupAttemptedRef.current = true;
+            setStatusMessage("Phát hiện dữ liệu ảnh Base64 cũ, đang tự dọn Firestore...");
+
+            setDoc(doc(db, "systemConfig", "theme"), compactConfig, { merge: false })
+              .then(() => {
+                console.info("Legacy theme Base64 payload was automatically cleaned.");
+                setStatusMessage("Đã tự dọn dữ liệu ảnh cũ Base64 khỏi Firestore.");
+                window.setTimeout(() => setStatusMessage(""), 2500);
+              })
+              .catch((err) => {
+                console.error("Auto-clean legacy theme payload failed", err);
+                setStatusMessage("Không thể tự dọn dữ liệu Base64. Vui lòng dùng tài khoản Admin có quyền ghi và bấm nút dọn dẹp.");
+              });
+          }
+        }
+      })
+    ];
+
+    setLoading(false);
+    setIsFirebaseConnected(true);
+    setStatusMessage("");
+
+    // Cleanup listeners on unmount
+    return () => {
+      unsubscribes.forEach(unsub => unsub());
+    };
+  }, [isAuthenticated]);
+
+  // Admin Portal is read-only for Giảng viên Bộ môn.
+  // Teacher accounts are displayed from Firestore `users` plus `teacherAssignments` below,
+  // but this page must not create extra teacher accounts to avoid lệch phân công từ Phòng Đào tạo.
+
+
+  // Handle Login
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    let email = loginEmail.trim();
+    const password = loginPassword.trim();
+    setLoginError("");
+
+    if (!email || !password) {
+      setLoginError("Vui lòng điền đầy đủ tài khoản/email và mật khẩu.");
+      return;
+    }
+
+    const cleanInput = email.toLowerCase();
+
+    // Auto-normalize email
+    if (!email.includes("@")) {
+      if (cleanInput === "pcthssv" || cleanInput === "cthssv") email = "cthssv@phhg.edu.vn";
+      else if (cleanInput === "admin" || cleanInput === "superadmin") email = "admin@phhg.edu.vn";
+      else email = `${cleanInput}@phhg.edu.vn`;
+    }
+
+    try {
+      let userCredential = null;
+      try {
+        userCredential = await signInWithEmailAndPassword(auth, email, password);
+      } catch (firstErr: any) {
+        // Fallback for legacy credentials if new @phhg.edu.vn account is not yet provisioned in Firebase Auth
+        if (firstErr.code === "auth/user-not-found" || firstErr.code === "auth/invalid-credential") {
+          let fallbackEmail: string | null = null;
+          if (email === "admin@phhg.edu.vn") fallbackEmail = "superadmin@unihub.edu.vn";
+          else if (email === "cthssv@phhg.edu.vn") fallbackEmail = "pcthssv@hg.edu.vn";
+          
+          if (fallbackEmail) {
+            try {
+              userCredential = await signInWithEmailAndPassword(auth, fallbackEmail, password);
+            } catch {
+              throw firstErr;
+            }
+          } else {
+            throw firstErr;
+          }
+        } else {
+          throw firstErr;
+        }
+      }
+
+      const allowedAdminEmails = [
+        "admin@phhg.edu.vn",
+        "cthssv@phhg.edu.vn",
+        "superadmin@unihub.edu.vn",
+        "admin@unihub.edu.vn",
+        "pcthssv@hg.edu.vn"
+      ];
+      const userEmail = (userCredential?.user?.email || "").toLowerCase();
+      if (!userCredential?.user || !allowedAdminEmails.includes(userEmail)) {
+        await signOut(auth).catch(() => {});
+        setIsAuthenticated(false);
+        localStorage.removeItem("unihub_superadmin_auth");
+        setLoginError("Tài khoản không có quyền quản trị Super Admin.");
+        return;
+      }
+
+      setIsAuthenticated(true);
+      localStorage.setItem("unihub_superadmin_auth", "true");
+
+      recordSystemVisit({ role: "ADMIN", username: userEmail, name: "Super Admin" }, "ADMIN_PORTAL").catch(() => {});
+    } catch (err: any) {
+      if (err.code === "auth/operation-not-allowed") {
+        setLoginError("Lỗi: Phương thức đăng nhập bằng Email/Password chưa được kích hoạt trong Firebase Console.");
+      } else if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
+        setLoginError("Tài khoản hoặc mật khẩu không chính xác.");
+      } else {
+        setLoginError("Đăng nhập thất bại: " + (err.message || "Kiểm tra lại tài khoản và mật khẩu."));
+      }
+    }
+  };
+
+  const handleSaveThemeConfig = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setLoading(true);
+    setStatusMessage("Đang lưu cấu hình giao diện...");
+    try {
+      const compactThemeConfig = getCompactThemeConfig(themeConfig);
+      const removedLegacyImages = hasLegacyInlineThemeImages(themeConfig);
+
+      // CRITICAL: Final safety net - strip ANY data:/blob: URLs that may have leaked into state
+      const isInlineData = (u?: string) => !!u && (u.startsWith("data:") || u.startsWith("blob:") || u.length > 5000);
+      const safeConfig = {
+        ...compactThemeConfig,
+        logoUrl: isInlineData(compactThemeConfig.logoUrl) ? "" : compactThemeConfig.logoUrl,
+        loginBgUrl: isInlineData(compactThemeConfig.loginBgUrl) ? "" : compactThemeConfig.loginBgUrl,
+        loginBgUrls: (compactThemeConfig.loginBgUrls || []).filter(u => !isInlineData(u))
+      };
+      safeConfig.loginBgUrl = safeConfig.loginBgUrls[0] || "";
+
+      const payloadSize = getJsonSizeBytes(safeConfig);
+      if (payloadSize > THEME_FIRESTORE_SAFE_BYTES) {
+        throw new Error(`Payload cấu hình (${formatFileSize(payloadSize)}) vẫn vượt ngưỡng an toàn Firestore. Vui lòng xóa ảnh cũ và thử lại.`);
+      }
+
+      await setDoc(doc(db, "systemConfig", "theme"), safeConfig, { merge: false });
+      setThemeConfig(safeConfig);
+
+      if (pendingThemeDeletionUrlsRef.current.size > 0) {
+        setStatusMessage("Đang dọn dẹp ảnh cũ trên Firebase Storage...");
+        await flushPendingThemeFileDeletions(safeConfig);
+      }
+
+      alert(removedLegacyImages
+        ? "Đã lưu cấu hình thành công. Ảnh cũ dạng Base64 đã được loại bỏ khỏi Firestore; vui lòng tải lại ảnh gốc qua Firebase Storage nếu cần."
+        : "Đã lưu cấu hình Ảnh & Giao diện thành công!");
+    } catch (err: any) {
+      console.error("Save theme config error", err);
+      alert("Lỗi khi lưu cấu hình giao diện: " + err.message);
+    } finally {
+      setLoading(false);
+      setStatusMessage("");
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error("Logout error", err);
+    }
+    setIsAuthenticated(false);
+    localStorage.removeItem("unihub_superadmin_auth");
+  };
+
+  // User management actions
+  const openUserModal = (user: UserAccount | null) => {
+    setSelectedUser(user);
+    if (user) {
+      setUserForm({
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        password: (user as any).password || "123456",
+        targetId: user.targetId || "",
+        monitorTitle: user.monitorTitle || "Lớp trưởng"
+      });
+    } else {
+      setUserForm({
+        name: "",
+        username: "",
+        email: "",
+        role: UserRole.STUDENT,
+        password: "password123",
+        targetId: "",
+        monitorTitle: "Lớp trưởng"
+      });
+    }
+    setShowUserModal(true);
+  };
+
+  const saveUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedUser?.role === UserRole.TEACHER || userForm.role === UserRole.TEACHER) {
+      alert("Tài khoản Giảng viên Bộ môn chỉ được cấp/cập nhật từ Phòng Đào tạo theo phân công giảng dạy. Admin chỉ được xem chi tiết để hỗ trợ.");
+      return;
+    }
+    try {
+      let targetEmail = (userForm.email || "").trim();
+      if (!targetEmail) {
+        const username = (userForm.username || "").trim();
+        targetEmail = username.includes("@") ? username : `${username}@phhg.edu.vn`;
+      }
+
+      let resolvedTargetId = userForm.targetId ? userForm.targetId.trim() : "";
+      if (userForm.role === UserRole.STUDENT) {
+        const studentInTraining = students.find(s => 
+          (s.id && s.id.trim().toLowerCase() === userForm.username.trim().toLowerCase()) ||
+          (s.email && s.email.trim().toLowerCase() === userForm.username.trim().toLowerCase())
+        );
+        if (!studentInTraining) {
+          alert("Lỗi quy chuẩn Sinh viên: Tên đăng nhập phải là Mã sinh viên đã có trong danh sách của Phòng Đào tạo!");
+          return;
+        }
+        resolvedTargetId = studentInTraining.id;
+      }
+      if (!resolvedTargetId) {
+        if (userForm.role === UserRole.YOUTH_UNION) resolvedTargetId = "DOANTN";
+        else if (userForm.role === UserRole.STUDENT_UNION) resolvedTargetId = "HOISV";
+        else if (userForm.role === UserRole.CLUB_MANAGER || userForm.role === UserRole.ORGANIZER) {
+          const matchedOrg = organizations.find(o => 
+            (userForm.name && o.name.toLowerCase().includes(userForm.name.toLowerCase())) ||
+            (userForm.username && userForm.username.toLowerCase().includes(o.id.toLowerCase()))
+          );
+          resolvedTargetId = matchedOrg ? matchedOrg.id : (userForm.username.split("@")[0].toUpperCase() || `CLB_${Date.now()}`);
+        }
+      }
+
+      if (userForm.role === UserRole.CLASS_MONITOR || userForm.role === UserRole.ADVISER) {
+        if (resolvedTargetId) {
+          resolvedTargetId = normalizeClassId(resolvedTargetId);
+        }
+      }
+
+      // === QUY TẮC BẮT BUỘC: Mỗi tổ chức, phòng ban, lớp chỉ có DUY NHẤT 1 tài khoản ===
+      const editingId = selectedUser ? selectedUser.id : null;
+      if (userForm.role === UserRole.YOUTH_UNION) {
+        const dupYouth = users.find(u => u.id !== editingId && u.role === UserRole.YOUTH_UNION);
+        if (dupYouth) {
+          alert(`Quy tắc hệ thống: Đoàn Thanh niên chỉ được có DUY NHẤT 1 tài khoản! Đã tồn tại tài khoản: ${dupYouth.username || dupYouth.email}`);
+          return;
+        }
+      } else if (userForm.role === UserRole.STUDENT_UNION) {
+        const dupHoi = users.find(u => u.id !== editingId && u.role === UserRole.STUDENT_UNION);
+        if (dupHoi) {
+          alert(`Quy tắc hệ thống: Hội Sinh viên chỉ được có DUY NHẤT 1 tài khoản! Đã tồn tại tài khoản: ${dupHoi.username || dupHoi.email}`);
+          return;
+        }
+      } else if (userForm.role === UserRole.TRAINING_DEPT) {
+        const dupDaoTao = users.find(u => u.id !== editingId && u.role === UserRole.TRAINING_DEPT);
+        if (dupDaoTao) {
+          alert(`Quy tắc hệ thống: Phòng Đào tạo chỉ được có DUY NHẤT 1 tài khoản! Đã tồn tại tài khoản: ${dupDaoTao.username || dupDaoTao.email}`);
+          return;
+        }
+      } else if (userForm.role === UserRole.CLUB_MANAGER || userForm.role === UserRole.ORGANIZER) {
+        if (resolvedTargetId) {
+          const dupClub = users.find(u => u.id !== editingId && (u.role === UserRole.CLUB_MANAGER || u.role === UserRole.ORGANIZER) && (u.targetId || "").toUpperCase() === resolvedTargetId.toUpperCase());
+          if (dupClub) {
+            alert(`Quy tắc hệ thống: Mỗi Câu lạc bộ/Tổ chức chỉ được có DUY NHẤT 1 tài khoản! Đơn vị "${resolvedTargetId}" đã có tài khoản: ${dupClub.username || dupClub.email}`);
+            return;
+          }
+        }
+      } else if (userForm.role === UserRole.FACULTY) {
+        if (resolvedTargetId) {
+          const dupFac = users.find(u => u.id !== editingId && u.role === UserRole.FACULTY && (u.targetId || "").toUpperCase() === resolvedTargetId.toUpperCase());
+          if (dupFac) {
+            alert(`Quy tắc hệ thống: Mỗi Khoa chỉ được có DUY NHẤT 1 tài khoản! Khoa "${resolvedTargetId}" đã có tài khoản: ${dupFac.username || dupFac.email}`);
+            return;
+          }
+        }
+      } else if (userForm.role === UserRole.CLASS_MONITOR) {
+        if (resolvedTargetId) {
+          const dupMon = users.find(u => u.id !== editingId && u.role === UserRole.CLASS_MONITOR && (u.targetId || "").toUpperCase() === resolvedTargetId.toUpperCase());
+          if (dupMon) {
+            alert(`Quy tắc hệ thống: Mỗi Lớp chỉ được có DUY NHẤT 1 tài khoản Ban cán sự! Lớp "${resolvedTargetId}" đã có tài khoản: ${dupMon.username || dupMon.email}`);
+            return;
+          }
+        }
+      } else if (userForm.role === UserRole.ADVISER) {
+        if (resolvedTargetId) {
+          const dupAdv = users.find(u => u.id !== editingId && u.role === UserRole.ADVISER && (u.targetId || "").toUpperCase() === resolvedTargetId.toUpperCase());
+          if (dupAdv) {
+            alert(`Quy tắc hệ thống: Mỗi Lớp chỉ được có DUY NHẤT 1 tài khoản Cố vấn học tập! Lớp "${resolvedTargetId}" đã có tài khoản: ${dupAdv.username || dupAdv.email}`);
+            return;
+          }
+        }
+      }
+
+      const cleanUsername = userForm.username.trim();
+      const cleanEmail = targetEmail.trim();
+
+      if (!selectedUser) {
+        const dupAccount = users.find(u => 
+          (u.username && u.username.trim().toLowerCase() === cleanUsername.toLowerCase()) ||
+          (u.email && u.email.trim().toLowerCase() === cleanEmail.toLowerCase())
+        );
+        if (dupAccount) {
+          alert(`Tài khoản hoặc email "${cleanUsername}" đã tồn tại trên hệ thống! Vui lòng dùng tên đăng nhập khác.`);
+          return;
+        }
+      }
+      const cleanName = userForm.name.trim();
+      const targetPassword = userForm.password && userForm.password.trim() ? userForm.password.trim() : ((selectedUser as any)?.password || "123456");
+
+      const userData: Record<string, any> = {
+        name: cleanName,
+        username: cleanUsername,
+        email: cleanEmail,
+        role: userForm.role,
+        password: targetPassword
+      };
+      if (resolvedTargetId) {
+        userData.targetId = resolvedTargetId;
+      }
+      if (userForm.role === UserRole.CLASS_MONITOR && userForm.monitorTitle) {
+        userData.monitorTitle = userForm.monitorTitle;
+      }
+
+      const firestoreUser = sanitizeForFirestore(userData);
+      if (selectedUser) {
+        // === EDITING existing user ===
+        firestoreUser.id = selectedUser.id;
+        await setDoc(doc(db, "users", selectedUser.id), firestoreUser, { merge: true });
+      } else {
+        // === CREATING new user ===
+        const targetDocId = cleanEmail || `U_GEN_${Date.now()}`;
+        firestoreUser.id = targetDocId;
+        await setDoc(doc(db, "users", targetDocId), firestoreUser);
+      }
+
+      // Sync any duplicate docs for the same email/username so credentials remain synchronized
+      const otherMatchingDocs = users.filter(u => 
+        u.id !== firestoreUser.id && (
+          (u.email && u.email.trim().toLowerCase() === cleanEmail.toLowerCase()) ||
+          (u.username && u.username.trim().toLowerCase() === cleanUsername.toLowerCase())
+        )
+      );
+      for (const dup of otherMatchingDocs) {
+        await setDoc(doc(db, "users", dup.id), { ...firestoreUser, id: dup.id }, { merge: true }).catch(() => {});
+      }
+
+      // Auto-upsert matching Organization document for org accounts so CTHSSV portal renders it
+      if (isOrgRole(userForm.role) && resolvedTargetId) {
+        const orgType = userForm.role === UserRole.YOUTH_UNION ? "DOAN" : (userForm.role === UserRole.STUDENT_UNION ? "HOI" : "CLB");
+        const orgDoc = {
+          id: resolvedTargetId,
+          name: userForm.name || "Tổ chức / CLB",
+          type: orgType,
+          leaderName: "Trưởng ban quản lý",
+          field: "Hoạt động sinh viên",
+          level: "TRUONG"
+        };
+        await setDoc(doc(db, "organizations", resolvedTargetId), orgDoc, { merge: true }).catch(() => {});
+      }
+
+      setShowUserModal(false);
+      setTimeout(() => {
+        alert("Đã lưu thông tin tài khoản thành công!");
+      }, 50);
+    } catch (err: any) {
+      console.error("Save user error:", err);
+      alert("Lỗi khi lưu tài khoản: " + (err?.message || err));
+    }
+  };
+
+  const deleteUser = async (id: string, name: string) => {
+    if (confirm(`Bạn có chắc chắn muốn xóa tài khoản "${name}"?`)) {
+      try {
+        const userToDelete = users.find(u => u.id === id);
+        if (userToDelete?.role === UserRole.TEACHER) {
+          alert("Không thể xóa tài khoản Giảng viên Bộ môn trên Admin. Vui lòng điều chỉnh/xóa phân công tại Phòng Đào tạo để đảm bảo đồng bộ nghiệp vụ.");
+          return;
+        }
+        await deleteDoc(doc(db, "users", id));
+        if (userToDelete && isOrgRole(userToDelete.role) && userToDelete.targetId) {
+          await deleteDoc(doc(db, "organizations", userToDelete.targetId)).catch(() => {});
+        }
+        alert("Đã xóa tài khoản thành công.");
+      } catch (err) {
+        alert("Lỗi khi xóa tài khoản: " + err);
+      }
+    }
+  };
+
+  const handleDeleteFeedback = async (id: string) => {
+    if (confirm("Bạn có chắc chắn muốn xóa thư góp ý này vĩnh viễn không?")) {
+      try {
+        await deleteDoc(doc(db, "systemFeedbacks", id));
+        alert("Đã xóa thư góp ý thành công.");
+      } catch (err) {
+        alert("Lỗi khi xóa góp ý: " + err);
+      }
+    }
+  };
+
+  const handleBulkDeleteFeedback = async () => {
+    if (feedbackBulkConfirmText !== "CONFIRM") {
+      alert("Vui lòng nhập chính xác chữ 'CONFIRM' để xác nhận xóa hàng loạt!");
+      return;
+    }
+    try {
+      setLoading(true);
+      setStatusMessage("Đang xóa hàng loạt thư góp ý...");
+      const snap = await getDocs(collection(db, "systemFeedbacks"));
+      const deletePromises = snap.docs.map(d => deleteDoc(doc(db, "systemFeedbacks", d.id)));
+      await Promise.all(deletePromises);
+      alert(`Đã xóa hàng loạt thành công ${snap.size} thư góp ý vĩnh viễn.`);
+      setFeedbackBulkConfirmText("");
+      setShowBulkConfirmModal(false);
+    } catch (err) {
+      alert("Lỗi khi xóa hàng loạt: " + err);
+    } finally {
+      setLoading(false);
+      setStatusMessage("");
+    }
+  };
+
+  // Masquerade: Disabled safely
+  const impersonate = (_username?: string) => {
+    alert("Tính năng giả lập phiên (Masquerade) đã bị vô hiệu hóa an toàn. Cần triển khai backend signed impersonation token & audit log.");
+  };
+
+  const translateRole = (role: UserRole, user?: any) => {
+    switch (role) {
+      case UserRole.STUDENT: return "Sinh viên";
+      case UserRole.GROUP_LEADER: return "Tổ trưởng";
+      case UserRole.CLASS_MONITOR: 
+        if (user?.isGroupLeader) return `Tổ trưởng (${user.groupInCharge || 'Tổ'})`;
+        return user?.monitorTitle || "Lớp trưởng (BCS)";
+      case UserRole.ADVISER: return "Cố vấn học tập (CVHT)";
+      case UserRole.TEACHER: return "Giảng viên Bộ môn";
+      case UserRole.ORGANIZER: return "CLB / Đoàn / Hội";
+      case UserRole.CLUB_MANAGER: return "Câu lạc bộ";
+      case UserRole.YOUTH_UNION: return "Đoàn Thanh niên";
+      case UserRole.STUDENT_UNION: return "Hội Sinh viên";
+      case UserRole.FACULTY: return "Văn phòng Khoa";
+      case UserRole.TRAINING_DEPT: return "Phòng Đào tạo";
+      case UserRole.ADMIN: return "Phòng CTHSSV (Admin)";
+      default: return role;
+    }
+  };
+
+  // Point criteria rules override
+  const updateRulePoints = async (critId: string, ruleId: string, newPoints: number) => {
+    const critObj = criteria.find(c => c.id === critId);
+    if (!critObj) return;
+
+    const updatedRules = critObj.rules.map(r => {
+      if (r.id === ruleId) {
+        return { ...r, points: newPoints };
+      }
+      return r;
+    });
+
+    const updatedCrit = {
+      ...critObj,
+      rules: updatedRules
+    };
+
+    try {
+      await setDoc(doc(db, "criteria", critId), updatedCrit);
+      alert(`Đã cập nhật quy tắc ${ruleId} thành ${newPoints} điểm.`);
+    } catch (err) {
+      alert("Lỗi khi lưu quy chế: " + err);
+    }
+  };
+
+  // Recalculate Evaluation Results for all students based on currently loaded criteria
+  const runScoreRecalculation = async () => {
+    if (students.length === 0) return;
+    setStatusMessage("Đang tính toán lại điểm rèn luyện toàn trường...");
+    setLoading(true);
+
+    const getRulePoints = (cid: string, rid: string, defaultPoints: number): number => {
+      const critObj = criteria.find(c => c.id === cid);
+      const ruleObj = critObj?.rules.find(r => r.id === rid);
+      return ruleObj !== undefined ? ruleObj.points : defaultPoints;
+    };
+
+    try {
+      for (const student of students) {
+        const logs: EvaluationResult["logs"] = [];
+        const timestampNow = new Date().toISOString().split("T")[0];
+
+        // 1. TC1: Học tập (Max 20)
+        let studyPoints = 0;
+        const semId = "HOCKY_2_2025_2026";
+        const periodData = student.academicDataByPeriod?.[semId] || {};
+        const studentGpa = periodData.gpa ?? student.gpa;
+        const hasWarning = periodData.learningWarning ?? student.learningWarning;
+
+        if (studentGpa !== undefined) {
+          if (studentGpa >= 3.6) {
+            const pt = getRulePoints("TC1", "TC1.1", 20);
+            studyPoints = pt;
+            logs.push({ criteriaId: "TC1.1", points: pt, reason: `GPA học tập đạt loại Xuất sắc (${studentGpa})`, source: "ĐÀO TẠO", timestamp: timestampNow });
+          } else if (studentGpa >= 3.2) {
+            const pt = getRulePoints("TC1", "TC1.2", 18);
+            studyPoints = pt;
+            logs.push({ criteriaId: "TC1.2", points: pt, reason: `GPA học tập đạt loại Giỏi (${studentGpa})`, source: "ĐÀO TẠO", timestamp: timestampNow });
+          } else if (studentGpa >= 2.5) {
+            const pt = getRulePoints("TC1", "TC1.3", 15);
+            studyPoints = pt;
+            logs.push({ criteriaId: "TC1.3", points: pt, reason: `GPA học tập đạt loại Khá (${studentGpa})`, source: "ĐÀO TẠO", timestamp: timestampNow });
+          } else if (studentGpa >= 2.0) {
+            const pt = getRulePoints("TC1", "TC1.4", 10);
+            studyPoints = pt;
+            logs.push({ criteriaId: "TC1.4", points: pt, reason: `GPA học tập đạt loại Trung bình (${studentGpa})`, source: "ĐÀO TẠO", timestamp: timestampNow });
+          }
+        }
+        if (hasWarning) {
+          const pt = getRulePoints("TC1", "TC1.5", -5);
+          studyPoints = Math.max(0, studyPoints + pt);
+          logs.push({ criteriaId: "TC1.5", points: pt, reason: "Bị cảnh báo tình trạng học tập", source: "ĐÀO TẠO", timestamp: timestampNow });
+        }
+
+        // 2. TC2: Nội quy (Base 25, subtract violations)
+        let violationPoints = 25;
+        if (studentGpa !== undefined && studentGpa < 1.5) {
+          const pt = getRulePoints("TC2", "TC2.2", -10);
+          violationPoints = Math.max(0, violationPoints + pt);
+          logs.push({ criteriaId: "TC2.2", points: pt, reason: "Vi phạm quy chế nợ nhiều học phần hoặc cảnh báo học lực thấp", source: "ĐÀO TẠO", timestamp: timestampNow });
+        }
+        if (student.id === "SV20CN02") {
+          const pt = getRulePoints("TC2", "TC2.1", -2);
+          violationPoints = Math.max(0, violationPoints + pt);
+          logs.push({ criteriaId: "TC2.1", points: pt, reason: "Báo cáo nề nếp lớp: Đi học muộn quá quy định", source: "ĐÀO TẠO", timestamp: timestampNow });
+        }
+
+        // 3. TC3: Hoạt động (Max 30)
+        let extracurricularPoints = 0;
+        const isCLBMember = members.some(m => m.studentId === student.id && m.status === "ACTIVE");
+        if (isCLBMember) {
+          const pt = getRulePoints("TC3", "TC3.3", 10);
+          extracurricularPoints += pt;
+          logs.push({ criteriaId: "TC3.3", points: pt, reason: "Là thành viên câu lạc bộ chính thức tích cực", source: "CLB_ATTENDANCE", timestamp: timestampNow });
+        }
+        const attendedEvents = attendance.filter(a => a.studentId === student.id && a.attended && a.verified);
+        attendedEvents.forEach(att => {
+          const act = activities.find(act => act.id === att.activityId);
+          if (act) {
+            const pt = att.role === "BTC" ? getRulePoints("TC3", "TC3.2", 8) : getRulePoints("TC3", "TC3.1", 5);
+            extracurricularPoints += pt;
+            logs.push({ criteriaId: act.criteriaId, points: pt, reason: `Đã tham gia hoạt động: "${act.title}"`, source: "CLB_ATTENDANCE", timestamp: timestampNow });
+          }
+        });
+        extracurricularPoints = Math.min(30, extracurricularPoints);
+
+        // 4. TC4: Cộng đồng (Max 15)
+        let communityPoints = 0;
+        const approvedEvs = evidence.filter(e => e.studentId === student.id && e.status === "APPROVED");
+        approvedEvs.forEach(ev => {
+          communityPoints += ev.pointsRequested;
+          logs.push({ criteriaId: ev.criteriaId, points: ev.pointsRequested, reason: `Phê duyệt minh chứng: "${ev.activityName}"`, source: "MINH_CHỨNG", timestamp: ev.submittedAt });
+        });
+        const hasCleanDuty = student.id === "DTG245140202053" || student.id === "SV20CN02" || student.id === "SV20CN03";
+        if (hasCleanDuty) {
+          const pt = getRulePoints("TC4", "TC4.2", 5);
+          communityPoints += pt;
+          logs.push({ criteriaId: "TC4.2", points: pt, reason: "Hoàn thành tốt trực tuần tự quản nề nếp lớp học", source: "BCS_DUYỆT", timestamp: timestampNow });
+        }
+        communityPoints = Math.min(15, communityPoints);
+
+        // 5. TC5: Chức vụ, thành tích (Max 10)
+        let achievementPoints = 0;
+        const isMonitor = student.id === "SV20CN03" || student.id === "SV20NL01";
+        if (isMonitor) {
+          const pt = getRulePoints("TC5", "TC5.1", 10);
+          achievementPoints += pt;
+          logs.push({ criteriaId: "TC5.1", points: pt, reason: "Đảm nhiệm Ban cán sự Lớp trưởng hoàn thành xuất sắc", source: "BCS_DUYỆT", timestamp: timestampNow });
+        }
+        achievementPoints = Math.min(10, achievementPoints);
+
+        const totalPoints = studyPoints + violationPoints + extracurricularPoints + communityPoints + achievementPoints;
+        let grade: EvaluationResult["grade"] = "TRUNG BÌNH";
+        if (totalPoints >= 90) grade = "XUẤT SẮC";
+        else if (totalPoints >= 80) grade = "TỐT";
+        else if (totalPoints >= 70) grade = "KHÁ";
+        else if (totalPoints >= 50) grade = "TRUNG BÌNH";
+        else if (totalPoints >= 30) grade = "YẾU";
+        else grade = "KÉM";
+
+        const docId = `${student.id}_HOCKY_2_2025_2026`;
+        const resultData: EvaluationResult = {
+          studentId: student.id,
+          studentName: student.name,
+          classId: normalizeClassId(student.classId),
+          facultyId: student.facultyId,
+          periodId: "HOCKY_2_2025_2026",
+          studyPoints,
+          violationPoints,
+          extracurricularPoints,
+          communityPoints,
+          achievementPoints,
+          totalPoints,
+          grade,
+          status: "AUTO",
+          logs
+        };
+
+        await setDoc(doc(db, "results", docId), resultData);
+      }
+      setLoading(false);
+      setStatusMessage("");
+      alert("Đã chạy lại động cơ tính điểm và cập nhật điểm rèn luyện toàn bộ sinh viên!");
+    } catch (err) {
+      setLoading(false);
+      setStatusMessage("");
+      alert("Lỗi khi tính toán lại: " + err);
+    }
+  };
+
+  // Systems & Dev Core Actions: Safely merge seed baseline without deleting user-created activities
+  const resetDatabaseToSeeds = async () => {
+    if (!confirm("Cảnh báo! Thao tác này sẽ cập nhật/nạp lại dữ liệu mẫu gốc (bổ sung tài khoản, sinh viên, tiêu chí mẫu). Các hoạt động và tin tức người dùng đã tạo sẽ ĐƯỢC GIỮ NGUYÊN. Bạn có muốn tiếp tục không?")) {
+      return;
+    }
+
+    setLoading(true);
+    setStatusMessage("Đang đồng bộ dữ liệu mẫu cơ bản...");
+
+    try {
+      // Fetch latest deleted classes before applying seeds
+      let activeDeletedClasses = deletedClasses;
+      try {
+        const delSnap = await getDoc(doc(db, "settings", "deletedClasses"));
+        if (delSnap.exists()) {
+          const dData = delSnap.data();
+          if (Array.isArray(dData?.classes)) {
+            activeDeletedClasses = dData.classes.map((c: string) => normalizeClassId(c));
+          }
+        }
+      } catch {}
+
+      // Upsert baseline Seeds safely with merge: true so user-created records are preserved
+      for (const u of SEED_USERS) {
+        if (u.targetId && activeDeletedClasses.includes(normalizeClassId(u.targetId))) continue;
+        const { password: _pw, ...cleanUser } = u as any;
+        await setDoc(doc(db, "users", u.id), cleanUser, { merge: true });
+      }
+      for (const s of SEED_STUDENTS) {
+        if (activeDeletedClasses.includes(normalizeClassId(s.classId))) continue;
+        await setDoc(doc(db, "students", s.id), s, { merge: true });
+      }
+      for (const o of SEED_ORGANIZATIONS) await setDoc(doc(db, "organizations", o.id), o, { merge: true });
+      for (const c of SEED_CRITERIA) await setDoc(doc(db, "criteria", c.id), c, { merge: true });
+      for (const a of SEED_ACTIVITIES) await setDoc(doc(db, "activities", a.id), a, { merge: true });
+      for (const att of SEED_ATTENDANCE) {
+        if (att.classId && activeDeletedClasses.includes(normalizeClassId(att.classId))) continue;
+        await setDoc(doc(db, "attendance", att.id), att, { merge: true });
+      }
+      for (const ev of SEED_EVIDENCE) {
+        if (ev.classId && activeDeletedClasses.includes(normalizeClassId(ev.classId))) continue;
+        await setDoc(doc(db, "evidence", ev.id), ev, { merge: true });
+      }
+      for (const r of SEED_RESULTS) {
+        if (activeDeletedClasses.includes(normalizeClassId(r.classId))) continue;
+        const docId = `${r.studentId}_${r.periodId}`;
+        await setDoc(doc(db, "results", docId), r, { merge: true });
+      }
+      for (const da of SEED_DAILY_ATTENDANCE) {
+        if (activeDeletedClasses.includes(normalizeClassId(da.classId))) continue;
+        await setDoc(doc(db, "dailyAttendance", da.id), da, { merge: true });
+      }
+      for (const sc of SEED_SCHEDULES) {
+        if (activeDeletedClasses.includes(normalizeClassId(sc.classId))) continue;
+        await setDoc(doc(db, "schedules", sc.id), sc, { merge: true });
+      }
+      for (const m of SEED_MEMBERS) {
+        if (m.classId && activeDeletedClasses.includes(normalizeClassId(m.classId))) continue;
+        await setDoc(doc(db, "members", m.id), m, { merge: true });
+      }
+      for (const ta of SEED_TEACHER_ASSIGNMENTS) {
+        if (activeDeletedClasses.includes(normalizeClassId(ta.classId))) continue;
+        await setDoc(doc(db, "teacherAssignments", ta.id), ta, { merge: true });
+      }
+
+      // Add default super admin account
+      const superadminAccount: UserAccount = {
+        id: "U_SUPERADMIN",
+        name: "Nhà phát triển (Super Admin)",
+        username: "admin@phhg.edu.vn",
+        email: "admin@phhg.edu.vn",
+        role: UserRole.ADMIN
+      };
+      await setDoc(doc(db, "users", "U_SUPERADMIN"), superadminAccount, { merge: true });
+
+      alert("Cập nhật dữ liệu mẫu hệ thống hoàn tất thành công! Các hoạt động đã khai báo vẫn được bảo lưu.");
+    } catch (err) {
+      alert("Lỗi trong quá trình cập nhật dữ liệu mẫu: " + err);
+    } finally {
+      setLoading(false);
+      setStatusMessage("");
+    }
+  };
+
+  const wipeAllDatabase = async () => {
+    const userInput = prompt("CẢNH BÁO NGUY HIỂM TỐI CAO! Thao tác này sẽ XÓA VĨNH VIỄN toàn bộ cơ sở dữ liệu bao gồm mọi hoạt động, thông báo, tài khoản sinh viên.\n\nNếu bạn chắc chắn muốn xóa, hãy gõ chính xác cụm từ sau để xác nhận:\nXOA TOAN BO DU LIEU UNIHUB");
+    if (userInput !== "XOA TOAN BO DU LIEU UNIHUB") {
+      alert("Đã hủy thao tác xóa dữ liệu do xác nhận không trùng khớp.");
+      return;
+    }
+
+    setLoading(true);
+    setStatusMessage("Đang dọn sạch cơ sở dữ liệu...");
+
+    try {
+      const clearCollection = async (colName: string) => {
+        const snap = await getDocs(collection(db, colName));
+        for (const docObj of snap.docs) {
+          await deleteDoc(doc(db, colName, docObj.id));
+        }
+      };
+
+      await clearCollection("users");
+      await clearCollection("students");
+      await clearCollection("organizations");
+      await clearCollection("criteria");
+      await clearCollection("activities");
+      await clearCollection("attendance");
+      await clearCollection("evidence");
+      await clearCollection("results");
+      await clearCollection("dailyAttendance");
+      await clearCollection("schedules");
+      await clearCollection("members");
+
+      // Always restore the superadmin profile document in Firestore
+      const superadminAccount: UserAccount = {
+        id: "U_SUPERADMIN",
+        name: "Nhà phát triển (Super Admin)",
+        username: "admin@phhg.edu.vn",
+        email: "admin@phhg.edu.vn",
+        role: UserRole.ADMIN
+      };
+      await setDoc(doc(db, "users", "U_SUPERADMIN"), superadminAccount);
+
+      alert("Đã xóa sạch cơ sở dữ liệu (Wipe database) thành công! Các bảng hiện trống rỗng.");
+    } catch (err) {
+      alert("Lỗi khi xóa dữ liệu: " + err);
+    } finally {
+      setLoading(false);
+      setStatusMessage("");
+    }
+  };
+
+  // Database actions: Approve / Reject evidence submission directly
+  const reviewEvidenceDirect = async (id: string, status: "APPROVED" | "REJECTED") => {
+    const evObj = evidence.find(e => e.id === id);
+    if (!evObj) return;
+
+    const updatedEv = {
+      ...evObj,
+      status,
+      reviewedBy: "Super Admin",
+      reviewComment: status === "APPROVED" ? "Phê duyệt trực tiếp từ trang quản trị Super Admin" : "Từ chối trực tiếp từ trang quản trị Super Admin"
+    };
+
+    try {
+      await setDoc(doc(db, "evidence", id), updatedEv);
+      alert(`Đã cập nhật trạng thái minh chứng thành công.`);
+    } catch (err) {
+      alert("Lỗi khi cập nhật minh chứng: " + err);
+    }
+  };
+
+  // Raw Database Editor actions
+  const startDbRowEdit = (row: any) => {
+    setDbEditTarget(row);
+    setShowDbEditModal(true);
+  };
+
+  const saveDbRowEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dbEditTarget || !dbEditTarget.id) {
+      alert("Không tìm thấy ID thực thể hợp lệ.");
+      return;
+    }
+
+    try {
+      let collName = dbSelectedCollection;
+      let docId = dbEditTarget.id;
+      let cleanTarget = { ...dbEditTarget };
+      if (cleanTarget.classId) {
+        cleanTarget.classId = normalizeClassId(cleanTarget.classId);
+      }
+      if (collName === "results") {
+        docId = `${dbEditTarget.studentId}_${dbEditTarget.periodId}`;
+      }
+
+      await setDoc(doc(db, collName, docId), cleanTarget);
+      setShowDbEditModal(false);
+      setTimeout(() => {
+        alert("Đã cập nhật bản ghi dữ liệu thành công!");
+      }, 50);
+    } catch (err) {
+      alert("Lỗi khi cập nhật bản ghi: " + err);
+    }
+  };
+
+  const deleteDbRowDirect = async (rowId: string) => {
+    if (confirm(`Bạn có chắc chắn muốn xóa bản ghi có ID "${rowId}" này không?`)) {
+      try {
+        await deleteDoc(doc(db, dbSelectedCollection, rowId));
+        alert("Đã xóa bản ghi thành công.");
+      } catch (err) {
+        alert("Lỗi khi xóa bản ghi: " + err);
+      }
+    }
+  };
+
+  // Export current table to Excel file
+  const exportTableToExcel = () => {
+    let dataToExport: any[] = [];
+    if (dbSelectedCollection === "students") dataToExport = students;
+    else if (dbSelectedCollection === "results") dataToExport = results;
+    else if (dbSelectedCollection === "activities") dataToExport = activities;
+    else if (dbSelectedCollection === "evidence") dataToExport = evidence;
+    else if (dbSelectedCollection === "members") dataToExport = members;
+    else if (dbSelectedCollection === "schedules") dataToExport = schedules;
+
+    if (dataToExport.length === 0) {
+      alert("Bảng hiện không có dữ liệu để xuất.");
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, dbSelectedCollection);
+    XLSX.writeFile(wb, `unihub_${dbSelectedCollection}_export.xlsx`);
+  };
+
+  // Memoized lists (search filters)
+  const teacherAwareUsers = useMemo(() => {
+    const rows = new Map<string, UserAccount>();
+
+    const sourceUsers = users.length > 0 ? users : SEED_USERS;
+    sourceUsers.forEach(u => {
+      const rowKey = u.role === UserRole.TEACHER
+        ? `TEACHER:${getTeacherDedupKey(u)}`
+        : `USER:${u.id || u.username || u.email}`;
+      rows.set(rowKey, u);
+    });
+
+    const sourceAssignments = teacherAssignments.length > 0 ? teacherAssignments : SEED_TEACHER_ASSIGNMENTS;
+    sourceAssignments.forEach(assign => {
+      if (!assign.teacherName && !assign.teacherId) return;
+      const matchedEntry = Array.from(rows.entries()).find(([, user]) =>
+        user.role === UserRole.TEACHER && doesAssignmentBelongToTeacher(assign, user)
+      );
+
+      if (matchedEntry) {
+        const [key, existing] = matchedEntry;
+        const assignmentLogin = resolveAssignmentTeacherLogin(assign);
+        rows.set(key, {
+          ...existing,
+          role: UserRole.TEACHER,
+          name: existing.name || assign.teacherName,
+          username: existing.username || assignmentLogin,
+          email: existing.email || assignmentLogin,
+          targetId: existing.targetId || assign.teacherId || assign.subjectCode
+        });
+      } else {
+        const derivedTeacher = buildTeacherUserFromAssignment(assign);
+        rows.set(`TEACHER:${getTeacherDedupKey(derivedTeacher)}`, derivedTeacher);
+      }
+    });
+
+    SEED_USERS.filter(u => u.role === UserRole.TEACHER).forEach(st => {
+      const dedupKey = `TEACHER:${getTeacherDedupKey(st)}`;
+      if (!rows.has(dedupKey)) {
+        rows.set(dedupKey, st);
+      }
+    });
+
+    return Array.from(rows.values());
+  }, [users, teacherAssignments]);
+
+  const filteredUsers = useMemo(() => {
+    return teacherAwareUsers.filter(u => {
+      const uName = (u.name || "").toLowerCase();
+      const uUsername = (u.username || u.email || "").toLowerCase();
+      const sTerm = userSearch.toLowerCase();
+      const matchSearch = uName.includes(sTerm) || uUsername.includes(sTerm);
+      const matchRole = userRoleFilter === "ALL" || u.role === userRoleFilter;
+      return matchSearch && matchRole;
+    });
+  }, [teacherAwareUsers, userSearch, userRoleFilter]);
+
+  const getTeacherAssignmentsForUser = (teacher: UserAccount | null): CourseClassAssignment[] => {
+    if (!teacher) return [];
+    const sourceAssignments = teacherAssignments.length > 0 ? teacherAssignments : SEED_TEACHER_ASSIGNMENTS;
+    return sourceAssignments
+      .filter(assignment => doesAssignmentBelongToTeacher(assignment, teacher))
+      .sort((a, b) => `${a.semesterId}_${normalizeClassId(a.classId)}_${a.subjectCode}`.localeCompare(`${b.semesterId}_${normalizeClassId(b.classId)}_${b.subjectCode}`));
+  };
+
+  const filteredDbRows = useMemo(() => {
+    let targetList: any[] = [];
+    if (dbSelectedCollection === "students") targetList = students;
+    else if (dbSelectedCollection === "results") targetList = results;
+    else if (dbSelectedCollection === "activities") targetList = activities;
+    else if (dbSelectedCollection === "evidence") targetList = evidence;
+    else if (dbSelectedCollection === "members") targetList = members;
+    else if (dbSelectedCollection === "schedules") targetList = schedules;
+
+    return targetList.filter(row => {
+      const rowStr = JSON.stringify(row).toLowerCase();
+      return rowStr.includes(dbSearch.toLowerCase());
+    });
+  }, [dbSelectedCollection, students, results, activities, evidence, members, schedules, dbSearch]);
+
+  // Statistics calculation for Dashboard Tab
+  const statsSummary = useMemo(() => {
+    const totalStudents = students.length;
+    const totalClubs = organizations.filter(o => o.type === "CLB").length;
+    const totalActivities = activities.length;
+    const pendingEvidence = evidence.filter(e => e.status === "PENDING").length;
+
+    // Approvals distribution helper
+    let excellent = 0;
+    let good = 0;
+    let ratherGood = 0;
+    let average = 0;
+    let weak = 0;
+    let poor = 0;
+
+    results.forEach(r => {
+      if (r.grade === "XUẤT SẮC") excellent++;
+      else if (r.grade === "TỐT") good++;
+      else if (r.grade === "KHÁ") ratherGood++;
+      else if (r.grade === "TRUNG BÌNH") average++;
+      else if (r.grade === "YẾU") weak++;
+      else if (r.grade === "KÉM") poor++;
+    });
+
+    // Class approval progress metrics
+    const totalClasses = Array.from(new Set(students.map(s => normalizeClassId(s.classId)))).filter(Boolean);
+    let lockedClasses = 0;
+    let adviserApproved = 0;
+    let monitorApproved = 0;
+
+    totalClasses.forEach(cId => {
+      const classResults = results.filter(r => normalizeClassId(r.classId) === cId);
+      if (classResults.length === 0) return;
+      
+      const allLocked = classResults.every(r => r.status === "LOCKED" || r.status === "APPROVED_ADMIN" || r.status === "APPROVED_FACULTY");
+      const adviserApp = classResults.some(r => r.status === "APPROVED_ADVISER");
+      const monitorApp = classResults.some(r => r.status === "APPROVED_CLASS");
+
+      if (allLocked) lockedClasses++;
+      else if (adviserApp) adviserApproved++;
+      else if (monitorApp) monitorApproved++;
+    });
+
+    return {
+      totalStudents,
+      totalClubs,
+      totalActivities,
+      pendingEvidence,
+      gradeDistribution: { excellent, good, ratherGood, average, weak, poor },
+      approvalProgress: {
+        total: totalClasses.length,
+        locked: lockedClasses,
+        adviser: adviserApproved,
+        monitor: monitorApproved,
+        auto: totalClasses.length - lockedClasses - adviserApproved - monitorApproved
+      }
+    };
+  }, [students, organizations, activities, evidence, results]);
+
+  const compactAdminThemeConfig = getCompactThemeConfig(themeConfig);
+  const adminBgUrls = compactAdminThemeConfig.loginBgUrls || [];
+  const adminPreviewBgUrl = adminBgUrls[0] || "";
+  const hasConfiguredAdminBg = Boolean(themeConfig.loginBgUrl || (themeConfig.loginBgUrls && themeConfig.loginBgUrls.length > 0));
+  const hasLegacyAdminThemeImages = hasLegacyInlineThemeImages(themeConfig);
+
+  const isTeacherUserModal = showUserModal && (selectedUser?.role === UserRole.TEACHER || userForm.role === UserRole.TEACHER);
+  const resolveTeacherPassword = (u: UserAccount, assignments: CourseClassAssignment[]) => {
+    if ((u as any).password) return (u as any).password;
+    const match = assignments.find(a => (a.teacherId && a.teacherId.toLowerCase() === u.username.toLowerCase()) || (a.teacherName && a.teacherName.toLowerCase() === u.name.toLowerCase()));
+    return (match as any)?.teacherPassword || "123456";
+  };
+  const modalTeacherAccount: UserAccount | null = isTeacherUserModal ? {
+    ...(selectedUser || {
+      id: buildDerivedTeacherDocId(userForm.username || userForm.email || userForm.name || "teacher"),
+      name: userForm.name || "Giảng viên Bộ môn",
+      username: userForm.username || userForm.email || "",
+      email: userForm.email || userForm.username || "",
+      role: UserRole.TEACHER,
+      password: userForm.password || "123456"
+    }),
+    name: userForm.name || selectedUser?.name || "Giảng viên Bộ môn",
+    username: userForm.username || userForm.email || selectedUser?.username || selectedUser?.email || "",
+    email: userForm.email || userForm.username || selectedUser?.email || selectedUser?.username || "",
+    role: UserRole.TEACHER,
+    targetId: userForm.targetId || selectedUser?.targetId || ""
+  } : null;
+  const modalTeacherAssignments = modalTeacherAccount ? getTeacherAssignmentsForUser(modalTeacherAccount) : [];
+  const modalTeacherPassword = modalTeacherAccount ? resolveTeacherPassword(modalTeacherAccount, modalTeacherAssignments) : userForm.password;
+  const teacherInputReadonlyStyle = isTeacherUserModal ? { opacity: 0.68, cursor: "not-allowed" } : undefined;
+
+  // If not authenticated, render beautiful Glassmorphic Login page
+  if (!isAuthenticated) {
+    return (
+      <div className="login-container">
+        <form className="login-card" onSubmit={handleLogin}>
+          <div style={{ textAlign: "center", marginBottom: "32px" }}>
+            <div style={{ 
+              display: "inline-flex", 
+              alignItems: "center", 
+              justifyContent: "center", 
+              width: "64px", 
+              height: "64px", 
+              borderRadius: "16px", 
+              background: "rgba(0, 240, 255, 0.1)",
+              border: "1px solid rgba(0, 240, 255, 0.3)",
+              marginBottom: "16px",
+              color: "#00F0FF"
+            }}>
+              <Shield size={32} />
             </div>
+            <h2 style={{ margin: "0 0 8px 0", fontSize: "22px", fontWeight: 800, color: "#0f172a" }}>UniHub Admin Console</h2>
+            <p style={{ margin: "0", fontSize: "13px", color: "var(--text-muted)" }}>Nhập thông tin xác thực tối cao để tiếp quản hệ thống.</p>
+          </div>
+
+          {loginError && (
+            <div style={{ 
+              background: "rgba(239, 68, 68, 0.1)", 
+              border: "1px solid var(--danger)", 
+              color: "#FFAAAA", 
+              padding: "12px", 
+              borderRadius: "8px", 
+              fontSize: "13px", 
+              marginBottom: "20px",
+              textAlign: "center" 
+            }}>
+              <AlertTriangle size={14} style={{ marginRight: "6px", verticalAlign: "middle" }} />
+              {loginError}
+            </div>
+          )}
+
+          <div style={{ marginBottom: "20px" }}>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#334155", marginBottom: "8px", textTransform: "uppercase" }}>Tài khoản / Email Quản trị</label>
+            <input 
+              type="text" 
+              className="input-dark" 
+              placeholder="admin hoặc admin@phhg.edu.vn" 
+              value={loginEmail}
+              onChange={(e) => setLoginEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <div style={{ marginBottom: "28px" }}>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#334155", marginBottom: "8px", textTransform: "uppercase" }}>Mật khẩu tối cao</label>
+            <input 
+              type="password" 
+              className="input-dark" 
+              placeholder="admin@123" 
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          <button type="submit" className="btn-neon-cyan" style={{ width: "100%", justifyContent: "center", padding: "12px" }}>
+            Tiếp Quản Hệ Thống
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Mobile Navigation Header */}
+      <header className="mobile-header">
+        <div className="mobile-header-left">
+          <button 
+            type="button" 
+            className="mobile-menu-btn" 
+            onClick={() => setIsMobileMenuOpen(true)}
+            aria-label="Mở menu quản trị"
+          >
+            <Menu size={22} />
+          </button>
+          <div className="mobile-brand">
+            {themeConfig.logoUrl ? (
+              <img 
+                src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
+                alt="Logo" 
+                style={{ width: "24px", height: "24px", objectFit: "contain", borderRadius: "50%", background: "#fff", padding: "2px", border: "1px solid var(--border-normal)" }} 
+              />
+            ) : (
+              <Shield size={20} style={{ color: "var(--accent-cyan)" }} />
+            )}
+            <span className="mobile-brand-title">UNIHUB</span>
+          </div>
+        </div>
+
+        <div className="mobile-header-right">
+          <span className="mobile-current-tab-badge">{getTabTitle(activeTab)}</span>
+        </div>
+      </header>
+
+      {/* Mobile Sidebar Overlay Backdrop */}
+      {isMobileMenuOpen && (
+        <div 
+          className="sidebar-backdrop" 
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true" 
+        />
+      )}
+
+      {/* 1. Sidebar Navigation (Collapsible & Mobile Drawer) */}
+      <aside className={`sidebar ${isMobileMenuOpen ? "mobile-open" : ""} ${isDesktopCollapsed ? "collapsed" : ""}`}>
+        <div className="sidebar-header-row">
+          <div className="sidebar-logo">
+            {themeConfig.logoUrl ? (
+              <img 
+                src={convertGoogleDriveUrlToDirectUrl(themeConfig.logoUrl)} 
+                alt="Logo" 
+                style={{ width: "26px", height: "26px", objectFit: "contain", borderRadius: "50%", background: "#fff", padding: "2px", border: "1px solid var(--border-normal)", flexShrink: 0 }} 
+              />
+            ) : (
+              <Shield size={24} style={{ color: "var(--accent-cyan)", flexShrink: 0 }} />
+            )}
+            <span className="sidebar-logo-text">UNIHUB CORE</span>
+          </div>
+
+          {/* Mobile Close Drawer Button */}
+          <button 
+            type="button" 
+            className="sidebar-close-btn-mobile" 
+            onClick={() => setIsMobileMenuOpen(false)}
+            aria-label="Đóng menu"
+          >
+            <X size={20} />
+          </button>
+
+          {/* Desktop Collapse/Expand Toggle Button */}
+          <button 
+            type="button" 
+            className="sidebar-collapse-btn-desktop" 
+            onClick={toggleDesktopSidebar}
+            title={isDesktopCollapsed ? "Mở rộng thanh menu" : "Thu gọn thanh menu"}
+            aria-label="Thu gọn thanh menu"
+          >
+            {isDesktopCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </button>
+        </div>
+
+        <div className="sidebar-menu">
+          <div 
+            className={`sidebar-item ${activeTab === "DASHBOARD" ? "active" : ""}`}
+            onClick={() => { setActiveTab("DASHBOARD"); setIsMobileMenuOpen(false); }}
+            title="Tổng quan hệ thống"
+          >
+            <LayoutDashboard size={18} style={{ flexShrink: 0 }} />
+            <span className="sidebar-item-label">Tổng quan hệ thống</span>
+          </div>
+
+          <div 
+            className={`sidebar-item ${activeTab === "USERS" ? "active" : ""}`}
+            onClick={() => { setActiveTab("USERS"); setIsMobileMenuOpen(false); }}
+            title="Tài khoản & Phân quyền"
+          >
+            <Users size={18} style={{ flexShrink: 0 }} />
+            <span className="sidebar-item-label">Tài khoản & Phân quyền</span>
+          </div>
+
+          <div 
+            className={`sidebar-item ${activeTab === "DATABASE" ? "active" : ""}`}
+            onClick={() => { setActiveTab("DATABASE"); setIsMobileMenuOpen(false); }}
+            title="Khám phá dữ liệu thô"
+          >
+            <Database size={18} style={{ flexShrink: 0 }} />
+            <span className="sidebar-item-label">Khám phá dữ liệu thô</span>
+          </div>
+
+          <div 
+            className={`sidebar-item ${activeTab === "RULES" ? "active" : ""}`}
+            onClick={() => { setActiveTab("RULES"); setIsMobileMenuOpen(false); }}
+            title="Quy chế chấm điểm"
+          >
+            <Settings size={18} style={{ flexShrink: 0 }} />
+            <span className="sidebar-item-label">Quy chế chấm điểm</span>
+          </div>
+
+          <div 
+            className={`sidebar-item ${activeTab === "TOOLS" ? "active" : ""}`}
+            onClick={() => { setActiveTab("TOOLS"); setIsMobileMenuOpen(false); }}
+            title="Công cụ Hạt nhân"
+          >
+            <Cpu size={18} style={{ flexShrink: 0 }} />
+            <span className="sidebar-item-label">Công cụ Hạt nhân</span>
+          </div>
+
+          <div 
+            className={`sidebar-item ${activeTab === "FEEDBACK" ? "active" : ""}`}
+            onClick={() => { setActiveTab("FEEDBACK"); setIsMobileMenuOpen(false); }}
+            title="Hòm thư góp ý"
+          >
+            <Mail size={18} style={{ flexShrink: 0 }} />
+            <span className="sidebar-item-label">Hòm thư góp ý</span>
+          </div>
+
+          <div 
+            className={`sidebar-item ${activeTab === "THEME" ? "active" : ""}`}
+            onClick={() => { setActiveTab("THEME"); setIsMobileMenuOpen(false); }}
+            title="Ảnh giao diện"
+          >
+            <Image size={18} style={{ flexShrink: 0 }} />
+            <span className="sidebar-item-label">Ảnh giao diện</span>
+          </div>
+        </div>
+
+        <div className="sidebar-footer">
+          {statusMessage && (
+            <div style={{ fontSize: "11px", color: "var(--accent-cyan)", marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <RefreshCw size={12} className="animate-spin" />
+              <span className="sidebar-footer-text">{statusMessage}</span>
+            </div>
+          )}
+          
+          <div className="sidebar-footer-connection" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", padding: "0 8px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: isFirebaseConnected ? "var(--success)" : "var(--danger)", flexShrink: 0 }}></div>
+              <span className="sidebar-footer-text" style={{ fontSize: "11px", color: "var(--text-muted)" }}>{isFirebaseConnected ? "Firestore: Live" : "Firestore: Offline"}</span>
+            </div>
+          </div>
+
+          <button className="btn-solid-danger sidebar-logout-btn" onClick={handleLogout} style={{ width: "100%", justifyContent: "center" }} title="Đăng xuất Admin">
+            <LogOut size={16} style={{ flexShrink: 0 }} />
+            <span className="sidebar-footer-text">Đăng xuất Admin</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* 2. Main Area */}
+      <main className={`main-content ${isDesktopCollapsed ? "sidebar-collapsed" : ""}`}>
+        {loading && (
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px", color: "var(--accent-cyan)" }}>
+            <RefreshCw className="animate-spin" />
+            <span>Đang truy xuất thông tin...</span>
+          </div>
+        )}
+
+        {/* ================= TAB: DASHBOARD ================= */}
+        {activeTab === "DASHBOARD" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
             <div>
-              <h3 className="text-lg font-bold text-white">Khôi phục Giao diện Hệ thống</h3>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                Phát hiện dữ liệu đệm phiên cũ không tương thích. Vui lòng bấm nút bên dưới để tự động khôi phục giao diện.
+              <h1 style={{ margin: "0 0 8px 0", fontSize: "28px", fontWeight: 800, color: "#0f172a" }}>Bảng điều khiển tối cao</h1>
+              <p style={{ margin: "0", color: "#334155", fontSize: "14px", fontWeight: 500 }}>Thống kê sức khỏe dữ liệu, tổng số sinh viên, và tiến độ xét duyệt điểm rèn luyện toàn phân hiệu Hà Giang.</p>
+            </div>
+
+            {/* Thống kê Lưu lượng Truy cập Thời gian thực */}
+            <AdminRealtimeVisits />
+
+            {/* KPI Cards Grid */}
+            <div className="kpi-grid-responsive">
+              <div className="glass-card" style={{ borderLeft: "4px solid var(--accent-cyan)" }}>
+                <span style={{ fontSize: "11px", textTransform: "uppercase", color: "#475569", fontWeight: 700 }}>Tổng số Sinh viên</span>
+                <h3 style={{ margin: "12px 0 0 0", fontSize: "32px", fontWeight: 800, color: "#0f172a" }}>{statsSummary.totalStudents}</h3>
+              </div>
+              <div className="glass-card" style={{ borderLeft: "4px solid var(--accent-purple)" }}>
+                <span style={{ fontSize: "11px", textTransform: "uppercase", color: "#475569", fontWeight: 700 }}>Tổng số Câu lạc bộ</span>
+                <h3 style={{ margin: "12px 0 0 0", fontSize: "32px", fontWeight: 800, color: "#0f172a" }}>{statsSummary.totalClubs}</h3>
+              </div>
+              <div className="glass-card" style={{ borderLeft: "4px solid var(--accent-orange)" }}>
+                <span style={{ fontSize: "11px", textTransform: "uppercase", color: "#475569", fontWeight: 700 }}>Hoạt động phong trào</span>
+                <h3 style={{ margin: "12px 0 0 0", fontSize: "32px", fontWeight: 800, color: "#0f172a" }}>{statsSummary.totalActivities}</h3>
+              </div>
+              <div className="glass-card" style={{ borderLeft: "4px solid var(--success)" }}>
+                <span style={{ fontSize: "11px", textTransform: "uppercase", color: "#475569", fontWeight: 700 }}>Minh chứng chờ duyệt</span>
+                <h3 style={{ margin: "12px 0 0 0", fontSize: "32px", fontWeight: 800, color: "var(--success)" }}>{statsSummary.pendingEvidence}</h3>
+              </div>
+            </div>
+
+            {/* Visual Charts & Approval progress */}
+            <div className="charts-grid-responsive">
+              {/* Chart: Grade Distribution */}
+              <div className="glass-card">
+                <h3 style={{ margin: "0 0 20px 0", fontSize: "16px", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <TrendingUp size={18} className="text-cyan-600" />
+                  Phân bố xếp loại Điểm rèn luyện
+                </h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  {[
+                    { label: "Xuất sắc (>= 90đ)", count: statsSummary.gradeDistribution.excellent, color: "var(--accent-cyan)", percent: results.length ? (statsSummary.gradeDistribution.excellent / results.length) * 100 : 0 },
+                    { label: "Tốt (80đ - 89đ)", count: statsSummary.gradeDistribution.good, color: "var(--accent-purple)", percent: results.length ? (statsSummary.gradeDistribution.good / results.length) * 100 : 0 },
+                    { label: "Khá (70đ - 79đ)", count: statsSummary.gradeDistribution.ratherGood, color: "var(--success)", percent: results.length ? (statsSummary.gradeDistribution.ratherGood / results.length) * 100 : 0 },
+                    { label: "Trung bình (50đ - 69đ)", count: statsSummary.gradeDistribution.average, color: "var(--warning)", percent: results.length ? (statsSummary.gradeDistribution.average / results.length) * 100 : 0 },
+                    { label: "Yếu / Kém (< 50đ)", count: statsSummary.gradeDistribution.weak + statsSummary.gradeDistribution.poor, color: "var(--danger)", percent: results.length ? ((statsSummary.gradeDistribution.weak + statsSummary.gradeDistribution.poor) / results.length) * 100 : 0 },
+                  ].map((item, idx) => (
+                    <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
+                        <span style={{ color: "#1e293b", fontWeight: 600 }}>{item.label}</span>
+                        <strong style={{ color: "#0f172a", fontWeight: 700 }}>{item.count} SV ({item.percent.toFixed(1)}%)</strong>
+                      </div>
+                      <div style={{ width: "100%", height: "8px", background: "#e2e8f0", borderRadius: "4px", overflow: "hidden" }}>
+                        <div style={{ width: `${item.percent}%`, height: "100%", background: item.color, borderRadius: "4px" }}></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Progress: Class approvals progress */}
+              <div className="glass-card">
+                <h3 style={{ margin: "0 0 20px 0", fontSize: "16px", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <FileCheck size={18} className="text-cyan-600" />
+                  Tiến độ chốt duyệt của các Lớp học
+                </h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                  <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+                    <div style={{ fontSize: "36px", fontWeight: 800, color: "var(--accent-cyan)", fontFamily: "'JetBrains Mono', monospace" }}>
+                      {statsSummary.approvalProgress.locked} / {statsSummary.approvalProgress.total}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#334155", lineHeight: 1.4, fontWeight: 500 }}>
+                      Lớp đã hoàn thành <strong>Khóa sổ/Ký số</strong> hoàn toàn và đã đồng bộ về Cổng Đào Tạo.
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px", borderTop: "1px solid var(--border-normal)", paddingTop: "16px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
+                      <span style={{ color: "#334155", fontWeight: 600 }}>Chờ Khoa ký duyệt & khóa sổ:</span>
+                      <strong style={{ color: "#d97706", fontWeight: 700 }}>{statsSummary.approvalProgress.adviser} lớp</strong>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
+                      <span style={{ color: "#334155", fontWeight: 600 }}>Đang chờ Cố vấn duyệt (Monitor đã chốt):</span>
+                      <strong style={{ color: "#7c3aed", fontWeight: 700 }}>{statsSummary.approvalProgress.monitor} lớp</strong>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
+                      <span style={{ color: "#334155", fontWeight: 600 }}>Chưa chốt tự đánh giá (Đang mở):</span>
+                      <strong style={{ color: "#0284c7", fontWeight: 700 }}>{statsSummary.approvalProgress.auto} lớp</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================= TAB: USERS ================= */}
+        {activeTab === "USERS" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+            <div className="admin-header-row">
+              <div>
+                <h1 style={{ margin: "0 0 4px 0", fontSize: "28px", fontWeight: 800 }}>Tài khoản & Phân quyền</h1>
+                <p style={{ margin: "0", color: "var(--text-muted)", fontSize: "14px" }}>Quản lý thông tin đăng nhập, phân bổ quyền cho các cán bộ quản lý và tính năng Giả lập đăng nhập.</p>
+              </div>
+              {userRoleFilter === UserRole.TEACHER ? (
+                <div className="glass-card" style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: "8px", color: "var(--text-muted)", fontSize: "12px", maxWidth: "360px" }}>
+                  <Shield size={16} style={{ color: "var(--accent-cyan)", flexShrink: 0 }} />
+                  Giảng viên Bộ môn được cấp từ Phòng Đào tạo — Admin chỉ xem, không tạo mới tại đây.
+                </div>
+              ) : (
+                <button className="btn-neon-cyan" onClick={() => openUserModal(null)}>
+                  <Plus size={16} />
+                  Tạo tài khoản mới
+                </button>
+              )}
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className="filter-bar-responsive">
+              <div style={{ flex: 1, minWidth: "200px", position: "relative" }}>
+                <Search size={16} style={{ position: "absolute", left: "12px", top: "14px", color: "var(--text-muted)" }} />
+                <input 
+                  type="text" 
+                  className="input-dark" 
+                  style={{ paddingLeft: "36px" }}
+                  placeholder="Tìm theo họ tên hoặc tài khoản..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="filter-role-select" style={{ width: "200px" }}>
+                <select 
+                  className="select-dark"
+                  value={userRoleFilter}
+                  onChange={(e) => setUserRoleFilter(e.target.value)}
+                >
+                  <option value="ALL">Tất cả vai trò</option>
+                  <option value={UserRole.STUDENT}>Sinh viên</option>
+                  <option value={UserRole.CLASS_MONITOR}>Lớp trưởng (BCS)</option>
+                  <option value={UserRole.ADVISER}>Cố vấn học tập (CVHT)</option>
+                  <option value={UserRole.TEACHER}>Giảng viên Bộ môn</option>
+                  <option value={UserRole.CLUB_MANAGER}>Câu lạc bộ</option>
+                  <option value={UserRole.YOUTH_UNION}>Đoàn Thanh niên</option>
+                  <option value={UserRole.STUDENT_UNION}>Hội Sinh viên</option>
+                  <option value={UserRole.FACULTY}>Khoa đào tạo</option>
+                  <option value={UserRole.TRAINING_DEPT}>Phòng Đào tạo</option>
+                  <option value={UserRole.ADMIN}>Phòng CTHSSV (Admin)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Users list table */}
+            <div>
+              <div className="mobile-scroll-hint"><span>⇄ Vuốt ngang để xem đầy đủ cột và thao tác</span></div>
+              <div className="custom-table-container">
+                <table className="custom-table">
+                <thead>
+                  <tr>
+                    <th>Họ và tên</th>
+                    <th>Email / Tài khoản</th>
+                    <th>Vai trò</th>
+                    <th>Mã liên kết (Target ID)</th>
+                    <th style={{ textAlign: "right" }}>Thao tác điều khiển</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.map((u) => {
+                    const isTeacherRow = u.role === UserRole.TEACHER;
+                    const linkedAssignments = isTeacherRow ? getTeacherAssignmentsForUser(u) : [];
+
+                    return (
+                      <tr key={u.id || u.username || u.email}>
+                        <td style={{ fontWeight: 700, color: "#0f172a" }}>{u.name}</td>
+                        <td style={{ fontFamily: 'monospace' }}>{u.username || u.email || "—"}</td>
+                        <td>
+                          <span className={`badge ${
+                            u.role === UserRole.ADMIN ? "badge-danger" :
+                            u.role === UserRole.TRAINING_DEPT ? "badge-purple" :
+                            u.role === UserRole.ADVISER ? "badge-warning" :
+                            u.role === UserRole.TEACHER ? "badge-cyan" :
+                            u.role === UserRole.FACULTY ? "badge-cyan" : "badge-active"
+                          }`}>
+                            {translateRole(u.role)}
+                          </span>
+                        </td>
+                        <td style={{ fontFamily: 'monospace', color: "var(--accent-cyan)" }}>
+                          {isTeacherRow ? `${linkedAssignments.length} học phần` : (u.targetId || "—")}
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          <div style={{ display: "inline-flex", gap: "8px" }}>
+                            {isTeacherRow ? (
+                              <button 
+                                type="button"
+                                className="btn-neon-cyan" 
+                                style={{ padding: "4px 10px", fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                                onClick={() => openUserModal(u)}
+                                title="Xem chi tiết tài khoản và học phần Giảng viên phụ trách"
+                              >
+                                <Info size={12} />
+                                Xem chi tiết
+                              </button>
+                            ) : (
+                              <>
+                                <button 
+                                  type="button"
+                                  className="btn-neon-purple" 
+                                  style={{ padding: "4px 8px", fontSize: "11px", opacity: 0.5, cursor: "not-allowed" }}
+                                  disabled
+                                  title="Chức năng giả lập phiên đã bị vô hiệu hóa an toàn (yêu cầu backend signed token & audit log)"
+                                >
+                                  Giả lập (Vô hiệu hóa)
+                                </button>
+                                <button 
+                                  className="btn-neon-cyan" 
+                                  style={{ padding: "4px 8px" }}
+                                  onClick={() => openUserModal(u)}
+                                >
+                                  <Edit2 size={12} />
+                                </button>
+                                <button 
+                                  className="btn-solid-danger" 
+                                  style={{ padding: "4px 8px" }}
+                                  onClick={() => deleteUser(u.id, u.name)}
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================= TAB: DATABASE EXPLORER ================= */}
+        {activeTab === "DATABASE" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+            <div className="admin-header-row">
+              <div>
+                <h1 style={{ margin: "0 0 4px 0", fontSize: "28px", fontWeight: 800 }}>Khám phá cơ sở dữ liệu thô</h1>
+                <p style={{ margin: "0", color: "var(--text-muted)", fontSize: "14px" }}>Trình duyệt và cập nhật dữ liệu trực tiếp trong các bộ sưu tập Firestore của UniHub.</p>
+              </div>
+
+              <div style={{ display: "flex", gap: "12px" }}>
+                <button className="btn-neon-purple" onClick={exportTableToExcel}>
+                  <Download size={16} />
+                  Xuất dữ liệu Excel
+                </button>
+              </div>
+            </div>
+
+            {/* Select Table Grid and Search Bar */}
+            <div className="filter-bar-responsive">
+              <div style={{ width: "260px" }}>
+                <label style={{ display: "block", fontSize: "10px", color: "var(--text-muted)", marginBottom: "4px", textTransform: "uppercase" }}>Chọn Bảng Dữ Liệu</label>
+                <select 
+                  className="select-dark"
+                  value={dbSelectedCollection}
+                  onChange={(e) => {
+                    setDbSelectedCollection(e.target.value);
+                    setDbSearch("");
+                  }}
+                >
+                  <option value="students">Sinh viên (Students)</option>
+                  <option value="results">Điểm rèn luyện (Results)</option>
+                  <option value="activities">Hoạt động ngoại khóa (Activities)</option>
+                  <option value="evidence">Minh chứng (Evidence Submissions)</option>
+                  <option value="members">Thành viên CLB (Members)</option>
+                  <option value="schedules">Thời khóa biểu (Schedules)</option>
+                </select>
+              </div>
+
+              <div style={{ flex: 1, minWidth: "220px" }}>
+                <label style={{ display: "block", fontSize: "10px", color: "var(--text-muted)", marginBottom: "4px", textTransform: "uppercase" }}>Bộ Lọc Tìm Kiếm</label>
+                <div style={{ position: "relative" }}>
+                  <Search size={16} style={{ position: "absolute", left: "12px", top: "12px", color: "var(--text-muted)" }} />
+                  <input 
+                    type="text" 
+                    className="input-dark" 
+                    style={{ paddingLeft: "36px", paddingTop: "8px", paddingBottom: "8px" }}
+                    placeholder="Tìm nhanh mọi dữ liệu trong dòng..."
+                    value={dbSearch}
+                    onChange={(e) => setDbSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Render selected Table */}
+            <div>
+              <div className="mobile-scroll-hint"><span>⇄ Vuốt ngang để xem đầy đủ cột và dữ liệu</span></div>
+              <div className="custom-table-container">
+                <table className="custom-table">
+                {/* 1. Table Students */}
+                {dbSelectedCollection === "students" && (
+                  <>
+                    <thead>
+                      <tr>
+                        <th>Mã SV</th>
+                        <th>Họ và tên</th>
+                        <th>Lớp</th>
+                        <th>Khoa</th>
+                        <th>Giới tính</th>
+                        <th>Ngày sinh</th>
+                        <th>GPA</th>
+                        <th>Nợ HP</th>
+                        <th>Cảnh báo</th>
+                        <th style={{ textAlign: "right" }}>Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(filteredDbRows as Student[]).map(row => (
+                        <tr key={row.id}>
+                          <td style={{ fontWeight: 700, fontFamily: 'monospace', color: "var(--accent-cyan)" }}>{row.id}</td>
+                          <td style={{ color: "#0f172a", fontWeight: 700 }}>{row.name}</td>
+                          <td>{normalizeClassId(row.classId)}</td>
+                          <td>{row.facultyId}</td>
+                          <td>{row.gender || "—"}</td>
+                          <td>{row.dob || "—"}</td>
+                          <td style={{ fontFamily: 'monospace' }}>{row.gpa ?? "—"}</td>
+                          <td style={{ color: row.debtTuition ? "var(--danger)" : "var(--success)", fontFamily: 'monospace' }}>
+                            {row.debtTuition ? `${row.debtTuition.toLocaleString()}đ` : "0đ"}
+                          </td>
+                          <td>
+                            {row.learningWarning ? (
+                              <span className="badge badge-danger">Bị cảnh báo</span>
+                            ) : (
+                              <span className="badge badge-active">Bình thường</span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <div style={{ display: "inline-flex", gap: "6px" }}>
+                              <button className="btn-neon-cyan" style={{ padding: "4px 8px" }} onClick={() => startDbRowEdit(row)}>
+                                <Edit2 size={12} />
+                              </button>
+                              <button className="btn-solid-danger" style={{ padding: "4px 8px" }} onClick={() => deleteDbRowDirect(row.id)}>
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </>
+                )}
+
+                {/* 2. Table Results */}
+                {dbSelectedCollection === "results" && (
+                  <>
+                    <thead>
+                      <tr>
+                        <th>Mã SV</th>
+                        <th>Họ tên</th>
+                        <th>Lớp</th>
+                        <th>Học tập (TC1)</th>
+                        <th>Nội quy (TC2)</th>
+                        <th>Tham gia (TC3)</th>
+                        <th>Cộng đồng (TC4)</th>
+                        <th>Chức vụ (TC5)</th>
+                        <th style={{ fontWeight: 700 }}>Tổng Điểm</th>
+                        <th>Xếp loại</th>
+                        <th style={{ textAlign: "right" }}>Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(filteredDbRows as EvaluationResult[]).map((row, idx) => (
+                        <tr key={idx}>
+                          <td style={{ fontWeight: 700, fontFamily: 'monospace' }}>{row.studentId}</td>
+                          <td style={{ color: "#0f172a", fontWeight: 600 }}>{row.studentName}</td>
+                          <td>{row.classId}</td>
+                          <td style={{ fontFamily: 'monospace' }}>{row.studyPoints}đ</td>
+                          <td style={{ fontFamily: 'monospace' }}>{row.violationPoints}đ</td>
+                          <td style={{ fontFamily: 'monospace' }}>{row.extracurricularPoints}đ</td>
+                          <td style={{ fontFamily: 'monospace' }}>{row.communityPoints}đ</td>
+                          <td style={{ fontFamily: 'monospace' }}>{row.achievementPoints}đ</td>
+                          <td style={{ fontFamily: 'monospace', fontWeight: 900, color: "var(--accent-cyan)", fontSize: "14px" }}>{row.totalPoints}đ</td>
+                          <td>
+                            <span className={`badge ${
+                              row.grade === "XUẤT SẮC" ? "badge-cyan" :
+                              row.grade === "TỐT" ? "badge-purple" :
+                              row.grade === "KHÁ" ? "badge-active" :
+                              row.grade === "TRUNG BÌNH" ? "badge-warning" : "badge-danger"
+                            }`}>
+                              {row.grade}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <div style={{ display: "inline-flex", gap: "6px" }}>
+                              <button className="btn-neon-cyan" style={{ padding: "4px 8px" }} onClick={() => startDbRowEdit(row)}>
+                                <Edit2 size={12} />
+                              </button>
+                              <button className="btn-solid-danger" style={{ padding: "4px 8px" }} onClick={() => deleteDbRowDirect(`${row.studentId}_${row.periodId}`)}>
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </>
+                )}
+
+                {/* 3. Table Activities */}
+                {dbSelectedCollection === "activities" && (
+                  <>
+                    <thead>
+                      <tr>
+                        <th>Mã</th>
+                        <th>Tên hoạt động</th>
+                        <th>Đơn vị tổ chức</th>
+                        <th>Tiêu chí ĐRL</th>
+                        <th>Điểm cộng</th>
+                        <th>Thời gian</th>
+                        <th>Địa điểm</th>
+                        <th>Trạng thái</th>
+                        <th style={{ textAlign: "right" }}>Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(filteredDbRows as ExtracurricularActivity[]).map(row => (
+                        <tr key={row.id}>
+                          <td style={{ fontFamily: 'monospace' }}>{row.id}</td>
+                          <td style={{ color: "#0f172a", fontWeight: 700 }}>{row.title}</td>
+                          <td>{row.orgName || row.orgId}</td>
+                          <td style={{ fontFamily: 'monospace' }}>{row.criteriaId}</td>
+                          <td style={{ fontFamily: 'monospace', color: "var(--success)", fontWeight: 700 }}>+{row.points}đ</td>
+                          <td>{row.dateTime}</td>
+                          <td>{row.location}</td>
+                          <td>
+                            <span className={`badge ${
+                              row.status === "COMPLETED" ? "badge-active" :
+                              row.status === "ONGOING" ? "badge-warning" : "badge-cyan"
+                            }`}>
+                              {row.status}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <div style={{ display: "inline-flex", gap: "6px" }}>
+                              <button className="btn-neon-cyan" style={{ padding: "4px 8px" }} onClick={() => startDbRowEdit(row)}>
+                                <Edit2 size={12} />
+                              </button>
+                              <button className="btn-solid-danger" style={{ padding: "4px 8px" }} onClick={() => deleteDbRowDirect(row.id)}>
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </>
+                )}
+
+                {/* 4. Table Evidence Submissions */}
+                {dbSelectedCollection === "evidence" && (
+                  <>
+                    <thead>
+                      <tr>
+                        <th>Tên sinh viên</th>
+                        <th>Lớp</th>
+                        <th>Tiêu chí</th>
+                        <th>Tên hoạt động</th>
+                        <th>Mô tả chi tiết</th>
+                        <th>Điểm yêu cầu</th>
+                        <th>Giấy xác nhận</th>
+                        <th>Ngày nộp</th>
+                        <th>Trạng thái</th>
+                        <th style={{ textAlign: "right" }}>Thao tác phê duyệt</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(filteredDbRows as EvidenceSubmission[]).map(row => (
+                        <tr key={row.id}>
+                          <td style={{ color: "#0f172a", fontWeight: 700 }}>{row.studentName}</td>
+                          <td>{row.classId}</td>
+                          <td style={{ fontFamily: 'monospace' }}>{row.criteriaId}</td>
+                          <td style={{ fontWeight: 600 }}>{row.activityName}</td>
+                          <td style={{ fontSize: "11px", maxWidth: "200px" }}>{row.description}</td>
+                          <td style={{ fontFamily: 'monospace', fontWeight: 700, color: "var(--accent-cyan)" }}>+{row.pointsRequested}đ</td>
+                          <td style={{ fontFamily: 'monospace', fontSize: "11px" }}>{row.proofUrl}</td>
+                          <td>{row.submittedAt}</td>
+                          <td>
+                            <span className={`badge ${
+                              row.status === "APPROVED" ? "badge-active" :
+                              row.status === "REJECTED" ? "badge-danger" : "badge-warning"
+                            }`}>
+                              {row.status}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <div style={{ display: "inline-flex", gap: "6px" }}>
+                              {row.status === "PENDING" && (
+                                <>
+                                  <button className="btn-neon-cyan" style={{ padding: "4px 8px", background: "rgba(16, 185, 129, 0.1)", borderColor: "var(--success)", color: "var(--success)" }} onClick={() => reviewEvidenceDirect(row.id, "APPROVED")}>
+                                    Duyệt
+                                  </button>
+                                  <button className="btn-solid-danger" style={{ padding: "4px 8px" }} onClick={() => reviewEvidenceDirect(row.id, "REJECTED")}>
+                                    Từ chối
+                                  </button>
+                                </>
+                              )}
+                              <button className="btn-neon-cyan" style={{ padding: "4px 8px" }} onClick={() => startDbRowEdit(row)}>
+                                <Edit2 size={12} />
+                              </button>
+                              <button className="btn-solid-danger" style={{ padding: "4px 8px" }} onClick={() => deleteDbRowDirect(row.id)}>
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </>
+                )}
+
+                {/* 5. Table Club Members */}
+                {dbSelectedCollection === "members" && (
+                  <>
+                    <thead>
+                      <tr>
+                        <th>Mã SV</th>
+                        <th>Tên lớp</th>
+                        <th>Mã tổ chức</th>
+                        <th>Chức vụ</th>
+                        <th>Ngày gia nhập</th>
+                        <th>Nhiệm kỳ</th>
+                        <th>Trạng thái</th>
+                        <th style={{ textAlign: "right" }}>Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(filteredDbRows as OrganizationMember[]).map(row => (
+                        <tr key={row.id}>
+                          <td style={{ fontFamily: 'monospace' }}>{row.studentId}</td>
+                          <td>{row.classId}</td>
+                          <td style={{ fontFamily: 'monospace', color: "var(--accent-purple)" }}>{row.orgId}</td>
+                          <td style={{ fontWeight: 700 }}>{row.role}</td>
+                          <td>{row.joinedDate}</td>
+                          <td style={{ fontFamily: 'monospace' }}>{row.term}</td>
+                          <td>
+                            <span className={`badge ${
+                              row.status === "ACTIVE" ? "badge-active" : "badge-warning"
+                            }`}>
+                              {row.status}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <div style={{ display: "inline-flex", gap: "6px" }}>
+                              <button className="btn-neon-cyan" style={{ padding: "4px 8px" }} onClick={() => startDbRowEdit(row)}>
+                                <Edit2 size={12} />
+                              </button>
+                              <button className="btn-solid-danger" style={{ padding: "4px 8px" }} onClick={() => deleteDbRowDirect(row.id)}>
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </>
+                )}
+
+                {/* 6. Table Schedules */}
+                {dbSelectedCollection === "schedules" && (
+                  <>
+                    <thead>
+                      <tr>
+                        <th>Lớp</th>
+                        <th>Học phần</th>
+                        <th>Giảng viên</th>
+                        <th>Thứ</th>
+                        <th>Tiết bắt đầu</th>
+                        <th>Tiết kết thúc</th>
+                        <th>Phòng học</th>
+                        <th>Hình thức học</th>
+                        <th style={{ textAlign: "right" }}>Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(filteredDbRows as ScheduleSlot[]).map(row => (
+                        <tr key={row.id}>
+                          <td style={{ fontWeight: 700 }}>{row.classId}</td>
+                          <td style={{ color: "#0f172a", fontWeight: 700 }}>{row.subjectName}</td>
+                          <td>{row.teacherName}</td>
+                          <td style={{ fontFamily: 'monospace' }}>Thứ {row.dayOfWeek}</td>
+                          <td style={{ fontFamily: 'monospace' }}>Tiết {row.periodStart}</td>
+                          <td style={{ fontFamily: 'monospace' }}>Tiết {row.periodEnd}</td>
+                          <td style={{ fontFamily: 'monospace', color: "var(--accent-cyan)" }}>{row.room}</td>
+                          <td>{row.studyMode || "Trực tiếp"}</td>
+                          <td style={{ textAlign: "right" }}>
+                            <div style={{ display: "inline-flex", gap: "6px" }}>
+                              <button className="btn-neon-cyan" style={{ padding: "4px 8px" }} onClick={() => startDbRowEdit(row)}>
+                                <Edit2 size={12} />
+                              </button>
+                              <button className="btn-solid-danger" style={{ padding: "4px 8px" }} onClick={() => deleteDbRowDirect(row.id)}>
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </>
+                )}
+              </table>
+            </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================= TAB: RULES ENGINE ================= */}
+        {activeTab === "RULES" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+            <div className="admin-header-row">
+              <div>
+                <h1 style={{ margin: "0 0 4px 0", fontSize: "28px", fontWeight: 800 }}>Cấu hình quy chế chấm ĐRL</h1>
+                <p style={{ margin: "0", color: "var(--text-muted)", fontSize: "14px" }}>Điều chỉnh trực tiếp khung trọng số điểm, hệ thống tự động tính lại điểm rèn luyện thời gian thực.</p>
+              </div>
+
+              <button className="btn-neon-purple" onClick={runScoreRecalculation}>
+                <RefreshCw size={16} />
+                Tính toán lại điểm toàn trường
+              </button>
+            </div>
+
+            {/* List point criteria categories */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              {criteria.map((crit) => (
+                <div key={crit.id} className="glass-card">
+                  <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-normal)", paddingBottom: "12px", marginBottom: "16px" }}>
+                    <div>
+                      <h3 style={{ margin: "0 0 4px 0", fontSize: "16px", fontWeight: 800, color: "var(--accent-cyan)" }}>
+                        {crit.id}: {crit.category}
+                      </h3>
+                      <p style={{ margin: "0", fontSize: "12px", color: "var(--text-muted)" }}>{crit.description}</p>
+                    </div>
+                    <span className="badge badge-purple" style={{ height: "fit-content" }}>Điểm tối đa: {crit.maxScore}đ</span>
+                  </div>
+
+                  {/* Rules items list */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {crit.rules.map((rule) => (
+                      <div key={rule.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.02)", padding: "12px 16px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.03)" }}>
+                        <div>
+                          <strong style={{ display: "block", fontSize: "13px", color: "#E5E7EB", fontFamily: 'monospace' }}>{rule.id}: {rule.name}</strong>
+                          <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{rule.description}</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                          <input 
+                            type="number" 
+                            className="input-dark" 
+                            style={{ width: "80px", textAlign: "center", padding: "6px" }}
+                            defaultValue={rule.points}
+                            onBlur={(e) => updateRulePoints(crit.id, rule.id, Number(e.target.value))}
+                          />
+                          <span style={{ fontSize: "12px", color: "var(--text-muted)", width: "30px" }}>Điểm</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ================= TAB: TOOLS (SYSTEM) ================= */}
+        {activeTab === "TOOLS" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+            <div>
+              <h1 style={{ margin: "0 0 4px 0", fontSize: "28px", fontWeight: 800 }}>Công cụ hạt nhân</h1>
+              <p style={{ margin: "0", color: "var(--text-muted)", fontSize: "14px" }}>Các công cụ chuyên sâu dành cho nhà phát triển hệ thống và xử lý cơ sở dữ liệu khẩn cấp.</p>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "24px" }}>
+              {/* Reset to Seeds Card */}
+              <div className="glass-card" style={{ borderTop: "4px solid var(--accent-purple)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <div>
+                  <h3 style={{ margin: "0 0 8px 0", fontSize: "16px", fontWeight: 700, color: "var(--accent-purple)" }}>Khôi phục Dữ liệu mẫu (Reset to Seeds)</h3>
+                  <p style={{ margin: "0 0 20px 0", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.5 }}>
+                    Xóa sạch toàn bộ các bản ghi trong tất cả các bộ sưu tập Firestore (Sinh viên, Điểm rèn luyện, Tài khoản...) và ghi đè lại dữ liệu mẫu gốc từ tệp `data.ts`.
+                  </p>
+                </div>
+                <button className="btn-neon-purple" onClick={resetDatabaseToSeeds} style={{ alignSelf: "flex-start" }}>
+                  Chạy hạt nhân Reset to Seeds
+                </button>
+              </div>
+
+              {/* Wipe Out Database Card */}
+              <div className="glass-card" style={{ borderTop: "4px solid var(--danger)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <div>
+                  <h3 style={{ margin: "0 0 8px 0", fontSize: "16px", fontWeight: 700, color: "var(--danger)" }}>Xóa sạch dữ liệu (Wipe Database)</h3>
+                  <p style={{ margin: "0 0 20px 0", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.5 }}>
+                    Dọn dẹp trống toàn bộ cơ sở dữ liệu để đưa ứng dụng vào hoạt động thực tế. Tài khoản Super Admin mặc định vẫn sẽ được tạo lại để tránh mất quyền đăng nhập.
+                  </p>
+                </div>
+                <button className="btn-solid-danger" onClick={wipeAllDatabase} style={{ alignSelf: "flex-start" }}>
+                  Hủy diệt toàn bộ dữ liệu thô
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================= TAB: FEEDBACK (SYSTEM) ================= */}
+        {activeTab === "FEEDBACK" && (() => {
+          // Compute filtered feedbacks inside an IIFE to keep it isolated
+          const filteredFeedbacks = systemFeedbacks.filter(fb => {
+            const matchesSearch = 
+              fb.title.toLowerCase().includes(feedbackSearch.toLowerCase()) ||
+              fb.content.toLowerCase().includes(feedbackSearch.toLowerCase()) ||
+              fb.userName.toLowerCase().includes(feedbackSearch.toLowerCase()) ||
+              fb.userId.toLowerCase().includes(feedbackSearch.toLowerCase());
+            
+            const matchesRole = feedbackRoleFilter === "ALL" || fb.userRole === feedbackRoleFilter;
+            const matchesCategory = feedbackCategoryFilter === "ALL" || fb.category === feedbackCategoryFilter;
+            
+            return matchesSearch && matchesRole && matchesCategory;
+          });
+
+          // Category stats breakdown
+          const bugCount = systemFeedbacks.filter(f => f.category === "Báo lỗi").length;
+          const uiCount = systemFeedbacks.filter(f => f.category === "Giao diện").length;
+          const featureCount = systemFeedbacks.filter(f => f.category === "Tính năng").length;
+          const otherCount = systemFeedbacks.filter(f => f.category === "Khác").length;
+
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              <div className="admin-header-row">
+                <div>
+                  <h1 style={{ margin: "0 0 4px 0", fontSize: "28px", fontWeight: 800 }}>Hòm thư góp ý hệ thống</h1>
+                  <p style={{ margin: "0", color: "var(--text-muted)", fontSize: "14px" }}>Xem và quản lý các đóng góp ý kiến để hoàn thiện tính năng của hệ thống UniHub.</p>
+                </div>
+                {systemFeedbacks.length > 0 && (
+                  <button 
+                    className="btn-solid-danger" 
+                    onClick={() => setShowBulkConfirmModal(true)}
+                    style={{ fontSize: "12px", padding: "10px 16px" }}
+                  >
+                    Xóa sạch hòm thư ({systemFeedbacks.length})
+                  </button>
+                )}
+              </div>
+
+              {/* Stats row */}
+              <div className="kpi-grid-responsive">
+                <div className="glass-card" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Tổng số góp ý</span>
+                  <span style={{ fontSize: "24px", fontWeight: 800, color: "var(--accent-cyan)" }}>{systemFeedbacks.length} thư</span>
+                </div>
+                <div className="glass-card" style={{ display: "flex", flexDirection: "column", gap: "4px", borderLeft: "3px solid var(--danger)" }}>
+                  <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Báo lỗi hệ thống (Bug)</span>
+                  <span style={{ fontSize: "24px", fontWeight: 800, color: "var(--danger)" }}>{bugCount} thư</span>
+                </div>
+                <div className="glass-card" style={{ display: "flex", flexDirection: "column", gap: "4px", borderLeft: "3px solid var(--accent-purple)" }}>
+                  <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Đề xuất tính năng</span>
+                  <span style={{ fontSize: "24px", fontWeight: 800, color: "var(--accent-purple)" }}>{featureCount} thư</span>
+                </div>
+                <div className="glass-card" style={{ display: "flex", flexDirection: "column", gap: "4px", borderLeft: "3px solid #3b82f6" }}>
+                  <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Cải tiến giao diện</span>
+                  <span style={{ fontSize: "24px", fontWeight: 800, color: "#3b82f6" }}>{uiCount} thư</span>
+                </div>
+              </div>
+
+              {/* Filter controls */}
+              <div className="filter-bar-responsive">
+                <div style={{ flex: 1, minWidth: "200px" }}>
+                  <input
+                    type="text"
+                    placeholder="Tìm kiếm theo tên, mã SV, tiêu đề..."
+                    className="input-dark"
+                    value={feedbackSearch}
+                    onChange={(e) => setFeedbackSearch(e.target.value)}
+                    style={{ width: "100%", boxSizing: "border-box" }}
+                  />
+                </div>
+
+                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase" }}>Phân loại</span>
+                    <select
+                      className="select-dark"
+                      value={feedbackCategoryFilter}
+                      onChange={(e) => setFeedbackCategoryFilter(e.target.value)}
+                      style={{ minWidth: "140px" }}
+                    >
+                      <option value="ALL">Tất cả phân loại</option>
+                      <option value="Giao diện">Giao diện (UI/UX)</option>
+                      <option value="Tính năng">Tính năng mới</option>
+                      <option value="Báo lỗi">Báo lỗi (Bug)</option>
+                      <option value="Khác">Khác</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase" }}>Vai trò</span>
+                    <select
+                      className="select-dark"
+                      value={feedbackRoleFilter}
+                      onChange={(e) => setFeedbackRoleFilter(e.target.value)}
+                      style={{ minWidth: "160px" }}
+                    >
+                      <option value="ALL">Tất cả vai trò</option>
+                      <option value={UserRole.STUDENT}>Sinh viên</option>
+                      <option value={UserRole.CLASS_MONITOR}>Ban cán sự</option>
+                      <option value={UserRole.ADVISER}>Cố vấn học tập (CVHT)</option>
+                      <option value={UserRole.FACULTY}>Văn phòng Khoa</option>
+                      <option value={UserRole.TRAINING_DEPT}>Phòng Đào tạo</option>
+                      <option value={UserRole.CLUB_MANAGER}>Câu lạc bộ</option>
+                      <option value={UserRole.YOUTH_UNION}>Đoàn Thanh niên</option>
+                      <option value={UserRole.STUDENT_UNION}>Hội Sinh viên</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Feedbacks Grid */}
+              {filteredFeedbacks.length === 0 ? (
+                <div className="glass-card" style={{ padding: "48px", textAlign: "center", color: "var(--text-muted)" }}>
+                  <span>Không tìm thấy thư góp ý nào phù hợp với bộ lọc hiện tại.</span>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px" }}>
+                  {filteredFeedbacks.map((fb) => {
+                    const badgeBg = fb.category === "Báo lỗi" ? "rgba(239, 68, 68, 0.15)" :
+                                    fb.category === "Tính năng" ? "rgba(168, 85, 247, 0.15)" :
+                                    fb.category === "Giao diện" ? "rgba(59, 130, 246, 0.15)" : "rgba(148, 163, 184, 0.15)";
+                    const badgeText = fb.category === "Báo lỗi" ? "var(--danger)" :
+                                      fb.category === "Tính năng" ? "var(--accent-purple)" :
+                                      fb.category === "Giao diện" ? "var(--accent-cyan)" : "var(--text-muted)";
+
+                    const roleText = fb.userRole === UserRole.STUDENT ? "Sinh viên" :
+                                     fb.userRole === UserRole.CLASS_MONITOR ? "Ban cán sự" :
+                                     fb.userRole === UserRole.ADVISER ? "Cố vấn học tập (CVHT)" :
+                                     fb.userRole === UserRole.FACULTY ? "Khoa" :
+                                     fb.userRole === UserRole.TRAINING_DEPT ? "Phòng Đào tạo" :
+                                     fb.userRole === UserRole.ORGANIZER ? "CLB / Đoàn Hội" :
+                                     fb.userRole === UserRole.CLUB_MANAGER ? "Câu lạc bộ" :
+                                     fb.userRole === UserRole.YOUTH_UNION ? "Đoàn Thanh niên" :
+                                     fb.userRole === UserRole.STUDENT_UNION ? "Hội Sinh viên" : "Admin";
+
+                    return (
+                      <div key={fb.id} className="glass-card animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "20px", position: "relative" }}>
+                        
+                        {/* Header of Card */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "8px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <span style={{ 
+                              fontSize: "10px", 
+                              fontWeight: 900, 
+                              textTransform: "uppercase", 
+                              padding: "4px 10px", 
+                              borderRadius: "6px", 
+                              background: badgeBg, 
+                              color: badgeText, 
+                              border: `1px solid ${badgeText}33` 
+                            }}>
+                              {fb.category}
+                            </span>
+                            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                              {new Date(fb.createdAt).toLocaleString("vi-VN")}
+                            </span>
+                          </div>
+                          <button 
+                            className="btn-solid-danger" 
+                            style={{ padding: "6px", borderRadius: "8px", background: "rgba(239, 68, 68, 0.08)", border: "1px solid rgba(239, 68, 68, 0.15)" }}
+                            onClick={() => handleDeleteFeedback(fb.id)}
+                            title="Xóa thư này"
+                          >
+                            <Trash2 size={14} style={{ color: "var(--danger)" }} />
+                          </button>
+                        </div>
+
+                        {/* Title & Content */}
+                        <div style={{ borderBottom: "1px solid var(--border-normal)", paddingBottom: "14px" }}>
+                          <h3 style={{ margin: "0 0 8px 0", fontSize: "16px", fontWeight: 800, color: "var(--text-bright)" }}>{fb.title}</h3>
+                          <p style={{ margin: "0", fontSize: "13px", color: "var(--text-bright)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                            {fb.content}
+                          </p>
+                        </div>
+
+                        {/* Sender Info Footer */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px", color: "var(--text-muted)" }}>
+                          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                            <span style={{ color: "var(--text-bright)", fontWeight: 700 }}>{fb.userName}</span>
+                            <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: "var(--text-muted)" }}></span>
+                            <span style={{ fontFamily: "monospace" }}>{fb.userId}</span>
+                          </div>
+                          <div>
+                            <span style={{ 
+                              fontSize: "10px", 
+                              fontWeight: 800, 
+                              padding: "3px 8px", 
+                              background: "rgba(255,255,255,0.05)", 
+                              borderRadius: "4px", 
+                              color: "var(--text-muted)", 
+                              border: "1px solid var(--border-normal)" 
+                            }}>
+                              {roleText}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ================= TAB: THEME CUSTOMIZATION ================= */}
+        {activeTab === "THEME" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+            <div>
+              <h1 style={{ margin: "0 0 4px 0", fontSize: "28px", fontWeight: 800 }}>Cấu hình ảnh & giao diện</h1>
+              <p style={{ margin: "0", color: "var(--text-muted)", fontSize: "14px" }}>
+                Thay đổi logo, hình nền đăng nhập, và tiêu đề hiển thị ở dự án UniHub chính.
               </p>
             </div>
 
-            {this.state.error && (
-              <div className="p-3 bg-slate-900/80 rounded-xl text-left border border-slate-700/60 overflow-x-auto text-[11px] font-mono text-rose-300">
-                {this.state.error.toString()}
-              </div>
-            )}
+            <form onSubmit={handleSaveThemeConfig} className="theme-form-responsive">
+              {/* Left Column: Form settings */}
+              <div className="glass-card" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                <h3 style={{ margin: "0 0 8px 0", borderBottom: "1px solid var(--border-normal)", paddingBottom: "10px", fontSize: "18px", color: "var(--accent-cyan)" }}>
+                  Thông số cấu hình
+                </h3>
 
-            <div className="flex flex-col gap-2 pt-2">
-              <button
-                onClick={this.handleResetCache}
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer"
-              >
-                🧹 Xóa bộ nhớ đệm & Đăng nhập lại
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "8px", fontWeight: 600 }}>
+                    Tiêu đề Cổng thông tin (Login Title)
+                  </label>
+                  <input 
+                    type="text" 
+                    className="input-dark" 
+                    value={themeConfig.loginTitle || ""} 
+                    onChange={(e) => setThemeConfig({ ...themeConfig, loginTitle: e.target.value })}
+                    placeholder="e.g. CỔNG THÔNG TIN UNIHUBHG"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "8px", fontWeight: 600 }}>
+                    Dòng mô tả (Login Subtitle)
+                  </label>
+                  <textarea 
+                    className="input-dark" 
+                    style={{ minHeight: "60px", resize: "vertical", fontFamily: "inherit" }}
+                    value={themeConfig.loginSubtitle || ""} 
+                    onChange={(e) => setThemeConfig({ ...themeConfig, loginSubtitle: e.target.value })}
+                    placeholder="Nhập dòng chữ chào mừng phía dưới tiêu đề..."
+                  />
+                </div>
+
+                {/* Logo Customization section */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", borderBottom: "1px solid var(--border-normal)", paddingBottom: "20px" }}>
+                  <label style={{ display: "block", fontSize: "14px", color: "#0f172a", fontWeight: 700 }}>
+                    1. Logo hệ thống (Logo Image)
+                  </label>
+                  <p style={{ margin: "0", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>
+                    Ảnh được tự tối ưu/nén đúng giới hạn trước khi lên Firebase Storage, sau đó Firestore chỉ lưu URL nhỏ:
+                  </p>
+                  
+                  <div style={{ display: "flex", alignItems: "center", gap: "16px", marginTop: "8px" }}>
+                    <div style={{ width: "64px", height: "64px", borderRadius: "12px", border: "1px dashed var(--accent-cyan)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "rgba(0,0,0,0.2)" }}>
+                      {themeConfig.logoUrl ? (
+                        <img src={themeConfig.logoUrl} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                      ) : (
+                        <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Mặc định</span>
+                      )}
+                    </div>
+                    
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <input 
+                        type="file" 
+                        id="logo-file-input" 
+                        accept="image/*" 
+                        onChange={handleLogoUpload} 
+                        style={{ display: "none" }} 
+                      />
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <label 
+                          htmlFor="logo-file-input" 
+                          className="btn-neon-cyan" 
+                          style={{ cursor: "pointer", fontSize: "12px", padding: "8px 14px", display: "inline-flex" }}
+                        >
+                          Tải ảnh lên...
+                        </label>
+                        {themeConfig.logoUrl && (
+                          <button 
+                            type="button" 
+                            className="btn-solid-danger" 
+                            style={{ padding: "8px 12px", fontSize: "12px" }}
+                            onClick={handleRemoveLogo}
+                          >
+                            Xóa ảnh
+                          </button>
+                        )}
+                      </div>
+                      <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>Logo sẽ được tự tối ưu về kích thước an toàn trước khi tải lên Storage. Khuyên dùng PNG nền trong suốt hoặc ảnh vuông chất lượng cao.</span>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: "8px" }}>
+                    <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>
+                      Hoặc dán Link Google Drive / URL ảnh logo (tự động chuyển thành link ảnh trực tiếp):
+                    </label>
+                    <input 
+                      type="text" 
+                      className="input-dark" 
+                      style={{ fontSize: "12px", padding: "8px" }}
+                      value={themeConfig.logoUrl || ""} 
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (looksLikeInlineImagePayload(val) || (val.length > 500 && !/^https?:\/\//i.test(val))) {
+                          alert("Không được dán chuỗi ảnh Base64 vào đây (gây vượt giới hạn 1MB Firestore). Vui lòng chọn nút 'Tải ảnh lên...' hoặc dán link URL Google Drive / HTTP / HTTPS.");
+                          setThemeConfig(prev => ({ ...prev, logoUrl: "" }));
+                        } else {
+                          const direct = convertGoogleDriveUrlToDirectUrl(val);
+                          setThemeConfig(prev => ({ ...prev, logoUrl: direct }));
+                        }
+                      }}
+                      placeholder="Dán link chia sẻ Google Drive hoặc URL ảnh (e.g. https://drive.google.com/file/d/1ABC...)..."
+                    />
+                  </div>
+                </div>
+
+                {/* Background images gallery section */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px", borderBottom: "1px solid var(--border-normal)", paddingBottom: "20px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <label style={{ display: "block", fontSize: "14px", color: "#0f172a", fontWeight: 700 }}>
+                      2. Danh sách ảnh nền (Slider / Carousel)
+                    </label>
+                    <span style={{ fontSize: "11px", color: "var(--accent-cyan)", fontWeight: 600 }}>
+                      {adminBgUrls.length} / {THEME_BACKGROUND_LIMIT} ảnh
+                    </span>
+                  </div>
+                  <p style={{ margin: "0", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>
+                    Ảnh được tự nén/căn kích thước tối đa cho phép rồi tải lên Firebase Storage; Firestore chỉ lưu URL nhỏ nên không còn lỗi 1MB.
+                    Các thay đổi xóa/thay ảnh cũ chỉ được dọn trên Storage sau khi bạn bấm Lưu cấu hình.
+                  </p>
+                  {hasLegacyAdminThemeImages && (
+                    <div style={{ padding: "10px 12px", borderRadius: "12px", border: "1px solid rgba(251, 191, 36, 0.35)", background: "rgba(251, 191, 36, 0.08)", color: "#FDE68A", fontSize: "11px", lineHeight: 1.5 }}>
+                      Hệ thống đang phát hiện ảnh cũ dạng Base64 trong Firestore. Bấm Lưu cấu hình để loại bỏ dữ liệu ảnh nặng này, sau đó tải lại ảnh gốc qua Storage nếu cần.
+                    </div>
+                  )}
+
+                  {/* Image Grid / Gallery */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: "10px", marginTop: "6px" }}>
+                    {adminBgUrls.map((url, idx) => (
+                      <div key={idx} style={{ position: "relative", width: "100%", height: "60px", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--border-normal)", background: "#000" }}>
+                        <img src={url} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <button
+                          type="button"
+                          onClick={() => removeBgImage(idx)}
+                          style={{ position: "absolute", top: "3px", right: "3px", background: "rgba(225, 29, 72, 0.9)", color: "#fff", border: "none", borderRadius: "50%", width: "18px", height: "18px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px", fontWeight: "bold" }}
+                          title="Xóa ảnh này"
+                        >
+                          ✕
+                        </button>
+                        <span style={{ position: "absolute", bottom: "2px", left: "4px", fontSize: "9px", background: "rgba(0,0,0,0.6)", padding: "1px 4px", borderRadius: "4px", color: "#fff" }}>
+                          #{idx + 1}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ display: "flex", gap: "10px", marginTop: "8px", flexWrap: "wrap" }}>
+                    <input 
+                      type="file" 
+                      id="bg-file-input" 
+                      accept="image/*" 
+                      multiple
+                      onChange={handleBgUpload} 
+                      style={{ display: "none" }} 
+                    />
+                    <label 
+                      htmlFor="bg-file-input" 
+                      className="btn-neon-cyan" 
+                      style={{ cursor: "pointer", fontSize: "12px", padding: "8px 14px", display: "inline-flex", gap: "6px", alignItems: "center" }}
+                    >
+                      <Image size={14} />
+                      <span>Tối ưu & tải ảnh lên Storage (chọn 1 hoặc nhiều)...</span>
+                    </label>
+                    
+                    {hasConfiguredAdminBg && (
+                      <button
+                        type="button"
+                        className="btn-solid-danger"
+                        style={{ padding: "8px 14px", fontSize: "12px" }}
+                        onClick={handleClearAllBgImages}
+                      >
+                        Xóa tất cả ảnh nền
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ marginTop: "8px" }}>
+                    <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>
+                      Hoặc dán Link Google Drive (hỗ trợ dán 1 hoặc chọn/copy NHIỀU link ảnh dán cùng lúc):
+                    </label>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <input 
+                        type="text" 
+                        className="input-dark" 
+                        style={{ fontSize: "12px", padding: "8px", flex: 1 }}
+                        value={newBgUrlInput} 
+                        onChange={(e) => setNewBgUrlInput(e.target.value)}
+                        placeholder="Dán link chia sẻ Google Drive (bôi đen nhiều ảnh trong Drive ➔ Copy link ➔ Dán vào đây)..."
+                      />
+                      <button
+                        type="button"
+                        className="btn-solid-primary"
+                        style={{ padding: "8px 16px", fontSize: "12px" }}
+                        onClick={handleBgUrlInputSubmit}
+                      >
+                        Thêm ảnh
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slider Interval timing setting */}
+                <div style={{ borderBottom: "1px solid var(--border-normal)", paddingBottom: "20px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <label style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 600 }}>
+                      Thời gian chuyển slide ảnh tự động (giây)
+                    </label>
+                    <span style={{ fontSize: "13px", color: "var(--accent-cyan)", fontWeight: 800 }}>
+                      {themeConfig.bgTransitionInterval || 5} giây / ảnh
+                    </span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="2" 
+                    max="15" 
+                    step="1"
+                    style={{ width: "100%", accentColor: "var(--accent-cyan)" }}
+                    value={themeConfig.bgTransitionInterval || 5} 
+                    onChange={(e) => setThemeConfig({ ...themeConfig, bgTransitionInterval: parseInt(e.target.value, 10) })}
+                  />
+                  <p style={{ margin: "4px 0 0 0", fontSize: "10px", color: "var(--text-muted)" }}>
+                    Ảnh nền sẽ tự động trượt chuyển động sang trái sau khoảng thời gian này.
+                  </p>
+                </div>
+
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <label style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 600 }}>
+                      Độ mờ lớp phủ nền (Background Overlay Opacity)
+                    </label>
+                    <span style={{ fontSize: "12px", color: "var(--accent-cyan)", fontWeight: 700 }}>
+                      {Math.round((themeConfig.bgOverlayOpacity ?? 0.75) * 100)}%
+                    </span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="1" 
+                    step="0.05"
+                    style={{ width: "100%", accentColor: "var(--accent-cyan)" }}
+                    value={themeConfig.bgOverlayOpacity ?? 0.75} 
+                    onChange={(e) => setThemeConfig({ ...themeConfig, bgOverlayOpacity: parseFloat(e.target.value) })}
+                  />
+                </div>
+
+                {/* Contact information section */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "14px", borderTop: "1px solid var(--border-normal)", paddingTop: "20px" }}>
+                  <label style={{ display: "block", fontSize: "14px", color: "#0f172a", fontWeight: 700 }}>
+                    3. Thông tin liên hệ ở chân trang (Footer Contact Info)
+                  </label>
+                  <p style={{ margin: "0", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>
+                    Nhập địa chỉ, email và điện thoại liên hệ của trường để hiển thị ở góc bên dưới trang cổng thông tin:
+                  </p>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Địa chỉ trường (Address):</label>
+                    <input 
+                      type="text" 
+                      className="input-dark" 
+                      style={{ fontSize: "12px", padding: "8px" }}
+                      value={themeConfig.contactAddress || ""} 
+                      onChange={(e) => setThemeConfig({ ...themeConfig, contactAddress: e.target.value })}
+                      placeholder="e.g. Tổ 10, Phường Nguyễn Trãi, Thành phố Hà Giang"
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Hòm thư Email (Email):</label>
+                    <input 
+                      type="email" 
+                      className="input-dark" 
+                      style={{ fontSize: "12px", padding: "8px" }}
+                      value={themeConfig.contactEmail || ""} 
+                      onChange={(e) => setThemeConfig({ ...themeConfig, contactEmail: e.target.value })}
+                      placeholder="e.g. phhagiang@tnu.edu.vn"
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Số điện thoại (Phone):</label>
+                    <input 
+                      type="text" 
+                      className="input-dark" 
+                      style={{ fontSize: "12px", padding: "8px" }}
+                      value={themeConfig.contactPhone || ""} 
+                      onChange={(e) => setThemeConfig({ ...themeConfig, contactPhone: e.target.value })}
+                      placeholder="e.g. 0219.386.1234"
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <button type="submit" className="btn-neon-cyan" style={{ width: "100%", justifyContent: "center", padding: "12px" }}>
+                    <Check size={18} />
+                    <span>Lưu cấu hình giao diện</span>
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn-solid-danger" 
+                    style={{ width: "100%", justifyContent: "center", padding: "10px", fontSize: "12px" }}
+                    onClick={async () => {
+                      if (!window.confirm("Thao tác này sẽ xóa sạch mọi dữ liệu Base64 bị kẹt và đưa tài liệu cấu hình về kích thước siêu nhẹ (<2KB). Bạn có chắc chắn muốn tiếp tục?")) return;
+                      setLoading(true);
+                      setStatusMessage("Đang dọn dẹp triệt để dữ liệu Base64 cũ...");
+                      try {
+                        const cleanConfig = getCompactThemeConfig(themeConfig);
+                        await setDoc(doc(db, "systemConfig", "theme"), cleanConfig, { merge: false });
+                        setThemeConfig(cleanConfig);
+                        alert("Đã làm sạch dữ liệu Base64 thành công! Dung lượng cấu hình hiện tại chỉ còn dưới 2KB.");
+                      } catch (err: any) {
+                        alert("Lỗi khi dọn dẹp Base64: " + err.message);
+                      } finally {
+                        setLoading(false);
+                        setStatusMessage("");
+                      }
+                    }}
+                  >
+                    <span>🧹 Dọn dẹp dữ liệu ảnh cũ Base64 (Fix lỗi 1MB)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Column: Presets & Live Preview */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                {/* Presets Card */}
+                <div className="glass-card" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <h3 style={{ margin: "0", fontSize: "16px", color: "var(--accent-cyan)", fontWeight: 700 }}>
+                    Hình nền mẫu gợi ý (Presets)
+                  </h3>
+                  <p style={{ margin: "0", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>
+                    Nhấn chọn nhanh một trong các hình nền chất lượng cao dưới đây để áp dụng làm hình nền:
+                  </p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                    {[
+                      { name: "Phân hiệu HG Campus", url: "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=1000&auto=format&fit=crop" },
+                      { name: "Khuôn viên Đại học", url: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1000&auto=format&fit=crop" },
+                      { name: "Thư viện tri thức", url: "https://images.unsplash.com/photo-1507842237319-9871f54972e7?q=80&w=1000&auto=format&fit=crop" },
+                      { name: "Gradient trừu tượng", url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop" },
+                      { name: "Thiên nhiên Hà Giang", url: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1000&auto=format&fit=crop" },
+                      { name: "Reset mặc định", url: "" }
+                    ].map((p, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className="btn-neon-purple"
+                        style={{ padding: "8px", fontSize: "11px", justifyContent: "center" }}
+                        onClick={() => {
+                          if (p.url) {
+                            addBgUrlToList(p.url);
+                          } else {
+                            setThemeConfig({ ...themeConfig, loginBgUrl: "", loginBgUrls: [] });
+                          }
+                        }}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mini Preview Box */}
+                <div className="glass-card" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <h3 style={{ margin: "0", fontSize: "16px", color: "var(--accent-cyan)", fontWeight: 700 }}>
+                    Xem trước nhanh (Live Preview)
+                  </h3>
+                  <div 
+                    style={{ 
+                      height: "220px", 
+                      borderRadius: "12px", 
+                      border: "1px solid var(--border-normal)", 
+                      position: "relative",
+                      overflow: "hidden",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      backgroundImage: adminPreviewBgUrl ? `url(${adminPreviewBgUrl})` : "none",
+                      backgroundSize: "contain",
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "center",
+                      backgroundColor: adminPreviewBgUrl ? "#0e1626" : "#080c14",
+                      transition: "all 0.3s ease"
+                    }}
+                  >
+                    {/* Simulated Overlay */}
+                    {adminPreviewBgUrl && (
+                      <div 
+                        style={{ 
+                          position: "absolute", 
+                          inset: 0, 
+                          backgroundColor: "#020617", 
+                          opacity: themeConfig.bgOverlayOpacity ?? 0.75,
+                          zIndex: 1
+                        }} 
+                      />
+                    )}
+
+                    {/* Simulated login card content */}
+                    <div style={{ position: "relative", zIndex: 2, textAlign: "center", padding: "16px", color: "#fff" }}>
+                      <div style={{ display: "flex", justifyContent: "center", gap: "8px", alignItems: "center", marginBottom: "8px" }}>
+                        <div style={{ width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "#fff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", border: "1px solid rgba(255,255,255,0.4)" }}>
+                          {themeConfig.logoUrl ? (
+                            <img src={themeConfig.logoUrl} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+                          ) : (
+                            <div style={{ width: "14px", height: "14px", borderRadius: "50%", backgroundColor: "#0c529c", margin: "auto" }}></div>
+                          )}
+                        </div>
+                        <span style={{ fontSize: "10px", fontWeight: 800, color: "var(--accent-cyan)" }}>TNU HGC</span>
+                      </div>
+                      <h4 style={{ margin: "0 0 4px 0", fontSize: "12px", fontWeight: 900 }}>
+                        {themeConfig.loginTitle || "CỔNG THÔNG TIN UNIHUBHG"}
+                      </h4>
+                      <p style={{ margin: "0", fontSize: "9px", color: "#94a3b8", maxWidth: "260px" }}>
+                        {themeConfig.loginSubtitle || "Chào mừng bạn đến với Phân hiệu ĐHTN tại Hà Giang..."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        )}
+      </main>
+
+      {/* ================= MODAL: USER DETAILS (ADD/EDIT) ================= */}
+      {showUserModal && (
+        <div className="modal-overlay">
+          <form className="modal-container" onSubmit={saveUser}>
+            <div className="modal-header">
+              <h3 className="modal-title">
+                {isTeacherUserModal ? "Chi tiết tài khoản Giảng viên Bộ môn" : (selectedUser ? "Cập nhật tài khoản" : "Tạo tài khoản mới")}
+              </h3>
+              <button type="button" className="btn-neon-cyan" style={{ padding: "4px 8px" }} onClick={() => setShowUserModal(false)}>
+                <X size={16} />
               </button>
-              <button
-                onClick={() => window.location.reload()}
-                className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium text-xs rounded-xl transition-all cursor-pointer"
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {isTeacherUserModal && (
+                <div className="glass-card" style={{ padding: "12px 14px", borderColor: "rgba(0, 240, 255, 0.28)", background: "rgba(0, 240, 255, 0.06)" }}>
+                  <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                    <Shield size={18} style={{ color: "var(--accent-cyan)", flexShrink: 0, marginTop: "2px" }} />
+                    <div>
+                      <div style={{ fontWeight: 800, color: "#0f172a", marginBottom: "4px" }}>Chế độ chỉ xem</div>
+                      <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "12px", lineHeight: 1.5 }}>
+                        Tài khoản Giảng viên Bộ môn được đồng bộ từ phân công của Phòng Đào tạo. Admin chỉ xem tài khoản, mật khẩu và học phần phụ trách; không tạo/sửa/xóa tại màn hình này.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>Họ và tên</label>
+                <input 
+                  type="text" 
+                  className="input-dark" 
+                  value={userForm.name} 
+                  onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} 
+                  required 
+                  readOnly={isTeacherUserModal}
+                  style={teacherInputReadonlyStyle}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>Tên tài khoản (Email đăng nhập)</label>
+                <input 
+                  type="text" 
+                  className="input-dark" 
+                  value={userForm.username || userForm.email} 
+                  onChange={(e) => setUserForm({ ...userForm, username: e.target.value, email: e.target.value })} 
+                  required 
+                  readOnly={isTeacherUserModal}
+                  style={teacherInputReadonlyStyle}
+                />
+              </div>
+
+              <div className="modal-grid-2col">
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>Vai trò người dùng</label>
+                  <select 
+                    className="select-dark"
+                    value={userForm.role}
+                    onChange={(e) => setUserForm({ ...userForm, role: e.target.value as UserRole })}
+                    disabled={isTeacherUserModal}
+                    style={teacherInputReadonlyStyle}
+                  >
+                    {isTeacherUserModal && <option value={UserRole.TEACHER}>Giảng viên Bộ môn (chỉ xem)</option>}
+                    <option value={UserRole.STUDENT}>Sinh viên</option>
+                    <option value={UserRole.GROUP_LEADER}>Tổ trưởng</option>
+                    <option value={UserRole.CLASS_MONITOR}>Lớp trưởng (BCS)</option>
+                    <option value={UserRole.ADVISER}>Cố vấn học tập (CVHT)</option>
+                    <option value={UserRole.CLUB_MANAGER}>Câu lạc bộ</option>
+                    <option value={UserRole.YOUTH_UNION}>Đoàn Thanh niên</option>
+                    <option value={UserRole.STUDENT_UNION}>Hội Sinh viên</option>
+                    <option value={UserRole.FACULTY}>Văn phòng Khoa</option>
+                    <option value={UserRole.TRAINING_DEPT}>Phòng Đào tạo</option>
+                    <option value={UserRole.ADMIN}>Phòng CTHSSV (Admin)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>Mật khẩu đăng nhập</label>
+                  <input 
+                    type="text" 
+                    className="input-dark" 
+                    value={isTeacherUserModal ? modalTeacherPassword : userForm.password} 
+                    onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} 
+                    placeholder="Nhập mật khẩu..."
+                    required={!selectedUser}
+                    readOnly={isTeacherUserModal}
+                    style={teacherInputReadonlyStyle}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>
+                  {isTeacherUserModal ? "Mã liên kết / định danh phân công" : "Mã liên kết (Mã SV / Mã Lớp / Mã CLB nếu có)"}
+                </label>
+                <input 
+                  type="text" 
+                  className="input-dark" 
+                  value={userForm.targetId} 
+                  onChange={(e) => setUserForm({ ...userForm, targetId: e.target.value })} 
+                  readOnly={isTeacherUserModal}
+                  style={teacherInputReadonlyStyle}
+                />
+              </div>
+
+              {userForm.role === UserRole.CLASS_MONITOR && !isTeacherUserModal && (
+                <div style={{ marginTop: "16px" }}>
+                  <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>Chức danh Ban cán sự</label>
+                  <select 
+                    className="select-dark"
+                    value={userForm.monitorTitle || "Lớp trưởng"}
+                    onChange={(e) => setUserForm({ ...userForm, monitorTitle: e.target.value })}
+                  >
+                    <option value="Lớp trưởng">Lớp trưởng</option>
+                    <option value="Lớp phó học tập">Lớp phó học tập</option>
+                    <option value="Bí thư Đoàn">Bí thư Đoàn</option>
+                    <option value="Ban cán sự (Khác)">Ban cán sự (Khác)</option>
+                  </select>
+                </div>
+              )}
+
+              {isTeacherUserModal && (
+                <div className="glass-card" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                    <div>
+                      <h4 style={{ margin: 0, color: "#0f172a", fontSize: "15px", fontWeight: 900 }}>Học phần phụ trách</h4>
+                      <p style={{ margin: "4px 0 0 0", color: "var(--text-muted)", fontSize: "12px" }}>
+                        Đồng bộ từ bảng phân công của Phòng Đào tạo.
+                      </p>
+                    </div>
+                    <span className="badge badge-cyan">{modalTeacherAssignments.length} học phần</span>
+                  </div>
+
+                  {modalTeacherAssignments.length > 0 ? (
+                    <div className="custom-table-container" style={{ maxHeight: "260px", overflowY: "auto" }}>
+                      <table className="custom-table">
+                        <thead>
+                          <tr>
+                            <th>Mã HP</th>
+                            <th>Tên học phần</th>
+                            <th>Lớp học phần</th>
+                            <th>TC</th>
+                            <th>Học kỳ</th>
+                            <th>Trạng thái nộp điểm</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {modalTeacherAssignments.map(assign => {
+                            const statusLabel = assign.status === "LOCKED" ? "Đã khóa" :
+                              assign.status === "SUBMITTED" ? "Đã nộp" :
+                              assign.status === "UNLOCKED" ? "Đã mở khóa" :
+                              assign.status === "DRAFT" ? "Bản nháp" : "Chưa nộp";
+                            const statusClass = assign.status === "LOCKED" ? "badge-danger" :
+                              assign.status === "SUBMITTED" ? "badge-active" :
+                              assign.status === "UNLOCKED" ? "badge-warning" : "badge-cyan";
+                            return (
+                              <tr key={assign.id}>
+                                <td style={{ fontFamily: "monospace", fontWeight: 800, color: "var(--accent-cyan)" }}>{assign.subjectCode}</td>
+                                <td style={{ color: "#0f172a", fontWeight: 700 }}>{assign.subjectName}</td>
+                                <td>{assign.className || normalizeClassId(assign.classId)}</td>
+                                <td style={{ textAlign: "center", fontFamily: "monospace" }}>{assign.credits}</td>
+                                <td>{assign.semesterName || assign.semesterId}</td>
+                                <td><span className={`badge ${statusClass}`}>{statusLabel}</span></td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div style={{ padding: "16px", borderRadius: "12px", border: "1px dashed var(--border-normal)", color: "var(--text-muted)", fontSize: "12px", textAlign: "center" }}>
+                      Chưa tìm thấy học phần liên kết trong bảng phân công Firestore. Hãy kiểm tra lại dữ liệu tại Cổng Phòng Đào tạo.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "32px", borderTop: "1px solid var(--border-normal)", paddingTop: "16px" }}>
+              {isTeacherUserModal ? (
+                <button type="button" className="btn-neon-cyan" style={{ padding: "8px 16px" }} onClick={() => setShowUserModal(false)}>
+                  Đóng
+                </button>
+              ) : (
+                <>
+                  <button type="button" className="btn-solid-danger" style={{ padding: "8px 16px" }} onClick={() => setShowUserModal(false)}>
+                    Hủy bỏ
+                  </button>
+                  <button type="submit" className="btn-neon-cyan">
+                    Lưu tài khoản
+                  </button>
+                </>
+              )}
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ================= MODAL: DYNAMIC RAW DATABASE ROW EDITOR ================= */}
+      {showDbEditModal && dbEditTarget && (
+        <div className="modal-overlay">
+          <form className="modal-container" onSubmit={saveDbRowEdit}>
+            <div className="modal-header">
+              <h3 className="modal-title">Sửa bản ghi dữ liệu thô: {dbEditTarget.id || dbEditTarget.studentId}</h3>
+              <button type="button" className="btn-neon-cyan" style={{ padding: "4px 8px" }} onClick={() => setShowDbEditModal(false)}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px", maxHeight: "50vh", overflowY: "auto", paddingRight: "8px" }}>
+              {Object.keys(dbEditTarget).map((key) => {
+                if (key === "id" || key === "logs") {
+                  return (
+                    <div key={key}>
+                      <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>{key} (Chỉ đọc)</label>
+                      <input type="text" className="input-dark" value={key === "logs" ? "[Nhật ký cộng điểm rèn luyện]" : dbEditTarget[key]} readOnly style={{ opacity: 0.6 }} />
+                    </div>
+                  );
+                }
+
+                const valType = typeof dbEditTarget[key];
+                if (valType === "object" && dbEditTarget[key] !== null) {
+                  return null; // Skip deep nested objects for simplicity
+                }
+
+                return (
+                  <div key={key}>
+                    <label style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>{key}</label>
+                    {valType === "boolean" ? (
+                      <select 
+                        className="select-dark"
+                        value={String(dbEditTarget[key])}
+                        onChange={(e) => setDbEditTarget({ ...dbEditTarget, [key]: e.target.value === "true" })}
+                      >
+                        <option value="true">True</option>
+                        <option value="false">False</option>
+                      </select>
+                    ) : (
+                      <input 
+                        type={valType === "number" ? "number" : "text"} 
+                        className="input-dark" 
+                        value={dbEditTarget[key] ?? ""} 
+                        onChange={(e) => setDbEditTarget({ ...dbEditTarget, [key]: valType === "number" ? Number(e.target.value) : e.target.value })} 
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "32px", borderTop: "1px solid var(--border-normal)", paddingTop: "16px" }}>
+              <button type="button" className="btn-solid-danger" style={{ padding: "8px 16px" }} onClick={() => setShowDbEditModal(false)}>
+                Hủy bỏ
+              </button>
+              <button type="submit" className="btn-neon-cyan">
+                Cập nhật bản ghi
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ================= MODAL: BULK DELETE FEEDBACK CONFIRMATION ================= */}
+      {showBulkConfirmModal && (
+        <div className="modal-overlay" style={{ zIndex: 100 }}>
+          <div className="modal-container" style={{ maxWidth: "400px" }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ color: "var(--danger)" }}>⚠️ CẢNH BÁO: Xóa hàng loạt</h3>
+              <button type="button" className="btn-neon-cyan" style={{ padding: "4px 8px" }} onClick={() => setShowBulkConfirmModal(false)}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <p style={{ margin: "0", fontSize: "13px", color: "var(--text-muted)", lineHeight: 1.5 }}>
+                Hành động này sẽ **XÓA VĨNH VIỄN** tất cả các thư góp ý hiện có trên Firestore. Hành động này không thể hoàn tác!
+              </p>
+              
+              <div>
+                <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "8px", fontWeight: 700, textTransform: "uppercase" }}>
+                  Vui lòng nhập <strong style={{ color: "var(--danger)" }}>CONFIRM</strong> để xác nhận:
+                </label>
+                <input 
+                  type="text" 
+                  className="input-dark" 
+                  placeholder="Gõ CONFIRM..."
+                  value={feedbackBulkConfirmText} 
+                  onChange={(e) => setFeedbackBulkConfirmText(e.target.value)} 
+                  required 
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "32px", borderTop: "1px solid var(--border-normal)", paddingTop: "16px" }}>
+              <button type="button" className="btn-neon-cyan" style={{ padding: "8px 16px" }} onClick={() => setShowBulkConfirmModal(false)}>
+                Hủy bỏ
+              </button>
+              <button 
+                type="button" 
+                className="btn-solid-danger" 
+                onClick={handleBulkDeleteFeedback}
+                disabled={feedbackBulkConfirmText !== "CONFIRM"}
               >
-                🔄 Tải lại trang
+                Xác nhận hủy diệt hòm thư
               </button>
             </div>
           </div>
         </div>
-      );
-    }
+      )}
 
-    return this.props.children;
-  }
-}
-
-export default function App() {
-  return (
-    <ErrorBoundary>
-      <UniHubProvider>
-        <ErrorBoundary>
-          <AppContent />
-        </ErrorBoundary>
-      </UniHubProvider>
-    </ErrorBoundary>
+    </div>
   );
 }
-

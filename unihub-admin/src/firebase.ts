@@ -1,67 +1,29 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
-import firebaseConfig from "../firebase-applet-config.json";
 
-// Initialize standard Firebase App instance
+export const firebaseConfig = {
+  apiKey: "AIzaSyCmWinkQcP82-juuFRPmXB0wXeDUPxkxdA",
+  authDomain: "unihubhg-tnu.firebaseapp.com",
+  projectId: "unihubhg-tnu",
+  storageBucket: "unihubhg-tnu.firebasestorage.app",
+  messagingSenderId: "732168520347",
+  appId: "1:732168520347:web:b2e8d00aa6610bc0f1bc3e",
+  measurementId: "G-JCJ0KVWPR5",
+  firestoreDatabaseId: ""
+};
+
+// Initialize Firebase App
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore utilizing the custom database instance ID specified in config properties if present
+// Initialize Firestore (fallback to default database if no firestoreDatabaseId is provided)
 export const db = firebaseConfig.firestoreDatabaseId 
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId) 
+  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
   : getFirestore(app);
 
-// Initialize system Firebase Auth instance
+// Initialize Auth
 export const auth = getAuth(app);
 
-// Initialize Storage for original media assets served from Firebase Storage.
+// Initialize Storage for original theme images; Firestore only stores download URLs.
 export const storage = getStorage(app);
-
-// Structured Error details for diagnostics
-export enum OperationType {
-  CREATE = "create",
-  UPDATE = "update",
-  DELETE = "delete",
-  LIST = "list",
-  GET = "get",
-  WRITE = "write",
-}
-
-export interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
-    isAnonymous?: boolean | null;
-    tenantId?: string | null;
-    providerInfo?: {
-      providerId?: string | null;
-      email?: string | null;
-    }[];
-  };
-}
-
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
-    },
-    operationType,
-    path
-  };
-  console.error("Firestore Error logged: ", JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
