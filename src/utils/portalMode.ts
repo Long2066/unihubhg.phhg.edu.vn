@@ -16,13 +16,19 @@ export const getPortalMode = (): PortalMode => {
   if (typeof window !== "undefined") {
     const host = window.location.hostname.toLowerCase();
     const port = window.location.port;
+    const search = window.location.search.toLowerCase();
+
+    // Cho phép query param ghi đè để kiểm thử / chuyển hướng an toàn: ?portal=staff hoặc ?portal=student
+    if (search.includes("portal=staff") || search.includes("portal=canbo")) return "STAFF";
+    if (search.includes("portal=student") || search.includes("portal=sinhvien")) return "STUDENT";
+    if (search.includes("portal=admin")) return "ADMIN";
 
     // 1. Cổng Admin tối cao
     if (host.includes("unihub-admin") || port === "4002") {
       return "ADMIN";
     }
 
-    // 2. Cổng Cán bộ & Tổ chức
+    // 2. Cổng Cán bộ & Tổ chức (unihubhg-ad.vercel.app hoặc preview nhánh cán bộ)
     if (
       host.includes("unihubhg-ad") || 
       host.includes("canbo") || 
@@ -31,7 +37,7 @@ export const getPortalMode = (): PortalMode => {
       return "STAFF";
     }
 
-    // 3. Cổng Sinh viên
+    // 3. Cổng Sinh viên (unihubhg.vercel.app, unihubhg.phhg.edu.vn, port 4000)
     if (host.includes("unihubhg") || host.includes("phhg.edu.vn") || port === "4000") {
       return "STUDENT";
     }
@@ -51,18 +57,21 @@ export const isAdminPortal = (): boolean => getPortalMode() === "ADMIN";
 
 /**
  * Roles permitted in Student Portal stream (unihubhg.vercel.app)
- * - Sinh viên, Ban cán sự lớp, Tổ trưởng
- * - Admin tối cao (Master Bypass): được phép vào cả 3 cổng để thanh tra & cứu hộ
+ * - DÀNH RIÊNG 100% CHO SINH VIÊN (và Tổ trưởng sinh viên)
+ * - Admin tối cao (Master Bypass): được phép vào để thanh tra & cứu hộ kỹ thuật
  */
 export const isRoleAllowedInStudentPortal = (role?: UserRole | string): boolean => {
   if (!role) return false;
   if (role === UserRole.ADMIN) return true; // Đặc quyền Admin tối cao
-  return role === UserRole.STUDENT || role === UserRole.CLASS_MONITOR || role === UserRole.GROUP_LEADER;
+  return role === UserRole.STUDENT || role === UserRole.GROUP_LEADER;
 };
 
 /**
  * Roles permitted in Staff & Organization Portal stream (unihubhg-ad.vercel.app)
- * - Các phòng ban, khoa, giảng viên, CVHT, Đoàn - Hội - CLB
+ * - Dành riêng cho toàn bộ cán bộ ngoài sinh viên:
+ *   + Phòng Đào tạo, Văn phòng Khoa, Giảng viên bộ môn, Cố vấn học tập (CVHT)
+ *   + Ban cán sự lớp (Lớp trưởng, Bí thư)
+ *   + Tổ chức phong trào: Đoàn Thanh niên, Hội Sinh viên, Ban chủ nhiệm các CLB
  * - Admin tối cao (Master Bypass)
  */
 export const isRoleAllowedInStaffPortal = (role?: UserRole | string): boolean => {
@@ -73,6 +82,7 @@ export const isRoleAllowedInStaffPortal = (role?: UserRole | string): boolean =>
     role === UserRole.FACULTY ||
     role === UserRole.TEACHER ||
     role === UserRole.ADVISER ||
+    role === UserRole.CLASS_MONITOR ||
     role === UserRole.YOUTH_UNION ||
     role === UserRole.STUDENT_UNION ||
     role === UserRole.CLUB_MANAGER ||

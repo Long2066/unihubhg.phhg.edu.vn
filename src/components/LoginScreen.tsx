@@ -251,24 +251,25 @@ export const LoginScreen: React.FC = () => {
         setErrorMsg("Tên đăng nhập hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại thông tin đăng nhập.");
       }
     } catch (err: any) {
-      const msg = err?.message || "";
-      if (msg.startsWith("PORTAL_MISMATCH_STAFF")) {
+      console.warn("Login exception caught:", err);
+      const msg = err?.message || String(err || "");
+      if (msg.includes("PORTAL_MISMATCH_STAFF")) {
         setRedirectNotice({
           type: "STAFF",
-          title: "Tài khoản Cán bộ & Tổ chức",
-          message: "Tài khoản của bạn thuộc phân hệ Cán bộ, Giảng viên hoặc Tổ chức. Để tối ưu hiệu năng và tránh quá tải, vui lòng đăng nhập tại Cổng Cán bộ & Tổ chức chuyên biệt.",
+          title: "Chuyển hướng sang Cổng Cán bộ & Tổ chức",
+          message: "Tài khoản của bạn thuộc phân hệ Cán bộ, Giảng viên, CVHT hoặc Tổ chức/CLB. Cổng unihubhg.vercel.app dành riêng 100% cho Sinh viên. Vui lòng bấm nút bên dưới để chuyển sang Cổng Điều hành Cán bộ.",
           buttonText: "Chuyển sang Cổng Cán bộ (unihubhg-ad.vercel.app)",
           targetUrl: STAFF_PORTAL_URL
         });
-      } else if (msg.startsWith("PORTAL_MISMATCH_STUDENT")) {
+      } else if (msg.includes("PORTAL_MISMATCH_STUDENT")) {
         setRedirectNotice({
           type: "STUDENT",
-          title: "Tài khoản Sinh viên",
-          message: "Tài khoản của bạn là Sinh viên. Cổng này dành riêng cho phân hệ Quản lý. Vui lòng đăng nhập tại Cổng Sinh viên chính thức.",
+          title: "Chuyển hướng sang Cổng Sinh viên",
+          message: "Tài khoản của bạn là Sinh viên. Cổng unihubhg-ad.vercel.app dành riêng cho phân hệ Điều hành Cán bộ & Tổ chức. Vui lòng bấm nút bên dưới để chuyển sang Cổng Sinh viên chính thức.",
           buttonText: "Chuyển sang Cổng Sinh viên (unihubhg.vercel.app)",
           targetUrl: STUDENT_PORTAL_URL
         });
-      } else if (msg.startsWith("PORTAL_MISMATCH_ADMIN_STAFF")) {
+      } else if (msg.includes("PORTAL_MISMATCH_ADMIN_STAFF")) {
         setRedirectNotice({
           type: "STAFF",
           title: "Cổng Admin Tối Cao",
@@ -276,7 +277,7 @@ export const LoginScreen: React.FC = () => {
           buttonText: "Chuyển sang Cổng Cán bộ (unihubhg-ad.vercel.app)",
           targetUrl: STAFF_PORTAL_URL
         });
-      } else if (msg.startsWith("PORTAL_MISMATCH_ADMIN_STUDENT")) {
+      } else if (msg.includes("PORTAL_MISMATCH_ADMIN_STUDENT")) {
         setRedirectNotice({
           type: "STUDENT",
           title: "Cổng Admin Tối Cao",
@@ -285,7 +286,7 @@ export const LoginScreen: React.FC = () => {
           targetUrl: STUDENT_PORTAL_URL
         });
       } else {
-        setErrorMsg("Lỗi hệ thống khi đăng nhập. Vui lòng thử lại.");
+        setErrorMsg(err?.message && !err.message.includes("{") ? err.message : "Tên đăng nhập hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại thông tin đăng nhập.");
       }
     } finally {
       setLoading(false);
@@ -803,10 +804,36 @@ export const LoginScreen: React.FC = () => {
                 {portalMode === "ADMIN" 
                   ? "Dành riêng cho Quản trị viên tối cao (Super Admin) & Ban Giám đốc" 
                   : portalMode === "STAFF" 
-                  ? "Dành cho Cán bộ, Giảng viên, CVHT, Phòng ban & Đoàn - Hội - CLB" 
-                  : "Dành riêng cho Sinh viên & Ban cán sự lớp"}
+                  ? "Dành cho Cán bộ, Giảng viên, CVHT, Phòng Đào tạo, Khoa & Đoàn - Hội - CLB" 
+                  : "Dành riêng 100% cho Sinh viên Phân hiệu Hà Giang"}
               </p>
             </div>
+
+            {/* Điều hướng nhanh giữa 2 cổng phân định rõ ràng */}
+            {portalMode === "STUDENT" && (
+              <div className="mb-4 p-2.5 rounded-xl bg-blue-50/90 ring-1 ring-blue-900/10 text-[11px] text-blue-900 flex items-center justify-between gap-2 text-left">
+                <span className="truncate">Bạn là Cán bộ, Giảng viên, CVHT hay BCN CLB?</span>
+                <a 
+                  href={STAFF_PORTAL_URL}
+                  className="px-2.5 py-1 rounded-lg bg-[#0c529c] hover:bg-blue-800 text-white font-bold text-[10px] shrink-0 inline-flex items-center gap-1 shadow-xs transition-all"
+                >
+                  <span>Cổng Cán bộ</span>
+                  <ExternalLink size={10} />
+                </a>
+              </div>
+            )}
+            {portalMode === "STAFF" && (
+              <div className="mb-4 p-2.5 rounded-xl bg-indigo-50/90 ring-1 ring-indigo-900/10 text-[11px] text-indigo-900 flex items-center justify-between gap-2 text-left">
+                <span className="truncate">Bạn là Sinh viên tra cứu điểm rèn luyện & học vụ?</span>
+                <a 
+                  href={STUDENT_PORTAL_URL}
+                  className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] shrink-0 inline-flex items-center gap-1 shadow-xs transition-all"
+                >
+                  <span>Cổng Sinh viên</span>
+                  <ExternalLink size={10} />
+                </a>
+              </div>
+            )}
 
             {/* Thông báo chuyển cổng khi phát hiện sai luồng */}
             {redirectNotice && (

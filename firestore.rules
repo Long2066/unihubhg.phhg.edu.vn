@@ -582,5 +582,10 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // Realtime visits analytics tracking
+    match /system_visits/{visitId} {
+      allow read, write: if true;
+    }
+
   }
 }

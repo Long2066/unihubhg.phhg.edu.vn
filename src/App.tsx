@@ -211,20 +211,32 @@ const AppContent: React.FC = () => {
     }
   }, [currentUser?.id]);
 
-  // Safeguard: Automatically normalize and redirect invalid staff/admin URLs on student portal
+  // Safeguard: Automatically normalize and redirect invalid cross-portal URLs
   React.useEffect(() => {
     if (typeof window === "undefined") return;
     const portalMode = getPortalMode();
     const pathname = window.location.pathname;
 
     if (portalMode === "STUDENT") {
-      const staffPrefixes = ["/to-chuc", "/dao-tao", "/co-van", "/khoa", "/giang-vien", "/quan-tri"];
+      const staffPrefixes = ["/to-chuc", "/dao-tao", "/co-van", "/khoa", "/giang-vien", "/quan-tri", "/ban-can-su"];
       const isStaffRoute = staffPrefixes.some(p => pathname.startsWith(p));
       if (isStaffRoute) {
         console.warn(`[RouteGuard] Normalizing route from ${pathname} on Student Portal.`);
         if (currentUser) {
           setActivePortletTab("TRANG_CHU");
           window.history.replaceState({ role: currentUser.role, tab: "TRANG_CHU" }, "", "/sinh-vien/trang-chu");
+        } else {
+          window.history.replaceState(null, "", "/");
+        }
+      }
+    } else if (portalMode === "STAFF") {
+      if (pathname.startsWith("/sinh-vien")) {
+        console.warn(`[RouteGuard] Normalizing student route from ${pathname} on Staff Portal.`);
+        if (currentUser) {
+          const defaultTab = currentUser.role === UserRole.TRAINING_DEPT ? "OVERVIEW" : "DS_THANHVIEN";
+          setActivePortletTab(defaultTab);
+          const defaultPath = currentUser.role === UserRole.TRAINING_DEPT ? "/dao-tao/tong-quan" : "/to-chuc/thanh-vien";
+          window.history.replaceState({ role: currentUser.role, tab: defaultTab }, "", defaultPath);
         } else {
           window.history.replaceState(null, "", "/");
         }
