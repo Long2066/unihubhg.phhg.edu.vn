@@ -2778,7 +2778,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (usersSnapCheck.empty) {
             console.log("Khởi tạo danh sách users mẫu lên Firestore...");
             for (const u of SEED_USERS) {
-              await setDoc(doc(db, "users", u.id), u, { merge: true });
+              await setDoc(doc(db, "users", u.id), sanitizeForFirestore(u), { merge: true });
             }
           }
         } catch (e) {
@@ -2803,7 +2803,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             }
             const normalized = normalizeUserAccount(userDoc);
             if (normalized.username !== userDoc.username || normalized.email !== userDoc.email) {
-              await setDoc(doc(db, "users", d.id), normalized, { merge: true });
+              await setDoc(doc(db, "users", d.id), sanitizeForFirestore(normalized), { merge: true });
             }
           }
         } catch (e) {
@@ -3300,7 +3300,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       || (matchedStudent as any)?.classSecretaryForClassId 
       || matchedUser?.classSecretaryForClassId;
 
-    const userDoc: UserAccount = matchedStudent
+    const rawUserDoc: UserAccount = matchedStudent
       ? {
           ...(matchedUser || {}),
           id: `U_STUD_${matchedStudent.id}`,
@@ -3309,13 +3309,15 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           role: UserRole.STUDENT,
           targetId: matchedStudent.id,
           email: profileEmail,
-          classSecretaryForClassId: assignedSecretaryClass ? normalizeClassId(assignedSecretaryClass) : (matchedUser?.classSecretaryForClassId || undefined)
+          ...(assignedSecretaryClass ? { classSecretaryForClassId: normalizeClassId(assignedSecretaryClass) } : (matchedUser?.classSecretaryForClassId ? { classSecretaryForClassId: matchedUser.classSecretaryForClassId } : {}))
         }
       : {
           ...matchedUser!,
           email: targetEmail,
-          classSecretaryForClassId: assignedSecretaryClass ? normalizeClassId(assignedSecretaryClass) : matchedUser?.classSecretaryForClassId
+          ...(assignedSecretaryClass ? { classSecretaryForClassId: normalizeClassId(assignedSecretaryClass) } : (matchedUser?.classSecretaryForClassId ? { classSecretaryForClassId: matchedUser.classSecretaryForClassId } : {}))
         };
+
+    const userDoc: UserAccount = sanitizeForFirestore(rawUserDoc);
 
     const matchedStudentId = matchedStudent?.id || "";
     setUsers(prev => {
@@ -3329,7 +3331,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     if (authCred?.user?.uid) {
-      setDoc(doc(db, "users", authCred.user.uid), userDoc, { merge: true }).catch(() => {});
+      try {
+        setDoc(doc(db, "users", authCred.user.uid), sanitizeForFirestore(userDoc), { merge: true }).catch(() => {});
+      } catch (e) {
+        console.warn("setDoc auth user error:", e);
+      }
     }
 
     // Kiểm tra phân luồng 3 cổng: Sinh viên (unihubhg) vs Admin tối cao (unihub-admin) vs Cán bộ & Tổ chức (unihubhg-ad)
