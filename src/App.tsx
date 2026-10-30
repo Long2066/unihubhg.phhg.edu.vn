@@ -85,6 +85,7 @@ import {
   formatStudentCardName,
   resolveTrainingStudent
 } from "./utils/studentCard";
+import { getRouteForTab, getDefaultTabForRole } from "./utils/routeUtils";
 const safeLazy = (importer: () => Promise<any>, namedExport: string) => {
   return lazy(async () => {
     try {
@@ -233,9 +234,9 @@ const AppContent: React.FC = () => {
       if (pathname.startsWith("/sinh-vien")) {
         console.warn(`[RouteGuard] Normalizing student route from ${pathname} on Staff Portal.`);
         if (currentUser) {
-          const defaultTab = currentUser.role === UserRole.TRAINING_DEPT ? "OVERVIEW" : "DS_THANHVIEN";
+          const defaultTab = getDefaultTabForRole(currentUser.role);
           setActivePortletTab(defaultTab);
-          const defaultPath = currentUser.role === UserRole.TRAINING_DEPT ? "/dao-tao/tong-quan" : "/to-chuc/thanh-vien";
+          const defaultPath = getRouteForTab(currentUser.role, defaultTab);
           window.history.replaceState({ role: currentUser.role, tab: defaultTab }, "", defaultPath);
         } else {
           window.history.replaceState(null, "", "/");

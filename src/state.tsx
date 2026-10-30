@@ -352,6 +352,82 @@ const getStudentAuthAliasEmail = (studentId: string): string => {
 };
 
 /**
+ * Nhận diện định danh tài khoản Sinh viên:
+ * - Mã sinh viên: dạng DTG... (VD: DTG245140202053)
+ * - Số CCCD 12 số (hoặc 9 số CMND cũ)
+ * - Mọi tài khoản khác có đuôi .edu.vn (daotao@..., admin@..., khoa.*@..., gv.*@..., clb.*@...) đều là Cán bộ & Tổ chức
+ */
+export const isStudentIdentifier = (input: unknown): boolean => {
+  const clean = String(input ?? "").trim().toLowerCase();
+  if (!clean) return false;
+  const local = clean.includes("@") ? clean.split("@")[0].trim() : clean;
+  // Bắt đầu bằng DTG (mã sinh viên chính quy)
+  if (/^dtg/i.test(local)) return true;
+  // Số CCCD 12 số hoặc 9 số
+  if (/^\d{9,12}$/.test(local)) return true;
+  return false;
+};
+
+/**
+ * Phân giải vai trò hệ thống chuẩn xác dựa trên tên đăng nhập / email công vụ:
+ * - daotao / daotao@... -> TRAINING_DEPT
+ * - admin / admin@... / cthssv@... -> ADMIN
+ * - doantn / doantn@... -> YOUTH_UNION
+ * - hoisv / hoisv@... -> STUDENT_UNION
+ * - clb.* -> CLUB_MANAGER
+ * - khoa.* -> FACULTY
+ * - gvcn.* -> ADVISER
+ * - bcs.* -> CLASS_MONITOR
+ * - gv.* -> TEACHER
+ * - Khớp SEED_USERS -> vai trò trong SEED_USERS
+ * - Mã SV dạng DTG... hoặc CCCD 12 số -> STUDENT
+ * - Mọi tài khoản có đuôi .edu.vn còn lại -> Cán bộ & Tổ chức (mặc định TRAINING_DEPT nếu chưa rõ)
+ */
+export const resolveRoleForAccount = (usernameOrEmail: unknown, currentRole?: UserRole | string): UserRole => {
+  const clean = String(usernameOrEmail ?? "").trim().toLowerCase();
+  if (!clean) return (currentRole as UserRole) || UserRole.STUDENT;
+  const local = (clean.includes("@") ? clean.split("@")[0] : clean).trim();
+
+  // 1. Phân loại theo tiền tố / từ khóa cán bộ & tổ chức
+  if (local === "daotao" || local.startsWith("daotao")) return UserRole.TRAINING_DEPT;
+  if (local === "admin" || local === "cthssv" || local === "pcthssv") return UserRole.ADMIN;
+  if (local === "doantn" || local.startsWith("doantn")) return UserRole.YOUTH_UNION;
+  if (local === "hoisv" || local.startsWith("hoisv")) return UserRole.STUDENT_UNION;
+  if (local.startsWith("clb.") || local.startsWith("clb_")) return UserRole.CLUB_MANAGER;
+  if (local.startsWith("khoa.") || local.startsWith("khoa_")) return UserRole.FACULTY;
+  if (local.startsWith("gvcn.") || local.startsWith("gvcn_")) return UserRole.ADVISER;
+  if (local.startsWith("bcs.") || local.startsWith("bcs_")) return UserRole.CLASS_MONITOR;
+  if (local.startsWith("gv.") || local.startsWith("gv_")) return UserRole.TEACHER;
+
+  // 2. Tra cứu trong SEED_USERS theo email / username / local part
+  const seedMatch = SEED_USERS.find(u => 
+    isEmailLoginMatch(u.email, clean) || 
+    isEmailLoginMatch(u.username, clean) ||
+    getLoginLocalPart(u.email) === local ||
+    getLoginLocalPart(u.username) === local
+  );
+  if (seedMatch) return seedMatch.role;
+
+  // 3. Nếu là mã sinh viên dạng DTG... hoặc số CCCD 12 số -> Sinh viên
+  if (isStudentIdentifier(clean)) return UserRole.STUDENT;
+
+  // 4. Tất cả các tài khoản còn lại có đuôi .edu.vn đều là bên Cổng Cán bộ & Tổ chức
+  if (clean.includes("edu.vn")) {
+    if (currentRole && isRoleAllowedInStaffPortal(currentRole as UserRole)) {
+      return currentRole as UserRole;
+    }
+    return UserRole.TRAINING_DEPT;
+  }
+
+  // 5. Nếu có vai trò hợp lệ khác không phải STUDENT -> giữ nguyên vai trò cán bộ
+  if (currentRole && Object.values(UserRole).includes(currentRole as UserRole) && currentRole !== UserRole.STUDENT) {
+    return currentRole as UserRole;
+  }
+
+  return UserRole.STUDENT;
+};
+
+/**
  * Hàm chuẩn hóa tài khoản hệ thống sang đuôi @phhg.edu.vn
  * - Tài khoản hệ thống gốc trong SEED_USERS: cập nhật theo thông tin chuẩn
  * - Sinh viên: Tên đăng nhập là Mã SV, email đuôi @phhg.edu.vn
@@ -361,7 +437,15 @@ export const normalizeUserAccount = (u: UserAccount): UserAccount => {
   if (!u) return u;
 
   // 1. Kiểm tra tài khoản mặc định của hệ thống trong SEED_USERS
-  const defaultSeed = SEED_USERS.find(seed => seed.id === u.id);
+  const defaultSeed = SEED_USERS.find(seed => 
+    seed.id === u.id ||
+    isEmailLoginMatch(seed.email, u.email) ||
+    isEmailLoginMatch(seed.username, u.username) ||
+    isEmailLoginMatch(seed.email, u.username) ||
+    isEmailLoginMatch(seed.username, u.email) ||
+    (u.email && getLoginLocalPart(seed.email) === getLoginLocalPart(u.email)) ||
+    (u.username && getLoginLocalPart(seed.username) === getLoginLocalPart(u.username))
+  );
   if (defaultSeed) {
     return {
       ...u,
@@ -373,8 +457,11 @@ export const normalizeUserAccount = (u: UserAccount): UserAccount => {
     };
   }
 
-  // 2. Sinh viên: username là Mã SV, email chuẩn hóa @phhg.edu.vn
-  if (u.role === UserRole.STUDENT) {
+  // 2. Tự động xác định vai trò chuẩn xác (không bao giờ nhầm tài khoản cán bộ sang STUDENT)
+  const resolvedRole = resolveRoleForAccount(u.email || u.username || u.id, u.role);
+
+  // 3. Sinh viên: username là Mã SV, email chuẩn hóa @phhg.edu.vn
+  if (resolvedRole === UserRole.STUDENT) {
     const rawUsername = (u.username || u.id || "").trim();
     const cleanStudentId = rawUsername.includes("@") ? rawUsername.split("@")[0] : rawUsername;
     
@@ -387,12 +474,13 @@ export const normalizeUserAccount = (u: UserAccount): UserAccount => {
 
     return {
       ...u,
+      role: UserRole.STUDENT,
       username: cleanStudentId,
       email: cleanEmail
     };
   }
 
-  // 3. Cán bộ, Giảng viên, Đơn vị, Ban cán sự: chuẩn hóa đuôi @phhg.edu.vn
+  // 4. Cán bộ, Giảng viên, Đơn vị, Ban cán sự: chuẩn hóa đuôi @phhg.edu.vn
   let cleanUsername = (u.username || "").trim();
   if (cleanUsername.includes("@")) {
     cleanUsername = cleanUsername.replace(/@(hg\.edu\.vn|hgc\.edu\.vn|unihub\.edu\.vn|tnu-hgc\.edu\.vn|tnu\.edu\.vn)/gi, "@phhg.edu.vn");
@@ -411,6 +499,7 @@ export const normalizeUserAccount = (u: UserAccount): UserAccount => {
 
   return {
     ...u,
+    role: resolvedRole,
     username: cleanUsername,
     email: cleanEmail
   };
@@ -2122,7 +2211,10 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             }
           } catch {}
         }
-        if (!found && authUser.email) {
+        if (found) {
+          found = normalizeUserAccount(found);
+        }
+        if (!found && authUser.email && isStudentIdentifier(authUser.email)) {
           const emailLower = authUser.email.toLowerCase();
           const foundStudent = studentsRef.current.find(s => 
             (s.email && s.email.toLowerCase() === emailLower) ||
@@ -2802,7 +2894,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               continue;
             }
             const normalized = normalizeUserAccount(userDoc);
-            if (normalized.username !== userDoc.username || normalized.email !== userDoc.email) {
+            if (normalized.username !== userDoc.username || normalized.email !== userDoc.email || normalized.role !== userDoc.role) {
+              console.log(`Đồng bộ chuẩn hóa tài khoản Firestore ${d.id}:`, normalized.role);
               await setDoc(doc(db, "users", d.id), sanitizeForFirestore(normalized), { merge: true });
             }
           }
@@ -3126,10 +3219,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const inputLocalPart = getLoginLocalPart(lowerInput);
     const defaultStaffPasswords = ["123456", "Abc@123", "123", "admin@123", "daotao@123", "phhg@123"];
 
+    // Phân loại tài khoản: Chỉ xét là sinh viên nếu đầu vào dạng DTG2451... hoặc số CCCD 12 số
+    const isStudentCandidate = isStudentIdentifier(trimmedInput);
+
     // Helper: test if password matches candidate
     const checkUserPassword = (u: UserAccount, s?: Student | null) => {
-      if (u.role === UserRole.STUDENT) {
-        const stud = s || students.find(x => isStudentCodeLoginMatch(x.id, u.targetId || u.username));
+      const effectiveRole = resolveRoleForAccount(u.email || u.username, u.role);
+      if (effectiveRole === UserRole.STUDENT) {
+        const stud = s || (isStudentCandidate ? students.find(x => isStudentCodeLoginMatch(x.id, u.targetId || u.username)) : null);
         const studPass = (stud as any)?.password?.trim();
         const explicitPass = (u as any)?.password?.trim();
         if (studPass && studPass === trimmedPass) return true;
@@ -3152,16 +3249,18 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     // 1. TÌM VÀ ĐỐI CHIẾU TÀI KHOẢN TRONG LOCAL STATE
-    let matchedStudent = students.find(s => {
-      if (!s || !s.id) return false;
-      const sEmail = (s.email || "").trim();
-      if (isStudentCodeLoginMatch(s.id, trimmedInput)) return true;
-      if ((s as any).code && isStudentCodeLoginMatch((s as any).code, trimmedInput)) return true;
-      if (s.idCard && isIdCardLoginMatch(s.idCard, trimmedInput)) return true;
-      if (isEmailLoginMatch(sEmail, trimmedInput)) return true;
-      if (trimmedInput.includes("@") && isStudentCodeLoginMatch(s.id, trimmedInput)) return true;
-      return false;
-    }) || null;
+    let matchedStudent = isStudentCandidate
+      ? (students.find(s => {
+          if (!s || !s.id) return false;
+          const sEmail = (s.email || "").trim();
+          if (isStudentCodeLoginMatch(s.id, trimmedInput)) return true;
+          if ((s as any).code && isStudentCodeLoginMatch((s as any).code, trimmedInput)) return true;
+          if (s.idCard && isIdCardLoginMatch(s.idCard, trimmedInput)) return true;
+          if (isEmailLoginMatch(sEmail, trimmedInput)) return true;
+          if (trimmedInput.includes("@") && isStudentCodeLoginMatch(s.id, trimmedInput)) return true;
+          return false;
+        }) || null)
+      : null;
 
     // Hợp nhất SEED_USERS và users để luôn nhận diện được tài khoản gốc hệ thống
     const allKnownUsers = Array.from(new Map([...SEED_USERS, ...users].map(u => [u.id, u])).values());
@@ -3176,7 +3275,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (isEmailLoginMatch(uname, normInputEmail) || isEmailLoginMatch(uemail, normInputEmail)) return true;
       if (inputLocalPart && (getLoginLocalPart(uname) === inputLocalPart || getLoginLocalPart(uemail) === inputLocalPart)) return true;
 
-      if (u.role === UserRole.STUDENT) {
+      if (isStudentCandidate && u.role === UserRole.STUDENT) {
         if (isStudentCodeLoginMatch(uname, trimmedInput) || isStudentCodeLoginMatch(utarget, trimmedInput)) return true;
       }
       return false;
@@ -3201,13 +3300,14 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // Fetch from Firestore users
         const userDocsSnap = await getDocs(collection(db, "users"));
         for (const docSnap of userDocsSnap.docs) {
-          const d = { ...docSnap.data(), id: docSnap.id } as UserAccount;
+          const rawDoc = { ...docSnap.data(), id: docSnap.id } as UserAccount;
+          const d = normalizeUserAccount(rawDoc);
           const uEmail = (d.email || "").trim();
           const uName = (d.username || "").trim();
           const uTarget = (d.targetId || "").trim();
           const isCandidate = queryEmails.some(q => isEmailLoginMatch(uEmail, q) || isEmailLoginMatch(uName, q)) ||
             (inputLocalPart && (getLoginLocalPart(uEmail) === inputLocalPart || getLoginLocalPart(uName) === inputLocalPart)) ||
-            (d.role === UserRole.STUDENT && (isStudentCodeLoginMatch(uTarget, trimmedInput) || isStudentCodeLoginMatch(uName, trimmedInput)));
+            (isStudentCandidate && d.role === UserRole.STUDENT && (isStudentCodeLoginMatch(uTarget, trimmedInput) || isStudentCodeLoginMatch(uName, trimmedInput)));
           if (isCandidate) {
             if (checkUserPassword(d, matchedStudent)) {
               matchedUser = d;
@@ -3220,7 +3320,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
         }
 
-        if (!matchedStudent) {
+        if (!matchedStudent && isStudentCandidate) {
           const studentDocsSnap = await getDocs(collection(db, "students"));
           for (const docSnap of studentDocsSnap.docs) {
             const s = { ...docSnap.data(), id: (docSnap.data() as Student).id || docSnap.id } as Student;
@@ -3300,6 +3400,11 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       || (matchedStudent as any)?.classSecretaryForClassId 
       || matchedUser?.classSecretaryForClassId;
 
+    // Chuẩn hóa vai trò người dùng chuẩn xác tuyệt đối (Cán bộ / Đơn vị luôn là vai trò Cán bộ, không bị lẫn sang STUDENT)
+    const effectiveRole = matchedStudent
+      ? UserRole.STUDENT
+      : resolveRoleForAccount(matchedUser?.email || matchedUser?.username || trimmedInput, matchedUser?.role);
+
     const rawUserDoc: UserAccount = matchedStudent
       ? {
           ...(matchedUser || {}),
@@ -3313,6 +3418,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       : {
           ...matchedUser!,
+          role: effectiveRole,
           email: targetEmail,
           ...(assignedSecretaryClass ? { classSecretaryForClassId: normalizeClassId(assignedSecretaryClass) } : (matchedUser?.classSecretaryForClassId ? { classSecretaryForClassId: matchedUser.classSecretaryForClassId } : {}))
         };

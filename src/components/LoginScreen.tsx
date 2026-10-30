@@ -804,8 +804,8 @@ export const LoginScreen: React.FC = () => {
                 {portalMode === "ADMIN" 
                   ? "Dành riêng cho Quản trị viên tối cao (Super Admin) & Ban Giám đốc" 
                   : portalMode === "STAFF" 
-                  ? "Dành cho Cán bộ, Giảng viên, CVHT, Phòng Đào tạo, Khoa & Đoàn - Hội - CLB" 
-                  : "Dành riêng 100% cho Sinh viên Phân hiệu Hà Giang"}
+                  ? "Dành cho Cán bộ, Giảng viên, CVHT, Phòng Đào tạo, Khoa & Đoàn - Hội - CLB (đuôi .edu.vn)" 
+                  : "Dành riêng cho Sinh viên (TK: dạng DTG2451... / MK: số CCCD 12 số)"}
               </p>
             </div>
 
@@ -864,8 +864,8 @@ export const LoginScreen: React.FC = () => {
                   {portalMode === "ADMIN" 
                     ? "Tài khoản Quản trị viên tối cao (admin@phhg.edu.vn)" 
                     : portalMode === "STAFF" 
-                    ? "Tên đăng nhập / Email công vụ" 
-                    : "Mã sinh viên / CCCD / Email"}
+                    ? "Tên đăng nhập / Email công vụ (@edu.vn)" 
+                    : "Mã sinh viên (dạng DTG2451...) hoặc số CCCD"}
                 </label>
                 <input 
                   type="text" 
@@ -878,8 +878,8 @@ export const LoginScreen: React.FC = () => {
                     portalMode === "ADMIN" 
                       ? "admin@phhg.edu.vn hoặc tên quản trị..." 
                       : portalMode === "STAFF" 
-                      ? "Email @phhg.edu.vn hoặc tên đơn vị..." 
-                      : "Mã số sinh viên hoặc CCCD..."
+                      ? "daotao@hgc.edu.vn, @phhg.edu.vn hoặc tên đơn vị..." 
+                      : "Mã số sinh viên DTG2451... hoặc số CCCD 12 số..."
                   } 
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0c529c]/20 focus:border-[#0c529c] text-sm transition-all text-slate-800"
                   autoFocus
@@ -888,7 +888,9 @@ export const LoginScreen: React.FC = () => {
 
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="block text-xs font-bold text-slate-700">Mật khẩu</label>
+                  <label className="block text-xs font-bold text-slate-700">
+                    {portalMode === "STUDENT" ? "Mật khẩu (mặc định là số CCCD 12 số)" : "Mật khẩu"}
+                  </label>
                   <button
                     type="button" 
                     onClick={() => { 

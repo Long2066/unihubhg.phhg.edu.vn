@@ -133,3 +133,31 @@ export const getPageTitle = (tabId?: string): string => {
   const conf = TAB_ROUTE_MAP[tabId];
   return conf ? `${conf.title} | UniHub Phân hiệu Hà Giang` : baseTitle;
 };
+
+export const getDefaultTabForRole = (role?: UserRole | string): string => {
+  switch (role) {
+    case UserRole.STUDENT:
+    case UserRole.GROUP_LEADER:
+      return "TRANG_CHU";
+    case UserRole.ORGANIZER:
+    case UserRole.CLUB_MANAGER:
+    case UserRole.YOUTH_UNION:
+    case UserRole.STUDENT_UNION:
+      return "DS_THANHVIEN";
+    case UserRole.CLASS_MONITOR:
+      return "BCS_DIEMDANH";
+    case UserRole.ADMIN:
+      return "CONFIG";
+    case UserRole.TRAINING_DEPT:
+      return "OVERVIEW";
+    case UserRole.FACULTY:
+      return "STAT";
+    case UserRole.ADVISER:
+      return "ADVISER_DUYETDEM";
+    case UserRole.TEACHER:
+      return "TEACHER_GRADES";
+    default:
+      return "TRANG_CHU";
+  }
+};
+
