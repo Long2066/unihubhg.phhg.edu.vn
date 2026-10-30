@@ -93,7 +93,7 @@ service cloud.firestore {
     }
 
     function isValidOrganization(data) {
-      return data.keys().hasOnly(['id', 'name', 'type', 'leaderName', 'field', 'level'])
+      return data.keys().hasOnly(['id', 'name', 'type', 'leaderName', 'field', 'level', 'recruitmentOpen', 'recruitmentTitle', 'recruitmentContent', 'recruitmentDeadline', 'recruitmentTarget', 'recruitmentUpdatedAt'])
         && data.id is string && data.id.size() <= 64
         && data.name is string && data.name.size() <= 256
         && data.type is string && (data.type == 'CLB' || data.type == 'DOAN' || data.type == 'HOI')
@@ -103,7 +103,7 @@ service cloud.firestore {
     }
 
     function isValidMember(data) {
-      return data.keys().hasOnly(['id', 'studentId', 'classId', 'orgId', 'role', 'joinedDate', 'term', 'status', 'gender', 'dob', 'ethnicity', 'email', 'phone', 'permanentAddress', 'temporaryAddress', 'major', 'facultyInCharge', 'studentName', 'attachmentUrl'])
+      return data.keys().hasOnly(['id', 'studentId', 'classId', 'orgId', 'role', 'joinedDate', 'term', 'status', 'gender', 'dob', 'ethnicity', 'email', 'phone', 'permanentAddress', 'temporaryAddress', 'major', 'facultyInCharge', 'studentName', 'attachmentUrl', 'applicationData', 'rejectReason', 'reviewNote', 'reviewedAt', 'reviewedBy'])
         && data.id is string && data.id.size() <= 128
         && data.studentId is string && data.studentId.size() <= 128
         && data.classId is string && data.classId.size() <= 64
@@ -114,7 +114,7 @@ service cloud.firestore {
     }
 
     function isValidClubAnnouncement(data) {
-      return data.keys().hasOnly(['id', 'orgId', 'orgName', 'title', 'content', 'createdAt', 'expiryDate', 'activityId', 'imageUrl'])
+      return data.keys().hasOnly(['id', 'orgId', 'orgName', 'title', 'content', 'createdAt', 'expiryDate', 'activityId', 'imageUrl', 'isRecruitment'])
         && data.id is string && data.id.size() <= 128
         && data.orgId is string && data.orgId.size() <= 64
         && data.orgName is string && data.orgName.size() <= 256
@@ -274,12 +274,12 @@ service cloud.firestore {
       allow create: if isVerifiedUser() && isValidId(orgId) && (
         hasRole('ADMIN') || 
         isSuperAdmin() || 
-        (isOrgRole() && getUserData().targetId == orgId)
+        (isOrgRole() && (getUserData().targetId == orgId || (orgId == 'DOAN_HOI' && (getUserData().role == 'YOUTH_UNION' || getUserData().role == 'STUDENT_UNION'))))
       ) && isValidOrganization(incoming());
       allow update: if isVerifiedUser() && isValidId(orgId) && (
         hasRole('ADMIN') || 
         isSuperAdmin() || 
-        (isOrgRole() && getUserData().targetId == orgId && incoming().id == existing().id)
+        (isOrgRole() && (getUserData().targetId == orgId || (orgId == 'DOAN_HOI' && (getUserData().role == 'YOUTH_UNION' || getUserData().role == 'STUDENT_UNION'))))
       ) && isValidOrganization(incoming());
       allow delete: if isVerifiedUser() && isValidId(orgId) && (hasRole('ADMIN') || isSuperAdmin());
     }
@@ -294,7 +294,7 @@ service cloud.firestore {
       allow update: if isVerifiedUser() && isValidId(memberId) && (
         hasRole('ADMIN') || 
         (isOrgRole() && existing().orgId == getUserData().targetId && incoming().orgId == existing().orgId) ||
-        (hasRole('STUDENT') && existing().studentId == getUserData().targetId && incoming().studentId == existing().studentId && incoming().orgId == existing().orgId && incoming().role == existing().role && incoming().status == existing().status)
+        (hasRole('STUDENT') && existing().studentId == getUserData().targetId && incoming().studentId == existing().studentId && incoming().orgId == existing().orgId && incoming().role == existing().role && (incoming().status == 'PENDING' || incoming().status == existing().status))
       ) && isValidMember(incoming());
       allow delete: if isVerifiedUser() && isValidId(memberId) && (
         hasRole('ADMIN') || 

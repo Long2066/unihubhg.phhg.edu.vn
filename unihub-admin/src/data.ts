@@ -430,6 +430,14 @@ export const SEED_ORGANIZATIONS: Organization[] = [
     leaderName: "Trần Bảo Ngọc",
     field: "Tình nguyện & Nhân đạo xã hội",
     level: "TRUONG"
+  },
+  {
+    id: "CLBNCKH",
+    name: "CLB Nghiên cứu Khoa học (SRC)",
+    type: "CLB",
+    leaderName: "Ban Chủ nhiệm",
+    field: "Nghiên cứu khoa học, Đổi mới sáng tạo & Học thuật",
+    level: "TRUONG"
   }
 ];
 

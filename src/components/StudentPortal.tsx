@@ -599,9 +599,6 @@ export const StudentPortal: React.FC = () => {
   const [isApplyingClub, setIsApplyingClub] = useState(false);
   const [showSrcModal, setShowSrcModal] = useState(false);
   const [srcModalMode, setSrcModalMode] = useState<"APPLY" | "VIEW_STUDENT">("APPLY");
-  const [showUnderDevModal, setShowUnderDevModal] = useState(false);
-  const [underDevClubName, setUnderDevClubName] = useState("");
-  const [underDevLeaderName, setUnderDevLeaderName] = useState("");
 
   // Sync club registration defaults when active club details open
   useEffect(() => {
@@ -1876,7 +1873,12 @@ export const StudentPortal: React.FC = () => {
                           <span className="text-[8.5px] font-black px-2 py-0.5 bg-amber-50 border border-amber-150 text-amber-700 rounded uppercase font-mono tracking-tight shrink-0 flex items-center gap-1">
                             <Megaphone size={9} /> {ann.orgName}
                           </span>
-                          <div className="flex gap-1.5 shrink-0">
+                          <div className="flex gap-1.5 shrink-0 flex-wrap">
+                            {ann.isRecruitment && (
+                              <span className="text-[8.5px] font-black px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded uppercase tracking-tight flex items-center gap-1 font-mono">
+                                <Sparkles size={9} className="text-emerald-500 animate-pulse" /> Tuyển quân
+                              </span>
+                            )}
                             {isMyClub && (
                               <span className="text-[8.5px] font-black px-1.5 py-0.5 bg-emerald-50 border border-emerald-150 text-emerald-700 rounded uppercase tracking-tight flex items-center gap-1">
                                 <Sparkles size={9} /> Thành viên
@@ -1900,9 +1902,24 @@ export const StudentPortal: React.FC = () => {
                           <p className="text-[10px] text-slate-550 leading-normal line-clamp-3 italic font-sans">{ann.content}</p>
                         )}
 
-                        <div className="space-y-1 pt-1 text-[9.5px] text-slate-450 border-t border-slate-100 flex items-center gap-1.5">
-                          <Clock size={11} className="text-amber-500 shrink-0" />
-                          <span>Đăng ngày: {ann.createdAt}</span>
+                        <div className="space-y-1 pt-2 text-[9.5px] text-slate-450 border-t border-slate-100 flex items-center justify-between gap-1.5 flex-wrap">
+                          <div className="flex items-center gap-1.5 text-slate-400">
+                            <Clock size={11} className="text-amber-500 shrink-0" />
+                            <span>Đăng ngày: {ann.createdAt}</span>
+                          </div>
+                          {ann.isRecruitment && !isMyClub && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedClubIdDetail(ann.orgId);
+                                setActivePortletTab("CLB");
+                              }}
+                              className="px-2.5 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white font-bold text-[9.5px] rounded-lg cursor-pointer shadow-xs transition-all flex items-center gap-1"
+                            >
+                              <FileSignature size={11} />
+                              <span>Đăng ký gia nhập</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -2861,6 +2878,7 @@ export const StudentPortal: React.FC = () => {
             const myJoinedClubs = filteredClubs.filter(org => getMembershipForOrg(org.id)?.status === "ACTIVE");
             const myPendingClubs = filteredClubs.filter(org => getMembershipForOrg(org.id)?.status === "PENDING");
             const otherClubs = filteredClubs.filter(org => !getMembershipForOrg(org.id) || getMembershipForOrg(org.id)?.status === "INACTIVE");
+            const recruitingClubs = filteredClubs.filter(org => org.recruitmentOpen && getMembershipForOrg(org.id)?.status !== "ACTIVE");
             const searchedOtherClubs = otherClubs.filter(org => 
               !clubSearchTerm.trim() || 
               org.name.toLowerCase().includes(clubSearchTerm.toLowerCase()) || 
@@ -2870,6 +2888,90 @@ export const StudentPortal: React.FC = () => {
 
             return (
               <div className="space-y-6 animate-fade-in">
+                {/* 0. SECTION: ĐỢT TUYỂN THÀNH VIÊN ĐANG MỞ */}
+                {recruitingClubs.length > 0 && (
+                  <div className="p-5 bg-gradient-to-br from-emerald-500/10 via-indigo-500/5 to-blue-500/10 rounded-2xl ring-1 ring-emerald-500/30 space-y-4 shadow-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/20 flex items-center justify-center shrink-0">
+                          <Sparkles size={16} className="text-emerald-600 animate-pulse" />
+                        </span>
+                        <div>
+                          <h4 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                            <span>Đợt Tuyển Thành Viên Đang Mở</span>
+                            <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono">
+                              {recruitingClubs.length} CLB đang nhận hồ sơ
+                            </span>
+                          </h4>
+                          <p className="text-xs text-slate-600">Cơ hội tham gia sinh hoạt chi hội, rèn luyện kỹ năng và cộng điểm rèn luyện tiêu chí 3 (TC3.3)</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      {recruitingClubs.map(org => {
+                        const membership = getMembershipForOrg(org.id);
+                        const isPending = membership?.status === "PENDING";
+                        return (
+                          <div 
+                            key={`rec_${org.id}`} 
+                            className="p-4 bg-white rounded-xl ring-1 ring-emerald-500/20 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-3"
+                          >
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 ring-1 ring-indigo-500/20">
+                                  {org.field}
+                                </span>
+                                {org.recruitmentDeadline ? (
+                                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full ring-1 ring-amber-500/20 font-mono">
+                                    Hạn chót: {org.recruitmentDeadline}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full ring-1 ring-emerald-500/20">
+                                    Đang nhận hồ sơ
+                                  </span>
+                                )}
+                              </div>
+                              <h5 className="text-sm font-extrabold text-slate-900 leading-snug">
+                                {org.recruitmentTitle || `Tuyển thành viên ${org.name}`}
+                              </h5>
+                              {org.recruitmentContent && (
+                                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                                  {org.recruitmentContent}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                              <span className="text-[11px] text-slate-500">
+                                CLB: <strong className="text-slate-800">{org.name}</strong>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedClubIdDetail(org.id);
+                                  if (!isPending) {
+                                    setSrcModalMode("APPLY");
+                                    setShowSrcModal(true);
+                                  }
+                                }}
+                                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1.5 shrink-0 min-h-[38px] ${
+                                  isPending 
+                                    ? "bg-amber-50 text-amber-800 ring-1 ring-amber-300"
+                                    : "bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-xs"
+                                }`}
+                              >
+                                <FileSignature size={12} />
+                                <span>{isPending ? "Hồ sơ đang chờ duyệt" : "Nộp đơn gia nhập ngay"}</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* 1. SECTION: CÂU LẠC BỘ CỦA TÔI */}
                 <div className="space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
@@ -3027,6 +3129,7 @@ export const StudentPortal: React.FC = () => {
                     {searchedOtherClubs.map(org => {
                       const membership = getMembershipForOrg(org.id);
                       const isPending = membership?.status === "PENDING";
+                      const isRecruiting = Boolean(org.recruitmentOpen);
                       
                       return (
                         <div 
@@ -3035,19 +3138,36 @@ export const StudentPortal: React.FC = () => {
                             setSelectedClubIdDetail(org.id);
                             setIsApplyingClub(false);
                           }}
-                          className="p-5 ring-1 ring-slate-900/5 hover:ring-blue-500/30 rounded-2xl bg-white shadow-xs hover:shadow-md transition-all flex flex-col justify-between cursor-pointer group"
+                          className={`p-5 rounded-2xl shadow-xs hover:shadow-md transition-all flex flex-col justify-between cursor-pointer group ${
+                            isRecruiting 
+                              ? "ring-1 ring-emerald-500/30 hover:ring-emerald-500/60 bg-gradient-to-br from-white via-emerald-50/15 to-white" 
+                              : "ring-1 ring-slate-900/5 hover:ring-blue-500/30 bg-white"
+                          }`}
                         >
                           <div>
-                            <div className="flex justify-between items-start gap-2">
+                            <div className="flex justify-between items-start gap-2 flex-wrap">
                               <span className="text-[11px] font-semibold px-2.5 py-0.5 bg-blue-50 text-blue-700 ring-1 ring-blue-500/20 rounded-full">
                                 {org.field}
                               </span>
-                              <span className="text-xs font-semibold text-blue-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
-                                {isPending ? "Đang chờ duyệt →" : "Tìm hiểu & Đăng ký →"}
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                {isRecruiting && (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500/20 font-bold text-[10px] uppercase">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    Đang mở tuyển
+                                  </span>
+                                )}
+                                <span className="text-xs font-semibold text-blue-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
+                                  {isPending ? "Đang chờ duyệt →" : isRecruiting ? "Đăng ký gia nhập →" : "Tìm hiểu & Đăng ký →"}
+                                </span>
+                              </div>
                             </div>
                             <h5 className="text-sm font-semibold text-slate-900 mt-2.5 group-hover:text-blue-600 transition-colors leading-snug">{org.name}</h5>
                             <p className="text-xs text-slate-500 mt-1">Chủ nhiệm: <span className="font-semibold text-slate-700">{org.leaderName}</span></p>
+                            {isRecruiting && org.recruitmentTitle && (
+                              <p className="text-[11px] text-emerald-800 bg-emerald-50/70 px-2.5 py-1 rounded-lg mt-2 font-medium line-clamp-1 border border-emerald-150">
+                                📢 {org.recruitmentTitle}
+                              </p>
+                            )}
                           </div>
 
                           <div className="pt-3 border-t border-slate-100 mt-3 flex justify-between items-center text-xs">
@@ -3055,6 +3175,10 @@ export const StudentPortal: React.FC = () => {
                             {isPending ? (
                               <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 ring-1 ring-amber-500/20">
                                 ĐANG CHỜ DUYỆT
+                              </span>
+                            ) : isRecruiting ? (
+                              <span className="text-[11px] font-bold text-emerald-700 font-mono">
+                                {org.recruitmentDeadline ? `Hạn chót: ${org.recruitmentDeadline}` : "Đang nhận hồ sơ"}
                               </span>
                             ) : (
                               <span className="text-[11px] font-medium text-slate-500 bg-slate-50 px-2.5 py-0.5 rounded-full ring-1 ring-slate-900/5">
@@ -3497,7 +3621,7 @@ export const StudentPortal: React.FC = () => {
                                     <Clock size={16} className="text-amber-600" />
                                     <span>Đơn đăng ký đang chờ Ban chủ nhiệm duyệt</span>
                                   </div>
-                                  {isSrcClub && membership.applicationData && (
+                                  {membership.applicationData && (
                                     <button
                                       onClick={() => {
                                         setSrcModalMode("VIEW_STUDENT");
@@ -3521,7 +3645,7 @@ export const StudentPortal: React.FC = () => {
                                     <XCircle size={18} className="text-rose-600" />
                                     <span>Kết quả xét duyệt: Đơn đăng ký không được phê duyệt</span>
                                   </div>
-                                  {isSrcClub && membership.applicationData && (
+                                  {membership.applicationData && (
                                     <button
                                       onClick={() => {
                                         setSrcModalMode("VIEW_STUDENT");
@@ -3547,14 +3671,8 @@ export const StudentPortal: React.FC = () => {
                                   <div className="pt-2 flex justify-end">
                                     <button
                                       onClick={() => {
-                                        if (isSrcClub) {
-                                          setSrcModalMode("APPLY");
-                                          setShowSrcModal(true);
-                                        } else {
-                                          setUnderDevClubName(club.name);
-                                          setUnderDevLeaderName(club.leaderName || "Ban Chủ nhiệm");
-                                          setShowUnderDevModal(true);
-                                        }
+                                        setSrcModalMode("APPLY");
+                                        setShowSrcModal(true);
                                       }}
                                       className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-xs cursor-pointer active:scale-95 transition-all flex items-center gap-1.5"
                                     >
@@ -3583,14 +3701,8 @@ export const StudentPortal: React.FC = () => {
                                   {club.recruitmentOpen ? (
                                     <button 
                                       onClick={() => {
-                                        if (isSrcClub) {
-                                          setSrcModalMode("APPLY");
-                                          setShowSrcModal(true);
-                                        } else {
-                                          setUnderDevClubName(club.name);
-                                          setUnderDevLeaderName(club.leaderName || "Ban Chủ nhiệm");
-                                          setShowUnderDevModal(true);
-                                        }
+                                        setSrcModalMode("APPLY");
+                                        setShowSrcModal(true);
                                       }}
                                       className="px-5 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-xs rounded-xl cursor-pointer shadow-md hover:shadow-indigo-600/30 active:scale-95 transition-all text-center shrink-0 flex items-center gap-2"
                                     >
@@ -3619,11 +3731,12 @@ export const StudentPortal: React.FC = () => {
                           </button>
                         </div>
 
-                        {/* SRC Application Modal */}
+                        {/* Club Application Modal */}
                         <SrcApplicationModal
                           isOpen={showSrcModal}
                           onClose={() => setShowSrcModal(false)}
                           mode={srcModalMode}
+                          clubName={club.name}
                           initialData={membership?.applicationData}
                           studentDefaults={{
                             name: currentUser?.name || sObj?.name || "",
@@ -3655,40 +3768,6 @@ export const StudentPortal: React.FC = () => {
                           reviewedAt={membership?.reviewedAt}
                           reviewedBy={membership?.reviewedBy}
                         />
-
-                        {/* Under Development Modal for other clubs */}
-                        {showUnderDevModal && (
-                          <div className="fixed inset-0 z-60 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
-                            <div className="bg-white rounded-2xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100 text-center space-y-4 animate-scale-up">
-                              <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 ring-1 ring-amber-200 flex items-center justify-center mx-auto shadow-xs">
-                                <Construction size={28} />
-                              </div>
-                              <div className="space-y-1.5">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
-                                  TÍNH NĂNG ĐANG PHÁT TRIỂN
-                                </span>
-                                <h4 className="text-base font-extrabold text-slate-900">
-                                  Cổng Đăng Ký Trực Tuyến CLB
-                                </h4>
-                                <p className="text-xs text-slate-600 leading-relaxed pt-1">
-                                  Hệ thống biểu mẫu đăng ký trực tuyến cho <strong>{underDevClubName}</strong> đang trong giai đoạn phát triển và sẽ sớm được cập nhật.
-                                </p>
-                                <div className="p-3 bg-slate-50 rounded-xl border border-slate-150 text-left text-xs text-slate-600 mt-2 space-y-1">
-                                  <p className="font-bold text-slate-800">Hướng dẫn tham gia:</p>
-                                  <p>Vui lòng liên hệ trực tiếp với Ban Chủ nhiệm CLB (Đại diện: <strong>{underDevLeaderName}</strong>) để được hướng dẫn thủ tục nộp hồ sơ xét kết nạp đợt này!</p>
-                                </div>
-                              </div>
-                              <div className="pt-2">
-                                <button
-                                  onClick={() => setShowUnderDevModal(false)}
-                                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
-                                >
-                                  Đã hiểu
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
 
                       </div>
                     </div>

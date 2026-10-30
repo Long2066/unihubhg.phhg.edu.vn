@@ -1889,6 +1889,37 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             return s;
           }) as T[];
         }
+        if (key === "organizations") {
+          const orgMap = new Map<string, Organization>();
+          // 1. Base seed data
+          SEED_ORGANIZATIONS.forEach(o => {
+            orgMap.set(o.id.toUpperCase(), o);
+          });
+          // 2. Local storage cache
+          try {
+            const cached = localStorage.getItem("unihub_organizations");
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (Array.isArray(parsed)) {
+                parsed.forEach((o: Organization) => {
+                  if (o && o.id) {
+                    const idKey = o.id.toUpperCase();
+                    const existing = orgMap.get(idKey);
+                    orgMap.set(idKey, { ...(existing || {}), ...o });
+                  }
+                });
+              }
+            }
+          } catch {}
+          // 3. Firestore snapshot items override and merge (cloud is source of truth for recruitment)
+          for (const item of (list as Organization[])) {
+            const idKey = (item.id || "").toUpperCase();
+            if (!idKey) continue;
+            const existing = orgMap.get(idKey);
+            orgMap.set(idKey, { ...(existing || {}), ...item });
+          }
+          list = Array.from(orgMap.values()) as T[];
+        }
         const normalized = sorter ? sorter(list) : list;
         if (normalized.length > 0 || removedIds.size > 0) {
           setter(() => {
@@ -2415,7 +2446,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const orgsSnap = await getDocs(collection(db, "organizations"));
       if (!orgsSnap.empty) {
         const list: Organization[] = [];
-        orgsSnap.forEach(d => list.push(d.data() as Organization));
+        orgsSnap.forEach(d => list.push({ ...d.data(), id: d.id } as Organization));
         const merged = smartMerge(list, "unihub_organizations", o => o.id);
         setOrganizations(merged);
       }
@@ -2707,12 +2738,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     const ensureFirestoreBaseline = async () => {
       try {
-        // Check if organizations collection is empty
+        // Check if organizations collection has all baseline seeds
         const orgsSnapCheck = await getDocs(collection(db, "organizations"));
-        if (orgsSnapCheck.empty) {
-          console.log("Seeding organizations baseline collection...");
-          for (const o of SEED_ORGANIZATIONS) {
-            await setDoc(doc(db, "organizations", o.id), o, { merge: true });
+        const existingOrgIds = new Set(orgsSnapCheck.docs.map(d => d.id.toUpperCase()));
+        for (const o of SEED_ORGANIZATIONS) {
+          if (!existingOrgIds.has(o.id.toUpperCase())) {
+            console.log("Seeding baseline organization:", o.id);
+            await setDoc(doc(db, "organizations", o.id), sanitizeForFirestore(o), { merge: true });
           }
         }
 
@@ -4366,8 +4398,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const cleanId = (clubId || "").trim();
     if (!cleanId) return;
 
-    const targetOrg = organizations.find(o => o.id === cleanId);
-    if (!targetOrg) return;
+    let targetOrg = organizations.find(o => (o.id || "").trim().toUpperCase() === cleanId.toUpperCase());
+    if (!targetOrg) {
+      targetOrg = {
+        id: cleanId,
+        name: currentUser.name || `Câu lạc bộ ${cleanId}`,
+        type: currentUser.role === UserRole.YOUTH_UNION ? "DOAN" : currentUser.role === UserRole.STUDENT_UNION ? "HOI" : "CLB",
+        leaderName: "Ban Chủ nhiệm",
+        field: "Hoạt động phong trào",
+        level: "TRUONG"
+      };
+    }
 
     const nowIso = new Date().toISOString();
     const updatedClub: Organization = {
@@ -4381,13 +4422,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     setOrganizations(prev => {
-      const next = prev.map(o => o.id === cleanId ? updatedClub : o);
+      const exists = prev.some(o => (o.id || "").trim().toUpperCase() === cleanId.toUpperCase());
+      const next = exists
+        ? prev.map(o => (o.id || "").trim().toUpperCase() === cleanId.toUpperCase() ? updatedClub : o)
+        : [...prev, updatedClub];
       localStorage.setItem("unihub_organizations", JSON.stringify(next));
       return next;
     });
 
     const cleanFirestoreOrg = sanitizeForFirestore(updatedClub);
-    setDoc(doc(db, "organizations", cleanId), cleanFirestoreOrg, { merge: true }).catch(err => {
+    setDoc(doc(db, "organizations", updatedClub.id), cleanFirestoreOrg, { merge: true }).catch(err => {
       console.warn("Lỗi lưu trạng thái tuyển CLB Firestore:", err);
     });
 
@@ -4396,17 +4440,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const annTitle = details.title || `[THÔNG BÁO TUYỂN THÀNH VIÊN] ${targetOrg.name} mở đợt tuyển thành viên mới`;
       const newAnn: ClubAnnouncement = {
         id: `ANN_REC_${Date.now()}`,
-        orgId: cleanId,
+        orgId: targetOrg.id,
         orgName: targetOrg.name,
         title: annTitle,
-        content: details.content || `Câu lạc bộ ${targetOrg.name} chính thức mở cổng tuyển thành viên mới. Các bạn sinh viên quan tâm vui lòng nộp hồ sơ đăng ký trước ngày ${details.deadline || "sắp tới"}.`,
-        createdAt: nowIso,
+        content: details.content || `Câu lạc bộ ${targetOrg.name} chính thức mở cổng tuyển thành viên mới. Các bạn sinh viên quan tâm vui lòng nộp hồ sơ đăng ký trực tuyến trước ngày ${details.deadline || "sắp tới"}.`,
+        createdAt: nowIso.split("T")[0],
         expiryDate: details.deadline || "2026-12-31",
         isRecruitment: true
       };
 
       setAnnouncements(prev => {
-        const next = [newAnn, ...prev];
+        const next = [newAnn, ...prev.filter(a => a.id !== newAnn.id)];
         localStorage.setItem("unihub_announcements", JSON.stringify(next));
         return next;
       });

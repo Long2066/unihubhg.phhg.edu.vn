@@ -270,6 +270,12 @@ export interface Organization {
   leaderName: string;
   field: string;        // Lĩnh vực hoạt động
   level: "TRUONG" | "KHOA";
+  recruitmentOpen?: boolean;
+  recruitmentTitle?: string;
+  recruitmentContent?: string;
+  recruitmentDeadline?: string;
+  recruitmentTarget?: string;
+  recruitmentUpdatedAt?: string;
 }
 
 export interface OrganizationMember {

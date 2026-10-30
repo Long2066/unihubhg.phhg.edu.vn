@@ -21,6 +21,7 @@ interface SrcApplicationModalProps {
   isOpen: boolean;
   onClose: () => void;
   mode: "APPLY" | "VIEW_STUDENT" | "REVIEW_ORGANIZER";
+  clubName?: string;
   initialData?: Partial<SrcClubApplication>;
   studentDefaults?: {
     name: string;
@@ -51,6 +52,15 @@ const RESEARCH_FIELD_OPTIONS = [
   "MT cơ sở"
 ];
 
+const GENERAL_FIELD_OPTIONS = [
+  "Công nghệ & Tin học",
+  "Nghệ thuật & Biểu diễn",
+  "Tình nguyện & Xã hội",
+  "Kỹ năng mềm & Giao tiếp",
+  "Học thuật & Chuyên môn",
+  "Thể dục thể thao"
+];
+
 const SKILL_OPTIONS = [
   "Tin học văn phòng",
   "Thiết kế/Truyền thông",
@@ -71,13 +81,22 @@ const SUBGROUP_OPTIONS = [
   "Chưa xác định, mong được CLB định hướng"
 ];
 
+const GENERAL_SUBGROUP_OPTIONS = [
+  "Ban Nội dung / Học thuật / Chuyên môn",
+  "Ban Truyền thông & Kỹ thuật",
+  "Ban Tổ chức Sự kiện / Phong trào",
+  "Ban Đối ngoại & Hậu cần",
+  "Ban Nhân sự & Quản lý thành viên",
+  "Chưa xác định, mong được CLB định hướng"
+];
+
 const COMMITMENTS = [
   "Tuân thủ Điều lệ/Quy chế hoạt động, nội quy và sự phân công hợp lý của Câu lạc bộ;",
   "Tham gia các hoạt động với tinh thần tự nguyện, chủ động, hợp tác và có trách nhiệm;",
   "Tôn trọng giảng viên, Ban Chủ nhiệm, thành viên CLB và các cá nhân/đơn vị phối hợp;",
-  "Bảo đảm trung thực học thuật; trích dẫn nguồn đầy đủ, không đạo văn, không làm sai lệch dữ liệu nghiên cứu;",
-  "Sử dụng AI và công nghệ một cách có trách nhiệm, có kiểm chứng và phù hợp với yêu cầu học thuật;",
-  "Không tự ý sử dụng thông tin nội bộ, dữ liệu nghiên cứu hoặc hình ảnh/tài liệu của CLB cho mục đích không phù hợp;",
+  "Bảo đảm trung thực học thuật; trích dẫn nguồn đầy đủ, không đạo văn, không làm sai lệch dữ liệu;",
+  "Sử dụng AI và công nghệ một cách có trách nhiệm, có kiểm chứng và phù hợp với yêu cầu;",
+  "Không tự ý sử dụng thông tin nội bộ hoặc hình ảnh/tài liệu của CLB cho mục đích không phù hợp;",
   "Cung cấp thông tin đăng ký trung thực và chịu trách nhiệm về nội dung đã kê khai."
 ];
 
@@ -85,6 +104,7 @@ export const SrcApplicationModal: React.FC<SrcApplicationModalProps> = ({
   isOpen,
   onClose,
   mode,
+  clubName,
   initialData,
   studentDefaults,
   onSubmit,
@@ -97,6 +117,11 @@ export const SrcApplicationModal: React.FC<SrcApplicationModalProps> = ({
   status
 }) => {
   const isReadOnly = mode === "VIEW_STUDENT" || mode === "REVIEW_ORGANIZER";
+  const isSrc = !clubName || clubName.toLowerCase().includes("nghiên cứu") || clubName.toUpperCase().includes("SRC");
+  const displayClubName = clubName || "CLB Nghiên cứu Khoa học (SRC)";
+  const displayClubShort = isSrc ? "CLB SRC" : clubName || "CLB";
+  const activeFieldOptions = isSrc ? RESEARCH_FIELD_OPTIONS : GENERAL_FIELD_OPTIONS;
+  const activeSubgroups = isSrc ? SUBGROUP_OPTIONS : GENERAL_SUBGROUP_OPTIONS;
 
   // Form states
   const [fullName, setFullName] = useState(initialData?.fullName || studentDefaults?.name || "");
@@ -165,12 +190,12 @@ export const SrcApplicationModal: React.FC<SrcApplicationModalProps> = ({
     }
 
     if (!joinReason.trim()) {
-      alert("Vui lòng nêu rõ lý do mong muốn gia nhập CLB SRC (*)");
+      alert(`Vui lòng nêu rõ lý do mong muốn gia nhập ${displayClubShort} (*)`);
       return;
     }
 
     if (!firstYearGoal.trim()) {
-      alert("Vui lòng nêu mục tiêu cá nhân trong 01 năm đầu tham gia CLB (*)");
+      alert(`Vui lòng nêu mục tiêu cá nhân trong 01 năm đầu tham gia ${displayClubShort} (*)`);
       return;
     }
 
@@ -213,15 +238,15 @@ export const SrcApplicationModal: React.FC<SrcApplicationModalProps> = ({
         {/* Modal Header */}
         <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white px-6 py-4 flex items-center justify-between shrink-0 shadow-md">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 ring-1 ring-white/20 flex items-center justify-center font-black text-amber-300">
-              SRC
+            <div className="w-10 h-10 rounded-xl bg-white/10 ring-1 ring-white/20 flex items-center justify-center font-black text-amber-300 text-xs text-center px-1">
+              {isSrc ? "SRC" : "CLB"}
             </div>
             <div>
               <span className="text-[10px] font-black uppercase tracking-wider text-indigo-200 block">
                 {mode === "APPLY" ? "NỘP ĐƠN GIA NHẬP TRỰC TUYẾN" : mode === "REVIEW_ORGANIZER" ? "XÉT DUYỆT ĐƠN GIA NHẬP CLB" : "HỒ SƠ ĐƠN GIA NHẬP ĐÃ NỘP"}
               </span>
               <h3 className="text-sm sm:text-base font-extrabold text-white">
-                Đơn Xin Gia Nhập CLB Nghiên Cứu Khoa Học (SRC)
+                Đơn Xin Gia Nhập {displayClubName}
               </h3>
             </div>
           </div>
@@ -285,7 +310,7 @@ export const SrcApplicationModal: React.FC<SrcApplicationModalProps> = ({
             <div className="flex flex-col sm:flex-row justify-between items-center text-xs text-slate-600 border-b border-slate-100 pb-4 gap-2">
               <div className="font-bold uppercase tracking-wide text-slate-800 text-center sm:text-left">
                 PHÂN HIỆU ĐHTN TẠI HÀ GIANG<br />
-                <span className="text-blue-700 font-extrabold">CLB NGHIÊN CỨU KHOA HỌC (SRC)</span>
+                <span className="text-blue-700 font-extrabold">{displayClubName.toUpperCase()}</span>
               </div>
               <div className="font-bold uppercase tracking-wide text-slate-800 text-center sm:text-right">
                 CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM<br />
@@ -298,15 +323,15 @@ export const SrcApplicationModal: React.FC<SrcApplicationModalProps> = ({
                 ĐƠN XIN GIA NHẬP
               </h2>
               <h3 className="text-xs sm:text-sm font-extrabold text-blue-700 uppercase tracking-wider">
-                CÂU LẠC BỘ NGHIÊN CỨU KHOA HỌC - SRC
+                {displayClubName.toUpperCase()}
               </h3>
               <p className="text-xs text-slate-500 mt-1 italic">
-                Kính gửi: Ban Chủ nhiệm Câu lạc bộ Nghiên cứu khoa học (SRC) - Phân hiệu ĐHTN tại Hà Giang
+                Kính gửi: Ban Chủ nhiệm {displayClubName} - Phân hiệu ĐHTN tại Hà Giang
               </p>
             </div>
 
             <p className="text-[11px] sm:text-xs text-slate-600 text-justify leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-150">
-              Tôi làm đơn này với nguyện vọng được gia nhập Câu lạc bộ Nghiên cứu khoa học (SRC), tham gia các hoạt động học thuật, nghiên cứu khoa học, đổi mới sáng tạo và các chương trình do Câu lạc bộ tổ chức. Tôi xin cung cấp các thông tin sau:
+              Tôi làm đơn này với nguyện vọng được gia nhập {displayClubName}, tham gia các hoạt động phong trào, chuyên môn, rèn luyện kỹ năng và các chương trình do Câu lạc bộ tổ chức. Tôi xin cung cấp các thông tin sau:
             </p>
           </div>
 
@@ -486,13 +511,13 @@ export const SrcApplicationModal: React.FC<SrcApplicationModalProps> = ({
                 <span>II. LĨNH VỰC QUAN TÂM VÀ NĂNG LỰC CÁ NHÂN</span>
               </div>
 
-              {/* 1. Lĩnh vực nghiên cứu */}
+              {/* 1. Lĩnh vực quan tâm / thế mạnh */}
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-slate-800">
-                  1. Lĩnh vực nghiên cứu quan tâm (có thể chọn nhiều):
+                  1. Lĩnh vực quan tâm / thế mạnh chuyên môn (có thể chọn nhiều):
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {RESEARCH_FIELD_OPTIONS.map(rf => (
+                  {activeFieldOptions.map(rf => (
                     <label 
                       key={rf} 
                       className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
@@ -516,7 +541,7 @@ export const SrcApplicationModal: React.FC<SrcApplicationModalProps> = ({
                   <input 
                     type="text"
                     disabled={isReadOnly}
-                    placeholder="Lĩnh vực khác nếu có (e.g. Tâm lý học, Du lịch, Quản trị...)"
+                    placeholder="Lĩnh vực khác nếu có (e.g. Tâm lý học, Du lịch, Quản trị, Nghệ thuật...)"
                     value={otherResearchField}
                     onChange={e => setOtherResearchField(e.target.value)}
                     className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-250 bg-white placeholder:text-slate-400 focus:border-blue-500 disabled:bg-slate-100"
@@ -588,13 +613,13 @@ export const SrcApplicationModal: React.FC<SrcApplicationModalProps> = ({
               {/* 1. Lý do gia nhập */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-800">
-                  1. Lý do mong muốn gia nhập SRC <span className="text-rose-500">*</span>:
+                  1. Lý do mong muốn gia nhập {displayClubShort} <span className="text-rose-500">*</span>:
                 </label>
                 <textarea 
                   rows={3}
                   disabled={isReadOnly}
                   required
-                  placeholder="Tại sao bạn muốn tham gia CLB NCKH (SRC)? Bạn mong muốn phát triển những gì tại CLB?"
+                  placeholder={`Tại sao bạn muốn tham gia ${displayClubName}? Bạn mong muốn phát triển những gì tại CLB?`}
                   value={joinReason}
                   onChange={e => setJoinReason(e.target.value)}
                   className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-250 bg-white placeholder:text-slate-400 focus:border-blue-500 disabled:bg-slate-100 leading-relaxed"
@@ -604,10 +629,10 @@ export const SrcApplicationModal: React.FC<SrcApplicationModalProps> = ({
               {/* 2. Nhóm hoạt động */}
               <div className="space-y-2 pt-2 border-t border-slate-100">
                 <label className="block text-xs font-bold text-slate-800">
-                  2. Mong muốn được tham gia / hỗ trợ ở nhóm hoạt động:
+                  2. Mong muốn được tham gia / hỗ trợ ở ban / nhóm hoạt động:
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {SUBGROUP_OPTIONS.map(grp => (
+                  {activeSubgroups.map(grp => (
                     <label 
                       key={grp} 
                       className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
@@ -632,13 +657,13 @@ export const SrcApplicationModal: React.FC<SrcApplicationModalProps> = ({
               {/* 3. Mục tiêu cá nhân */}
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
                 <label className="block text-xs font-bold text-slate-800">
-                  3. Mục tiêu cá nhân trong 01 năm đầu tham gia CLB <span className="text-rose-500">*</span>:
+                  3. Mục tiêu cá nhân trong 01 năm đầu tham gia {displayClubShort} <span className="text-rose-500">*</span>:
                 </label>
                 <textarea 
                   rows={3}
                   disabled={isReadOnly}
                   required
-                  placeholder="Ví dụ: Hoàn thành 01 đề tài NCKH sinh viên, đạt giải NCKH cấp trường, nâng cao kỹ năng thuyết trình & viết bài báo..."
+                  placeholder={`Nêu rõ mục tiêu bạn muốn đạt được (kỹ năng, kinh nghiệm, hoạt động đóng góp cho ${displayClubShort})...`}
                   value={firstYearGoal}
                   onChange={e => setFirstYearGoal(e.target.value)}
                   className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-250 bg-white placeholder:text-slate-400 focus:border-blue-500 disabled:bg-slate-100 leading-relaxed"
