@@ -10,7 +10,8 @@ import {
   deleteDoc,
   serverTimestamp,
   query,
-  where
+  where,
+  writeBatch
 } from "firebase/firestore";
 import { db, auth } from "./firebase";
 import { 
@@ -2391,10 +2392,16 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return { ...(localItem as Record<string, any>), ...cleanCloud } as T;
         });
 
-        // ponytail: Firestore deletions are authoritative for users and members (except PENDING);
-        // for other collections, preserve local-only items not yet synced to Firestore
-        const localOnlyItems = storageKey === "unihub_users" || storageKey === "unihub_students"
-          ? [] // Firestore deletions/imports are authoritative for users and students — never resurrect stale local login records
+        // ponytail: Firestore deletions are authoritative for users;
+        // for students and other collections, preserve local-only items not yet synced to Firestore
+        const localOnlyItems = storageKey === "unihub_users"
+          ? [] // Firestore deletions/imports are authoritative for users — never resurrect stale local login records
+          : storageKey === "unihub_students"
+          ? localList.filter(item => {
+              const id = (idResolver(item) || "").toString().trim().toLowerCase();
+              const normClass = normalizeClassId((item as any)?.classId);
+              return id && !cloudIds.has(id) && !deletedClassList.includes(normClass) && !id.includes("@");
+            })
           : storageKey === "unihub_members"
           ? localList.filter(item => {
               const id = (idResolver(item) || "").toString().trim().toLowerCase();
@@ -2423,7 +2430,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return finalList;
       };
 
-      // 0. Sync deleted classes first from Firestore
+      // 0. Sync deleted classes first from Firestore (Cloud is single source of truth)
       let deletedClassList: string[] = [];
       try {
         const delSnap = await getDoc(doc(db, "settings", "deletedClasses"));
@@ -2431,12 +2438,7 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const data = delSnap.data();
           if (Array.isArray(data?.classes)) {
             const serverDeleted = data.classes.map((c: string) => normalizeClassId(c));
-            let localDeleted: string[] = [];
-            try {
-              const c = localStorage.getItem("unihub_deleted_classes");
-              if (c) localDeleted = JSON.parse(c);
-            } catch {}
-            deletedClassList = Array.from(new Set([...localDeleted, ...serverDeleted]));
+            deletedClassList = serverDeleted;
             localStorage.setItem("unihub_deleted_classes", JSON.stringify(deletedClassList));
           }
         }
@@ -2497,12 +2499,17 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const list: Student[] = [];
         studsSnap.forEach(d => {
           const s = { ...d.data(), id: (d.data() as Student).id || d.id } as Student;
+          // Loại bỏ các document rác hoặc tài khoản cán bộ bị ghi nhầm vào collection students
+          if (s.id && s.id.includes("@") && !s.classId) return;
           if (!deletedClassList.includes(normalizeClassId(s.classId))) {
             list.push(s);
           }
         });
         const merged = smartMerge(list, "unihub_students", s => s.id);
-        const filteredMerged = merged.filter(s => !deletedClassList.includes(normalizeClassId(s.classId)));
+        const filteredMerged = merged.filter(s => {
+          if (s.id && s.id.includes("@") && !s.classId) return false;
+          return !deletedClassList.includes(normalizeClassId(s.classId));
+        });
 
         // Đọc customAvatars đã lưu từ local storage để bảo vệ avatar vĩnh viễn
         let customAvatars: Record<string, string> = {};
@@ -2707,16 +2714,34 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return clean as T;
   };
 
-  // Save changes to Firebase Firestore (Safe upsert with merge: true, never delete unlisted docs automatically)
+  // Save changes to Firebase Firestore (Safe upsert with merge: true, chunked batch writes)
   const saveToFirestore = async (key: string, data: any) => {
     try {
       if (key === "unihub_users" && Array.isArray(data)) {
-        for (const item of data) {
-          if (item?.id) await setDoc(doc(db, "users", item.id), sanitizeForFirestore(item), { merge: true });
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < data.length; i += BATCH_SIZE) {
+          const chunk = data.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          for (const item of chunk) {
+            if (item?.id) {
+              const cleanItem = sanitizeForFirestore(item);
+              batch.set(doc(db, "users", item.id), cleanItem, { merge: true });
+            }
+          }
+          await batch.commit();
         }
       } else if (key === "unihub_students" && Array.isArray(data)) {
-        for (const item of data) {
-          if (item?.id) await setDoc(doc(db, "students", item.id), sanitizeForFirestore(item), { merge: true });
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < data.length; i += BATCH_SIZE) {
+          const chunk = data.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          for (const item of chunk) {
+            if (item?.id && (!item.id.includes("@") || item.classId)) {
+              const cleanItem = sanitizeForFirestore(item);
+              batch.set(doc(db, "students", item.id), cleanItem, { merge: true });
+            }
+          }
+          await batch.commit();
         }
       } else if (key === "unihub_organizations" && Array.isArray(data)) {
         for (const item of data) {

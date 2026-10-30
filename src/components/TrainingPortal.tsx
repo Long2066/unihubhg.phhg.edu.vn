@@ -328,6 +328,7 @@ export const TrainingPortal: React.FC = () => {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [classDetailSearchQuery, setClassDetailSearchQuery] = useState("");
   const [classSearchTerm, setClassSearchTerm] = useState("");
+  const [classFilterTab, setClassFilterTab] = useState<"ALL" | "HAS_DATA" | "EMPTY">("ALL");
   const [selectedScheduleSemesterId, setSelectedScheduleSemesterId] = useState<string>(period?.id || "HOCKY_1_2026_2027");
   const [selectedScheduleWeek, setSelectedScheduleWeek] = useState<number>(1);
   const [selectedAssignmentClass, setSelectedAssignmentClass] = useState<string>("ALL");
@@ -3719,49 +3720,153 @@ export const TrainingPortal: React.FC = () => {
               {selectedClassId === null ? (
                 // LIST VIEW OF ALL CLASSES
                 <div className="space-y-4">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between bg-slate-50 p-4 rounded-2xl border gap-4">
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-800 uppercase mb-1">Quản lý Lớp học & Auto Provisioning</h3>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
-                        Phòng Đào tạo chọn lớp để xem chi tiết, nạp thêm danh sách Excel (44 cột), xuất dữ liệu lớp. Sinh viên sẽ đăng nhập bằng Mã SV / CCCD để tự động điền các thông tin còn trống.
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-                      {/* Search Bar for Classes */}
-                      <div className="relative min-w-[220px]">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                        <input
-                          type="text"
-                          value={classSearchTerm}
-                          onChange={(e) => setClassSearchTerm(e.target.value)}
-                          placeholder="Tìm kiếm tên lớp..."
-                          className="w-full pl-8.5 pr-8 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-2xs font-medium"
-                        />
-                        {classSearchTerm && (
-                          <button
-                            onClick={() => setClassSearchTerm("")}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </div>
+                  {/* Cloud Preserved Live Metrics Banner */}
+                  {(() => {
+                    const allKnownClassIds = Array.from(new Set([
+                      ...students.map(s => normalizeClassId(s.classId)),
+                      ...customClasses.map(c => normalizeClassId(c))
+                    ])).filter(Boolean);
 
-                      <button
-                        onClick={() => setShowAddClassModal(true)}
-                        className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer shrink-0 animate-fade-in"
-                      >
-                        <Plus size={14} />
-                        <span>Thêm lớp mới</span>
-                      </button>
-                    </div>
-                  </div>
+                    const classStudentCountMap = new Map<string, number>();
+                    const classCompletedCountMap = new Map<string, number>();
+
+                    allKnownClassIds.forEach(clsId => {
+                      const matched = students.filter(s => normalizeClassId(s.classId) === clsId && s.id && !s.id.includes("@"));
+                      classStudentCountMap.set(clsId, matched.length);
+                      classCompletedCountMap.set(clsId, matched.filter(s => isStudentProfileComplete(s)).length);
+                    });
+
+                    const totalValidStudents = students.filter(s => s.id && !s.id.includes("@")).length;
+                    const classesWithStudents = allKnownClassIds.filter(clsId => (classStudentCountMap.get(clsId) || 0) > 0).sort();
+                    const emptyClasses = allKnownClassIds.filter(clsId => (classStudentCountMap.get(clsId) || 0) === 0).sort();
+
+                    return (
+                      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-950 text-white p-5 rounded-2xl shadow-sm border border-indigo-900/40 space-y-4">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                Dữ liệu Cloud Firestore 100% An Toàn
+                              </span>
+                              <span className="text-xs text-slate-300">Bảo toàn vĩnh viễn khi cập nhật hoặc tải lại trang</span>
+                            </div>
+                            <h3 className="text-lg font-bold text-white tracking-tight">
+                              Quản lý Danh Sách Sinh Viên Theo Lớp & Khởi Tạo Tài Khoản
+                            </h3>
+                            <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
+                              Các lớp đã nạp danh sách sẽ hiển thị đầy đủ sinh viên và trạng thái hồ sơ. Các lớp mới tạo (0 SV) là khung lớp sẵn sàng nhận file Excel 44 cột. Sinh viên đăng nhập bằng <span className="font-mono text-amber-300 font-semibold">Mã SV (DTG...)</span> và mật khẩu mặc định là <span className="font-mono text-amber-300 font-semibold">Số CCCD 12 số</span>.
+                            </p>
+                          </div>
+
+                          {/* Metric Stat Pills */}
+                          <div className="grid grid-cols-3 gap-2.5 shrink-0">
+                            <div className="bg-white/10 backdrop-blur-xs border border-white/15 rounded-xl p-3 text-center min-w-[95px]">
+                              <span className="block text-[10px] uppercase font-bold text-slate-300 tracking-wider">Tổng Sinh Viên</span>
+                              <span className="text-2xl font-black font-mono text-emerald-400 tabular-nums">{totalValidStudents}</span>
+                            </div>
+                            <div className="bg-white/10 backdrop-blur-xs border border-white/15 rounded-xl p-3 text-center min-w-[95px]">
+                              <span className="block text-[10px] uppercase font-bold text-slate-300 tracking-wider">Đã Có Dữ Liệu</span>
+                              <span className="text-2xl font-black font-mono text-cyan-300 tabular-nums">{classesWithStudents.length}</span>
+                            </div>
+                            <div className="bg-white/10 backdrop-blur-xs border border-white/15 rounded-xl p-3 text-center min-w-[95px]">
+                              <span className="block text-[10px] uppercase font-bold text-slate-300 tracking-wider">Khung Chờ Nạp</span>
+                              <span className="text-2xl font-black font-mono text-amber-300 tabular-nums">{emptyClasses.length}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Filter & Action Toolbar */}
+                  {(() => {
+                    const allKnownClassIds = Array.from(new Set([
+                      ...students.map(s => normalizeClassId(s.classId)),
+                      ...customClasses.map(c => normalizeClassId(c))
+                    ])).filter(Boolean);
+
+                    const classesWithStudentsCount = allKnownClassIds.filter(clsId => {
+                      return students.some(s => normalizeClassId(s.classId) === clsId && s.id && !s.id.includes("@"));
+                    }).length;
+                    const emptyClassesCount = allKnownClassIds.length - classesWithStudentsCount;
+
+                    return (
+                      <div className="flex flex-col md:flex-row md:items-center justify-between bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 gap-3">
+                        {/* Segmented Filter Control */}
+                        <div className="flex items-center gap-1.5 p-1 bg-slate-200/60 rounded-xl overflow-x-auto shrink-0">
+                          <button
+                            onClick={() => setClassFilterTab("ALL")}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                              classFilterTab === "ALL"
+                                ? "bg-white text-slate-900 shadow-xs"
+                                : "text-slate-600 hover:text-slate-900"
+                            }`}
+                          >
+                            Tất cả lớp ({allKnownClassIds.length})
+                          </button>
+                          <button
+                            onClick={() => setClassFilterTab("HAS_DATA")}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                              classFilterTab === "HAS_DATA"
+                                ? "bg-emerald-600 text-white shadow-xs"
+                                : "text-slate-600 hover:text-emerald-700"
+                            }`}
+                          >
+                            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                            Đã có dữ liệu ({classesWithStudentsCount})
+                          </button>
+                          <button
+                            onClick={() => setClassFilterTab("EMPTY")}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                              classFilterTab === "EMPTY"
+                                ? "bg-amber-600 text-white shadow-xs"
+                                : "text-slate-600 hover:text-amber-700"
+                            }`}
+                          >
+                            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                            Chờ nạp Excel ({emptyClassesCount})
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+                          {/* Search Bar for Classes */}
+                          <div className="relative min-w-[220px]">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                            <input
+                              type="text"
+                              value={classSearchTerm}
+                              onChange={(e) => setClassSearchTerm(e.target.value)}
+                              placeholder="Tìm kiếm mã hoặc tên lớp..."
+                              className="w-full pl-8.5 pr-8 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-2xs font-medium"
+                            />
+                            {classSearchTerm && (
+                              <button
+                                onClick={() => setClassSearchTerm("")}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+
+                          <button
+                            onClick={() => setShowAddClassModal(true)}
+                            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[11px] font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer shrink-0"
+                          >
+                            <Plus size={14} />
+                            <span>Thêm lớp mới</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Add Class Inline Form/Modal */}
                   {showAddClassModal && (
                     <div className="bg-slate-50 p-4 rounded-xl border flex gap-3 items-end animate-slide-in">
                       <div className="flex-1">
-                        <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Tên lớp mới (vd: K2-GDTH-A)</label>
+                        <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Tên lớp mới (vd: K2-GDTH A)</label>
                         <input
                           type="text"
                           value={newClassName}
@@ -3794,82 +3899,156 @@ export const TrainingPortal: React.FC = () => {
 
                   {/* Grid list of classes */}
                   {(() => {
-                    const filteredClasses = Array.from(new Set([
+                    const allKnownClassIds = Array.from(new Set([
                       ...students.map(s => normalizeClassId(s.classId)),
                       ...customClasses.map(c => normalizeClassId(c))
-                    ])).filter(Boolean).filter(clsId => {
+                    ])).filter(Boolean);
+
+                    const classStudentCountMap = new Map<string, number>();
+                    const classCompletedCountMap = new Map<string, number>();
+
+                    allKnownClassIds.forEach(clsId => {
+                      const matched = students.filter(s => normalizeClassId(s.classId) === clsId && s.id && !s.id.includes("@"));
+                      classStudentCountMap.set(clsId, matched.length);
+                      classCompletedCountMap.set(clsId, matched.filter(s => isStudentProfileComplete(s)).length);
+                    });
+
+                    const classesWithStudents = allKnownClassIds.filter(clsId => (classStudentCountMap.get(clsId) || 0) > 0).sort();
+                    const emptyClasses = allKnownClassIds.filter(clsId => (classStudentCountMap.get(clsId) || 0) === 0).sort();
+
+                    let baseList: string[] = [];
+                    if (classFilterTab === "HAS_DATA") {
+                      baseList = classesWithStudents;
+                    } else if (classFilterTab === "EMPTY") {
+                      baseList = emptyClasses;
+                    } else {
+                      // ALL: Show classes with data first, then empty placeholder classes
+                      baseList = [...classesWithStudents, ...emptyClasses];
+                    }
+
+                    const filteredClasses = baseList.filter(clsId => {
                       if (!classSearchTerm.trim()) return true;
                       return clsId.toLowerCase().includes(classSearchTerm.trim().toLowerCase());
-                    }).sort();
+                    });
 
                     if (filteredClasses.length === 0) {
                       return (
                         <div className="p-12 text-center bg-white rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center">
                           <Search className="w-12 h-12 text-slate-200 mb-3" />
                           <h4 className="text-slate-700 font-bold text-sm mb-1">Không tìm thấy lớp học nào</h4>
-                          <p className="text-slate-400 text-xs">Không có lớp học nào khớp với từ khóa "{classSearchTerm}". Vui lòng thử từ khóa khác.</p>
+                          <p className="text-slate-400 text-xs">Không có lớp học nào khớp với điều kiện lọc hiện tại. Vui lòng thử từ khóa hoặc bộ lọc khác.</p>
                         </div>
                       );
                     }
 
                     return (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {filteredClasses.map(clsId => {
-                      const classStudents = students.filter(s => s.classId === clsId);
-                      // Calculate completeness indicator using full strict profile validator
-                      const completedCount = classStudents.filter(s => isStudentProfileComplete(s)).length;
-                      
-                      return (
-                        <div
-                          key={clsId}
-                          onClick={() => setSelectedClassId(clsId)}
-                          className="bg-white hover:bg-slate-50/50 border border-slate-200 p-4 rounded-2xl cursor-pointer transition-all hover:shadow-md flex flex-col justify-between relative group"
-                        >
-                          <div>
-                            <div className="flex justify-between items-start mb-2">
-                              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-150 rounded text-[9px] font-mono font-bold uppercase">LỚP HỌC</span>
-                              
-                              <div className="flex items-center gap-1">
-                                <span className="text-[10px] text-slate-400 font-mono mr-1">{classStudents.length} SV</span>
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingRenameClassId(clsId);
-                                    setRenameClassNameInput(clsId);
-                                  }}
-                                  className="p-1 bg-slate-100 hover:bg-amber-100 text-slate-500 hover:text-amber-800 rounded transition-colors"
-                                  title="Đổi tên lớp học này"
-                                >
-                                  <Edit size={12} />
-                                </button>
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (confirm(`Bạn có chắc chắn muốn xóa Lớp "${clsId}"? Lớp và sinh viên sẽ bị xóa khỏi hệ thống và chuyển vào Thùng rác ngầm lưu trữ 7 ngày (có thể khôi phục thủ công trong mục Sao lưu & Khôi phục CSDL).`)) {
-                                      deleteClass(clsId);
-                                      alert(`Đã xóa Lớp ${clsId} và chuyển vào Thùng rác lưu trữ 7 ngày!`);
-                                    }
-                                  }}
-                                  className="p-1 bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-700 rounded transition-colors"
-                                  title="Xóa lớp học này"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
+                          const count = classStudentCountMap.get(clsId) || 0;
+                          const completedCount = classCompletedCountMap.get(clsId) || 0;
+                          const hasData = count > 0;
+
+                          return (
+                            <div
+                              key={clsId}
+                              onClick={() => setSelectedClassId(clsId)}
+                              className={`rounded-2xl p-4 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between relative group border ${
+                                hasData
+                                  ? "bg-white border-slate-200 hover:border-indigo-300"
+                                  : "bg-gradient-to-b from-slate-50/90 to-amber-50/20 border-dashed border-slate-300 hover:border-amber-400"
+                              }`}
+                            >
+                              <div>
+                                <div className="flex justify-between items-start mb-2.5">
+                                  {hasData ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-bold font-mono">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                      ĐÃ CÓ DỮ LIỆU
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold font-mono">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                      CHỜ NẠP EXCEL
+                                    </span>
+                                  )}
+
+                                  <div className="flex items-center gap-1">
+                                    <span className={`text-[11px] font-mono font-bold mr-1 tabular-nums ${hasData ? "text-indigo-600" : "text-slate-400"}`}>
+                                      {count} SV
+                                    </span>
+                                    <button 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingRenameClassId(clsId);
+                                        setRenameClassNameInput(clsId);
+                                      }}
+                                      className="p-1 bg-slate-100 hover:bg-amber-100 text-slate-500 hover:text-amber-800 rounded-lg transition-colors cursor-pointer"
+                                      title="Đổi tên lớp học này"
+                                    >
+                                      <Edit size={12} />
+                                    </button>
+                                    <button 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (confirm(`Bạn có chắc chắn muốn xóa Lớp "${clsId}"? Lớp và sinh viên sẽ bị chuyển vào Thùng rác lưu trữ 7 ngày.`)) {
+                                          deleteClass(clsId);
+                                          alert(`Đã xóa Lớp ${clsId} và chuyển vào Thùng rác!`);
+                                        }
+                                      }}
+                                      className="p-1 bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-700 rounded-lg transition-colors cursor-pointer"
+                                      title="Xóa lớp học này"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <h4 className="text-base font-bold text-slate-900 leading-snug mb-1 truncate">
+                                  {clsId}
+                                </h4>
+
+                                {hasData ? (
+                                  <p className="text-[11px] text-slate-500">
+                                    Hoàn thành hồ sơ: <span className="font-semibold text-slate-700 font-mono tabular-nums">{completedCount}/{count} SV</span>
+                                  </p>
+                                ) : (
+                                  <p className="text-[11px] text-amber-700/80 font-medium">
+                                    Khung lớp trống • Sẵn sàng nạp danh sách SV
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-xs font-semibold">
+                                {hasData ? (
+                                  <>
+                                    <span className="text-indigo-600 group-hover:text-indigo-700">Xem chi tiết & Quản lý</span>
+                                    <ChevronDown size={14} className="-rotate-90 text-indigo-600 group-hover:translate-x-0.5 transition-transform" />
+                                  </>
+                                ) : (
+                                  <div className="w-full flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
+                                    <span className="text-slate-500 text-[11px]">Nạp file Excel:</span>
+                                    <div className="relative">
+                                      <input
+                                        type="file"
+                                        accept=".xlsx, .xls"
+                                        onChange={(e) => handleImportClassStudentsExcel(e, clsId)}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                        id={`quick-upload-${clsId}`}
+                                      />
+                                      <label
+                                        htmlFor={`quick-upload-${clsId}`}
+                                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-1 shadow-xs cursor-pointer transition-colors"
+                                      >
+                                        <Upload size={12} />
+                                        <span>Nạp Excel</span>
+                                      </label>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
-                            <h4 className="text-sm font-bold text-slate-900 leading-tight mb-1 truncate">{clsId}</h4>
-                            <p className="text-[10px] text-slate-450">
-                              Đã hoàn thành hồ sơ: {completedCount}/{classStudents.length} SV
-                            </p>
-                          </div>
-                          
-                          <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-[10px] text-indigo-650 font-bold">
-                            <span>Quản lý & Nhập/Xuất Excel</span>
-                            <ChevronDown size={14} className="-rotate-90 text-indigo-650" />
-                          </div>
-                        </div>
-                      );
-                    })}
+                          );
+                        })}
                       </div>
                     );
                   })()}
@@ -3877,7 +4056,7 @@ export const TrainingPortal: React.FC = () => {
               ) : (
                 // CLASS DETAIL VIEW (IDENTICAL INTERFACE INSIDE EACH CLASS)
                 (() => {
-                  const classStudents = students.filter(s => s.classId === selectedClassId);
+                  const classStudents = students.filter(s => normalizeClassId(s.classId) === normalizeClassId(selectedClassId));
                   const displayClassStudents = classStudents.filter(s => {
                     if (!classDetailSearchQuery.trim()) return true;
                     const q = classDetailSearchQuery.trim().toLowerCase();
@@ -3985,8 +4164,36 @@ export const TrainingPortal: React.FC = () => {
                         </div>
 
                         {classStudents.length === 0 ? (
-                          <div className="p-8 text-center text-slate-400 text-xs font-medium">
-                            Lớp chưa có sinh viên nào. Vui lòng nạp tệp Excel danh sách sinh viên!
+                          <div className="p-12 text-center bg-white flex flex-col items-center justify-center space-y-3">
+                            <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                              <FileSpreadsheet size={28} />
+                            </div>
+                            <div className="space-y-1">
+                              <h4 className="text-base font-bold text-slate-800">
+                                Lớp "{selectedClassId}" hiện chưa có danh sách sinh viên
+                              </h4>
+                              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                                Khung lớp đã tạo sẵn trên Cloud. Bấm nút bên dưới để chọn file Excel nạp danh sách học sinh (44 cột) cho lớp này.
+                              </p>
+                            </div>
+                            <div className="pt-2">
+                              <div className="relative inline-block">
+                                <input
+                                  type="file"
+                                  accept=".xlsx, .xls"
+                                  onChange={(e) => handleImportClassStudentsExcel(e, selectedClassId)}
+                                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                  id={`empty-upload-${selectedClassId}`}
+                                />
+                                <label
+                                  htmlFor={`empty-upload-${selectedClassId}`}
+                                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm cursor-pointer transition-all"
+                                >
+                                  <Upload size={16} />
+                                  <span>Nạp file Excel danh sách sinh viên</span>
+                                </label>
+                              </div>
+                            </div>
                           </div>
                         ) : displayClassStudents.length === 0 ? (
                           <div className="p-8 text-center text-slate-400 text-xs font-medium">
