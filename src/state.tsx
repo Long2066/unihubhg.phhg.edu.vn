@@ -2745,7 +2745,13 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       } else if (key === "unihub_organizations" && Array.isArray(data)) {
         for (const item of data) {
-          if (item?.id) await setDoc(doc(db, "organizations", item.id), item, { merge: true });
+          if (item?.id) {
+            try {
+              await setDoc(doc(db, "organizations", item.id), sanitizeForFirestore(item), { merge: true });
+            } catch (err) {
+              console.warn("Firestore save org failed:", item.id, err);
+            }
+          }
         }
       } else if (key === "unihub_activities" && Array.isArray(data)) {
         for (const item of data) {
@@ -3768,7 +3774,8 @@ export const UniHubProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveToStorage("unihub_members", updated);
 
     // Đồng bộ đơn xin gia nhập lên Firestore để Ban Chủ nhiệm ở máy khác thấy ngay
-    setDoc(doc(db, "members", pendingMember.id), pendingMember, { merge: true }).catch(err =>
+    const cleanPendingMember = sanitizeForFirestore(pendingMember);
+    setDoc(doc(db, "members", pendingMember.id), cleanPendingMember, { merge: true }).catch(err =>
       console.warn("Firestore write failed for joinOrganizationRequest:", err)
     );
 

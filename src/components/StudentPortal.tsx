@@ -869,7 +869,7 @@ export const StudentPortal: React.FC = () => {
   const publicActivities = useMemo(() => {
     return (activities || []).filter(act => {
       const isDoanHoiSpecial = act.orgId === "DOANTN" || act.orgId === "HOISV" || act.orgId === "DOAN_HOI" || act.orgId === "PHANHIEU" || act.orgId === "TRUONG";
-      const org = organizations.find(o => o.id === act.orgId);
+      const org = organizations.find(o => (o.id || "").trim().toUpperCase() === (act.orgId || "").trim().toUpperCase());
       const isDoanHoi = isDoanHoiSpecial || org?.type === "DOAN" || org?.type === "HOI";
       return isDoanHoi || (act.points && act.points > 0);
     });
@@ -1500,7 +1500,7 @@ export const StudentPortal: React.FC = () => {
 
         <div className="space-y-2.5">
           {studentMemberships.map(m => {
-            const club = organizations.find(o => o.id === m.orgId);
+            const club = organizations.find(o => (o.id || "").trim().toUpperCase() === (m.orgId || "").trim().toUpperCase());
             if (!club) return null;
 
             const isApproved = m.status === "ACTIVE";
@@ -1584,7 +1584,7 @@ export const StudentPortal: React.FC = () => {
     // Get active / upcoming / completed activities: Chỉ ĐOÀN - HỘI hoặc sự kiện lớn (có cộng ĐRL) mới ra bảng tin all sinh viên
     const activeClubActs = activities.filter(act => {
       const isDoanHoiSpecial = act.orgId === "DOANTN" || act.orgId === "HOISV" || act.orgId === "DOAN_HOI" || act.orgId === "PHANHIEU" || act.orgId === "TRUONG";
-      const club = organizations.find(o => o.id === act.orgId);
+      const club = organizations.find(o => (o.id || "").trim().toUpperCase() === (act.orgId || "").trim().toUpperCase());
       const isDoanHoi = isDoanHoiSpecial || club?.type === "DOAN" || club?.type === "HOI";
 
       // Phân cấp phạm vi Toàn phân hiệu (PUBLIC) vs Nội bộ (INTERNAL):
@@ -1612,7 +1612,7 @@ export const StudentPortal: React.FC = () => {
       if (ann.expiryDate && todayStr > ann.expiryDate) return false;
 
       const isDoanHoiSpecial = ann.orgId === "DOANTN" || ann.orgId === "HOISV" || ann.orgId === "DOAN_HOI" || ann.orgId === "PHANHIEU" || ann.orgId === "TRUONG";
-      const club = organizations.find(o => o.id === ann.orgId);
+      const club = organizations.find(o => (o.id || "").trim().toUpperCase() === (ann.orgId || "").trim().toUpperCase());
       const isDoanHoi = isDoanHoiSpecial || club?.type === "DOAN" || club?.type === "HOI";
 
       // Phân cấp phạm vi Toàn phân hiệu (PUBLIC) vs Nội bộ (INTERNAL):
@@ -3194,7 +3194,7 @@ export const StudentPortal: React.FC = () => {
 
               {/* 4. MODAL: KHÔNG GIAN SINH HOẠT CLB (ACTIVE) HOẶC CHI TIẾT & ĐĂNG KÝ (NON-ACTIVE) */}
                 {selectedClubIdDetail && (() => {
-                  const club = organizations.find(o => o.id === selectedClubIdDetail);
+                  const club = organizations.find(o => (o.id || "").trim().toUpperCase() === (selectedClubIdDetail || "").trim().toUpperCase());
                   if (!club) return null;
 
                   const membership = getMembershipForOrg(club.id);

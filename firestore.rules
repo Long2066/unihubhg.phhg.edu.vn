@@ -271,16 +271,11 @@ service cloud.firestore {
 
     match /organizations/{orgId} {
       allow get, list: if true;
-      allow create: if isVerifiedUser() && isValidId(orgId) && (
+      allow create, update: if isVerifiedUser() && isValidId(orgId) && (
         hasRole('ADMIN') || 
         isSuperAdmin() || 
-        (isOrgRole() && (getUserData().targetId == orgId || (orgId == 'DOAN_HOI' && (getUserData().role == 'YOUTH_UNION' || getUserData().role == 'STUDENT_UNION'))))
-      ) && isValidOrganization(incoming());
-      allow update: if isVerifiedUser() && isValidId(orgId) && (
-        hasRole('ADMIN') || 
-        isSuperAdmin() || 
-        (isOrgRole() && (getUserData().targetId == orgId || (orgId == 'DOAN_HOI' && (getUserData().role == 'YOUTH_UNION' || getUserData().role == 'STUDENT_UNION'))))
-      ) && isValidOrganization(incoming());
+        isOrgRole()
+      );
       allow delete: if isVerifiedUser() && isValidId(orgId) && (hasRole('ADMIN') || isSuperAdmin());
     }
 
@@ -288,34 +283,32 @@ service cloud.firestore {
       allow get, list: if isVerifiedUser();
       allow create: if isVerifiedUser() && isValidId(memberId) && (
         hasRole('ADMIN') || 
-        (hasRole('STUDENT') && incoming().studentId == getUserData().targetId && incoming().status == 'PENDING' && incoming().role == 'THÀNH VIÊN') ||
-        (isOrgRole() && incoming().orgId == getUserData().targetId)
-      ) && isValidMember(incoming());
+        isOrgRole() ||
+        (hasRole('STUDENT') && incoming().status == 'PENDING')
+      );
       allow update: if isVerifiedUser() && isValidId(memberId) && (
         hasRole('ADMIN') || 
-        (isOrgRole() && existing().orgId == getUserData().targetId && incoming().orgId == existing().orgId) ||
-        (hasRole('STUDENT') && existing().studentId == getUserData().targetId && incoming().studentId == existing().studentId && incoming().orgId == existing().orgId && incoming().role == existing().role && (incoming().status == 'PENDING' || incoming().status == existing().status))
-      ) && isValidMember(incoming());
+        isOrgRole() ||
+        hasRole('STUDENT')
+      );
       allow delete: if isVerifiedUser() && isValidId(memberId) && (
         hasRole('ADMIN') || 
-        (isOrgRole() && existing().orgId == getUserData().targetId) ||
-        (hasRole('STUDENT') && existing().studentId == getUserData().targetId)
+        isOrgRole() ||
+        hasRole('STUDENT')
       );
     }
 
     match /announcements/{announcementId} {
       allow get, list: if isVerifiedUser();
-      allow create: if isVerifiedUser() && isValidId(announcementId) && (
+      allow create, update: if isVerifiedUser() && isValidId(announcementId) && (
         hasRole('ADMIN') || 
-        (isOrgRole() && (incoming().orgId == getUserData().targetId || (incoming().orgId == 'DOAN_HOI' && (getUserData().role == 'YOUTH_UNION' || getUserData().role == 'STUDENT_UNION'))))
-      ) && isValidClubAnnouncement(incoming());
-      allow update: if isVerifiedUser() && isValidId(announcementId) && (
-        hasRole('ADMIN') || 
-        (isOrgRole() && (incoming().orgId == getUserData().targetId || (incoming().orgId == 'DOAN_HOI' && (getUserData().role == 'YOUTH_UNION' || getUserData().role == 'STUDENT_UNION'))) && incoming().createdAt == existing().createdAt)
-      ) && isValidClubAnnouncement(incoming());
+        isSuperAdmin() || 
+        isOrgRole()
+      );
       allow delete: if isVerifiedUser() && isValidId(announcementId) && (
         hasRole('ADMIN') || 
-        (isOrgRole() && (existing().orgId == getUserData().targetId || (existing().orgId == 'DOAN_HOI' && (getUserData().role == 'YOUTH_UNION' || getUserData().role == 'STUDENT_UNION'))))
+        isSuperAdmin() || 
+        isOrgRole()
       );
     }
 
